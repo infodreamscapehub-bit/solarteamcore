@@ -13,17 +13,18 @@ public final class HypeClient extends JsonClientModule {
     private static HypeClient instance;
 
     private HypeClient() {
-        on("state", d -> HypeState.state = d);
+        on("state", d -> {
+            int before = integer(HypeState.state, "level", 0);
+            HypeState.state = d;
+            if (before > 0 && integer(d, "level", 0) > before) HypeState.levelUpAt = System.currentTimeMillis();
+        });
         on("atm", this::onAtm);
         on("jobs", d -> {
             HypeState.jobs = d;
             HypeState.jobsAt = System.currentTimeMillis();
         });
         on("msg", d -> notice(str(d, "text", ""), bool(d, "ok", true)));
-        on("earn", d -> {
-            HypeState.earnText = "+$" + ro.solarstudios.flowcity.client.ui.Ui.money(num(d, "pay", 0)) + "  +" + integer(d, "xp", 0) + " XP";
-            HypeState.earnUntil = System.currentTimeMillis() + 2500;
-        });
+        on("earn", d -> HypeState.popup("+$" + ro.solarstudios.flowcity.client.ui.Ui.money(num(d, "pay", 0)) + "  +" + integer(d, "xp", 0) + " XP"));
         on("open", d -> {
             if ("jobs".equals(str(d, "screen", ""))) Minecraft.getInstance().displayGuiScreen(new JobsScreen());
         });
