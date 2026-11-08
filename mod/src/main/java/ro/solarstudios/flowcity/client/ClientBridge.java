@@ -170,7 +170,12 @@ public final class ClientBridge {
     }
 
     public static void sanction(String uuid, String type, int minutes, String reason) {
-        send(Bridge.C_SANCTION, b -> b.writeString(uuid).writeString(type).writeInt(minutes).writeString(reason));
+        send(Bridge.C_SANCTION, b -> {
+            b.writeString(uuid);
+            b.writeString(type);
+            b.writeInt(minutes);
+            b.writeString(reason);
+        });
     }
 
     public static void revoke(int id) {
