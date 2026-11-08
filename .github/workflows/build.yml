@@ -18,6 +18,7 @@ jobs:
         working-directory: mod
         run: |
           chmod +x gradlew
+          for i in 1 2 3 4 5 6; do ./gradlew --version --no-daemon && break; echo "retry $i"; sleep 20; done
           ./gradlew build --no-daemon
       - uses: actions/upload-artifact@v4
         with:
@@ -37,6 +38,7 @@ jobs:
         working-directory: plugin
         run: |
           chmod +x gradlew
+          for i in 1 2 3 4 5 6; do ./gradlew --version --no-daemon && break; echo "retry $i"; sleep 20; done
           ./gradlew build --no-daemon
       - uses: actions/upload-artifact@v4
         with:
