@@ -14,32 +14,48 @@ public final class VaultHook {
     private Method has;
     private Method txSuccess;
 
+    private long lastTry;
+    private String providerName = "";
+
     public VaultHook() {
+        resolve();
+    }
+
+    /** Cauta economia Vault. Furnizorul (Essentials, CMI...) se poate inregistra dupa noi, deci reincercam periodic. */
+    private synchronized void resolve() {
+        lastTry = System.currentTimeMillis();
         try {
             if (Bukkit.getPluginManager().getPlugin("Vault") == null) return;
             Class<?> eco = Class.forName("net.milkbowl.vault.economy.Economy");
             @SuppressWarnings({"unchecked", "rawtypes"})
             RegisteredServiceProvider<?> rsp = Bukkit.getServicesManager().getRegistration((Class) eco);
             if (rsp == null) return;
-            economy = rsp.getProvider();
             getBalance = eco.getMethod("getBalance", OfflinePlayer.class);
             withdrawPlayer = eco.getMethod("withdrawPlayer", OfflinePlayer.class, double.class);
             depositPlayer = eco.getMethod("depositPlayer", OfflinePlayer.class, double.class);
             has = eco.getMethod("has", OfflinePlayer.class, double.class);
             Class<?> resp = Class.forName("net.milkbowl.vault.economy.EconomyResponse");
             txSuccess = resp.getMethod("transactionSuccess");
+            economy = rsp.getProvider();
+            providerName = rsp.getPlugin().getName();
         } catch (Throwable ignored) {
             economy = null;
         }
     }
 
     public boolean available() {
+        if (economy == null && System.currentTimeMillis() - lastTry > 5000) resolve();
         return economy != null;
+    }
+
+    /** Numele pluginului care furnizeaza economia (ex. Essentials) sau "". */
+    public String provider() {
+        return providerName;
     }
 
     /** Scoate bani din contul jucatorului. Intoarce true daca tranzactia a reusit. Thread principal. */
     public boolean withdraw(OfflinePlayer p, double amount) {
-        if (economy == null || amount <= 0) return false;
+        if (!available() || amount <= 0) return false;
         try {
             return (Boolean) txSuccess.invoke(withdrawPlayer.invoke(economy, p, amount));
         } catch (Throwable t) {
@@ -49,7 +65,7 @@ public final class VaultHook {
 
     /** Adauga bani in contul jucatorului. Intoarce true daca tranzactia a reusit. Thread principal. */
     public boolean deposit(OfflinePlayer p, double amount) {
-        if (economy == null || amount <= 0) return false;
+        if (!available() || amount <= 0) return false;
         try {
             return (Boolean) txSuccess.invoke(depositPlayer.invoke(economy, p, amount));
         } catch (Throwable t) {
@@ -59,7 +75,7 @@ public final class VaultHook {
 
     /** True daca jucatorul are cel putin suma data. */
     public boolean has(OfflinePlayer p, double amount) {
-        if (economy == null) return false;
+        if (!available()) return false;
         try {
             return (Boolean) has.invoke(economy, p, amount);
         } catch (Throwable t) {
@@ -69,7 +85,7 @@ public final class VaultHook {
 
     /** Sold sau -1 daca nu exista economie. Se apeleaza pe thread-ul principal. */
     public double balance(OfflinePlayer p) {
-        if (economy == null) return -1;
+        if (!available()) return -1;
         try {
             Object v = getBalance.invoke(economy, p);
             return ((Number) v).doubleValue();

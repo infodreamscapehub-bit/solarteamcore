@@ -40,7 +40,6 @@ public final class HypeDb {
         public final Map<String, Long> xp = new HashMap<>();
         public final Map<String, Double> earned = new HashMap<>();
         public double thirst = 100;
-        public int id;                           // ID unic afisat in HUD
         public final List<AtmEntry> history = new ArrayList<>(); // cele mai noi primele
         public double withdrawnToday;
         public double transferredToday;
@@ -72,7 +71,6 @@ public final class HypeDb {
             try (Statement st = c.createStatement()) {
                 st.execute("CREATE TABLE IF NOT EXISTS hype_job_current (uuid TEXT PRIMARY KEY, job TEXT, changed_at INTEGER NOT NULL DEFAULT 0)");
                 st.execute("CREATE TABLE IF NOT EXISTS hype_job_xp (uuid TEXT NOT NULL, job TEXT NOT NULL, xp INTEGER NOT NULL DEFAULT 0, earned REAL NOT NULL DEFAULT 0, PRIMARY KEY (uuid, job))");
-                st.execute("CREATE TABLE IF NOT EXISTS hype_player_id (id INTEGER PRIMARY KEY AUTOINCREMENT, uuid TEXT UNIQUE NOT NULL)");
                 st.execute("CREATE TABLE IF NOT EXISTS hype_thirst (uuid TEXT PRIMARY KEY, value REAL NOT NULL)");
                 st.execute("CREATE TABLE IF NOT EXISTS hype_atm_tx (id INTEGER PRIMARY KEY AUTOINCREMENT, uuid TEXT NOT NULL, type TEXT NOT NULL, amount REAL NOT NULL, fee REAL NOT NULL DEFAULT 0, other TEXT NOT NULL DEFAULT '', ts INTEGER NOT NULL)");
                 st.execute("CREATE INDEX IF NOT EXISTS idx_atm_uuid ON hype_atm_tx(uuid, ts)");
@@ -104,16 +102,6 @@ public final class HypeDb {
                         d.xp.put(rs.getString(1), rs.getLong(2));
                         d.earned.put(rs.getString(1), rs.getDouble(3));
                     }
-                }
-            }
-            try (PreparedStatement ps = c.prepareStatement("INSERT OR IGNORE INTO hype_player_id(uuid) VALUES (?)")) {
-                ps.setString(1, id);
-                ps.executeUpdate();
-            }
-            try (PreparedStatement ps = c.prepareStatement("SELECT id FROM hype_player_id WHERE uuid=?")) {
-                ps.setString(1, id);
-                try (ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) d.id = rs.getInt(1);
                 }
             }
             try (PreparedStatement ps = c.prepareStatement("SELECT value FROM hype_thirst WHERE uuid=?")) {

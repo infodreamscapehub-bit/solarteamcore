@@ -241,7 +241,7 @@ public final class HypeModule extends JsonModule implements Listener {
         o.addProperty("cash", plugin.money().balance(u));
         o.addProperty("bank", plugin.bank().balance(u));
         o.addProperty("rank", rankOf(p));
-        o.addProperty("id", d.id);
+        o.addProperty("id", plugin.ids().idOf(u));
         o.addProperty("online", Bukkit.getOnlinePlayers().size());
         o.addProperty("playMin", p.getStatistic(Statistic.PLAY_ONE_MINUTE) / 1200);
         JobDef jd = d.job == null ? null : jobs.get(d.job);

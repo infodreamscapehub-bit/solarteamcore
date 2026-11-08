@@ -5,6 +5,7 @@ import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 import ro.solarstudios.flowcity.bridge.core.Bank;
 import ro.solarstudios.flowcity.bridge.core.Money;
+import ro.solarstudios.flowcity.bridge.core.PlayerIds;
 import ro.solarstudios.flowcity.bridge.eadmin.Db;
 import ro.solarstudios.flowcity.bridge.eadmin.EAdminCommand;
 import ro.solarstudios.flowcity.bridge.eadmin.EAdminListener;
@@ -25,6 +26,7 @@ public final class FlowCityBridge extends JavaPlugin {
     private VaultHook vault;
     private Money money;
     private Bank bank;
+    private PlayerIds ids;
 
     @Override
     public void onEnable() {
@@ -40,6 +42,8 @@ public final class FlowCityBridge extends JavaPlugin {
         vault = new VaultHook();
         money = new Money(this, vault, db);
         bank = new Bank(this, db);
+        ids = new PlayerIds(this, db);
+        ids.enable();
         service = new EAdminService(this, db, vault);
         channel = new BridgeChannel(this, service);
         channel.register();
@@ -56,7 +60,11 @@ public final class FlowCityBridge extends JavaPlugin {
         Modules.register(this, new MapsModule());
         Modules.register(this, new PhoneModule());
         service.purgeOld(getConfig().getInt("eadmin.log-retention-days", 45));
-        getLogger().info(service.serverName() + " bridge pornit (Vault: " + (vault.available() ? "da" : "nu") + ").");
+        getLogger().info(service.serverName() + " bridge pornit.");
+        // dupa ce toate pluginurile s-au incarcat, aratam ce economie folosim
+        getServer().getScheduler().runTask(this, () -> getLogger().info("Economie cash: "
+            + (vault.available() ? "Vault (" + vault.provider() + ")" : "registru intern (Vault/economie negasit)")
+            + " | ID-uri atribuite: " + ids.count()));
     }
 
     @Override
@@ -82,6 +90,10 @@ public final class FlowCityBridge extends JavaPlugin {
     }
 
     /** Contul bancar (ATM / aplicatia Bank din telefon). */
+    public PlayerIds ids() {
+        return ids;
+    }
+
     public Bank bank() {
         return bank;
     }
