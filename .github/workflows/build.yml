@@ -14,12 +14,12 @@ jobs:
         with:
           distribution: temurin
           java-version: '8'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '7.6.4'
       - name: Build
         working-directory: mod
-        run: |
-          chmod +x gradlew
-          for i in 1 2 3 4 5 6; do ./gradlew --version --no-daemon && break; echo "retry $i"; sleep 20; done
-          ./gradlew build --no-daemon
+        run: gradle build --no-daemon --stacktrace
       - uses: actions/upload-artifact@v4
         with:
           name: FlowCityCore-mod
