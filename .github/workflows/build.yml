@@ -44,3 +44,24 @@ jobs:
         with:
           name: FlowCityBridge-plugin
           path: plugin/build/libs/FlowCityBridge-*.jar
+
+  release:
+    name: Publish jars (release "latest")
+    needs: [mod, plugin]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -la dist
+          gh release delete latest --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
+          gh release create latest dist/*.jar --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "FlowCity (build automat)" --notes "Jar-uri construite automat din commit $GITHUB_SHA"
