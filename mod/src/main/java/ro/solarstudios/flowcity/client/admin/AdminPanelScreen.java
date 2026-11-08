@@ -424,7 +424,7 @@ public class AdminPanelScreen extends Screen {
         try {
             n = Integer.parseInt(parts[0]);
         } catch (NumberFormatException e) {
-            toast("Scrie un numar, ex. 12 (sau '12 swap').", true);
+            onToast("Scrie un numar, ex. 12 (sau '12 swap').", true);
             return;
         }
         IdsClient.set(profile.uuid, n, parts.length > 1 && parts[1].equalsIgnoreCase("swap"));
