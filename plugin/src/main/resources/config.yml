@@ -1,0 +1,16 @@
+# FlowCityBridge - SolarStudios
+server-name: "FlowCity"
+
+eadmin:
+  # Comenzi blocate cat timp un jucator are mute activ
+  muted-blocked-commands: [msg, tell, w, r, me, say, reply]
+  # Flag automat: mai mult de N comenzi in fereastra de mai jos
+  command-spam:
+    max-commands: 8
+    window-seconds: 3
+  # Obiecte care declanseaza flag HIGH daca sunt luate din creativ
+  creative-blacklist: [BEDROCK, COMMAND_BLOCK, CHAIN_COMMAND_BLOCK, REPEATING_COMMAND_BLOCK, BARRIER, STRUCTURE_BLOCK, JIGSAW, SPAWNER]
+  # Tranzactii (API) peste aceasta suma primesc flag
+  big-transaction-threshold: 1000000
+  # Cate randuri de log se pastreaza (zile); 0 = nelimitat
+  log-retention-days: 45

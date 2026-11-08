@@ -1,0 +1,168 @@
+# FlowCity - modulul Hype (SolarStudios). Valorile lipsa se iau din acest fisier din jar.
+# Comenzi: /atm /hud /job /sete /cnn /prop /roata /buletin /permis /arata /doc /hype /clearlag
+# Permisiuni: flowcity.hype.admin, flowcity.hype.cnn, flowcity.hype.cnn.delete, flowcity.hype.doc, flowcity.hype.clearlag
+
+# Starea trimisa in HUD (rangurile se cauta in ordine dupa permisiune)
+hud:
+  default-rank: "Jucator"
+  ranks:
+    - {perm: "flowcity.rank.owner", name: "Owner"}
+    - {perm: "flowcity.rank.admin", name: "Admin"}
+    - {perm: "flowcity.rank.mod", name: "Moderator"}
+    - {perm: "flowcity.rank.vip", name: "VIP"}
+
+atm:
+  fee-percent: 1.0          # taxa de transfer (% din suma); 0 = fara
+  fee-min: 0.5              # taxa minima per transfer (daca fee-percent > 0)
+  min-amount: 1.0
+  max-per-transaction: 1000000
+  daily-withdraw-limit: 0   # 0 = fara limita
+  daily-transfer-limit: 0
+  command-anywhere: true    # /atm functioneaza oriunde; false = doar langa un ATM fizic
+  max-distance: 6           # distanta maxima fata de ATM cand command-anywhere=false
+
+jobs:
+  change-cooldown-minutes: 60
+  xp-base: 100              # XP pentru nivelul 1 -> 2
+  xp-growth: 1.35           # inmultire pe nivel
+  max-level: 50
+  bonus-per-level: 0.03     # +3% plata pe nivel
+  placed-ttl-minutes: 180   # blocurile puse de jucatori nu platesc cat timp sunt in set
+  placed-max: 60000
+  trash-block: CAULDRON     # Gunoier: click dreapta cu un obiect pe acest bloc
+  list:
+    miner:
+      name: "Miner"
+      desc: "Sparge minereuri si primesti bani si XP."
+      summary: "Minereuri: 1.5-8$ / bloc"
+      limit-per-minute: 40
+      rules:
+        - {event: break, materials: [COAL_ORE], pay: 1.5, xp: 3}
+        - {event: break, materials: [IRON_ORE, NETHER_QUARTZ_ORE, NETHER_GOLD_ORE], pay: 3, xp: 5}
+        - {event: break, materials: [GOLD_ORE, LAPIS_ORE, REDSTONE_ORE], pay: 4, xp: 6}
+        - {event: break, materials: [DIAMOND_ORE, EMERALD_ORE], pay: 8, xp: 12}
+        - {event: break, materials: [ANCIENT_DEBRIS], pay: 15, xp: 20}
+    fisher:
+      name: "Pescar"
+      desc: "Pescuieste pesti cu undita."
+      summary: "Peste prins: 3-12$"
+      limit-per-minute: 12
+      rules:
+        - {event: fish, materials: [COD, SALMON], pay: 3, xp: 5}
+        - {event: fish, materials: [TROPICAL_FISH, PUFFERFISH], pay: 6, xp: 8}
+        - {event: fish, materials: [NAUTILUS_SHELL, NAME_TAG, SADDLE, ENCHANTED_BOOK, BOW, FISHING_ROD], pay: 12, xp: 15}
+    farmer:
+      name: "Fermier"
+      desc: "Recolteaza culturi coapte."
+      summary: "Culturi coapte: 1-2.5$ / bucata"
+      limit-per-minute: 60
+      rules:
+        - {event: break, materials: [WHEAT, CARROTS, POTATOES, BEETROOTS, NETHER_WART], mature: true, placed-check: false, pay: 1.2, xp: 2}
+        - {event: break, materials: [PUMPKIN, MELON], pay: 2.5, xp: 3}
+        - {event: break, materials: [SWEET_BERRY_BUSH, COCOA], mature: true, placed-check: false, pay: 1.5, xp: 2}
+    lumberjack:
+      name: "Padurar"
+      desc: "Taie copaci."
+      summary: "Busteni: 1.2-1.8$ / bustean"
+      limit-per-minute: 50
+      rules:
+        - {event: break, materials: ["*_LOG", "*_STEM"], pay: 1.2, xp: 2}
+        - {event: break, materials: [DARK_OAK_LOG, JUNGLE_LOG, ACACIA_LOG], pay: 1.8, xp: 3}
+    gardener:
+      name: "Gradinar"
+      desc: "Aduna flori si planteaza butasi."
+      summary: "Flori: 1.5$, butasi: 0.8$"
+      limit-per-minute: 40
+      rules:
+        - {event: break, materials: [DANDELION, POPPY, BLUE_ORCHID, ALLIUM, AZURE_BLUET, "*_TULIP", OXEYE_DAISY, CORNFLOWER, LILY_OF_THE_VALLEY, SUNFLOWER, LILAC, ROSE_BUSH, PEONY], pay: 1.5, xp: 2}
+        - {event: place, materials: ["*_SAPLING"], pay: 0.8, xp: 1}
+    electrician:
+      name: "Electrician"
+      desc: "Instaleaza instalatii: redstone, lampi, repetitoare."
+      summary: "Instalatii plasate: 1-2.5$"
+      limit-per-minute: 30
+      rules:
+        - {event: place, materials: [REDSTONE_WIRE, REDSTONE_TORCH, REPEATER, COMPARATOR], pay: 1.0, xp: 1}
+        - {event: place, materials: [REDSTONE_LAMP, LEVER, "*_BUTTON", "*_PRESSURE_PLATE", OBSERVER, DAYLIGHT_DETECTOR], pay: 2.0, xp: 2}
+    garbage:
+      name: "Gunoier"
+      desc: "Da click dreapta pe un cos (cazan) cu gunoi in mana."
+      summary: "Gunoi aruncat: 0.5-1$ / obiect"
+      limit-per-minute: 40
+      rules:
+        - {event: trash, materials: [ROTTEN_FLESH, STICK, BONE, STRING, SPIDER_EYE, PAPER, GLASS_BOTTLE, LEATHER, FEATHER, BOWL, POISONOUS_POTATO], pay: 0.5, xp: 1}
+        - {event: trash, materials: [GUNPOWDER, SLIME_BALL, INK_SAC, FLINT], pay: 1.0, xp: 2}
+    diver:
+      name: "Scafandru"
+      desc: "Colecteaza resurse de sub apa (kelp, bureti, muraturi)."
+      summary: "Resurse subacvatice: 1-6$"
+      limit-per-minute: 30
+      rules:
+        - {event: break, underwater: true, materials: [KELP, KELP_PLANT, SEAGRASS, TALL_SEAGRASS], pay: 1.0, xp: 1}
+        - {event: break, underwater: true, materials: [SEA_PICKLE, "*_CORAL", "*_CORAL_FAN", "*_CORAL_BLOCK"], pay: 3.0, xp: 3}
+        - {event: break, underwater: true, materials: [SPONGE, WET_SPONGE, PRISMARINE, PRISMARINE_BRICKS, DARK_PRISMARINE], pay: 6.0, xp: 6}
+
+thirst:
+  enabled: true
+  drain-per-minute: 4.0      # puncte (din 100) pe minut, in repaus
+  sprint-multiplier: 2.5
+  swim-multiplier: 1.5
+  respawn-value: 60
+  damage-at-zero: 1.0        # damage la fiecare damage-interval-seconds
+  damage-interval-seconds: 5
+  lethal: false              # false = nu omoara (se opreste la min-health)
+  min-health: 2.0
+  warn-below: 20
+  items:                     # materiale care hidrateaza (puncte)
+    WATER_BOTTLE: 35
+    POTION: 15
+    MILK_BUCKET: 30
+    MELON_SLICE: 10
+    SWEET_BERRIES: 3
+    APPLE: 4
+    HONEY_BOTTLE: 8
+    BEETROOT_SOUP: 6
+    GLOW_BERRIES: 3
+
+news:
+  max-kept: 30
+  publish-cooldown-seconds: 10
+  banner-seconds: 9
+  categories: [breaking, politie, eveniment, guvern]
+
+property:
+  pay-from: cash             # cash | bank
+  refund-percent: 70
+  limits:                    # per jucator, pe tip
+    casa: 1
+    apartament: 2
+    business: 2
+  max-total: 4
+  types: [casa, apartament, business]
+
+wheel:
+  cooldown-hours: 24
+  animation-seconds: 6
+  prizes:                    # type: money | bank | item   (greutate = sansa relativa)
+    - {name: "100$",        type: money, amount: 100,  weight: 30, color: "#34D399"}
+    - {name: "250$",        type: money, amount: 250,  weight: 22, color: "#22D3EE"}
+    - {name: "500$",        type: money, amount: 500,  weight: 14, color: "#7C83FF"}
+    - {name: "1000$",       type: money, amount: 1000, weight: 6,  color: "#FBBF24"}
+    - {name: "5 Paini",     type: item,  material: BREAD, amount: 5, weight: 12, color: "#F59E0B"}
+    - {name: "3 Diamante",  type: item,  material: DIAMOND, amount: 3, weight: 5, color: "#38BDF8"}
+    - {name: "Mere aurii",  type: item,  material: GOLDEN_APPLE, amount: 2, weight: 7, color: "#F472B6"}
+    - {name: "JACKPOT 5000$", type: money, amount: 5000, weight: 1, color: "#F87171"}
+
+documents:
+  buletin-valid-years: 10
+  permis-valid-years: 10
+  show-distance: 4
+  address-max: 60
+
+clearlag:
+  enabled: true
+  interval-minutes: 15
+  warnings: [60, 30, 10, 5]
+  exempt-named: true         # nu sterge obiectele cu nume custom
+  exempt-materials: [DIAMOND, NETHERITE_INGOT, ELYTRA, SHULKER_BOX, TOTEM_OF_UNDYING, PAPER]
+  worlds: []                 # gol = toate lumile

@@ -1,0 +1,44 @@
+name: Build FlowCity
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  mod:
+    name: FlowCityCore (Forge 1.16.5)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '8'
+      - name: Build
+        working-directory: mod
+        run: |
+          chmod +x gradlew
+          ./gradlew build --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FlowCityCore-mod
+          path: mod/build/libs/FlowCityCore-1.16.5-*.jar
+
+  plugin:
+    name: FlowCityBridge (Mohist/Arclight)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Build
+        working-directory: plugin
+        run: |
+          chmod +x gradlew
+          ./gradlew build --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FlowCityBridge-plugin
+          path: plugin/build/libs/FlowCityBridge-*.jar

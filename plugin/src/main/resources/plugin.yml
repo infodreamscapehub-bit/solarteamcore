@@ -1,0 +1,28 @@
+name: FlowCityBridge
+version: ${version}
+main: ro.solarstudios.flowcity.bridge.FlowCityBridge
+api-version: '1.16'
+author: SolarStudios
+description: Bridge Mohist/Arclight <-> modul FlowCityCore (eAdmin, sincronizare date).
+softdepend: [Vault]
+commands:
+  eadmin:
+    description: Deschide panoul eAdmin sau ruleaza o actiune de staff.
+    usage: /eadmin [open|info|warn|mute|unmute|kick|ban|unban|note] <jucator> [durata] [motiv]
+    permission: flowcity.eadmin
+permissions:
+  flowcity.eadmin:
+    description: Acces la panoul eAdmin (vizualizare)
+    default: op
+  flowcity.eadmin.sanction:
+    description: Poate aplica / revoca sanctiuni
+    default: op
+  flowcity.eadmin.notes:
+    description: Poate adauga / sterge note
+    default: op
+  flowcity.eadmin.tp:
+    description: Poate folosi teleport din panou
+    default: op
+  flowcity.eadmin.ip:
+    description: Vede adresele IP
+    default: op
