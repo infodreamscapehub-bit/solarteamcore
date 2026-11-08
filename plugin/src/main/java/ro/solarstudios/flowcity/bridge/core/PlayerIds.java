@@ -36,6 +36,18 @@ public final class PlayerIds implements Listener {
     private final Map<Integer, UUID> byId = new ConcurrentHashMap<>();
     private final Map<UUID, String> names = new ConcurrentHashMap<>();
     private final Set<UUID> pending = ConcurrentHashMap.newKeySet();
+    private volatile java.util.function.Consumer<UUID> listener;
+
+    /** Notificare (pe thread-ul principal) cand ID-ul unui jucator apare sau se schimba. */
+    public void onChange(java.util.function.Consumer<UUID> l) {
+        this.listener = l;
+    }
+
+    private void notifyChange(UUID u) {
+        java.util.function.Consumer<UUID> l = listener;
+        if (l != null) l.accept(u);
+    }
+
 
     public PlayerIds(FlowCityBridge plugin, Db db) {
         this.plugin = plugin;
@@ -134,6 +146,7 @@ public final class PlayerIds implements Listener {
         if (byUuid.containsKey(u)) {
             if (name != null) saveName(u, name);
             applyTab(u);
+            notifyChange(u);
             return;
         }
         if (!pending.add(u)) return;
@@ -159,7 +172,10 @@ public final class PlayerIds implements Listener {
             if (err != null || id == null || id <= 0) return;
             byUuid.put(u, id);
             byId.put(id, u);
-            Bukkit.getScheduler().runTask(plugin, () -> applyTab(u));
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                applyTab(u);
+                notifyChange(u);
+            });
         });
     }
 
@@ -260,7 +276,11 @@ public final class PlayerIds implements Listener {
                 byId.remove(oldId);
             }
             applyTab(u);
-            if (other != null) applyTab(other);
+            notifyChange(u);
+            if (other != null) {
+                applyTab(other);
+                notifyChange(other);
+            }
             done.accept(true, other == null
                 ? name + " are acum ID-ul #" + newId + "."
                 : name + " (#" + newId + ") si " + nameOf(other) + " (#" + oldId + ") si-au schimbat ID-urile.");

@@ -18,3 +18,4 @@ eadmin:
 ids:
   start: 1            # primul ID atribuit (ex. 100 ca sa porneasca de la #100)
   tab-prefix: false   # true = afiseaza #ID in lista de jucatori (TAB)
+  overhead: true      # afiseaza #ID deasupra capului jucatorilor (pentru cei cu modul instalat)
