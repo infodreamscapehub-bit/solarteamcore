@@ -5,7 +5,10 @@ import com.mojang.blaze3d.matrix.MatrixStack;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Iterator;
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.AbstractGui;
+import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import ro.solarstudios.flowcity.client.ui.Theme;
@@ -18,6 +21,9 @@ import ro.solarstudios.flowcity.module.JsonClientModule;
  */
 public final class HypeHud {
     private static final int W = 236;
+    private static final ResourceLocation LOGO = new ResourceLocation("flowcitycore", "textures/gui/logo.png");
+    private static final int BLUE = 0xFF2F8CFF;      // albastru FlowCity (ca pe logo)
+    private static final int ICE = 0xFFC8EBFF;       // sclipirea de gheata
     private static final SimpleDateFormat DATE = new SimpleDateFormat("d/M/yyyy");
 
     // stare de animatie (doar thread-ul de randare)
@@ -59,7 +65,7 @@ public final class HypeHud {
         drawClock(ms, mc, x, y, t);
         Ui.rect(ms, x + 84, y + 1, 1, 28, Theme.alpha(Theme.LINE, 0xAA));
         drawTitle(ms, x + 92, y + 1, t, now);
-        drawEmblem(ms, x + W - 26, y + 1, t);
+        drawEmblem(ms, x + W - 34, y - 1, t);
         Ui.rect(ms, x, y + 33, W, 1, Theme.alpha(Theme.LINE, 0xAA));
         drawIdentity(ms, mc, s, x, y + 39, t);
         drawMoney(ms, s, x, y + 60, now);
@@ -106,16 +112,16 @@ public final class HypeHud {
 
     /** Titlu cu o unda de lumina care trece peste litere. */
     private void drawTitle(MatrixStack ms, int x, int y, double t, long now) {
-        String title = "FLOWCITY";
-        float scale = 2.2f;
+        String title = "FLOW CITY";
+        float scale = 1.9f;
         boolean lvl = now - HypeState.levelUpAt < 2500;
         float cx = x;
         for (int i = 0; i < title.length(); i++) {
             String ch = title.substring(i, i + 1);
             double wave = Math.sin(t * 2.2 - i * 0.55);
             float k = (float) Math.pow(Math.max(0, wave), 6);
-            int base = lvl ? Theme.WARN : Theme.ACCENT;
-            int color = Theme.mix(base, 0xFFFFFFFF, k * 0.85f);
+            int base = lvl ? Theme.WARN : BLUE;
+            int color = Theme.mix(base, ICE, k * 0.9f);
             float bob = (float) Math.sin(t * 2.2 - i * 0.55) * 0.6f;
             scaled(ms, ch, cx, y + bob, color, scale);
             cx += Ui.width(ch) * scale;
@@ -124,17 +130,27 @@ public final class HypeHud {
         scaled(ms, "ROLEPLAY", x + 1, y + 21, Theme.mix(Theme.FAINT, Theme.MUTED, (float) pulse), 1.15f);
     }
 
-    /** Emblema FlowCity: disc cu "FC" si un punct care orbiteaza. */
+    /** Logo-ul FlowCity: plutire usoara + pulsatie, cu sclipiri de zapada in jur. */
     private void drawEmblem(MatrixStack ms, int x, int y, double t) {
-        int s = 26;
-        Ui.round(ms, x, y, s, s, Theme.alpha(Theme.PANEL_3, 0xE0));
-        Ui.frame(ms, x + 2, y + 2, s - 4, s - 4, Theme.mix(Theme.PANEL, Theme.ACCENT, 0.18f), Theme.ACCENT_DIM);
-        Ui.textCenter(ms, "FC", x + s / 2, y + 9, Theme.TEXT);
-        for (int i = 0; i < 3; i++) {
-            double a = t * 1.6 - i * 0.35;
-            int dx = x + s / 2 + (int) Math.round(Math.cos(a) * 11) - 1;
-            int dy = y + s / 2 + (int) Math.round(Math.sin(a) * 11) - 1;
-            Ui.rect(ms, dx, dy, 2, 2, Theme.alpha(Theme.ACCENT, 255 - i * 90));
+        int size = 34;
+        float bob = (float) Math.sin(t * 1.6) * 1.2f;
+        float pulse = 1f + (float) Math.sin(t * 2.0) * 0.025f;
+        ms.push();
+        ms.translate(x + size / 2f, y + size / 2f + bob, 0);
+        ms.scale(pulse, pulse, 1f);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.color4f(1f, 1f, 1f, 1f);
+        Minecraft.getInstance().getTextureManager().bindTexture(LOGO);
+        AbstractGui.blit(ms, -size / 2, -size / 2, size, size, 0f, 0f, 128, 128, 128, 128);
+        ms.pop();
+        // sclipiri (fulgi) care palpaie in jurul logo-ului
+        for (int i = 0; i < 4; i++) {
+            double ph = t * 1.3 + i * 1.7;
+            float a = (float) Math.max(0, Math.sin(ph));
+            int fx = x + 2 + (int) ((i * 11 + Math.floor(ph / Math.PI) * 7) % (size - 4));
+            int fy = y + 2 + (int) ((i * 17 + Math.floor(ph / Math.PI) * 5) % (size - 4));
+            Ui.rect(ms, fx, fy, 1, 1, Theme.alpha(0xFFFFFFFF, (int) (30 + 200 * a)));
         }
     }
 
