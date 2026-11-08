@@ -14,3 +14,7 @@ eadmin:
   big-transaction-threshold: 1000000
   # Cate randuri de log se pastreaza (zile); 0 = nelimitat
   log-retention-days: 45
+
+ids:
+  start: 1            # primul ID atribuit (ex. 100 ca sa porneasca de la #100)
+  tab-prefix: false   # true = afiseaza #ID in lista de jucatori (TAB)

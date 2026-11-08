@@ -88,6 +88,8 @@ public class AdminPanelScreen extends Screen {
     private int pw;
     private int ph;
 
+    private TextFieldWidget idField;
+
     public AdminPanelScreen(String staffName, String serverName) {
         super(new StringTextComponent("eAdmin"));
         this.staffName = staffName;
@@ -98,12 +100,13 @@ public class AdminPanelScreen extends Screen {
 
     @Override
     protected void init() {
-        search = field("Cauta jucator...", 32, s -> {
+        search = field("Cauta nume sau #ID...", 32, s -> {
             searchDirty = true;
             searchTypedAt = System.currentTimeMillis();
         });
         reason = field("Motiv sanctiune...", 120, null);
         note = field("Scrie o nota...", 190, null);
+        idField = field("ID nou", 9, null);
         if (list == null) ClientBridge.requestList("", 0);
     }
 
@@ -271,9 +274,17 @@ public class AdminPanelScreen extends Screen {
                 else if (hover) Ui.round(ms, x, y, LIST_W, rh - 1, Theme.PANEL_3);
                 Ui.rect(ms, x + 3, y + rh / 2 - 2, 4, 4, e.online ? Theme.OK : Theme.FAINT);
                 int nameColor = e.banned ? Theme.BAD : (e.muted ? Theme.WARN : Theme.TEXT);
-                Ui.text(ms, Ui.clip(e.name, LIST_W - 30), x + 11, y + (rh - 9) / 2, nameColor);
-                if (e.banned) Ui.textRight(ms, "B", x + LIST_W - 4, y + (rh - 9) / 2, Theme.BAD);
-                else if (e.muted) Ui.textRight(ms, "M", x + LIST_W - 4, y + (rh - 9) / 2, Theme.WARN);
+                int right = x + LIST_W - 4;
+                if (e.banned) {
+                    Ui.textRight(ms, "B", right, y + (rh - 9) / 2, Theme.BAD);
+                    right -= 9;
+                } else if (e.muted) {
+                    Ui.textRight(ms, "M", right, y + (rh - 9) / 2, Theme.WARN);
+                    right -= 9;
+                }
+                String idLabel = e.id > 0 ? "#" + e.id : "";
+                if (!idLabel.isEmpty()) Ui.textRight(ms, idLabel, right, y + (rh - 9) / 2, sel ? Theme.TEXT : Theme.FAINT);
+                Ui.text(ms, Ui.clip(e.name, LIST_W - 22 - Ui.width(idLabel)), x + 11, y + (rh - 9) / 2, nameColor);
                 final AdminData.PlayerEntry entry = e;
                 hits.add(new Hit(x, y, LIST_W, rh - 1, () -> select(entry)));
                 y += rh;
@@ -302,6 +313,7 @@ public class AdminPanelScreen extends Screen {
         Ui.textShadow(ms, name, x, y + 1, Theme.TEXT);
         int cx = x + Ui.width(name) + 8;
         if (profile != null) {
+            if (profile.id > 0) cx = chipStatic(ms, "#" + profile.id, cx, y - 1, Theme.ACCENT);
             cx = chipStatic(ms, profile.online ? "ONLINE" : "OFFLINE", cx, y - 1, profile.online ? Theme.OK : Theme.FAINT);
             if (profile.banned) cx = chipStatic(ms, "BAN ACTIV", cx, y - 1, Theme.BAD);
             if (profile.muted) cx = chipStatic(ms, "MUTE ACTIV", cx, y - 1, Theme.WARN);
@@ -351,6 +363,7 @@ public class AdminPanelScreen extends Screen {
         int col = w / 2;
         String[][] rows = {
             {"Status", p.online ? "Online" : "Offline"},
+            {"ID jucator", p.id > 0 ? "#" + p.id : "-"},
             {"UUID", p.uuid.length() > 13 ? p.uuid.substring(0, 8) + "..." + p.uuid.substring(p.uuid.length() - 4) : p.uuid},
             {"Prima conectare", Ui.time(p.first)},
             {"Ultima conectare", p.online ? "acum" : Ui.time(p.last)},
@@ -392,6 +405,30 @@ public class AdminPanelScreen extends Screen {
         // actiuni rapide
         button(ms, "TP LA EL", x, actionsY, 64, 14, mx, my, p.online, Theme.ACCENT_DIM, () -> ClientBridge.action("TP_TO", p.uuid));
         button(ms, "ADU-L AICI", x + 68, actionsY, 70, 14, mx, my, p.online, Theme.ACCENT_DIM, () -> ClientBridge.action("TP_HERE", p.uuid));
+        // schimbare ID (serverul verifica permisiunea flowcity.id.admin)
+        int fx = x + 146;
+        int fw = Math.min(70, Math.max(40, x + w - fx - 78));
+        Ui.frame(ms, fx, actionsY, fw, 14, Theme.PANEL, idField.isFocused() ? Theme.ACCENT : Theme.LINE);
+        idField.x = fx + 4;
+        idField.y = actionsY + 3;
+        idField.setWidth(fw - 8);
+        idField.render(ms, mx, my, 0);
+        button(ms, "SETEAZA ID", fx + fw + 4, actionsY, 74, 14, mx, my, true, 0xFF4B4FA8, this::setId);
+    }
+
+    /** Trimite cererea de schimbare a ID-ului; cu "swap" in camp (ex. "12 swap") schimba ID-urile intre doi jucatori. */
+    private void setId() {
+        if (profile == null) return;
+        String[] parts = idField.getText().trim().replace("#", "").split("\\s+");
+        int n;
+        try {
+            n = Integer.parseInt(parts[0]);
+        } catch (NumberFormatException e) {
+            toast("Scrie un numar, ex. 12 (sau '12 swap').", true);
+            return;
+        }
+        IdsClient.set(profile.uuid, n, parts.length > 1 && parts[1].equalsIgnoreCase("swap"));
+        idField.setText("");
     }
 
     private int counter(MatrixStack ms, String label, int value, int x, int y, int color) {
@@ -593,6 +630,7 @@ public class AdminPanelScreen extends Screen {
         f.add(search);
         if (tab == Tab.SANCTIONS && selectedUuid != null) f.add(reason);
         if (tab == Tab.NOTES && selectedUuid != null) f.add(note);
+        if (tab == Tab.PROFILE && selectedUuid != null && profile != null) f.add(idField);
         return f;
     }
 
@@ -644,6 +682,7 @@ public class AdminPanelScreen extends Screen {
                 if (key == GLFW.GLFW_KEY_ENTER || key == GLFW.GLFW_KEY_KP_ENTER) {
                     if (f == reason) applySanction();
                     else if (f == note) addNote();
+                    else if (f == idField) setId();
                     return true;
                 }
                 if (f.keyPressed(key, scan, mods)) return true;

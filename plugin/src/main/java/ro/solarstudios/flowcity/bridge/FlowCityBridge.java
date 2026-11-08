@@ -56,6 +56,7 @@ public final class FlowCityBridge extends JavaPlugin {
             cmd.setExecutor(handler);
             cmd.setTabCompleter(handler);
         }
+        Modules.register(this, new ro.solarstudios.flowcity.bridge.core.IdsModule());
         Modules.register(this, new HypeModule());
         Modules.register(this, new MapsModule());
         Modules.register(this, new PhoneModule());

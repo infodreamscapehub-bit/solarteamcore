@@ -5,7 +5,7 @@ public final class Op {
     private Op() {}
 
     public static final String CHANNEL = "flowcity:bridge";
-    public static final int PROTOCOL = 1;
+    public static final int PROTOCOL = 2;
 
     // client -> server
     public static final int C_HELLO = 0x00;

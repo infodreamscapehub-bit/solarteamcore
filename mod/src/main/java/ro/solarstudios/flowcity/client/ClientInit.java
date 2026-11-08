@@ -22,6 +22,7 @@ public final class ClientInit {
     public static void register() {
         FMLJavaModLoadingContext.get().getModEventBus().addListener(ClientInit::setup);
         MinecraftForge.EVENT_BUS.register(new Events());
+        ro.solarstudios.flowcity.module.ClientModules.register(new ro.solarstudios.flowcity.client.admin.IdsClient());
         ro.solarstudios.flowcity.hype.HypeClient.register();
         ro.solarstudios.flowcity.maps.MapsClient.register();
         ro.solarstudios.flowcity.phone.PhoneClient.register();

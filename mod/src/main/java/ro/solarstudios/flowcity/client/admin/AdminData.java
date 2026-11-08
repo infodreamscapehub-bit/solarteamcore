@@ -11,6 +11,7 @@ public final class AdminData {
     public static final class PlayerEntry {
         public String uuid;
         public String name;
+        public int id;
         public boolean online;
         public long lastSeen;
         public boolean banned;
@@ -52,6 +53,7 @@ public final class AdminData {
     public static final class Profile {
         public String uuid;
         public String name;
+        public int id;
         public boolean online;
         public long first;
         public long last;
@@ -95,6 +97,7 @@ public final class AdminData {
             PlayerEntry e = new PlayerEntry();
             e.uuid = b.readString(64);
             e.name = b.readString(64);
+            e.id = b.readInt();
             e.online = b.readBoolean();
             e.lastSeen = b.readLong();
             e.banned = b.readBoolean();
@@ -108,6 +111,7 @@ public final class AdminData {
         Profile p = new Profile();
         p.uuid = b.readString(64);
         p.name = b.readString(64);
+        p.id = b.readInt();
         p.online = b.readBoolean();
         p.first = b.readLong();
         p.last = b.readLong();

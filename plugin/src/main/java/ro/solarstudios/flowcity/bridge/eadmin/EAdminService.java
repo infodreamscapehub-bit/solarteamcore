@@ -434,6 +434,25 @@ public final class EAdminService {
 
     // ------------------------------------------------------------------ raspunsuri pentru panou (payload gata codificat)
 
+    /** UUID-ul jucatorului al carui ID e scris in cautare ("12" sau "#12"), altfel un sir care nu se potriveste. */
+    private String idMatch(String q) {
+        String d = q.trim();
+        if (d.startsWith("#")) d = d.substring(1);
+        if (d.matches("\\d{1,9}")) {
+            UUID u = plugin.ids().uuidOf(Integer.parseInt(d));
+            if (u != null) return u.toString();
+        }
+        return "-";
+    }
+
+    private int idOfUuid(String uuid) {
+        try {
+            return plugin.ids().idOf(UUID.fromString(uuid));
+        } catch (IllegalArgumentException e) {
+            return 0;
+        }
+    }
+
     /** Apelat pe thread-ul principal. */
     public CompletableFuture<Wire.Out> playerList(String query, int page) {
         final String q = clip(query, 32);
@@ -441,12 +460,13 @@ public final class EAdminService {
         final Set<String> online = new HashSet<>();
         for (Player p : Bukkit.getOnlinePlayers()) online.add(p.getUniqueId().toString());
         final long t = now();
+        final String idUuid = idMatch(q);
         return db.async(c -> {
-            StringBuilder where = new StringBuilder(" WHERE p.name LIKE ? ESCAPE '\\'");
+            StringBuilder where = new StringBuilder(" WHERE (p.name LIKE ? ESCAPE '\\' OR p.uuid = ?)");
             String like = "%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
             int total;
             try (PreparedStatement ps = c.prepareStatement("SELECT COUNT(*) FROM eadmin_players p" + where)) {
-                bind(ps, like);
+                bind(ps, like, idUuid);
                 try (ResultSet rs = ps.executeQuery()) {
                     total = rs.next() ? rs.getInt(1) : 0;
                 }
@@ -456,6 +476,7 @@ public final class EAdminService {
             args.add(t);
             args.add(t);
             args.add(like);
+            args.add(idUuid);
             if (!online.isEmpty()) {
                 order.append("CASE WHEN p.uuid IN (");
                 int i = 0;
@@ -484,7 +505,7 @@ public final class EAdminService {
             out.i32(total).i32(pg).i32(rows.size());
             for (Object[] r : rows) {
                 String uuid = (String) r[0];
-                out.utf(uuid).utf((String) r[1]).bool(online.contains(uuid)).i64((Long) r[2]).bool((Boolean) r[3]).bool((Boolean) r[4]);
+                out.utf(uuid).utf((String) r[1]).i32(idOfUuid(uuid)).bool(online.contains(uuid)).i64((Long) r[2]).bool((Boolean) r[3]).bool((Boolean) r[4]);
             }
             return out;
         });
@@ -574,7 +595,7 @@ public final class EAdminService {
                 }
             }
             Wire.Out out = new Wire.Out();
-            out.utf(u.toString()).utf(name).bool(on != null).i64(first).i64(last).i64(play)
+            out.utf(u.toString()).utf(name).i32(plugin.ids().idOf(u)).bool(on != null).i64(first).i64(last).i64(play)
                 .utf(showIp ? ip : "").utf(balance < 0 ? "" : String.format(java.util.Locale.US, "%.2f", balance))
                 .bool(muted).bool(banned).i32(warns).i32(mutesN).i32(kicks).i32(bans);
             out.i32(sancCount);
