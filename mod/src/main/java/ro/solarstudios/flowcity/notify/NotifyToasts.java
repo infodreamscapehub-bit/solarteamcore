@@ -84,7 +84,7 @@ public final class NotifyToasts {
             }
             float slide = age < IN ? ease(age / (float) IN) : (age > IN + HOLD ? 1f - ease((age - IN - HOLD) / (float) OUT) : 1f);
             int x = sw - 8 - Math.round(slide * (W + 8));
-            int y = 8 + slot * (H + 4);
+            int y = Math.max(8, ro.solarstudios.flowcity.hype.HypeHud.occupiedBottom) + slot * (H + 4);
             slot++;
             int c = NotifyState.color(t.type);
             Ui.round(ms, x, y, W, H, Theme.alpha(Theme.PANEL, 0xEE));

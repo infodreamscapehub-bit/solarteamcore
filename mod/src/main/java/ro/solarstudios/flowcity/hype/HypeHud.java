@@ -25,6 +25,36 @@ public final class HypeHud {
     private static final int BLUE = 0xFF2F8CFF;      // albastru FlowCity (ca pe logo)
     private static final int ICE = 0xFFC8EBFF;       // sclipirea de gheata
     private static final SimpleDateFormat DATE = new SimpleDateFormat("d/M/yyyy");
+    private static final String TITLE = "FLOW CITY";
+    private static final float TITLE_SCALE = 1.9f;
+    private static final String[] TITLE_CH = new String[TITLE.length()];
+    private static final float[] TITLE_X = new float[TITLE.length()];
+
+    private static boolean titleReady;
+
+    /** Latimile literelor se calculeaza la primul cadru (fontul nu exista la incarcarea clasei). */
+    private static void initTitle() {
+        float cx = 0;
+        for (int i = 0; i < TITLE.length(); i++) {
+            TITLE_CH[i] = TITLE.substring(i, i + 1);
+            TITLE_X[i] = cx;
+            cx += Ui.width(TITLE_CH[i]) * TITLE_SCALE;
+        }
+        titleReady = true;
+    }
+
+    /** Marginea de jos a HUD-ului (0 daca e ascuns): notificarile se aseaza sub el. */
+    public static volatile int occupiedBottom;
+
+    // cache-uri: evita formatari de text la fiecare cadru
+    private String dateStr = "";
+    private long dateCheckedAt;
+    private String timeStr = "";
+    private int timeKey = -1;
+    private String moneyStr = "";
+    private long moneyKey = Long.MIN_VALUE;
+    private String bankStr = "";
+    private long bankKey = Long.MIN_VALUE;
 
     // stare de animatie (doar thread-ul de randare)
     private double shownMoney = Double.NaN;
@@ -49,12 +79,17 @@ public final class HypeHud {
         // glisare la pornire/oprire (/hud)
         float target = HypeState.hudOn && HypeState.state.has("cash") ? 1f : 0f;
         slide += (target - slide) * Math.min(1f, dt * 8f);
-        if (slide < 0.01f) return;
+        if (slide < 0.01f) {
+            occupiedBottom = 0;
+            return;
+        }
 
         JsonObject s = HypeState.state;
         MatrixStack ms = e.getMatrixStack();
-        int x = 8 - Math.round((1f - slide) * (W + 16));
+        int sw = mc.getMainWindow().getScaledWidth();
+        int x = sw - W - 8 + Math.round((1f - slide) * (W + 16)); // dreapta sus, glisare dinspre dreapta
         int y = 6;
+        occupiedBottom = slide > 0.5f ? y + bottom(s) + 8 : 0;
         double t = now / 1000.0;
 
         animateMoney(JsonClientModule.num(s, "cash", 0), dt, now);
@@ -102,30 +137,36 @@ public final class HypeHud {
         long hour = (day / 1000 + 6) % 24;
         long min = (day % 1000) * 60 / 1000;
         boolean colon = ((long) (t * 2)) % 2 == 0; // clipeste secunda
-        String time = String.format("%02d%s%02d", hour, colon ? ":" : " ", min);
+        int key = (int) (hour * 120 + min * 2 + (colon ? 1 : 0));
+        if (key != timeKey) {
+            timeKey = key;
+            timeStr = String.format("%02d%s%02d", hour, colon ? ":" : " ", min);
+        }
+        String time = timeStr;
+        long nowMs = System.currentTimeMillis();
+        if (nowMs - dateCheckedAt > 30_000) {
+            dateCheckedAt = nowMs;
+            dateStr = DATE.format(new Date(nowMs));
+        }
         // cronometru mic
         Ui.round(ms, x + 1, y + 6, 8, 9, Theme.mix(Theme.PANEL, Theme.WARN, 0.6f));
         Ui.rect(ms, x + 4, y + 4, 2, 2, Theme.WARN);
         Ui.rect(ms, x + 5, y + 8, 1, 4, 0xFF3B2A06);
         scaled(ms, time, x + 13, y + 1, Theme.TEXT, 2.0f);
-        scaled(ms, DATE.format(new Date()), x + 13, y + 20, Theme.MUTED, 1.0f);
+        scaled(ms, dateStr, x + 13, y + 20, Theme.MUTED, 1.0f);
     }
 
     /** Titlu cu o unda de lumina care trece peste litere. */
     private void drawTitle(MatrixStack ms, int x, int y, double t, long now) {
-        String title = "FLOW CITY";
-        float scale = 1.9f;
+        if (!titleReady) initTitle();
         boolean lvl = now - HypeState.levelUpAt < 2500;
-        float cx = x;
-        for (int i = 0; i < title.length(); i++) {
-            String ch = title.substring(i, i + 1);
+        int base = lvl ? Theme.WARN : BLUE;
+        for (int i = 0; i < TITLE_CH.length; i++) {
             double wave = Math.sin(t * 2.2 - i * 0.55);
-            float k = (float) Math.pow(Math.max(0, wave), 6);
-            int base = lvl ? Theme.WARN : BLUE;
+            double w2 = Math.max(0, wave);
+            float k = (float) (w2 * w2 * w2 * w2 * w2 * w2);
             int color = Theme.mix(base, ICE, k * 0.9f);
-            float bob = (float) Math.sin(t * 2.2 - i * 0.55) * 0.6f;
-            scaled(ms, ch, cx, y + bob, color, scale);
-            cx += Ui.width(ch) * scale;
+            scaled(ms, TITLE_CH[i], x + TITLE_X[i], y + (float) wave * 0.6f, color, TITLE_SCALE);
         }
         double pulse = 0.55 + 0.25 * Math.sin(t * 2.0);
         scaled(ms, "ROLEPLAY", x + 1, y + 21, Theme.mix(Theme.FAINT, Theme.MUTED, (float) pulse), 1.15f);
@@ -217,7 +258,12 @@ public final class HypeHud {
             float k = 1f - since / 900f;
             color = Theme.mix(Theme.TEXT, flashSign > 0 ? Theme.OK : Theme.BAD, k);
         }
-        String money = germanMoney(shownMoney);
+        long mk = Math.round(shownMoney * 100);
+        if (mk != moneyKey) {
+            moneyKey = mk;
+            moneyStr = germanMoney(shownMoney);
+        }
+        String money = moneyStr;
         float sc = 1.5f;
         int coin = 12;
         int right = x + W - coin - 6;
@@ -229,7 +275,13 @@ public final class HypeHud {
         Ui.textCenter(ms, "$", cx + coin / 2, y + 2, 0xFF053B2A);
         // banca (stanga)
         Ui.text(ms, "Banca", x + 1, y + 1, Theme.FAINT);
-        Ui.text(ms, "$" + germanMoney(JsonClientModule.num(s, "bank", 0)), x + 1, y + 11, Theme.MUTED);
+        double bank = JsonClientModule.num(s, "bank", 0);
+        long bk = Math.round(bank * 100);
+        if (bk != bankKey) {
+            bankKey = bk;
+            bankStr = "$" + germanMoney(bank);
+        }
+        Ui.text(ms, bankStr, x + 1, y + 11, Theme.MUTED);
     }
 
     private int drawJob(MatrixStack ms, JsonObject s, int x, int y, float dt, double t, long now) {
