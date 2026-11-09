@@ -25,6 +25,7 @@ public final class ClientInit {
         ro.solarstudios.flowcity.client.admin.IdsClient.register();
         ro.solarstudios.flowcity.notify.NotifyClient.register();
         ro.solarstudios.flowcity.news.NewsClient.register();
+        ro.solarstudios.flowcity.wheel.WheelClient.register();
         ro.solarstudios.flowcity.hype.HypeClient.register();
         ro.solarstudios.flowcity.maps.MapsClient.register();
         ro.solarstudios.flowcity.phone.PhoneClient.register();

@@ -61,6 +61,7 @@ public final class FlowCityBridge extends JavaPlugin {
         notify = new ro.solarstudios.flowcity.bridge.notify.NotifyModule();
         Modules.register(this, notify);
         Modules.register(this, new ro.solarstudios.flowcity.bridge.news.NewsModule());
+        Modules.register(this, new ro.solarstudios.flowcity.bridge.wheel.WheelModule());
         Modules.register(this, new HypeModule());
         Modules.register(this, new MapsModule());
         Modules.register(this, new PhoneModule());

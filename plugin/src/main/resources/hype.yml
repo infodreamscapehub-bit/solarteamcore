@@ -143,15 +143,15 @@ property:
 wheel:
   cooldown-hours: 24
   animation-seconds: 6
-  prizes:                    # type: money | bank | item   (greutate = sansa relativa)
+  prizes:                    # type: money | bank | item   (greutate = sansa relativa; announce: true = anunt in chat la castig)
     - {name: "100$",        type: money, amount: 100,  weight: 30, color: "#34D399"}
     - {name: "250$",        type: money, amount: 250,  weight: 22, color: "#22D3EE"}
     - {name: "500$",        type: money, amount: 500,  weight: 14, color: "#7C83FF"}
     - {name: "1000$",       type: money, amount: 1000, weight: 6,  color: "#FBBF24"}
     - {name: "5 Paini",     type: item,  material: BREAD, amount: 5, weight: 12, color: "#F59E0B"}
-    - {name: "3 Diamante",  type: item,  material: DIAMOND, amount: 3, weight: 5, color: "#38BDF8"}
+    - {name: "3 Diamante",  type: item,  material: DIAMOND, amount: 3, weight: 5, color: "#38BDF8", announce: true}
     - {name: "Mere aurii",  type: item,  material: GOLDEN_APPLE, amount: 2, weight: 7, color: "#F472B6"}
-    - {name: "JACKPOT 5000$", type: money, amount: 5000, weight: 1, color: "#F87171"}
+    - {name: "JACKPOT 5000$", type: money, amount: 5000, weight: 1, color: "#F87171", announce: true}
 
 documents:
   buletin-valid-years: 10
