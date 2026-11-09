@@ -66,6 +66,7 @@ public final class HypeHud {
         Ui.rect(ms, x + 84, y + 1, 1, 28, Theme.alpha(Theme.LINE, 0xAA));
         drawTitle(ms, x + 92, y + 1, t, now);
         drawEmblem(ms, x + W - 34, y - 1, t);
+        drawBell(ms, x + W - 6, y - 3, t);
         Ui.rect(ms, x, y + 33, W, 1, Theme.alpha(Theme.LINE, 0xAA));
         drawIdentity(ms, mc, s, x, y + 39, t);
         drawMoney(ms, s, x, y + 60, now);
@@ -152,6 +153,17 @@ public final class HypeHud {
             int fy = y + 2 + (int) ((i * 17 + Math.floor(ph / Math.PI) * 5) % (size - 4));
             Ui.rect(ms, fx, fy, 1, 1, Theme.alpha(0xFFFFFFFF, (int) (30 + 200 * a)));
         }
+    }
+
+    /** Insigna rosie cu numarul de notificari necitite (pulseaza usor). */
+    private void drawBell(MatrixStack ms, int x, int y, double t) {
+        int n = ro.solarstudios.flowcity.notify.NotifyState.unread;
+        if (n <= 0) return;
+        String s = n > 9 ? "9+" : String.valueOf(n);
+        int w = Ui.width(s) + 8;
+        int color = Theme.mix(Theme.BAD, 0xFFFFFFFF, (float) (0.1 + 0.1 * Math.sin(t * 4.0)));
+        Ui.round(ms, x - w + 6, y, w, 11, color);
+        Ui.textCenter(ms, s, x - w / 2 + 6, y + 2, 0xFFFFFFFF);
     }
 
     private void drawIdentity(MatrixStack ms, Minecraft mc, JsonObject s, int x, int y, double t) {

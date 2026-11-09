@@ -26,6 +26,7 @@ public final class FlowCityBridge extends JavaPlugin {
     private VaultHook vault;
     private Money money;
     private Bank bank;
+    private ro.solarstudios.flowcity.bridge.notify.NotifyModule notify;
     private PlayerIds ids;
 
     @Override
@@ -57,6 +58,9 @@ public final class FlowCityBridge extends JavaPlugin {
             cmd.setTabCompleter(handler);
         }
         Modules.register(this, new ro.solarstudios.flowcity.bridge.core.IdsModule());
+        notify = new ro.solarstudios.flowcity.bridge.notify.NotifyModule();
+        Modules.register(this, notify);
+        Modules.register(this, new ro.solarstudios.flowcity.bridge.news.NewsModule());
         Modules.register(this, new HypeModule());
         Modules.register(this, new MapsModule());
         Modules.register(this, new PhoneModule());
@@ -93,6 +97,10 @@ public final class FlowCityBridge extends JavaPlugin {
     /** Contul bancar (ATM / aplicatia Bank din telefon). */
     public PlayerIds ids() {
         return ids;
+    }
+
+    public ro.solarstudios.flowcity.bridge.notify.NotifyModule notify() {
+        return notify;
     }
 
     public Bank bank() {

@@ -219,8 +219,7 @@ public final class AtmService {
         else hdb.addTx(t, "TRANSFER_IN", a, 0, p.getName(), System.currentTimeMillis());
         plugin.service().logTransaction(u, "ATM_TRANSFER", -a, tname, where(p));
         plugin.service().logTransaction(t, "ATM_TRANSFER_IN", a, p.getName(), where(p));
-        Player online = target.getPlayer();
-        if (online != null) online.sendMessage("§aAi primit $" + Fmt.money(a) + " de la §f" + p.getName() + "§a in contul bancar.");
+        plugin.notify().send(t, ro.solarstudios.flowcity.bridge.notify.NotifyModule.Type.MONEY, "Transfer primit", "$" + Fmt.money(a) + " de la " + p.getName());
         return new Result(true, "Ai transferat $" + Fmt.money(a) + " catre " + tname + " (taxa $" + Fmt.money(fee) + ").");
     }
 }
