@@ -441,7 +441,7 @@ public final class HypeModule extends JsonModule implements Listener {
         d.lastState = "";
         int lvlAfter = HypeMath.levelFor(after, base, growth, max);
         if (lvlAfter > lvlBefore) {
-            plugin.notify().send(p, ro.solarstudios.flowcity.bridge.notify.NotifyModule.Type.JOB, "Nivel nou!", jd.name + " - nivel " + lvlAfter);
+            plugin.notifications().send(p, ro.solarstudios.flowcity.bridge.notify.NotifyModule.Type.JOB, "Nivel nou!", jd.name + " - nivel " + lvlAfter);
         }
         if (plugin.channel().hasMod(p)) {
             JsonObject o = new JsonObject();

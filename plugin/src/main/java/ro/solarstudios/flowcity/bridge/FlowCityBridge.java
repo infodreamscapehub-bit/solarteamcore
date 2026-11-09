@@ -99,7 +99,7 @@ public final class FlowCityBridge extends JavaPlugin {
         return ids;
     }
 
-    public ro.solarstudios.flowcity.bridge.notify.NotifyModule notify() {
+    public ro.solarstudios.flowcity.bridge.notify.NotifyModule notifications() {
         return notify;
     }
 

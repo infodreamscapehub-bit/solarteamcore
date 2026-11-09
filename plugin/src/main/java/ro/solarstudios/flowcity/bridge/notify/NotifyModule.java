@@ -21,7 +21,7 @@ import ro.solarstudios.flowcity.bridge.module.JsonModule;
 
 /**
  * Notificari: toast animat pe ecran (cu modul) sau mesaj in chat (fara), plus istoric salvat per jucator.
- * API pentru alte module: {@code plugin.notify().send(uuid, Type.MONEY, "Titlu", "Text")} (merge si pentru jucatori offline).
+ * API pentru alte module: {@code plugin.notifications().send(uuid, Type.MONEY, "Titlu", "Text")} (merge si pentru jucatori offline).
  * Canal "notify": client -> server: history, clear; server -> client: push, history, unread.
  */
 public final class NotifyModule extends JsonModule implements Listener {
