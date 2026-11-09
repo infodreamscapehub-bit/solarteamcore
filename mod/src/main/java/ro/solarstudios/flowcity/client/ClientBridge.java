@@ -22,6 +22,9 @@ public final class ClientBridge {
     /** Momentul (ms) la care am cerut deschiderea panoului; 0 = nicio cerere in asteptare. */
     public static long pendingOpenAt;
 
+    /** Devine true cand serverul a raspuns cel putin o data pe canal (handshake reusit). */
+    public static volatile boolean connected;
+
     public static void registerHandler() {
         Bridge.channel.registerObject(new Handler());
     }
@@ -33,6 +36,7 @@ public final class ClientBridge {
         public void onPayload(NetworkEvent.ServerCustomPayloadEvent e) {
             NetworkEvent.Context ctx = e.getSource().get();
             ctx.setPacketHandled(true);
+            connected = true;
             final Runnable task;
             try {
                 PacketBuffer buf = e.getPayload();
@@ -149,6 +153,14 @@ public final class ClientBridge {
     }
 
     public static void sendHello() {
+        // Bukkit trimite pachete de plugin doar pe canale pe care clientul le-a "inregistrat" (minecraft:register).
+        // Clientul Forge nu o face singur, asa ca o facem noi; altfel serverul ignora tacit tot ce trimite pluginul.
+        ClientPlayNetHandler conn = Minecraft.getInstance().getConnection();
+        if (conn != null) {
+            PacketBuffer reg = new PacketBuffer(Unpooled.buffer());
+            reg.writeBytes((Bridge.ID.toString() + "\0").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            conn.sendPacket(new CCustomPayloadPacket(new net.minecraft.util.ResourceLocation("minecraft", "register"), reg));
+        }
         send(Bridge.C_HELLO, b -> b.writeVarInt(Bridge.PROTOCOL));
     }
 

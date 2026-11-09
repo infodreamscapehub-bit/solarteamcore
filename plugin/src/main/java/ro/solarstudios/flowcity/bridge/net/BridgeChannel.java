@@ -108,9 +108,21 @@ public final class BridgeChannel implements PluginMessageListener {
             if (op == Op.C_HELLO) {
                 int proto = in.remaining() > 0 ? in.varInt() : 0;
                 if (proto == Op.PROTOCOL) {
-                    withMod.add(player.getUniqueId());
+                    boolean first = withMod.add(player.getUniqueId());
+                    if (!player.getListeningPluginChannels().contains(Op.CHANNEL)) {
+                        // clientul nu a inregistrat canalul (minecraft:register): il adaugam noi, altfel Bukkit nu trimite nimic
+                        try {
+                            player.getClass().getMethod("addChannel", String.class).invoke(player, Op.CHANNEL);
+                        } catch (ReflectiveOperationException | RuntimeException ignored) {
+                            // nu exista pe aceasta implementare
+                        }
+                    }
+                    if (first) plugin.getLogger().info("Client cu FlowCityCore: " + player.getName());
                     Modules.ready(player);
-                } else player.sendMessage("§eModul FlowCityCore are alta versiune de protocol; actualizeaza-l.");
+                } else {
+                    plugin.getLogger().warning(player.getName() + " are FlowCityCore cu protocol " + proto + " (server: " + Op.PROTOCOL + ")");
+                    player.sendMessage("§eModul FlowCityCore are alta versiune de protocol; actualizeaza-l.");
+                }
                 return;
             }
             if (op == Op.C_MODULE) {

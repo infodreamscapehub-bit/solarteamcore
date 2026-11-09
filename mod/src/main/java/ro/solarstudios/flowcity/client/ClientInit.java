@@ -18,6 +18,7 @@ public final class ClientInit {
 
     public static KeyBinding openAdmin;
     private static int helloTicks = -1;
+    private static int helloTries;
 
     public static void register() {
         FMLJavaModLoadingContext.get().getModEventBus().addListener(ClientInit::setup);
@@ -43,11 +44,14 @@ public final class ClientInit {
         @SubscribeEvent
         public void onLogin(ClientPlayerNetworkEvent.LoggedInEvent e) {
             helloTicks = 40; // trimitem HELLO la ~2s dupa intrare, cand conexiunea e stabila
+            helloTries = 0;
+            ClientBridge.connected = false;
         }
 
         @SubscribeEvent
         public void onLogout(ClientPlayerNetworkEvent.LoggedOutEvent e) {
             helloTicks = -1;
+            ClientBridge.connected = false;
             ClientBridge.pendingOpenAt = 0;
             ro.solarstudios.flowcity.module.ClientModules.logout();
         }
@@ -57,7 +61,18 @@ public final class ClientInit {
             if (e.phase != TickEvent.Phase.END) return;
             Minecraft mc = Minecraft.getInstance();
             if (mc.player == null) return;
-            if (helloTicks >= 0 && --helloTicks < 0) ClientBridge.sendHello();
+            if (helloTicks >= 0 && --helloTicks < 0) {
+                if (!ClientBridge.connected) {
+                    helloTries++;
+                    ClientBridge.sendHello();
+                    if (helloTries < 12) {
+                        helloTicks = 60; // reincearca la 3s pana raspunde serverul
+                    } else {
+                        mc.player.sendStatusMessage(new StringTextComponent(
+                            "\u00a7e[FlowCity] \u00a77Serverul nu raspunde: lipseste pluginul FlowCityBridge sau are alta versiune."), false);
+                    }
+                }
+            }
             if (openAdmin != null) {
                 while (openAdmin.isPressed()) {
                     if (mc.currentScreen == null) ClientBridge.sendOpenRequest();

@@ -240,11 +240,13 @@ public class AdminPanelScreen extends Screen {
         Ui.rect(ms, px + 8, py + 8, 3, 9, Theme.ACCENT);
         Ui.textShadow(ms, serverName.toUpperCase(), px + 15, py + 8, Theme.ACCENT);
         Ui.text(ms, "eAdmin", px + 15 + Ui.width(serverName.toUpperCase()) + 6, py + 8, Theme.TEXT);
-        Ui.textRight(ms, "staff: " + staffName, px + pw - 62, py + 8, Theme.MUTED);
+        Ui.textRight(ms, "staff: " + staffName, px + pw - 102, py + 8, Theme.MUTED);
         button(ms, "REFRESH", px + pw - 56, py + 5, 34, 14, mx, my, true, Theme.PANEL_3, () -> {
             ClientBridge.requestList(lastQuery, listPage);
             if (selectedUuid != null) ClientBridge.requestProfile(selectedUuid);
         });
+        button(ms, "ROATA", px + pw - 96, py + 5, 36, 14, mx, my, true, Theme.VIOLET, () ->
+            Minecraft.getInstance().displayGuiScreen(new ro.solarstudios.flowcity.wheel.WheelAdminScreen()));
         button(ms, "X", px + pw - 18, py + 5, 12, 14, mx, my, true, 0xFF5B2A35, this::onClose);
     }
 

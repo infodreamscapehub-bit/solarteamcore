@@ -45,8 +45,35 @@ public final class WheelClient extends JsonClientModule {
             Minecraft mc = Minecraft.getInstance();
             if (mc.currentScreen instanceof FlowScreen) ((FlowScreen) mc.currentScreen).toast(str(d, "text", ""), !bool(d, "ok", true));
         });
+        on("admin", d -> {
+            WheelState.admin.clear();
+            WheelState.adminMax = Math.max(2, integer(d, "max", 16));
+            if (d.has("prizes") && d.get("prizes").isJsonArray()) {
+                for (JsonElement e : d.getAsJsonArray("prizes")) {
+                    if (!e.isJsonObject()) continue;
+                    JsonObject o = e.getAsJsonObject();
+                    WheelState.AdminPrize p = new WheelState.AdminPrize();
+                    p.id = lng(o, "id", -1);
+                    p.name = str(o, "name", "?");
+                    p.type = str(o, "type", "item");
+                    p.amount = o.has("amount") ? o.get("amount").getAsDouble() : 0;
+                    p.material = str(o, "material", "");
+                    p.weight = integer(o, "weight", 1);
+                    p.color = str(o, "color", "#22D3EE");
+                    p.announce = bool(o, "announce", false);
+                    p.pct = o.has("pct") ? o.get("pct").getAsDouble() : 0;
+                    WheelState.admin.add(p);
+                }
+            }
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.currentScreen instanceof WheelAdminScreen) ((WheelAdminScreen) mc.currentScreen).refreshed();
+        });
         on("open", d -> {
             Minecraft mc = Minecraft.getInstance();
+            if ("admin".equals(str(d, "screen", ""))) {
+                if (!(mc.currentScreen instanceof WheelAdminScreen)) mc.displayGuiScreen(new WheelAdminScreen());
+                return;
+            }
             if (!(mc.currentScreen instanceof WheelScreen)) mc.displayGuiScreen(new WheelScreen());
         });
     }
@@ -68,6 +95,10 @@ public final class WheelClient extends JsonClientModule {
 
     public static void requestInfo() {
         if (instance != null) instance.send("info", new JsonObject());
+    }
+
+    public static void send(String action, JsonObject o) {
+        if (instance != null) instance.send(action, o);
     }
 
     public static void spin() {
