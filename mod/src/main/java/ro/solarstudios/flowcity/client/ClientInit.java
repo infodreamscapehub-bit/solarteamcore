@@ -24,6 +24,7 @@ public final class ClientInit {
         FMLJavaModLoadingContext.get().getModEventBus().addListener(ClientInit::setup);
         MinecraftForge.EVENT_BUS.register(new Events());
         ro.solarstudios.flowcity.client.admin.IdsClient.register();
+        ro.solarstudios.flowcity.client.admin.DashPanel.register();
         ro.solarstudios.flowcity.notify.NotifyClient.register();
         ro.solarstudios.flowcity.news.NewsClient.register();
         ro.solarstudios.flowcity.wheel.WheelClient.register();

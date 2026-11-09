@@ -89,6 +89,7 @@ public class AdminPanelScreen extends Screen {
     private int ph;
 
     private TextFieldWidget idField;
+    private final long openedAt = System.currentTimeMillis();
 
     public AdminPanelScreen(String staffName, String serverName) {
         super(new StringTextComponent("eAdmin"));
@@ -130,6 +131,7 @@ public class AdminPanelScreen extends Screen {
 
     @Override
     public void tick() {
+        DashPanel.poll();
         search.tick();
         reason.tick();
         note.tick();
@@ -224,8 +226,11 @@ public class AdminPanelScreen extends Screen {
         ph = Math.min(height - 16, 274);
         px = (width - pw) / 2;
         py = (height - ph) / 2;
+        float open = Math.min(1f, (System.currentTimeMillis() - openedAt) / 260f);
+        float ease = 1f - (1f - open) * (1f - open) * (1f - open);
+        py += Math.round((1f - ease) * 14f); // panoul urca usor la deschidere
 
-        Ui.rect(ms, 0, 0, width, height, Theme.DIM);
+        Ui.rect(ms, 0, 0, width, height, Theme.alpha(Theme.DIM, Math.max(1, (int) (((Theme.DIM >>> 24) & 0xFF) * ease))));
         Ui.frame(ms, px, py, pw, ph, Theme.PANEL, Theme.LINE);
         drawHeader(ms, mx, my);
         drawList(ms, mx, my);
@@ -240,10 +245,17 @@ public class AdminPanelScreen extends Screen {
         Ui.rect(ms, px + 8, py + 8, 3, 9, Theme.ACCENT);
         Ui.textShadow(ms, serverName.toUpperCase(), px + 15, py + 8, Theme.ACCENT);
         Ui.text(ms, "eAdmin", px + 15 + Ui.width(serverName.toUpperCase()) + 6, py + 8, Theme.TEXT);
-        Ui.textRight(ms, "staff: " + staffName, px + pw - 102, py + 8, Theme.MUTED);
+        Ui.textRight(ms, "staff: " + staffName, px + pw - 142, py + 8, Theme.MUTED);
         button(ms, "REFRESH", px + pw - 56, py + 5, 34, 14, mx, my, true, Theme.PANEL_3, () -> {
             ClientBridge.requestList(lastQuery, listPage);
+            DashPanel.forceRefresh();
             if (selectedUuid != null) ClientBridge.requestProfile(selectedUuid);
+        });
+        button(ms, "PANOU", px + pw - 136, py + 5, 36, 14, mx, my, selectedUuid != null, Theme.ACCENT_DIM, () -> {
+            selectedUuid = null;
+            profile = null;
+            logs = null;
+            DashPanel.forceRefresh();
         });
         button(ms, "ROATA", px + pw - 96, py + 5, 36, 14, mx, my, true, Theme.VIOLET, () ->
             Minecraft.getInstance().displayGuiScreen(new ro.solarstudios.flowcity.wheel.WheelAdminScreen()));
@@ -307,7 +319,7 @@ public class AdminPanelScreen extends Screen {
         int w = pw - (x - px) - 6;
         int y = py + HEAD + 6;
         if (selectedUuid == null) {
-            Ui.textCenter(ms, "Selecteaza un jucator din lista", x + w / 2, py + ph / 2 - 4, Theme.MUTED);
+            DashPanel.draw(ms, x, y, w, py + ph - y - 6, System.currentTimeMillis());
             return;
         }
         // nume + stare
