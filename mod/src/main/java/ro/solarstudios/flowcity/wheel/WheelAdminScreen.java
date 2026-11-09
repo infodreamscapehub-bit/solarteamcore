@@ -43,7 +43,7 @@ public final class WheelAdminScreen extends FlowScreen {
     @Override
     protected void init() {
         JsonObject o = new JsonObject();
-        WheelClient.send("admin_list", o);
+        WheelClient.sendAction("admin_list", o);
     }
 
     @Override
@@ -118,7 +118,7 @@ public final class WheelAdminScreen extends FlowScreen {
         o.addProperty("weight", intOr(weight.getText(), 10));
         o.addProperty("color", color.getText().trim());
         o.addProperty("announce", announce);
-        WheelClient.send("admin_add", o);
+        WheelClient.sendAction("admin_add", o);
     }
 
     private void sendSave() {
@@ -137,7 +137,7 @@ public final class WheelAdminScreen extends FlowScreen {
                 return;
             }
         }
-        WheelClient.send("admin_update", o);
+        WheelClient.sendAction("admin_update", o);
     }
 
     private static int intOr(String s, int d) {
@@ -153,7 +153,7 @@ public final class WheelAdminScreen extends FlowScreen {
         JsonObject o = new JsonObject();
         o.addProperty("id", selected);
         o.addProperty("dir", dir);
-        WheelClient.send("admin_move", o);
+        WheelClient.sendAction("admin_move", o);
     }
 
     @Override
@@ -221,7 +221,7 @@ public final class WheelAdminScreen extends FlowScreen {
         button(ms, "STERGE", rx + bw + 3, y, bw, 15, mx, my, selected >= 0, 0xFF5B2A35, () -> {
             JsonObject o = new JsonObject();
             o.addProperty("id", selected);
-            WheelClient.send("admin_delete", o);
+            WheelClient.sendAction("admin_delete", o);
         });
         button(ms, "NOU", rx + 2 * (bw + 3), y, bw, 15, mx, my, true, Theme.PANEL_3, this::clearForm);
         y += 19;

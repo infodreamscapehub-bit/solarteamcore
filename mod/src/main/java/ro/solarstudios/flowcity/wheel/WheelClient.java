@@ -97,7 +97,7 @@ public final class WheelClient extends JsonClientModule {
         if (instance != null) instance.send("info", new JsonObject());
     }
 
-    public static void send(String action, JsonObject o) {
+    public static void sendAction(String action, JsonObject o) {
         if (instance != null) instance.send(action, o);
     }
 
