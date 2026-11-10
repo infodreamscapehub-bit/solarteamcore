@@ -64,10 +64,9 @@ public final class FlowMainMenu extends Screen {
     @Override
     protected void init() {
         buttons.clear();
-        String ip = cfg.serverIp == null ? "" : cfg.serverIp.trim();
-        buttons.add(new Btn("INTRARE IN ORAS", ip.isEmpty() ? "alege serverul din lista" : cfg.serverName, true, () -> {
-            if (ip.isEmpty()) minecraft.displayGuiScreen(new MultiplayerScreen(this));
-            else minecraft.displayGuiScreen(new ConnectingScreen(this, minecraft, new ServerData(cfg.serverName, ip, false)));
+        String ip = cfg.serverIp == null || cfg.serverIp.trim().isEmpty() ? MenuConfig.DEFAULT_IP : cfg.serverIp.trim();
+        buttons.add(new Btn("INTRARE IN ORAS", "conectare directa la " + cfg.serverName, true, () -> {
+            minecraft.displayGuiScreen(new ConnectingScreen(this, minecraft, new ServerData(cfg.serverName, ip, false)));
         }));
         buttons.add(new Btn("MODURI", ModList.get().size() + " instalate", false, () -> minecraft.displayGuiScreen(new ModListScreen(this))));
         String dc = cfg.discord == null ? "" : cfg.discord.trim();

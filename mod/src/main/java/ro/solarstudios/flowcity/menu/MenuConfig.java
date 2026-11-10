@@ -13,7 +13,8 @@ import net.minecraftforge.fml.loading.FMLPaths;
 /** config/flowcity-menu.json: adresa serverului, link Discord, titlu. Se creeaza singur la prima pornire. */
 public final class MenuConfig {
     public String serverName = "FlowCity";
-    public String serverIp = "";          // ex. "play.exemplu.ro" - gol = deschide lista de servere
+    public static final String DEFAULT_IP = "91.200.220.147:25579";
+    public String serverIp = DEFAULT_IP;  // gol = foloseste adresa implicita FlowCity
     public String discord = "";           // ex. "https://discord.gg/xxxx"
     public String tagline = "Roleplay  |  SolarStudios";
 
