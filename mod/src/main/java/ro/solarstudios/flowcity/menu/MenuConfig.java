@@ -15,7 +15,8 @@ public final class MenuConfig {
     public String serverName = "FlowCity";
     public static final String DEFAULT_IP = "91.200.220.147:25579";
     public String serverIp = DEFAULT_IP;  // gol = foloseste adresa implicita FlowCity
-    public String discord = "";           // ex. "https://discord.gg/xxxx"
+    public static final String DEFAULT_DISCORD = "https://dsc.gg/solarteam12";
+    public String discord = DEFAULT_DISCORD; // gol = foloseste link-ul implicit
     public String tagline = "Roleplay  |  SolarStudios";
 
     private static MenuConfig cached;

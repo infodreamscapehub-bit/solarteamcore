@@ -67,8 +67,8 @@ public final class FlowMainMenu extends Screen {
             minecraft.displayGuiScreen(new ConnectingScreen(this, minecraft, new ServerData(cfg.serverName, ip, false)));
         }));
         buttons.add(new Btn("MODURI", ModList.get().size() + " instalate", false, () -> minecraft.displayGuiScreen(new ModListScreen(this))));
-        String dc = cfg.discord == null ? "" : cfg.discord.trim();
-        buttons.add(new Btn("DISCORD", dc.isEmpty() ? "link neconfigurat" : "comunitatea noastra", false, () -> {
+        String dc = cfg.discord == null || cfg.discord.trim().isEmpty() ? MenuConfig.DEFAULT_DISCORD : cfg.discord.trim();
+        buttons.add(new Btn("DISCORD", "comunitatea noastra", false, () -> {
             if (!dc.isEmpty() && (dc.startsWith("https://") || dc.startsWith("http://"))) Util.getOSType().openURI(dc);
         }));
         buttons.add(new Btn("SETARI", "video, sunet, controale", false, () -> minecraft.displayGuiScreen(new OptionsScreen(this, minecraft.gameSettings))));
@@ -221,7 +221,31 @@ public final class FlowMainMenu extends Screen {
         }
     }
 
+    private final int[] updBox = new int[4];
+
+    private void drawUpdateBadge(MatrixStack ms, double t) {
+        ro.solarstudios.flowcity.update.UpdateChecker.checkAsync(false);
+        if (!ro.solarstudios.flowcity.update.UpdateChecker.updateAvailable()) {
+            updBox[2] = 0;
+            return;
+        }
+        String text = "UPDATE DISPONIBIL  #" + ro.solarstudios.flowcity.update.UpdateChecker.latestBuild;
+        int w = Ui.width(text) + 22;
+        int x = width - w - 12;
+        int y = 14;
+        float pulse = 0.6f + 0.4f * (float) Math.sin(t * 3.0);
+        Ui.round(ms, x, y, w, 18, Theme.alpha(Theme.mix(0xFF0B3D2A, Theme.OK, pulse * 0.5f), 230));
+        Ui.rect(ms, x, y, 3, 18, Theme.OK);
+        Ui.rect(ms, x + 9, y + 7, 4, 4, Theme.alpha(Theme.OK, (int) (140 + 115 * pulse)));
+        Ui.text(ms, text, x + 17, y + 5, 0xFFFFFFFF);
+        updBox[0] = x;
+        updBox[1] = y;
+        updBox[2] = w;
+        updBox[3] = 18;
+    }
+
     private void drawFooter(MatrixStack ms, double t) {
+        drawUpdateBadge(ms, t);
         int y = height - 14;
         Ui.text(ms, "Minecraft 1.16.5  |  " + ModList.get().size() + " moduri  |  FlowCity", 10, y, Theme.alpha(Theme.FAINT, 220));
         String name = minecraft.getSession().getUsername();
@@ -232,6 +256,10 @@ public final class FlowMainMenu extends Screen {
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
         if (button == 0) {
+            if (updBox[2] > 0 && Ui.in((int) mx, (int) my, updBox[0], updBox[1], updBox[2], updBox[3])) {
+                minecraft.displayGuiScreen(new ro.solarstudios.flowcity.update.UpdateScreen(this));
+                return true;
+            }
             for (Btn b : buttons) {
                 if (Ui.in((int) mx, (int) my, b.x, b.y, b.w, b.h)) {
                     minecraft.getSoundHandler().play(net.minecraft.client.audio.SimpleSound.master(net.minecraft.util.SoundEvents.UI_BUTTON_CLICK, 1.0F));
