@@ -21,7 +21,7 @@ import ro.solarstudios.flowcity.client.ui.Ui;
  */
 public class AdminPanelScreen extends Screen {
     private enum Tab {
-        PROFILE("PROFIL"), LOGS("LOGURI"), SANCTIONS("SANCTIUNI"), NOTES("NOTE");
+        PROFILE("PROFIL"), LOGS("LOGURI"), SANCTIONS("SANCTIUNI"), NOTES("NOTE"), JOBS("JOBURI"), IPS("IP"), SS("SS");
 
         final String label;
 
@@ -89,6 +89,8 @@ public class AdminPanelScreen extends Screen {
     private int ph;
 
     private TextFieldWidget idField;
+    private TextFieldWidget cashField;
+    private boolean cashOpen;
     private final long openedAt = System.currentTimeMillis();
 
     public AdminPanelScreen(String staffName, String serverName) {
@@ -108,6 +110,7 @@ public class AdminPanelScreen extends Screen {
         reason = field("Motiv sanctiune...", 120, null);
         note = field("Scrie o nota...", 190, null);
         idField = field("ID nou", 9, null);
+        cashField = field("suma", 12, null);
         if (list == null) ClientBridge.requestList("", 0);
     }
 
@@ -135,6 +138,7 @@ public class AdminPanelScreen extends Screen {
         search.tick();
         reason.tick();
         note.tick();
+        cashField.tick();
         if (searchDirty && System.currentTimeMillis() - searchTypedAt > 300) {
             searchDirty = false;
             String q = search.getText().trim();
@@ -181,6 +185,9 @@ public class AdminPanelScreen extends Screen {
         scroll = 0;
         logPage = 0;
         ClientBridge.requestProfile(e.uuid);
+        AdminX.requestFrozen(e.uuid);
+        if (tab == Tab.JOBS) AdminX.requestJobs(e.uuid);
+        if (tab == Tab.IPS) AdminX.requestIps(e.uuid);
         if (tab == Tab.LOGS) ClientBridge.requestLogs(e.uuid, logType, 0);
     }
 
@@ -190,6 +197,8 @@ public class AdminPanelScreen extends Screen {
         focus(reason, false);
         focus(note, false);
         focus(search, false);
+        if (t == Tab.JOBS && selectedUuid != null) AdminX.requestJobs(selectedUuid);
+        if (t == Tab.IPS && selectedUuid != null) AdminX.requestIps(selectedUuid);
         if (t == Tab.LOGS && selectedUuid != null && logs == null) ClientBridge.requestLogs(selectedUuid, logType, logPage);
     }
 
@@ -332,11 +341,19 @@ public class AdminPanelScreen extends Screen {
             if (profile.banned) cx = chipStatic(ms, "BAN ACTIV", cx, y - 1, Theme.BAD);
             if (profile.muted) cx = chipStatic(ms, "MUTE ACTIV", cx, y - 1, Theme.WARN);
         }
+        // actiuni rapide (stil eAdmin EGK)
+        int ay = y + 15;
+        drawActions(ms, mx, my, x, ay, w);
+        int tabsY = ay + 17;
+        if (cashOpen) {
+            drawCashBar(ms, mx, my, x, tabsY, w);
+            tabsY += 18;
+        }
         // taburi
-        int ty = y + 16;
+        int ty = tabsY;
         int tx = x;
         for (Tab t : Tab.values()) {
-            int tw = Ui.width(t.label) + 14;
+            int tw = Ui.width(t.label) + 10;
             boolean sel = t == tab;
             boolean hover = Ui.in(mx, my, tx, ty, tw, 15);
             Ui.round(ms, tx, ty, tw, 15, sel ? Theme.ACCENT_DIM : (hover ? Theme.PANEL_3 : Theme.PANEL_2));
@@ -344,9 +361,9 @@ public class AdminPanelScreen extends Screen {
             Ui.textCenter(ms, t.label, tx + tw / 2, ty + 3, sel ? Theme.TEXT : Theme.MUTED);
             final Tab target = t;
             hits.add(new Hit(tx, ty, tw, 15, () -> switchTab(target)));
-            tx += tw + 3;
+            tx += tw + 2;
         }
-        int cy = ty + 21;
+        int cy = ty + 18;
         int ch = py + ph - cy - 6;
         // fundal continut
         Ui.frame(ms, x, cy, w, ch, Theme.PANEL_2, Theme.LINE);
@@ -364,10 +381,179 @@ public class AdminPanelScreen extends Screen {
             case SANCTIONS:
                 drawSanctions(ms, mx, my, x + 8, cy + 7, w - 16, ch - 14);
                 break;
+            case JOBS:
+                drawJobs(ms, x + 8, cy + 7, w - 16, ch - 14);
+                break;
+            case IPS:
+                drawIps(ms, x + 8, cy + 7, w - 16, ch - 14);
+                break;
+            case SS:
+                drawSs(ms, mx, my, x + 8, cy + 7, w - 16, ch - 14);
+                break;
             default:
                 drawNotes(ms, mx, my, x + 8, cy + 7, w - 16, ch - 14);
                 break;
         }
+    }
+
+    // ---- actiuni rapide
+
+    private void drawActions(MatrixStack ms, int mx, int my, int x, int y, int w) {
+        AdminData.Profile p = profile;
+        boolean on = p != null && p.online;
+        boolean frz = p != null && AdminX.frozen.contains(p.uuid);
+        String[] labels = {"TP", "AICI", "INV", "SPEC", frz ? "DEZG." : "FRZ", "CASH", "WARN", "KICK", "BAN"};
+        int[] colors = {Theme.ACCENT_DIM, Theme.ACCENT_DIM, Theme.ACCENT_DIM, Theme.VIOLET, frz ? 0xFF2F8CFF : 0xFF2A5E8A, 0xFF1F7A4D,
+            0xFF8A6A1F, 0xFF7A4B1F, 0xFF8A2A35};
+        boolean[] enabled = {on, on, on, on || AdminX.frozen == null, on, p != null, p != null, p != null, p != null};
+        int gap = 3;
+        int bw = (w - gap * (labels.length - 1)) / labels.length;
+        for (int i = 0; i < labels.length; i++) {
+            final int k = i;
+            button(ms, labels[i], x + i * (bw + gap), y, bw, 14, mx, my, p != null && (enabled[i] || i == 3), colors[i], () -> runAction(k));
+        }
+    }
+
+    private void runAction(int k) {
+        if (profile == null) return;
+        String u = profile.uuid;
+        switch (k) {
+            case 0: ClientBridge.action("TP_TO", u); break;
+            case 1: ClientBridge.action("TP_HERE", u); break;
+            case 2: AdminX.inv(u); break;
+            case 3: AdminX.spec(u); break;
+            case 4: AdminX.freeze(u); break;
+            case 5:
+                cashOpen = !cashOpen;
+                break;
+            case 6: quickSanction("WARN"); break;
+            case 7: quickSanction("KICK"); break;
+            default: quickSanction("BAN"); break;
+        }
+    }
+
+    private void quickSanction(String type) {
+        sType = type;
+        if (type.equals("BAN")) sMinutes = 1440;
+        switchTab(Tab.SANCTIONS);
+        focus(reason, true);
+    }
+
+    private void drawCashBar(MatrixStack ms, int mx, int my, int x, int y, int w) {
+        Ui.frame(ms, x, y, w, 16, Theme.PANEL, Theme.alpha(Theme.OK, 0xAA));
+        Ui.text(ms, "CASH $", x + 5, y + 4, Theme.OK);
+        int fx = x + 44;
+        int fw = 80;
+        Ui.frame(ms, fx, y + 2, fw, 12, Theme.PANEL_2, cashField.isFocused() ? Theme.ACCENT : Theme.LINE);
+        cashField.x = fx + 4;
+        cashField.y = y + 4;
+        cashField.setWidth(fw - 8);
+        cashField.render(ms, mx, my, 0);
+        int bx = fx + fw + 6;
+        int bw = (x + w - bx - 8) / 3;
+        button(ms, "SETEAZA", bx, y + 2, bw, 12, mx, my, true, Theme.ACCENT_DIM, () -> sendCash("set"));
+        button(ms, "+ ADAUGA", bx + bw + 2, y + 2, bw, 12, mx, my, true, 0xFF1F7A4D, () -> sendCash("add"));
+        button(ms, "- SCADE", bx + 2 * (bw + 2), y + 2, bw, 12, mx, my, true, 0xFF8A2A35, () -> sendCash("take"));
+    }
+
+    private void sendCash(String mode) {
+        if (profile == null) return;
+        double a;
+        try {
+            a = Double.parseDouble(cashField.getText().trim().replace(',', '.'));
+        } catch (NumberFormatException e) {
+            onToast("Scrie o suma valida.", true);
+            return;
+        }
+        AdminX.cash(profile.uuid, mode, a);
+        cashField.setText("");
+        ClientBridge.requestProfile(profile.uuid);
+    }
+
+    // ---- JOBURI
+
+    private void drawJobs(MatrixStack ms, int x, int y, int w, int h) {
+        Ui.text(ms, "JOB", x, y, Theme.FAINT);
+        Ui.text(ms, "XP", x + w * 45 / 100, y, Theme.FAINT);
+        Ui.textRight(ms, "CASTIGAT TOTAL", x + w, y, Theme.FAINT);
+        Ui.rect(ms, x, y + 10, w, 1, Theme.LINE);
+        if (!profile.uuid.equals(AdminX.jobsUuid)) {
+            Ui.text(ms, "Se incarca...", x, y + 16, Theme.MUTED);
+            return;
+        }
+        if (AdminX.jobs.isEmpty()) {
+            Ui.text(ms, "Fara istoric de joburi.", x, y + 16, Theme.MUTED);
+            return;
+        }
+        int ry = y + 16;
+        for (AdminX.JobRow r : AdminX.jobs) {
+            if (ry > y + h - 12) break;
+            boolean cur = r.job.equalsIgnoreCase(AdminX.jobsCurrent);
+            Ui.rect(ms, x, ry + 1, 3, 8, cur ? Theme.OK : Theme.FAINT);
+            Ui.text(ms, Ui.clip(r.job, w * 40 / 100), x + 7, ry, cur ? Theme.TEXT : Theme.MUTED);
+            Ui.text(ms, r.xp + " XP", x + w * 45 / 100, ry, Theme.ACCENT);
+            Ui.textRight(ms, "$" + Ui.money(r.earned), x + w, ry, Theme.OK);
+            ry += 13;
+        }
+        if (!AdminX.jobsCurrent.isEmpty()) Ui.text(ms, "Job curent: " + AdminX.jobsCurrent, x, y + h - 9, Theme.FAINT);
+    }
+
+    // ---- IP / conturi multiple
+
+    private void drawIps(MatrixStack ms, int x, int y, int w, int h) {
+        Ui.text(ms, "VERIFICARE IP / CONTURI MULTIPLE", x, y, Theme.FAINT);
+        Ui.rect(ms, x, y + 10, w, 1, Theme.LINE);
+        if (!profile.uuid.equals(AdminX.ipsUuid)) {
+            Ui.text(ms, profile.ip.isEmpty() && !profile.uuid.equals(AdminX.ipsUuid) ? "Se incarca (necesita flowcity.eadmin.ip)..." : "Se incarca...", x, y + 16, Theme.MUTED);
+            return;
+        }
+        int ry = y + 16;
+        Ui.text(ms, "Istoric IP-uri", x, ry, Theme.MUTED);
+        ry += 11;
+        if (AdminX.ipHistory.isEmpty()) Ui.text(ms, "Niciun IP inregistrat.", x, ry, Theme.FAINT);
+        int shown = 0;
+        for (AdminX.IpRow r : AdminX.ipHistory) {
+            if (shown++ >= 5) break;
+            Ui.text(ms, r.ip, x + 4, ry, Theme.TEXT);
+            Ui.textRight(ms, Ui.time(r.ts), x + w, ry, Theme.FAINT);
+            ry += 10;
+        }
+        ry += 8;
+        boolean multi = !AdminX.ipOthers.isEmpty();
+        Ui.text(ms, multi ? "CONTURI PE ACELEASI IP-URI (" + AdminX.ipOthers.size() + ")" : "Niciun alt cont pe aceste IP-uri.", x, ry, multi ? Theme.WARN : Theme.OK);
+        ry += 11;
+        for (AdminX.Other o : AdminX.ipOthers) {
+            if (ry > y + h - 10) break;
+            Ui.rect(ms, x, ry + 1, 3, 7, Theme.WARN);
+            Ui.text(ms, Ui.clip(o.name, w / 2), x + 7, ry, Theme.TEXT);
+            Ui.textRight(ms, o.ip, x + w, ry, Theme.FAINT);
+            ry += 10;
+        }
+    }
+
+    // ---- SS
+
+    private void drawSs(MatrixStack ms, int mx, int my, int x, int y, int w, int h) {
+        button(ms, "SOLICITA SS", x, y, 80, 14, mx, my, profile.online, Theme.ACCENT_DIM, () -> AdminX.requestSs(profile.uuid));
+        button(ms, "STERGE", x + 84, y, 50, 14, mx, my, AdminX.ssTex != null, 0xFF5B2A35, AdminX::clearSs);
+        Ui.text(ms, Ui.clip(AdminX.ssStatus, w - 142), x + 140, y + 3, Theme.MUTED);
+        int fy = y + 20;
+        int fh = h - 22;
+        Ui.frame(ms, x, fy, w, fh, Theme.PANEL, Theme.LINE);
+        if (AdminX.ssTex == null || AdminX.ssW <= 0) {
+            Ui.textCenter(ms, "Nicio imagine disponibila", x + w / 2, fy + fh / 2 - 8, Theme.MUTED);
+            Ui.textCenter(ms, "Apasa SOLICITA SS (jucatorul trebuie sa aiba modul).", x + w / 2, fy + fh / 2 + 3, Theme.FAINT);
+            return;
+        }
+        float k = Math.min((w - 4) / (float) AdminX.ssW, (fh - 4) / (float) AdminX.ssH);
+        int dw = Math.round(AdminX.ssW * k);
+        int dh = Math.round(AdminX.ssH * k);
+        int dx = x + (w - dw) / 2;
+        int dy = fy + (fh - dh) / 2;
+        com.mojang.blaze3d.systems.RenderSystem.enableBlend();
+        com.mojang.blaze3d.systems.RenderSystem.color4f(1f, 1f, 1f, 1f);
+        Minecraft.getInstance().getTextureManager().bindTexture(AdminX.ssTex);
+        net.minecraft.client.gui.AbstractGui.blit(ms, dx, dy, dw, dh, 0f, 0f, AdminX.ssW, AdminX.ssH, AdminX.ssW, AdminX.ssH);
     }
 
     // ---- PROFIL
@@ -417,11 +603,9 @@ public class AdminPanelScreen extends Screen {
             ry += 11;
         }
         // actiuni rapide
-        button(ms, "TP LA EL", x, actionsY, 64, 14, mx, my, p.online, Theme.ACCENT_DIM, () -> ClientBridge.action("TP_TO", p.uuid));
-        button(ms, "ADU-L AICI", x + 68, actionsY, 70, 14, mx, my, p.online, Theme.ACCENT_DIM, () -> ClientBridge.action("TP_HERE", p.uuid));
         // schimbare ID (serverul verifica permisiunea flowcity.id.admin)
-        int fx = x + 146;
-        int fw = Math.min(70, Math.max(40, x + w - fx - 78));
+        int fx = x;
+        int fw = Math.min(90, Math.max(40, x + w - fx - 78));
         Ui.frame(ms, fx, actionsY, fw, 14, Theme.PANEL, idField.isFocused() ? Theme.ACCENT : Theme.LINE);
         idField.x = fx + 4;
         idField.y = actionsY + 3;
@@ -645,6 +829,7 @@ public class AdminPanelScreen extends Screen {
         if (tab == Tab.SANCTIONS && selectedUuid != null) f.add(reason);
         if (tab == Tab.NOTES && selectedUuid != null) f.add(note);
         if (tab == Tab.PROFILE && selectedUuid != null && profile != null) f.add(idField);
+        if (cashOpen && selectedUuid != null) f.add(cashField);
         return f;
     }
 
@@ -697,6 +882,7 @@ public class AdminPanelScreen extends Screen {
                     if (f == reason) applySanction();
                     else if (f == note) addNote();
                     else if (f == idField) setId();
+                    else if (f == cashField) sendCash("set");
                     return true;
                 }
                 if (f.keyPressed(key, scan, mods)) return true;

@@ -2,6 +2,7 @@
 server-name: "FlowCity"
 
 eadmin:
+  ss-notify: true   # anunta jucatorul in chat cand staff-ul cere o captura de ecran
   # Comenzi blocate cat timp un jucator are mute activ
   muted-blocked-commands: [msg, tell, w, r, me, say, reply]
   # Flag automat: mai mult de N comenzi in fereastra de mai jos

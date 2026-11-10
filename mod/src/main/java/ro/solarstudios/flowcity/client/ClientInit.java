@@ -25,6 +25,7 @@ public final class ClientInit {
         MinecraftForge.EVENT_BUS.register(new Events());
         ro.solarstudios.flowcity.client.admin.IdsClient.register();
         ro.solarstudios.flowcity.client.admin.DashPanel.register();
+        ro.solarstudios.flowcity.client.admin.AdminX.register();
         ro.solarstudios.flowcity.notify.NotifyClient.register();
         ro.solarstudios.flowcity.news.NewsClient.register();
         ro.solarstudios.flowcity.wheel.WheelClient.register();
