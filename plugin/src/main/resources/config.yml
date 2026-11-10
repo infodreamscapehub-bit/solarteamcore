@@ -23,3 +23,9 @@ ids:
 
 notify:
   max-kept: 50        # cate notificari se pastreaza per jucator
+
+update:
+  enabled: true                       # verifica periodic GitHub pentru versiuni noi
+  repo: "infodreamscapehub-bit/solarteamcore"
+  check-minutes: 30
+  auto-download: false                # true = descarca singur noul plugin in plugins/update

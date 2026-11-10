@@ -29,6 +29,11 @@ public final class HypeClient extends JsonClientModule {
             if ("jobs".equals(str(d, "screen", ""))) Minecraft.getInstance().displayGuiScreen(new JobsScreen());
         });
         on("hud_toggle", d -> {
+            if ("xmas".equals(str(d, "mode", ""))) {
+                ro.solarstudios.flowcity.client.ui.Xmas.enabled = !ro.solarstudios.flowcity.client.ui.Xmas.enabled;
+                notice(ro.solarstudios.flowcity.client.ui.Xmas.enabled ? "Decor de Craciun pornit." : "Decor de Craciun oprit.", true);
+                return;
+            }
             if ("bg".equals(str(d, "mode", ""))) {
                 int[] steps = {0, 40, 90, 150};
                 int next = 0;

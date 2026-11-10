@@ -13,6 +13,7 @@ import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import ro.solarstudios.flowcity.client.ui.Theme;
 import ro.solarstudios.flowcity.client.ui.Ui;
+import ro.solarstudios.flowcity.client.ui.Xmas;
 import ro.solarstudios.flowcity.module.JsonClientModule;
 
 /**
@@ -118,6 +119,11 @@ public final class HypeHud {
         Ui.rect(ms, x + 84, y + 1, 1, 28, Theme.alpha(Theme.LINE, 0xAA));
         drawTitle(ms, x + 92, y + 1, t, now);
         drawEmblem(ms, x + W - 34, y - 1, t);
+        if (Xmas.enabled) {
+            Xmas.garland(ms, x - 4, y - 6, W + 8, t, 3, 22);
+            Xmas.hat(ms, x + W - 30, y - 8, 14);
+            Xmas.snow(ms, x - 4, y - 6, W + 8, bottom(s) + 10, t, 14, 190);
+        }
         drawBell(ms, x + W - 6, y - 3, t);
         Ui.rect(ms, x, y + 33, W, 1, Theme.alpha(Theme.LINE, 0xAA));
         drawIdentity(ms, mc, s, x, y + 39, t);

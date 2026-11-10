@@ -23,6 +23,7 @@ public final class ClientInit {
     public static void register() {
         FMLJavaModLoadingContext.get().getModEventBus().addListener(ClientInit::setup);
         MinecraftForge.EVENT_BUS.register(new Events());
+        MinecraftForge.EVENT_BUS.register(new ro.solarstudios.flowcity.menu.MenuEvents());
         ro.solarstudios.flowcity.client.admin.IdsClient.register();
         ro.solarstudios.flowcity.client.admin.DashPanel.register();
         ro.solarstudios.flowcity.client.admin.AdminX.register();

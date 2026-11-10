@@ -1,0 +1,46 @@
+package ro.solarstudios.flowcity.menu;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import java.io.IOException;
+import java.io.Reader;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import net.minecraftforge.fml.loading.FMLPaths;
+
+/** config/flowcity-menu.json: adresa serverului, link Discord, titlu. Se creeaza singur la prima pornire. */
+public final class MenuConfig {
+    public String serverName = "FlowCity";
+    public String serverIp = "";          // ex. "play.exemplu.ro" - gol = deschide lista de servere
+    public String discord = "";           // ex. "https://discord.gg/xxxx"
+    public String tagline = "Roleplay  |  SolarStudios";
+
+    private static MenuConfig cached;
+
+    public static MenuConfig get() {
+        if (cached == null) cached = load();
+        return cached;
+    }
+
+    private static MenuConfig load() {
+        Gson gson = new GsonBuilder().setPrettyPrinting().create();
+        Path file = FMLPaths.CONFIGDIR.get().resolve("flowcity-menu.json");
+        try {
+            if (Files.exists(file)) {
+                try (Reader r = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
+                    MenuConfig c = gson.fromJson(r, MenuConfig.class);
+                    if (c != null) return c;
+                }
+            }
+            MenuConfig c = new MenuConfig();
+            try (Writer w = Files.newBufferedWriter(file, StandardCharsets.UTF_8)) {
+                gson.toJson(c, w);
+            }
+            return c;
+        } catch (IOException | RuntimeException e) {
+            return new MenuConfig();
+        }
+    }
+}

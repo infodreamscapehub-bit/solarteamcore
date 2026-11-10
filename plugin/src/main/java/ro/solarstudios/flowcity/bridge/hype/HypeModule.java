@@ -702,9 +702,10 @@ public final class HypeModule extends JsonModule implements Listener {
             if (plugin.channel().hasMod(p)) {
                 JsonObject o = new JsonObject();
                 if (a.length > 0 && a[0].equalsIgnoreCase("fundal")) o.addProperty("mode", "bg");
+                else if (a.length > 0 && a[0].equalsIgnoreCase("craciun")) o.addProperty("mode", "xmas");
                 send(p, "hud_toggle", o);
             } else p.sendMessage("§cHUD-ul necesita modul FlowCity instalat pe client.");
-        }), (s, c, l, a) -> a.length == 1 ? Commands.filter(java.util.Arrays.asList("fundal"), a[0]) : java.util.Collections.<String>emptyList());
+        }), (s, c, l, a) -> a.length == 1 ? Commands.filter(java.util.Arrays.asList("fundal", "craciun"), a[0]) : java.util.Collections.<String>emptyList());
         Commands.register(plugin, "hype", "flowcity.hype.admin", (s, c, l, a) -> {
             hypeAdmin(s, a);
             return true;
