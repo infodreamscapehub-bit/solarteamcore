@@ -120,9 +120,12 @@ public final class NewsScreen extends FlowScreen {
         Minecraft mc = Minecraft.getInstance();
         double sc = mc.getMainWindow().getGuiScaleFactor();
         RenderSystem.enableScissor((int) (tx * sc), (int) (mc.getMainWindow().getFramebufferHeight() - (py + HEAD) * sc), (int) (tw * sc), (int) ((HEAD - 2) * sc));
-        Ui.text(ms, text, tx - off, py + 8, Theme.MUTED);
-        if (full - off < tw) Ui.text(ms, text, tx - off + full, py + 8, Theme.MUTED);
-        RenderSystem.disableScissor();
+        try {
+            Ui.text(ms, text, tx - off, py + 8, Theme.MUTED);
+            if (full - off < tw) Ui.text(ms, text, tx - off + full, py + 8, Theme.MUTED);
+        } finally {
+            RenderSystem.disableScissor();
+        }
         button(ms, "X", px + pw - 18, py + 5, 12, 14, mx, my, true, 0xFF5B2A35, this::onClose);
     }
 

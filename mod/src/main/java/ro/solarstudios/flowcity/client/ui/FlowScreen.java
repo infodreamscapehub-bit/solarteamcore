@@ -105,9 +105,20 @@ public abstract class FlowScreen extends Screen {
             Ui.rect(ms, 0, 0, width, height, Theme.DIM);
             Ui.frame(ms, px, py, pw, ph, Theme.PANEL, Theme.LINE);
         }
-        draw(ms, mx, my);
+        try {
+            draw(ms, mx, my);
+        } catch (RuntimeException ex) {
+            // un bug de desenare nu trebuie sa dea crash jocului: logam o data si afisam mesaj
+            if (!drawFailed) {
+                drawFailed = true;
+                org.apache.logging.log4j.LogManager.getLogger("FlowCity").error("Eroare la desenarea ecranului " + getClass().getSimpleName(), ex);
+            }
+            Ui.textCenter(ms, "Eroare interfata (vezi latest.log). Apasa ESC.", px + pw / 2, py + ph / 2, Theme.BAD);
+        }
         drawToast(ms);
     }
+
+    private boolean drawFailed;
 
     // ------------------------------------------------------------------ componente
 
@@ -159,7 +170,7 @@ public abstract class FlowScreen extends Screen {
 
     /** Camp de text cu indiciu gri cand e gol. */
     protected TextFieldWidget field(String hint, int maxLength, Consumer<String> onChange) {
-        TextFieldWidget f = new TextFieldWidget(font, 0, 0, 100, 14, new StringTextComponent(hint));
+        TextFieldWidget f = new TextFieldWidget(Minecraft.getInstance().fontRenderer, 0, 0, 100, 14, new StringTextComponent(hint));
         f.setMaxStringLength(maxLength);
         f.setEnableBackgroundDrawing(false);
         f.setTextColor(Theme.TEXT);

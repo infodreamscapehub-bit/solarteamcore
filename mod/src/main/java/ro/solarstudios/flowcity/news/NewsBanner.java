@@ -39,8 +39,25 @@ public final class NewsBanner {
         QUEUE.clear();
     }
 
+    private boolean failed;
+    private static boolean broken;
+
     @SubscribeEvent
     public void onRender(RenderGameOverlayEvent.Post e) {
+        if (broken) return;
+        try {
+            doRender(e);
+        } catch (RuntimeException ex) {
+            // un bug de desenare nu are voie sa dea crash jocului: logam o data si oprim elementul
+            if (!failed) {
+                failed = true;
+                org.apache.logging.log4j.LogManager.getLogger("FlowCity").error("Eroare la desenarea overlay-ului " + getClass().getSimpleName(), ex);
+            }
+            QUEUE.clear();
+        }
+    }
+
+    private void doRender(RenderGameOverlayEvent.Post e) {
         if (e.getType() != RenderGameOverlayEvent.ElementType.ALL || QUEUE.isEmpty()) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return;
