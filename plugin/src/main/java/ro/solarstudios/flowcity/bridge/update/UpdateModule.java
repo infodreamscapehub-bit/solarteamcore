@@ -146,8 +146,9 @@ public final class UpdateModule extends JsonModule {
                 }
             }
             if (build <= 0) return;
-            boolean fresh = build != latestBuild;
-            latestBuild = build;
+            final int newBuild = build;
+            boolean fresh = newBuild != latestBuild;
+            latestBuild = newBuild;
             notes = changes.toString();
             pluginName = pName;
             pluginUrl = pUrl;
@@ -158,10 +159,10 @@ public final class UpdateModule extends JsonModule {
                 downloaded = false;
                 announced = false;
             }
-            if (build > current && current > 0 && !announced) {
+            if (newBuild > current && current > 0 && !announced) {
                 announced = true;
                 Bukkit.getScheduler().runTask(plugin, () -> {
-                    plugin.getLogger().info("Update disponibil: build #" + build + " (rulezi #" + current + "). Foloseste /flowcity update.");
+                    plugin.getLogger().info("Update disponibil: build #" + newBuild + " (rulezi #" + current + "). Foloseste /flowcity update.");
                     for (Player p : Bukkit.getOnlinePlayers()) {
                         if (p.hasPermission("flowcity.update")) {
                             p.sendMessage("§b[FlowCity] §fUpdate disponibil: build §a#" + build + "§7. §f/flowcity update");
