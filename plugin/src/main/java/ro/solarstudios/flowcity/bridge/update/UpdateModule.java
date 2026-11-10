@@ -248,7 +248,7 @@ public final class UpdateModule extends JsonModule {
                     if (in.read(head) != 2 || head[0] != 'P' || head[1] != 'K') throw new IllegalStateException("nu e un jar valid");
                 }
                 // Bukkit aplica din plugins/update fisierul cu acelasi nume ca pluginul instalat
-                File target = new File(dir, plugin.getFile().getName());
+                File target = new File(dir, jarName());
                 Files.move(tmp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING);
                 downloaded = true;
                 Bukkit.getScheduler().runTask(plugin, () -> {
@@ -260,6 +260,15 @@ public final class UpdateModule extends JsonModule {
                 Bukkit.getScheduler().runTask(plugin, () -> s.sendMessage("§cDescarcarea a esuat: " + e.getMessage()));
             }
         });
+    }
+
+    /** Numele fisierului jar al pluginului instalat (Bukkit aplica din plugins/update fisierul cu acelasi nume). */
+    private String jarName() {
+        try {
+            return new File(plugin.getClass().getProtectionDomain().getCodeSource().getLocation().toURI()).getName();
+        } catch (Exception e) {
+            return pluginName;
+        }
     }
 
     private String total() {
