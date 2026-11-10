@@ -7,10 +7,8 @@ import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.AbstractGui;
 import net.minecraft.client.gui.screen.ConnectingScreen;
-import net.minecraft.client.gui.screen.MultiplayerScreen;
 import net.minecraft.client.gui.screen.OptionsScreen;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.WorldSelectionScreen;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.Util;
@@ -23,7 +21,7 @@ import ro.solarstudios.flowcity.client.ui.Xmas;
 
 /**
  * Meniu principal FlowCity: fundal cu orasul (zoom lent), zapada, ghirlanda de Craciun, titlu albastru
- * si butoane mari: INTRARE IN ORAS, MODURI, DISCORD, SETARI, SINGLEPLAYER, IESIRE.
+ * si butoane mari: INTRARE IN ORAS, MODURI, DISCORD, SETARI, IESIRE.
  */
 public final class FlowMainMenu extends Screen {
     private static final ResourceLocation BG = new ResourceLocation("flowcitycore", "textures/gui/menu_bg.png");
@@ -74,8 +72,6 @@ public final class FlowMainMenu extends Screen {
             if (!dc.isEmpty() && (dc.startsWith("https://") || dc.startsWith("http://"))) Util.getOSType().openURI(dc);
         }));
         buttons.add(new Btn("SETARI", "video, sunet, controale", false, () -> minecraft.displayGuiScreen(new OptionsScreen(this, minecraft.gameSettings))));
-        buttons.add(new Btn("SINGLEPLAYER", "lumi locale", false, () -> minecraft.displayGuiScreen(new WorldSelectionScreen(this))));
-        buttons.add(new Btn("MULTIPLAYER", "alte servere", false, () -> minecraft.displayGuiScreen(new MultiplayerScreen(this))));
         buttons.add(new Btn("IESIRE", "inchide jocul", false, () -> minecraft.shutdown()));
         layout();
     }
