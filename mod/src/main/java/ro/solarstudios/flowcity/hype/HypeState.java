@@ -23,6 +23,8 @@ public final class HypeState {
     public static JsonObject atm = new JsonObject();
     public static JsonObject jobs = new JsonObject();
     public static boolean hudOn = true;
+    /** Opacitatea fundalului HUD (0 = complet transparent, implicit). Se schimba cu /hud fundal. */
+    public static int hudBg = 0;
     public static long jobsAt;
     public static long levelUpAt;
     public static final List<Popup> popups = new ArrayList<>();

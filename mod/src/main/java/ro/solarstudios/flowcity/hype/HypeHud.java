@@ -112,7 +112,7 @@ public final class HypeHud {
         animateMoney(JsonClientModule.num(s, "cash", 0), dt, now);
 
         // fundal discret pentru lizibilitate
-        Ui.round(ms, x - 4, y - 3, W + 8, bottom(s) + 6, Theme.alpha(0xFF050912, 0x58));
+        if (HypeState.hudBg > 0) Ui.round(ms, x - 4, y - 3, W + 8, bottom(s) + 6, Theme.alpha(0xFF050912, HypeState.hudBg));
 
         drawClock(ms, mc, x, y, t);
         Ui.rect(ms, x + 84, y + 1, 1, 28, Theme.alpha(Theme.LINE, 0xAA));
@@ -241,7 +241,7 @@ public final class HypeHud {
 
     private static int chip(MatrixStack ms, String text, int x, int y, int color) {
         int w = Ui.width(text) + 10;
-        Ui.frame(ms, x, y, w, 14, Theme.mix(0xFF0A1020, color, 0.14f), Theme.mix(Theme.PANEL, color, 0.55f));
+        Ui.frame(ms, x, y, w, 14, Theme.alpha(Theme.mix(0xFF0A1020, color, 0.14f), 0x50), Theme.alpha(Theme.mix(Theme.PANEL, color, 0.55f), 0xA0));
         Ui.text(ms, text, x + 5, y + 3, color);
         return x + w;
     }

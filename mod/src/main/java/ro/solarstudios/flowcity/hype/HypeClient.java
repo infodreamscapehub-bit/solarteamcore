@@ -29,6 +29,14 @@ public final class HypeClient extends JsonClientModule {
             if ("jobs".equals(str(d, "screen", ""))) Minecraft.getInstance().displayGuiScreen(new JobsScreen());
         });
         on("hud_toggle", d -> {
+            if ("bg".equals(str(d, "mode", ""))) {
+                int[] steps = {0, 40, 90, 150};
+                int next = 0;
+                for (int i = 0; i < steps.length; i++) if (HypeState.hudBg == steps[i]) next = (i + 1) % steps.length;
+                HypeState.hudBg = steps[next];
+                notice(next == 0 ? "HUD transparent." : "Fundal HUD: " + (next * 100 / 3) + "%.", true);
+                return;
+            }
             HypeState.hudOn = !HypeState.hudOn;
             notice(HypeState.hudOn ? "HUD pornit." : "HUD oprit.", true);
         });
