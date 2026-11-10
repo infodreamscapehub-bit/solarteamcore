@@ -165,7 +165,7 @@ public final class UpdateModule extends JsonModule {
                     plugin.getLogger().info("Update disponibil: build #" + newBuild + " (rulezi #" + current + "). Foloseste /flowcity update.");
                     for (Player p : Bukkit.getOnlinePlayers()) {
                         if (p.hasPermission("flowcity.update")) {
-                            p.sendMessage("§b[FlowCity] §fUpdate disponibil: build §a#" + build + "§7. §f/flowcity update");
+                            p.sendMessage("§b[FlowCity] §fUpdate disponibil: build §a#" + newBuild + "§7. §f/flowcity update");
                         }
                     }
                     if (plugin.getConfig().getBoolean("update.auto-download", false)) download(Bukkit.getConsoleSender());
