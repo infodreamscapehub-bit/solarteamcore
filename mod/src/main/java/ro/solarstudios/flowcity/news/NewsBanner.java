@@ -48,7 +48,7 @@ public final class NewsBanner {
         long now = System.currentTimeMillis();
         if (en.start == 0) {
             en.start = now;
-            if (mc.getSoundHandler() != null) mc.getSoundHandler().play(SimpleSound.master(SoundEvents.BLOCK_NOTE_BLOCK_BELL, 1.0F));
+            ro.solarstudios.flowcity.client.ui.FlowSounds.play("message", 0.9F);
         }
         long age = now - en.start;
         if (age > IN + en.dur + OUT) {

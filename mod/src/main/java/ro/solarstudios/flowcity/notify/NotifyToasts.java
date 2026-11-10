@@ -5,8 +5,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.audio.SimpleSound;
-import net.minecraft.util.SoundEvents;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import ro.solarstudios.flowcity.client.ui.Theme;
@@ -52,12 +50,9 @@ public final class NotifyToasts {
     }
 
     private static void sound(String type) {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.getSoundHandler() == null) return;
-        net.minecraft.util.SoundEvent s = "BAD".equals(type) || "WARN".equals(type)
-            ? SoundEvents.BLOCK_NOTE_BLOCK_BASS
-            : ("OK".equals(type) || "MONEY".equals(type) || "JOB".equals(type) ? SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP : SoundEvents.BLOCK_NOTE_BLOCK_PLING);
-        mc.getSoundHandler().play(SimpleSound.master(s, 1.2F));
+        String name = "BAD".equals(type) || "WARN".equals(type) ? "alert"
+            : ("MONEY".equals(type) || "JOB".equals(type) || "OK".equals(type) ? "money" : "notify");
+        ro.solarstudios.flowcity.client.ui.FlowSounds.play(name, 0.8F);
     }
 
     private static float ease(float t) {
