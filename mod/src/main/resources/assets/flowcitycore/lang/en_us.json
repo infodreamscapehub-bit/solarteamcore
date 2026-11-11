@@ -23,5 +23,6 @@
   "item.flowcitycore.100_lei": "100 Lei",
   "item.flowcitycore.200_lei": "200 Lei",
   "item.flowcitycore.500_lei": "500 Lei",
-  "itemGroup.flowcity": "FlowCity"
+  "itemGroup.flowcity": "FlowCity",
+  "key.flowcity.map": "Harta (eMaps)"
 }

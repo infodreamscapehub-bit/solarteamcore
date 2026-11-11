@@ -41,6 +41,7 @@ public final class ClientInit {
         event.enqueueWork(() -> {
             ClientRegistry.registerKeyBinding(openAdmin);
             ro.solarstudios.flowcity.phone.PhoneClient.registerKeys();
+            ro.solarstudios.flowcity.maps.MapsClient.registerKeys();
             ClientBridge.registerHandler();
         });
     }

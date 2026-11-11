@@ -295,7 +295,7 @@ public final class PhoneScreen extends FlowScreen {
             case 5: NotifyClient.requestHistory(false); mc.displayGuiScreen(new NotifyScreen()); break;
             case 6: HypeClient.request("jobs_req", new JsonObject()); mc.displayGuiScreen(new JobsScreen()); break;
             case 7: WheelClient.requestInfo(); mc.displayGuiScreen(new WheelScreen()); break;
-            case 8: toast("Harta: in curand (eMaps)", false); break;
+            case 8: mc.displayGuiScreen(new ro.solarstudios.flowcity.maps.MapScreen()); break;
             default: go(Page.SETTINGS); break;
         }
     }
