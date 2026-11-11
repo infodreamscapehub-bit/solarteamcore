@@ -106,4 +106,15 @@ public final class Ui {
         if (minutes % 60 == 0) return (minutes / 60) + "h";
         return minutes + "m";
     }
+
+    /** Decupare dreptunghiulara (coordonate GUI). Se inchide cu {@link #endScissor()}. */
+    public static void scissor(int x, int y, int w, int h) {
+        net.minecraft.client.MainWindow win = net.minecraft.client.Minecraft.getInstance().getMainWindow();
+        double sc = win.getGuiScaleFactor();
+        com.mojang.blaze3d.systems.RenderSystem.enableScissor((int) (x * sc), (int) (win.getFramebufferHeight() - (y + h) * sc), Math.max(0, (int) (w * sc)), Math.max(0, (int) (h * sc)));
+    }
+
+    public static void endScissor() {
+        com.mojang.blaze3d.systems.RenderSystem.disableScissor();
+    }
 }

@@ -59,35 +59,68 @@ public final class FlowMainMenu extends Screen {
         super(new StringTextComponent("FlowCity"));
     }
 
+    private Btn discordBtn;
+
     @Override
     protected void init() {
         buttons.clear();
-        String ip = cfg.serverIp == null || cfg.serverIp.trim().isEmpty() ? MenuConfig.DEFAULT_IP : cfg.serverIp.trim();
-        buttons.add(new Btn("INTRARE IN ORAS", "conectare directa la " + cfg.serverName, true, () -> {
-            minecraft.displayGuiScreen(new ConnectingScreen(this, minecraft, new ServerData(cfg.serverName, ip, false)));
-        }));
+        buttons.add(new Btn("INTRA PE SERVER", "conectare directa la " + cfg.serverName, true, this::joinServer));
         buttons.add(new Btn("MODURI", ModList.get().size() + " instalate", false, () -> minecraft.displayGuiScreen(new ModListScreen(this))));
+        buttons.add(new Btn("SETARI JOC", "video, sunet, controale", false, () -> minecraft.displayGuiScreen(new OptionsScreen(this, minecraft.gameSettings))));
+        buttons.add(new Btn("REGULAMENT", Rules.accepted() ? "acceptat" : "de acceptat", false, () -> minecraft.displayGuiScreen(new RulesScreen(this, null))));
+        buttons.add(new Btn("IESIRE DIN JOC", "inchide jocul", false, () -> minecraft.shutdown()));
         String dc = cfg.discord == null || cfg.discord.trim().isEmpty() ? MenuConfig.DEFAULT_DISCORD : cfg.discord.trim();
-        buttons.add(new Btn("DISCORD", "comunitatea noastra", false, () -> {
-            if (!dc.isEmpty() && (dc.startsWith("https://") || dc.startsWith("http://"))) Util.getOSType().openURI(dc);
-        }));
-        buttons.add(new Btn("SETARI", "video, sunet, controale", false, () -> minecraft.displayGuiScreen(new OptionsScreen(this, minecraft.gameSettings))));
-        buttons.add(new Btn("IESIRE", "inchide jocul", false, () -> minecraft.shutdown()));
+        discordBtn = new Btn("DISCORD", "", false, () -> {
+            if (dc.startsWith("https://") || dc.startsWith("http://")) Util.getOSType().openURI(dc);
+        });
         layout();
     }
 
+    private String ip() {
+        return cfg.serverIp == null || cfg.serverIp.trim().isEmpty() ? MenuConfig.DEFAULT_IP : cfg.serverIp.trim();
+    }
+
+    private void connect() {
+        minecraft.displayGuiScreen(new ConnectingScreen(this, minecraft, new ServerData(cfg.serverName, ip(), false)));
+    }
+
+    /** Prima intrare: fereastra de regulament; dupa acceptare conectarea porneste direct. */
+    private void joinServer() {
+        if (Rules.accepted()) connect();
+        else minecraft.displayGuiScreen(new RulesScreen(this, this::connect));
+    }
+
+    @Override
+    public void tick() {
+        StatusPing.tick(ip());
+    }
+
+    private int rightX() {
+        return width - rightW() - Math.max(18, width / 40);
+    }
+
+    private int rightW() {
+        return Math.max(190, Math.min(270, width * 3 / 10));
+    }
+
     private void layout() {
-        int x = Math.max(24, width / 14);
-        int w = Math.min(230, width / 3);
+        int x = Math.max(24, width / 16);
+        int w = Math.min(290, Math.max(180, width * 37 / 100));
         int total = 0;
-        for (Btn b : buttons) total += (b.primary ? 34 : 24) + 5;
-        int y = Math.max(96, height / 2 - total / 2 + 24);
+        for (Btn b : buttons) total += (b.primary ? 40 : 30) + 6;
+        int y = Math.max(112, height / 2 - total / 2 + 30);
         for (Btn b : buttons) {
             b.x = x;
             b.y = y;
             b.w = w;
-            b.h = b.primary ? 34 : 24;
-            y += b.h + 5;
+            b.h = b.primary ? 40 : 30;
+            y += b.h + 6;
+        }
+        if (discordBtn != null) {
+            discordBtn.w = rightW();
+            discordBtn.h = 26;
+            discordBtn.x = rightX();
+            discordBtn.y = height - 48;
         }
     }
 
@@ -125,6 +158,9 @@ public final class FlowMainMenu extends Screen {
             b.hover += ((hov ? 1f : 0f) - b.hover) * Math.min(1f, dt * 14f);
             drawButton(ms, b, buttons.indexOf(b), ease, t);
         }
+        drawStatus(ms, t, ease);
+        drawRulesCard(ms, mx, my, ease);
+        drawDiscord(ms, dt, mx, my, ease);
         drawFooter(ms, t);
     }
 
@@ -187,38 +223,106 @@ public final class FlowMainMenu extends Screen {
             cx += font.getStringWidth(ch) * ts;
         }
         Ui.text(ms, cfg.tagline, x + logoS + 14 + slide, 58, Theme.alpha(Theme.MUTED, (int) (255 * ease)));
+        Ui.text(ms, "Un oras viu: joburi, economie, telefon si poveste.", x + slide, 96, Theme.alpha(0xFFD6E4FF, (int) (255 * ease)));
+        Ui.text(ms, "Intra, accepta regulamentul si incepe-ti viata in FlowCity.", x + slide, 108, Theme.alpha(Theme.MUTED, (int) (255 * ease)));
     }
 
     private void drawButton(MatrixStack ms, Btn b, int idx, float ease, double t) {
-        // aparitie esalonata
         float local = Math.max(0f, Math.min(1f, (System.currentTimeMillis() - openedAt - 250 - idx * 70L) / 350f));
         if (local <= 0f) return;
         float e = 1f - (1f - local) * (1f - local) * (1f - local);
-        int ox = Math.round((1f - e) * -40f) + Math.round(b.hover * 8f);
+        int ox = Math.round((1f - e) * -40f) + Math.round(b.hover * 6f);
         int a = (int) (255 * e);
         int x = b.x + ox;
-        int base = b.primary ? BLUE : 0xFF0B1426;
-        int fill = Theme.alpha(Theme.mix(base, b.primary ? ICE : BLUE, b.hover * (b.primary ? 0.25f : 0.35f)), (int) ((b.primary ? 235 : 170 + 40 * b.hover) * e));
-        Ui.round(ms, x, b.y, b.w, b.h, fill);
-        int edge = Theme.alpha(b.primary ? ICE : Theme.mix(0xFF2A3B5E, BLUE, b.hover), a);
-        Ui.rect(ms, x, b.y, b.w, 1, edge);
-        Ui.rect(ms, x, b.y + b.h - 1, b.w, 1, edge);
-        Ui.rect(ms, x, b.y, 3, b.h, Theme.alpha(b.primary ? 0xFFFFFFFF : BLUE, a));
+        boolean danger = b.label.startsWith("IESIRE");
+        int accent = danger ? 0xFFE5334F : BLUE;
+        int fill = Theme.alpha(Theme.mix(0xFF0B1426, accent, (b.primary ? 0.45f : 0.0f) + b.hover * 0.3f), (int) ((b.primary ? 225 : 165 + 60 * b.hover) * e));
+        Ui.rect(ms, x, b.y, b.w, b.h, fill);
+        Ui.rect(ms, x, b.y, b.w, 1, Theme.alpha(Theme.mix(0xFF22314F, accent, b.hover), (int) (200 * e)));
+        Ui.rect(ms, x, b.y + b.h - 1, b.w, 1, Theme.alpha(Theme.mix(0xFF22314F, accent, b.hover), (int) (200 * e)));
+        Ui.rect(ms, x, b.y, 3 + Math.round(b.hover * 2f), b.h, Theme.alpha(accent, a));
         if (b.primary) {
-            // luciu care trece peste buton
             int sweep = (int) (((t * 0.35) % 1.0) * (b.w + 40)) - 20;
-            Ui.rect(ms, x + Math.max(3, sweep), b.y + 1, Math.min(14, Math.max(0, b.w - sweep)), b.h - 2, Theme.alpha(0xFFFFFFFF, 26));
+            Ui.rect(ms, x + Math.max(3, sweep), b.y + 1, Math.min(14, Math.max(0, b.w - sweep)), b.h - 2, Theme.alpha(0xFFFFFFFF, 22));
         }
-        int ty = b.y + (b.h - 8) / 2 - (b.primary ? 4 : 0);
+        float sc = b.primary ? 1.2f : 1f;
         ms.push();
-        float s = b.primary ? 1.25f : 1f;
-        ms.translate(x + 12, ty + (b.primary ? 3 : 0), 0);
-        ms.scale(s, s, 1f);
+        ms.translate(x + 14, b.y + (b.h - 8 * sc) / 2f, 0);
+        ms.scale(sc, sc, 1f);
         font.drawStringWithShadow(ms, b.label, 0, 0, Theme.alpha(0xFFFFFFFF, a));
         ms.pop();
         if (b.primary || b.hover > 0.05f) {
-            Ui.text(ms, b.hint, x + 12, b.y + b.h - 11, Theme.alpha(b.primary ? 0xFFDDF1FF : Theme.MUTED, (int) (a * (b.primary ? 0.9f : b.hover))));
+            Ui.textRight(ms, b.hint, x + b.w - 10, b.y + (b.h - 8) / 2, Theme.alpha(b.primary ? 0xFFDDF1FF : Theme.MUTED, (int) (a * (b.primary ? 0.8f : b.hover))));
         }
+    }
+
+    private void card(MatrixStack ms, int x, int y, int w, int h, int accent, float ease) {
+        Ui.rect(ms, x, y, w, h, Theme.alpha(0xFF08101F, (int) (205 * ease)));
+        Ui.rect(ms, x, y, w, 1, Theme.alpha(0xFF2A3B5E, (int) (230 * ease)));
+        Ui.rect(ms, x, y + h - 1, w, 1, Theme.alpha(0xFF2A3B5E, (int) (230 * ease)));
+        Ui.rect(ms, x + w - 1, y, 1, h, Theme.alpha(0xFF2A3B5E, (int) (230 * ease)));
+        Ui.rect(ms, x, y, w, 3, Theme.alpha(accent, (int) (255 * ease)));
+    }
+
+    private void drawStatus(MatrixStack ms, double t, float ease) {
+        int x = rightX() + Math.round((1f - ease) * 40f);
+        int w = rightW();
+        int y = 40;
+        card(ms, x, y, w, 70, BLUE, ease);
+        Ui.textShadow(ms, "STATUS SERVER", x + 12, y + 10, Theme.TEXT);
+        String st = !StatusPing.known ? "Se verifica..." : (StatusPing.online ? "ONLINE" : "OFFLINE");
+        int sc = !StatusPing.known ? Theme.MUTED : (StatusPing.online ? Theme.OK : Theme.BAD);
+        Ui.text(ms, "Status:", x + 12, y + 24, Theme.MUTED);
+        float pulse = 0.6f + 0.4f * (float) Math.sin(t * 3.0);
+        Ui.rect(ms, x + 12 + Ui.width("Status: ") + 1, y + 26, 5, 5, Theme.alpha(sc, (int) (140 + 115 * pulse)));
+        Ui.text(ms, st, x + 12 + Ui.width("Status: ") + 10, y + 24, sc);
+        Ui.text(ms, "Jucatori:", x + 12, y + 36, Theme.MUTED);
+        Ui.text(ms, StatusPing.players >= 0 ? StatusPing.players + " / " + StatusPing.max : "-", x + 12 + Ui.width("Jucatori: "), y + 36, Theme.TEXT);
+        Ui.text(ms, "Ping:", x + 12, y + 48, Theme.MUTED);
+        long p = StatusPing.ping;
+        Ui.text(ms, p >= 0 ? p + " ms" : "-", x + 12 + Ui.width("Ping: "), y + 48, p < 0 ? Theme.MUTED : (p < 80 ? Theme.OK : (p < 160 ? Theme.WARN : Theme.BAD)));
+        if (StatusPing.players >= 0 && StatusPing.max > 0) Ui.bar(ms, x + 12, y + 60, w - 24, 4, Math.min(1f, StatusPing.players / (float) StatusPing.max), BLUE);
+    }
+
+    private final int[] rulesBox = new int[4];
+
+    private void drawRulesCard(MatrixStack ms, int mx, int my, float ease) {
+        int x = rightX() + Math.round((1f - ease) * 40f);
+        int w = rightW();
+        int y = 120;
+        List<String> titles = Rules.titles();
+        int rows = Math.min(5, titles.size());
+        int h = 58 + rows * 12;
+        boolean ok = Rules.accepted();
+        card(ms, x, y, w, h, ok ? Theme.OK : 0xFFFFB020, ease);
+        Ui.textShadow(ms, "REGULAMENT", x + 12, y + 10, Theme.TEXT);
+        Ui.textRight(ms, ok ? "ACCEPTAT" : "NEACCEPTAT", x + w - 10, y + 10, ok ? Theme.OK : Theme.WARN);
+        Ui.text(ms, "Termeni si conditii FlowCity", x + 12, y + 22, Theme.MUTED);
+        int yy = y + 36;
+        for (int i = 0; i < rows; i++) {
+            Ui.rect(ms, x + 12, yy + 3, 3, 3, BLUE);
+            Ui.text(ms, Ui.clip(titles.get(i), w - 36), x + 20, yy, Theme.TEXT);
+            yy += 12;
+        }
+        int by = y + h - 20;
+        boolean hov = Ui.in(mx, my, x + 12, by, w - 24, 14);
+        Ui.round(ms, x + 12, by, w - 24, 14, Theme.alpha(Theme.mix(0xFF16325C, BLUE, hov ? 0.6f : 0.2f), 230));
+        Ui.textCenter(ms, ok ? "CITESTE REGULAMENTUL" : "CITESTE SI ACCEPTA", x + w / 2, by + 3, 0xFFFFFFFF);
+        rulesBox[0] = x + 12;
+        rulesBox[1] = by;
+        rulesBox[2] = w - 24;
+        rulesBox[3] = 14;
+    }
+
+    private void drawDiscord(MatrixStack ms, float dt, int mx, int my, float ease) {
+        Btn d = discordBtn;
+        if (d == null) return;
+        boolean hov = Ui.in(mx, my, d.x, d.y, d.w, d.h);
+        d.hover += ((hov ? 1f : 0f) - d.hover) * Math.min(1f, dt * 14f);
+        int x = d.x + Math.round((1f - ease) * 40f);
+        Ui.rect(ms, x, d.y, d.w, d.h, Theme.alpha(Theme.mix(0xFF4752C4, 0xFF6A75E8, d.hover), (int) (235 * ease)));
+        Ui.rect(ms, x, d.y, d.w, 1, Theme.alpha(0xFF9AA3FF, (int) (200 * ease)));
+        Ui.textCenter(ms, "DISCORD  -  dsc.gg/solarteam12", x + d.w / 2, d.y + 9, 0xFFFFFFFF);
     }
 
     private final int[] updBox = new int[4];
@@ -249,8 +353,7 @@ public final class FlowMainMenu extends Screen {
         int y = height - 14;
         Ui.text(ms, "Minecraft 1.16.5  |  " + ModList.get().size() + " moduri  |  FlowCity", 10, y, Theme.alpha(Theme.FAINT, 220));
         String name = minecraft.getSession().getUsername();
-        Ui.textRight(ms, "Salut, " + name, width - 10, y, Theme.alpha(Theme.MUTED, 230));
-        Ui.textRight(ms, "(c) SolarStudios", width - 10, y - 11, Theme.alpha(Theme.FAINT, 180));
+        Ui.textRight(ms, "Salut, " + name + "  |  (c) SolarStudios", width - 10, y, Theme.alpha(Theme.MUTED, 230));
     }
 
     @Override
@@ -258,6 +361,15 @@ public final class FlowMainMenu extends Screen {
         if (button == 0) {
             if (updBox[2] > 0 && Ui.in((int) mx, (int) my, updBox[0], updBox[1], updBox[2], updBox[3])) {
                 minecraft.displayGuiScreen(new ro.solarstudios.flowcity.update.UpdateScreen(this));
+                return true;
+            }
+            if (Ui.in((int) mx, (int) my, rulesBox[0], rulesBox[1], rulesBox[2], rulesBox[3])) {
+                minecraft.displayGuiScreen(new RulesScreen(this, null));
+                return true;
+            }
+            if (discordBtn != null && Ui.in((int) mx, (int) my, discordBtn.x, discordBtn.y, discordBtn.w, discordBtn.h)) {
+                minecraft.getSoundHandler().play(net.minecraft.client.audio.SimpleSound.master(net.minecraft.util.SoundEvents.UI_BUTTON_CLICK, 1.0F));
+                discordBtn.action.run();
                 return true;
             }
             for (Btn b : buttons) {

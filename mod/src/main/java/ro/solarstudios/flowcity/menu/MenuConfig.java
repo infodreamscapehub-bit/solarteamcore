@@ -18,12 +18,25 @@ public final class MenuConfig {
     public static final String DEFAULT_DISCORD = "https://dsc.gg/solarteam12";
     public String discord = DEFAULT_DISCORD; // gol = foloseste link-ul implicit
     public String tagline = "Roleplay  |  SolarStudios";
+    /** Hash-ul regulamentului acceptat (0 = neacceptat). Se reseteaza singur cand se schimba regulamentul. */
+    public int rulesAccepted = 0;
 
     private static MenuConfig cached;
 
     public static MenuConfig get() {
         if (cached == null) cached = load();
         return cached;
+    }
+
+    public void save() {
+        try {
+            Path file = FMLPaths.CONFIGDIR.get().resolve("flowcity-menu.json");
+            try (Writer w = Files.newBufferedWriter(file, StandardCharsets.UTF_8)) {
+                new GsonBuilder().setPrettyPrinting().create().toJson(this, w);
+            }
+        } catch (IOException | RuntimeException ignored) {
+            // nu e critic
+        }
     }
 
     private static MenuConfig load() {
