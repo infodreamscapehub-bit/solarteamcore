@@ -26,7 +26,7 @@ public final class UpdateScreen extends FlowScreen {
     }
 
     @Override
-    public void onClose() {
+    public void closeScreen() {
         Minecraft.getInstance().displayGuiScreen(parent);
     }
 
@@ -107,7 +107,7 @@ public final class UpdateScreen extends FlowScreen {
             java.io.File m = UpdateChecker.modsDir();
             if (m.isDirectory()) Util.getOSType().openFile(m);
         });
-        button(ms, "INCHIDE", x + 2 * (bw + 6), by, bw, 18, mx, my, true, Theme.PANEL_3, this::onClose);
+        button(ms, "INCHIDE", x + 2 * (bw + 6), by, bw, 18, mx, my, true, Theme.PANEL_3, this::closeScreen);
         Ui.text(ms, "Descarcarea vine din GitHub-ul FlowCity. Modul nu se instaleaza singur.", x, py + ph - 16, Theme.FAINT);
     }
 

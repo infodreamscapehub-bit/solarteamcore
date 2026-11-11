@@ -131,7 +131,7 @@ public abstract class FlowScreen extends Screen {
         if (subtitle != null && !subtitle.isEmpty()) {
             Ui.text(ms, subtitle, px + 15 + Ui.width(title) + 8, py + 8, Theme.MUTED);
         }
-        button(ms, "X", px + pw - 18, py + 5, 12, 14, mx, my, true, 0xFF5B2A35, this::onClose);
+        button(ms, "X", px + pw - 18, py + 5, 12, 14, mx, my, true, 0xFF5B2A35, this::closeScreen);
     }
 
     protected void button(MatrixStack ms, String label, int x, int y, int w, int h, int mx, int my,

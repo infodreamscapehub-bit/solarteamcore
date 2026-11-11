@@ -33,7 +33,7 @@ public final class MapScreen extends FlowScreen {
     }
 
     @Override
-    public void removed() {
+    public void onClose() {
         if (view != null) view.close();
         view = null;
     }
@@ -217,7 +217,7 @@ public final class MapScreen extends FlowScreen {
     @Override
     public boolean keyPressed(int key, int scan, int mods) {
         if (MapsClient.openKey != null && MapsClient.openKey.matchesKey(key, scan)) {
-            onClose();
+            closeScreen();
             return true;
         }
         return super.keyPressed(key, scan, mods);

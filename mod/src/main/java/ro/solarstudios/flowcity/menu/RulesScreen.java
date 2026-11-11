@@ -29,7 +29,7 @@ public final class RulesScreen extends FlowScreen {
     }
 
     @Override
-    public void onClose() {
+    public void closeScreen() {
         Minecraft.getInstance().displayGuiScreen(parent);
     }
 
@@ -46,7 +46,7 @@ public final class RulesScreen extends FlowScreen {
         Ui.rect(ms, px, y0, pw, 3, Theme.ACCENT);
         Ui.textShadow(ms, "REGULAMENT FLOWCITY", px + 14, y0 + 12, Theme.TEXT);
         Ui.text(ms, "Termeni si conditii - citeste pana la capat", px + 14, y0 + 24, Theme.MUTED);
-        button(ms, "X", px + pw - 26, y0 + 10, 16, 16, mx, my, true, Theme.PANEL_3, this::onClose);
+        button(ms, "X", px + pw - 26, y0 + 10, 16, 16, mx, my, true, Theme.PANEL_3, this::closeScreen);
 
         int top = y0 + 42;
         int bottom = y0 + ph - 76;
@@ -102,11 +102,11 @@ public final class RulesScreen extends FlowScreen {
         if (!canCheck) Ui.text(ms, "Deruleaza pana jos ca sa poti accepta.", px + 32, cy + 14, Theme.WARN);
 
         int by = y0 + ph - 34;
-        button(ms, "REFUZ", px + 14, by, 90, 22, mx, my, true, Theme.PANEL_3, this::onClose);
+        button(ms, "REFUZ", px + 14, by, 90, 22, mx, my, true, Theme.PANEL_3, this::closeScreen);
         button(ms, onAccept != null ? "ACCEPT SI INTRA" : "ACCEPT", px + pw - 154, by, 140, 22, mx, my, checked && canCheck, Theme.OK, () -> {
             Rules.accept();
             if (onAccept != null) onAccept.run();
-            else onClose();
+            else closeScreen();
         });
     }
 

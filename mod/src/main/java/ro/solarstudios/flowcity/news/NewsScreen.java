@@ -126,7 +126,7 @@ public final class NewsScreen extends FlowScreen {
         } finally {
             RenderSystem.disableScissor();
         }
-        button(ms, "X", px + pw - 18, py + 5, 12, 14, mx, my, true, 0xFF5B2A35, this::onClose);
+        button(ms, "X", px + pw - 18, py + 5, 12, 14, mx, my, true, 0xFF5B2A35, this::closeScreen);
     }
 
     private List<NewsState.Item> filtered() {

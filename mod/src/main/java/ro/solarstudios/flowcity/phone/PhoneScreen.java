@@ -559,7 +559,7 @@ public final class PhoneScreen extends FlowScreen {
     public boolean keyPressed(int key, int scan, int mods) {
         boolean typing = (page == Page.THREAD && msgField.isFocused()) || (page == Page.CONTACTS && contactField.isFocused());
         if (!typing && PhoneClient.openKey != null && PhoneClient.openKey.matchesKey(key, scan)) {
-            onClose();
+            closeScreen();
             return true;
         }
         PhoneState.Call c = PhoneState.call;

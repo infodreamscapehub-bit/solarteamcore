@@ -268,7 +268,7 @@ public class AdminPanelScreen extends Screen {
         });
         button(ms, "ROATA", px + pw - 96, py + 5, 36, 14, mx, my, true, Theme.VIOLET, () ->
             Minecraft.getInstance().displayGuiScreen(new ro.solarstudios.flowcity.wheel.WheelAdminScreen()));
-        button(ms, "X", px + pw - 18, py + 5, 12, 14, mx, my, true, 0xFF5B2A35, this::onClose);
+        button(ms, "X", px + pw - 18, py + 5, 12, 14, mx, my, true, 0xFF5B2A35, this::closeScreen);
     }
 
     private void drawList(MatrixStack ms, int mx, int my) {
