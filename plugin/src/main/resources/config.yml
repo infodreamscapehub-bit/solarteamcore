@@ -29,3 +29,7 @@ update:
   repo: "infodreamscapehub-bit/solarteamcore"
   check-minutes: 30
   auto-download: false                # true = descarca singur noul plugin in plugins/update
+
+phone:
+  # true = ai nevoie de un telefon (item flowcitycore:phone*) in inventar pentru mesaje/apeluri
+  require-item: true

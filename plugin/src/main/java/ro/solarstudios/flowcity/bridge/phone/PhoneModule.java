@@ -59,6 +59,8 @@ public final class PhoneModule extends JsonModule {
     @Override
     protected void onEnable() {
         Commands.permission("flowcity.phone", "Foloseste telefonul", PermissionDefault.TRUE);
+        Commands.permission("flowcity.phone.give", "Da telefon (/telefon da)", PermissionDefault.OP);
+        Commands.permission("flowcity.phone.bypass", "Foloseste telefonul fara item", PermissionDefault.OP);
         try {
             plugin.db().async(c -> {
                 try (Statement st = c.createStatement()) {
@@ -80,9 +82,22 @@ public final class PhoneModule extends JsonModule {
         on("contact_del", this::contactDel);
         on("threads", (p, j) -> sendThreads(p));
         on("thread", (p, j) -> sendThread(p, uuid(j, "uuid")));
-        on("send", this::sendMessage);
-        on("call", (p, j) -> startCall(p, uuid(j, "uuid")));
-        on("call_answer", (p, j) -> answer(p));
+        on("send", (p, j) -> {
+            if (needPhone(p)) sendMessage(p, j);
+        });
+        on("call", (p, j) -> {
+            if (!needPhone(p)) return;
+            UUID t = uuid(j, "uuid");
+            Player tp = t == null ? null : Bukkit.getPlayer(t);
+            if (tp != null && !hasPhone(tp)) {
+                plugin.channel().toast(p, "Numarul nu este disponibil (nu are telefon).", true);
+                return;
+            }
+            startCall(p, t);
+        });
+        on("call_answer", (p, j) -> {
+            if (needPhone(p)) answer(p);
+        });
         on("call_decline", (p, j) -> end(p, true));
         on("call_end", (p, j) -> end(p, false));
         on("calls", (p, j) -> sendCalls(p));
@@ -91,10 +106,53 @@ public final class PhoneModule extends JsonModule {
         Commands.register(plugin, "telefon", "flowcity.phone", (s, c, l, a) -> {
             if (!(s instanceof Player)) return true;
             Player p = (Player) s;
+            if (a.length >= 1 && a[0].equalsIgnoreCase("da")) {
+                if (!s.hasPermission("flowcity.phone.give")) {
+                    s.sendMessage("§cNu ai permisiunea.");
+                    return true;
+                }
+                Player target = a.length >= 2 ? Bukkit.getPlayerExact(a[1]) : p;
+                if (target == null) {
+                    s.sendMessage("§cJucator offline.");
+                    return true;
+                }
+                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "give " + target.getName() + " " + PHONE_ITEMS[0]);
+                s.sendMessage("§aTelefon dat lui " + target.getName() + ".");
+                return true;
+            }
+            if (!needPhone(p)) return true;
             if (plugin.channel().hasMod(p)) send(p, "open", new JsonObject());
             else p.sendMessage("§cTelefonul necesita modul FlowCity pe client.");
             return true;
         }, null, "phone", "tel");
+    }
+
+    private static final String[] PHONE_ITEMS = {"flowcitycore:phone", "flowcitycore:phone1", "flowcitycore:phone2", "flowcitycore:phone3", "flowcitycore:phone4", "flowcitycore:phone5"};
+
+    private static boolean isPhone(org.bukkit.inventory.ItemStack it) {
+        if (it == null || it.getType() == org.bukkit.Material.AIR) return false;
+        String n = it.getType().name().toLowerCase(java.util.Locale.ROOT);
+        String key = "";
+        try {
+            key = it.getType().getKey().toString().toLowerCase(java.util.Locale.ROOT);
+        } catch (RuntimeException | LinkageError ignored) {
+            // materialele modate pot lipsi din registru
+        }
+        return key.startsWith("flowcitycore:phone") || n.contains("flowcitycore") && n.contains("phone");
+    }
+
+    /** Are telefon in inventar (sau bypass / cerinta dezactivata din config). */
+    private boolean hasPhone(Player p) {
+        if (!plugin.getConfig().getBoolean("phone.require-item", true) || p.hasPermission("flowcity.phone.bypass")) return true;
+        if (isPhone(p.getInventory().getItemInOffHand())) return true;
+        for (org.bukkit.inventory.ItemStack it : p.getInventory().getContents()) if (isPhone(it)) return true;
+        return false;
+    }
+
+    private boolean needPhone(Player p) {
+        if (hasPhone(p)) return true;
+        plugin.channel().toast(p, "Ai nevoie de un telefon in inventar.", true);
+        return false;
     }
 
     @Override
