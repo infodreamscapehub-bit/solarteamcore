@@ -60,7 +60,7 @@ public final class StatusPing {
         data = sd;
         POOL.execute(() -> {
             try {
-                PINGER.ping(sd);
+                PINGER.ping(sd, () -> { });
             } catch (Exception e) {
                 failed = true;
             }
