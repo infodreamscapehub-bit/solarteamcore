@@ -427,6 +427,7 @@ public final class PhoneModule extends JsonModule {
         if (c == null || c.active || !c.callee.equals(p.getUniqueId())) return;
         c.active = true;
         c.answeredAt = System.currentTimeMillis();
+        voice("link", c.caller, c.callee);
         for (UUID u : new UUID[] {c.caller, c.callee}) {
             Player x = Bukkit.getPlayer(u);
             if (x != null) callState(x, c, "active");
@@ -440,9 +441,28 @@ public final class PhoneModule extends JsonModule {
         finish(c, status, p.getUniqueId());
     }
 
+    /** Voce privata PlasmoVoice (daca modul e pe server): apelat prin reflexie, ca sa nu depinda pluginul de el. */
+    private void voice(String op, UUID a, UUID b) {
+        try {
+            Class<?> k = Class.forName("ro.solarstudios.flowcity.voice.CallVoice");
+            if ("link".equals(op)) k.getMethod("link", UUID.class, UUID.class).invoke(null, a, b);
+            else k.getMethod("unlink", UUID.class).invoke(null, a);
+        } catch (ClassNotFoundException e) {
+            if (!voiceWarned) {
+                voiceWarned = true;
+                plugin.getLogger().info("ePhone: modul FlowCityCore nu e vizibil pe server - apelurile raman fara voce.");
+            }
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            plugin.getLogger().warning("ePhone voce: " + e);
+        }
+    }
+
+    private boolean voiceWarned;
+
     private void finish(Call c, String status, UUID by) {
         calls.remove(c.caller);
         calls.remove(c.callee);
+        voice("unlink", c.caller, c.callee);
         final long dur = c.active ? (System.currentTimeMillis() - c.answeredAt) / 1000 : 0;
         final String st = status;
         plugin.db().run(conn -> {
