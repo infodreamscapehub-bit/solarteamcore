@@ -12,8 +12,8 @@ import ro.solarstudios.flowcity.net.Bridge;
 
 /**
  * FlowCityCore - SolarStudios. Modul CLIENT pentru serverul FlowCity (Mohist/Arclight).
- * Nu inregistreaza blocuri/iteme: itemele (telefon, cheie GPS, acte) sunt iteme vanilla cu tag, create de pluginul FlowCityBridge.
- * Serverul nu are nevoie de acest mod; pachetele ajung la pluginul Bukkit pe canalul flowcity:bridge.
+ * Inregistreaza bancomatul, telefoanele, cardurile si bancnotele (din EGK). Modul trebuie pus si pe server (Mohist).
+ * Pachetele ajung la pluginul Bukkit pe canalul flowcity:bridge.
  */
 @Mod(FlowCity.MODID)
 public class FlowCity {
@@ -22,6 +22,7 @@ public class FlowCity {
     public FlowCity() {
         ModLoadingContext.get().registerExtensionPoint(ExtensionPoint.DISPLAYTEST,
             () -> Pair.of(() -> FMLNetworkConstants.IGNORESERVERONLY, (remote, isServer) -> true));
+        ro.solarstudios.flowcity.content.ModContent.register();
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> Bridge::init);
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> ClientInit::register);
     }
