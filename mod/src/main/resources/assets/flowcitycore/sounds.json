@@ -1,6 +1,47 @@
 {
-  "notify": {"category": "master", "sounds": [{"name": "flowcitycore:notify", "stream": false}]},
-  "message": {"category": "master", "sounds": [{"name": "flowcitycore:message", "stream": false}]},
-  "money": {"category": "master", "sounds": [{"name": "flowcitycore:money", "stream": false}]},
-  "alert": {"category": "master", "sounds": [{"name": "flowcitycore:alert", "stream": false}]}
+  "notify": {
+    "category": "master",
+    "sounds": [
+      {
+        "name": "flowcitycore:notify",
+        "stream": false
+      }
+    ]
+  },
+  "message": {
+    "category": "master",
+    "sounds": [
+      {
+        "name": "flowcitycore:message",
+        "stream": false
+      }
+    ]
+  },
+  "money": {
+    "category": "master",
+    "sounds": [
+      {
+        "name": "flowcitycore:money",
+        "stream": false
+      }
+    ]
+  },
+  "alert": {
+    "category": "master",
+    "sounds": [
+      {
+        "name": "flowcitycore:alert",
+        "stream": false
+      }
+    ]
+  },
+  "ring": {
+    "category": "master",
+    "sounds": [
+      {
+        "name": "flowcitycore:ring",
+        "stream": false
+      }
+    ]
+  }
 }

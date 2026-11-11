@@ -10,7 +10,12 @@ import net.minecraft.util.SoundCategory;
 public final class FlowSounds {
     private FlowSounds() {}
 
+    /** Multiplicator global de volum (setat din telefon > Setari). */
+    public static float volume = 1.0F;
+
     public static void play(String name, float volume) {
+        if (FlowSounds.volume <= 0.01F) return;
+        volume *= FlowSounds.volume;
         Minecraft mc = Minecraft.getInstance();
         if (mc.getSoundHandler() == null) return;
         mc.getSoundHandler().play(new SimpleSound(new ResourceLocation("flowcitycore", name), SoundCategory.MASTER,

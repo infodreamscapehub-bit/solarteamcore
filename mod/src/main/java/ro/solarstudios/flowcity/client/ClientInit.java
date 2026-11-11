@@ -40,6 +40,7 @@ public final class ClientInit {
         openAdmin = new KeyBinding("key.flowcity.admin", GLFW.GLFW_KEY_F9, "key.categories.flowcity");
         event.enqueueWork(() -> {
             ClientRegistry.registerKeyBinding(openAdmin);
+            ro.solarstudios.flowcity.phone.PhoneClient.registerKeys();
             ClientBridge.registerHandler();
         });
     }
