@@ -1122,8 +1122,8 @@ public final class MapScreen extends FlowScreen {
             selWp = 0;
             return true;
         }
-        if (MapsClient.openKey != null && MapsClient.openKey.matchesKey(key, scan)) {
-            closeScreen();
+        if (MapsClient.openKey != null && MapsClient.openKey.matches(key, scan)) {
+            onClose();
             return true;
         }
         return super.keyPressed(key, scan, mods);

@@ -56,7 +56,7 @@ public final class NewsBanner {
     }
 
     private void doRender(RenderGuiEvent.Post e) {
-        if (e.getType() != RenderGameOverlayEvent.ElementType.ALL || QUEUE.isEmpty()) return;
+        if (QUEUE.isEmpty()) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return;
         Entry en = QUEUE.get(0);
