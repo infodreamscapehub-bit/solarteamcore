@@ -10,7 +10,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.util.Mth;
 import com.mojang.math.Vector3f;
-import net.minecraftforge.client.event.RenderGuiEvent;
+import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -430,18 +430,19 @@ public final class MapsClient extends JsonClientModule {
         }
 
         @SubscribeEvent
-        public void onRender(RenderGuiEvent.Post e) {
+        public void onRender(RenderGameOverlayEvent.Post e) {
+        if (e.getType() != RenderGameOverlayEvent.ElementType.ALL) return;
             Minecraft mc = Minecraft.getInstance();
             if (mc.player == null || mc.level == null || mc.options.hideGui) return;
             if (mc.screen instanceof MapScreen) return;
             try {
-                WorldMarkers.draw(e.getGuiGraphics(), mc);
+                WorldMarkers.draw(new GuiGraphics(e.getMatrixStack()), mc);
             } catch (RuntimeException ex) {
                 MapsState.worldMarkers = false;
             }
             if (!MapsState.minimap) return;
             try {
-                drawRadar(e.getGuiGraphics(), mc);
+                drawRadar(new GuiGraphics(e.getMatrixStack()), mc);
             } catch (RuntimeException ex) {
                 closeRadar();
                 MapsState.minimap = false;

@@ -20,6 +20,6 @@ public final class FlowSounds {
         Minecraft mc = Minecraft.getInstance();
         if (mc.getSoundManager() == null) return;
         mc.getSoundManager().play(new SimpleSoundInstance(new ResourceLocation("flowcitycore", name), SoundSource.MASTER,
-            vol, 1.0F, new java.util.Random(), false, 0, SoundInstance.Attenuation.NONE, 0.0D, 0.0D, 0.0D, true));
+            vol, 1.0F, false, 0, SoundInstance.Attenuation.NONE, 0.0D, 0.0D, 0.0D, true));
     }
 }

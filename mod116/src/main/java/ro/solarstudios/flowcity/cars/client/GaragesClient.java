@@ -28,8 +28,8 @@ import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import ro.solarstudios.flowcity.compat.RegisterKeyMappingsEvent;
-import net.minecraftforge.client.event.RenderGuiEvent;
-import net.minecraftforge.client.event.RenderLevelStageEvent;
+import net.minecraftforge.client.event.RenderGameOverlayEvent;
+import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -214,10 +214,11 @@ public final class GaragesClient {
         }
 
         @SubscribeEvent
-        public void onHud(RenderGuiEvent.Post e) {
+        public void onHud(RenderGameOverlayEvent.Post e) {
+        if (e.getType() != RenderGameOverlayEvent.ElementType.ALL) return;
             Minecraft mc = Minecraft.getInstance();
             if (prompt == null || mc.screen != null || mc.options.hideGui) return;
-            GuiGraphics g = e.getGuiGraphics();
+            GuiGraphics g = new GuiGraphics(e.getMatrixStack());
             String key = interact == null ? "E" : interact.getTranslatedKeyMessage().getString().toUpperCase();
             int kw = Ui.width(key) + 8;
             int w = kw + 8 + Ui.width(prompt) + 12;
@@ -230,13 +231,12 @@ public final class GaragesClient {
         }
 
         @SubscribeEvent
-        public void onWorld(RenderLevelStageEvent e) {
-            if (e.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return;
+        public void onWorld(RenderWorldLastEvent e) {
             Minecraft mc = Minecraft.getInstance();
             if (mc.player == null || mc.level == null || garages.isEmpty()) return;
-            Camera cam = e.getCamera();
+            Camera cam = Minecraft.getInstance().gameRenderer.getMainCamera();
             Vec3 c = cam.getPosition();
-            PoseStack ps = e.getPoseStack();
+            PoseStack ps = e.getMatrixStack();
             MultiBufferSource.BufferSource buf = mc.renderBuffers().bufferSource();
             String d = dim(mc);
             float t = (System.currentTimeMillis() % 2000L) / 2000f;
@@ -289,7 +289,7 @@ public final class GaragesClient {
         Matrix4f m = ps.last().pose();
         Component comp = new TextComponent(text);
         float w = -font.width(comp) / 2f;
-        font.drawInBatch(comp, w, 0, 0xFFFFFFFF, false, m, buf, Font.DisplayMode.SEE_THROUGH, 0x90000000, LightTexture.FULL_BRIGHT);
+        font.drawInBatch(comp, w, 0, 0xFFFFFFFF, false, m, buf, true, 0x90000000, LightTexture.FULL_BRIGHT);
         ps.popPose();
         // linie colorata sub text
         VertexConsumer vc = buf.getBuffer(RenderType.lightning());

@@ -4,7 +4,7 @@ import ro.solarstudios.flowcity.compat.GuiGraphics;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.Minecraft;
-import net.minecraftforge.client.event.RenderGuiEvent;
+import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import ro.solarstudios.flowcity.client.ui.Theme;
 import ro.solarstudios.flowcity.client.ui.Ui;
@@ -41,7 +41,8 @@ public final class NewsBanner {
     private static boolean broken;
 
     @SubscribeEvent
-    public void onRender(RenderGuiEvent.Post e) {
+    public void onRender(RenderGameOverlayEvent.Post e) {
+        if (e.getType() != RenderGameOverlayEvent.ElementType.ALL) return;
         if (broken) return;
         try {
             doRender(e);
@@ -55,7 +56,7 @@ public final class NewsBanner {
         }
     }
 
-    private void doRender(RenderGuiEvent.Post e) {
+    private void doRender(RenderGameOverlayEvent.Post e) {
         if (QUEUE.isEmpty()) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return;
@@ -80,7 +81,7 @@ public final class NewsBanner {
         } else {
             slide = 1f;
         }
-        GuiGraphics ms = e.getGuiGraphics();
+        GuiGraphics ms = new GuiGraphics(e.getMatrixStack());
         int sw = mc.getWindow().getGuiScaledWidth();
         int w = Math.min(330, sw - 20);
         int x = (sw - w) / 2;

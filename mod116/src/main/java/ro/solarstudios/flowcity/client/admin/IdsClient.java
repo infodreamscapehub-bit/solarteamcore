@@ -11,7 +11,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.network.chat.Component;
 import net.minecraft.ChatFormatting;
-import net.minecraftforge.client.event.RenderNameTagEvent;
+import net.minecraftforge.client.event.RenderNameplateEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import ro.solarstudios.flowcity.module.ClientModules;
@@ -76,7 +76,7 @@ public final class IdsClient extends JsonClientModule {
     /** Adauga "#ID " in fata numelui afisat deasupra capului altor jucatori. */
     public static final class Nameplates {
         @SubscribeEvent
-        public void onNameplate(RenderNameTagEvent e) {
+        public void onNameplate(RenderNameplateEvent e) {
             if (!overhead) return;
             Entity en = e.getEntity();
             if (!(en instanceof Player)) return;

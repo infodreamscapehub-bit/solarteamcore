@@ -206,7 +206,7 @@ public final class AdminX extends JsonClientModule {
             try {
                 int w = mc.getWindow().getWidth();
                 int h = mc.getWindow().getHeight();
-                NativeImage full = Screenshot.takeScreenshot(mc.getMainRenderTarget());
+                NativeImage full = Screenshot.takeScreenshot(mc.getWindow().getWidth(), mc.getWindow().getHeight(), mc.getMainRenderTarget());
                 int tw = Math.min(w, 480);
                 int th = Math.max(1, Math.round(h * (tw / (float) w)));
                 byte[] png;

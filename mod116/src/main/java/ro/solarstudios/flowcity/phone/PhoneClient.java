@@ -6,7 +6,7 @@ import ro.solarstudios.flowcity.compat.GuiGraphics;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.KeyMapping;
 import net.minecraftforge.client.event.InputEvent;
-import net.minecraftforge.client.event.RenderGuiEvent;
+import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import ro.solarstudios.flowcity.compat.RegisterKeyMappingsEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent;
@@ -247,7 +247,7 @@ public final class PhoneClient extends JsonClientModule {
         }
 
         @SubscribeEvent
-        public void onKey(InputEvent.Key e) {
+        public void onKey(InputEvent.KeyInputEvent e) {
             if (e.getAction() != GLFW.GLFW_PRESS) return;
             Minecraft mc = Minecraft.getInstance();
             if (mc.screen != null || mc.player == null) return;
@@ -258,12 +258,13 @@ public final class PhoneClient extends JsonClientModule {
         }
 
         @SubscribeEvent
-        public void onRender(RenderGuiEvent.Post e) {
+        public void onRender(RenderGameOverlayEvent.Post e) {
+        if (e.getType() != RenderGameOverlayEvent.ElementType.ALL) return;
                 PhoneState.Call c = PhoneState.call;
             Minecraft mc = Minecraft.getInstance();
             if (c == null || !c.incoming || c.active || mc.player == null || mc.screen instanceof PhoneScreen) return;
             try {
-                GuiGraphics ms = e.getGuiGraphics();
+                GuiGraphics ms = new GuiGraphics(e.getMatrixStack());
                 long now = System.currentTimeMillis();
                 int w = 230;
                 int x = (mc.getWindow().getGuiScaledWidth() - w) / 2;

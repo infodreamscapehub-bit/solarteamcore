@@ -8,7 +8,7 @@ import java.util.Iterator;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraftforge.client.event.RenderGuiEvent;
+import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import ro.solarstudios.flowcity.client.ui.Theme;
 import ro.solarstudios.flowcity.client.ui.Ui;
@@ -70,7 +70,8 @@ public final class HypeHud {
     private static boolean broken;
 
     @SubscribeEvent
-    public void onRender(RenderGuiEvent.Post e) {
+    public void onRender(RenderGameOverlayEvent.Post e) {
+        if (e.getType() != RenderGameOverlayEvent.ElementType.ALL) return;
         if (broken) return;
         try {
             doRender(e);
@@ -84,7 +85,7 @@ public final class HypeHud {
         }
     }
 
-    private void doRender(RenderGuiEvent.Post e) {
+    private void doRender(RenderGameOverlayEvent.Post e) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.options.hideGui) return;
         long now = System.currentTimeMillis();
@@ -101,7 +102,7 @@ public final class HypeHud {
         }
 
         JsonObject s = HypeState.state;
-        GuiGraphics ms = e.getGuiGraphics();
+        GuiGraphics ms = new GuiGraphics(e.getMatrixStack());
         int sw = mc.getWindow().getGuiScaledWidth();
         int x = sw - W - 8 + Math.round((1f - slide) * (W + 16)); // dreapta sus, glisare dinspre dreapta
         int y = 6;

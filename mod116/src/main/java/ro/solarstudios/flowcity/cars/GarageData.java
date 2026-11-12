@@ -143,12 +143,19 @@ public final class GarageData extends SavedData {
     private int nextId = 1;
     private int nextGarage = 1;
 
-    public static GarageData get(MinecraftServer server) {
-        return server.overworld().getDataStorage().computeIfAbsent(GarageData::load, GarageData::new, NAME);
+    public GarageData() {
+        super(NAME);
     }
 
-    private static GarageData load(CompoundTag tag) {
-        GarageData d = new GarageData();
+    public static GarageData get(MinecraftServer server) {
+        return server.overworld().getDataStorage().computeIfAbsent(GarageData::new, NAME);
+    }
+
+    @Override
+    public void load(CompoundTag tag) {
+        GarageData d = this;
+        d.cars.clear();
+        d.garages.clear();
         d.nextId = Math.max(1, tag.getInt("NextId"));
         d.nextGarage = Math.max(1, tag.getInt("NextGarage"));
         ListTag list = tag.getList("Cars", Tag.TAG_COMPOUND);
@@ -163,7 +170,6 @@ public final class GarageData extends SavedData {
             d.garages.put(g.id, g);
             d.nextGarage = Math.max(d.nextGarage, g.id + 1);
         }
-        return d;
     }
 
     @Override

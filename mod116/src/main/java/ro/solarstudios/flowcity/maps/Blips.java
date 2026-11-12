@@ -50,7 +50,7 @@ public final class Blips {
 
     public static void sprite(GuiGraphics ms, int idx, int x, int y, int size) {
         RenderSystem.enableBlend();
-        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        RenderSystem.color4f(1f, 1f, 1f, 1f);
         Minecraft.getInstance().getTextureManager().getTexture(SHEET).bind();
         RenderSystem.texParameter(3553, 10241, 9729);
         RenderSystem.texParameter(3553, 10240, 9729);

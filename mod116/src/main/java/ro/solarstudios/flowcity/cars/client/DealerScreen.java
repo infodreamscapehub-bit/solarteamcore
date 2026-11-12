@@ -194,7 +194,7 @@ public final class DealerScreen extends FlowScreen {
         g.pose().scale(scale, -scale, scale);
         g.pose().mulPose(Vector3f.XP.rotationDegrees(-18f));
         g.pose().mulPose(Vector3f.YP.rotationDegrees(spin));
-        Lighting.setupForEntityInInventory();
+        Lighting.setupFor3DItems();
         EntityRenderDispatcher d = mc.getEntityRenderDispatcher();
         d.setRenderShadow(false);
         try {

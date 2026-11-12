@@ -554,7 +554,7 @@ public class AdminPanelScreen extends Screen {
         int dx = x + (w - dw) / 2;
         int dy = fy + (fh - dh) / 2;
         com.mojang.blaze3d.systems.RenderSystem.enableBlend();
-        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        com.mojang.blaze3d.systems.RenderSystem.color4f(1f, 1f, 1f, 1f);
         ms.blit(AdminX.ssTex, dx, dy, dw, dh, 0f, 0f, AdminX.ssW, AdminX.ssH, AdminX.ssW, AdminX.ssH);
     }
 

@@ -6,11 +6,8 @@ import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.BufferUploader;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.Tesselator;
-import com.mojang.blaze3d.vertex.VertexFormat;
-import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.sounds.SoundEvents;
 import com.mojang.math.Matrix4f;
 import ro.solarstudios.flowcity.client.ui.FlowScreen;
@@ -223,15 +220,16 @@ public final class WheelScreen extends FlowScreen {
 
     // ------------------------------------------------------------------ primitive GL
 
-    private static void begin(VertexFormat.Mode mode) {
+    private static void begin(int mode) {
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
-        RenderSystem.setShader(GameRenderer::getPositionColorShader);
+        RenderSystem.disableTexture();
         Tesselator.getInstance().getBuilder().begin(mode, DefaultVertexFormat.POSITION_COLOR);
     }
 
     private static void end() {
-        BufferUploader.drawWithShader(Tesselator.getInstance().getBuilder().end());
+        Tesselator.getInstance().end();
+        RenderSystem.enableTexture();
     }
 
     private static void vertex(BufferBuilder b, Matrix4f m, float x, float y, int argb) {
@@ -241,7 +239,7 @@ public final class WheelScreen extends FlowScreen {
     private static void sector(GuiGraphics ms, float cx, float cy, float r, double fromDeg, double toDeg, int color) {
         Matrix4f m = ms.pose().last().pose();
         BufferBuilder b = Tesselator.getInstance().getBuilder();
-        begin(VertexFormat.Mode.TRIANGLE_FAN);
+        begin(org.lwjgl.opengl.GL11.GL_TRIANGLE_FAN);
         vertex(b, m, cx, cy, color);
         int steps = Math.max(2, (int) Math.ceil((toDeg - fromDeg) / 4.0));
         for (int i = 0; i <= steps; i++) {
@@ -258,7 +256,7 @@ public final class WheelScreen extends FlowScreen {
     private static void fan(GuiGraphics ms, float[] pts, int color) {
         Matrix4f m = ms.pose().last().pose();
         BufferBuilder b = Tesselator.getInstance().getBuilder();
-        begin(VertexFormat.Mode.TRIANGLE_FAN);
+        begin(org.lwjgl.opengl.GL11.GL_TRIANGLE_FAN);
         for (int i = 0; i + 1 < pts.length; i += 2) vertex(b, m, pts[i], pts[i + 1], color);
         end();
     }

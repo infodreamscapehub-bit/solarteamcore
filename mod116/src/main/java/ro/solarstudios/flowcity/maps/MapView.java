@@ -201,7 +201,7 @@ public final class MapView {
 
     private void bind() {
         RenderSystem.enableBlend();
-        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        RenderSystem.color4f(1f, 1f, 1f, 1f);
         Minecraft.getInstance().getTextureManager().getTexture(loc).bind();
         RenderSystem.texParameter(3553, 10241, 9728);
         RenderSystem.texParameter(3553, 10240, 9728);

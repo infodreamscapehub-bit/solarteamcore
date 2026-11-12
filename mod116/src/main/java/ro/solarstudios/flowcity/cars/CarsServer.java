@@ -232,7 +232,7 @@ public final class CarsServer {
             o.addProperty("plate", c.plate);
             o.addProperty("name", c.name);
             String owner = c.owner == null ? "Factiune: " + c.faction
-                : p.server.getProfileCache().get(c.owner).map(gp -> gp.getName()).orElse("necunoscut");
+                : nameOf(p.server, c.owner);
             o.addProperty("owner", owner);
         } else {
             o.addProperty("plate", "");
@@ -242,6 +242,11 @@ public final class CarsServer {
     }
 
     // ------------------------------------------------------------------ utilitare
+
+    private static String nameOf(MinecraftServer server, UUID id) {
+        com.mojang.authlib.GameProfile gp = server.getProfileCache().get(id);
+        return gp == null ? "necunoscut" : gp.getName();
+    }
 
     private static Entity findLoaded(MinecraftServer server, UUID id) {
         if (id == null) return null;

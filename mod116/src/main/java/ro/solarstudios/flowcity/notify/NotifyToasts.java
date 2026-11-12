@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import net.minecraft.client.Minecraft;
-import net.minecraftforge.client.event.RenderGuiEvent;
+import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import ro.solarstudios.flowcity.client.ui.Theme;
 import ro.solarstudios.flowcity.client.ui.Ui;
@@ -64,7 +64,8 @@ public final class NotifyToasts {
     private static boolean broken;
 
     @SubscribeEvent
-    public void onRender(RenderGuiEvent.Post e) {
+    public void onRender(RenderGameOverlayEvent.Post e) {
+        if (e.getType() != RenderGameOverlayEvent.ElementType.ALL) return;
         if (broken) return;
         try {
             doRender(e);
@@ -78,11 +79,11 @@ public final class NotifyToasts {
         }
     }
 
-    private void doRender(RenderGuiEvent.Post e) {
+    private void doRender(RenderGameOverlayEvent.Post e) {
         if (TOASTS.isEmpty()) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.options.hideGui) return;
-        GuiGraphics ms = e.getGuiGraphics();
+        GuiGraphics ms = new GuiGraphics(e.getMatrixStack());
         int sw = mc.getWindow().getGuiScaledWidth();
         long now = System.currentTimeMillis();
         int slot = 0;
