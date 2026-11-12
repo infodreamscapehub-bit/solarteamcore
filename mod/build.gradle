@@ -23,6 +23,16 @@ minecraft {
     mappings channel: 'snapshot', version: '20210309-1.16.5'
 
     runs {
+        server {
+            workingDirectory project.file('run-server')
+            property 'forge.logging.console.level', 'info'
+            args '--nogui'
+            mods {
+                flowcitycore {
+                    source sourceSets.main
+                }
+            }
+        }
         client {
             workingDirectory project.file('run')
             property 'forge.logging.markers', 'REGISTRIES'
