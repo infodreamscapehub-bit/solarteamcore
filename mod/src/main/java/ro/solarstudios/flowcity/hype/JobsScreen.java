@@ -45,7 +45,7 @@ public final class JobsScreen extends FlowScreen {
         JsonObject d = HypeState.jobs;
         String current = JsonClientModule.str(d, "current", "");
         long cd = JsonClientModule.lng(d, "cooldownMs", 0) - (System.currentTimeMillis() - HypeState.jobsAt);
-        header(ms, "Centrul de joburi", "alege-ti meseria", mx, my);
+        header(ms, "Centrul de joburi", "", mx, my);
 
         if (!d.has("jobs") || !d.get("jobs").isJsonArray()) {
             Ui.text(ms, "Se incarca...", px + 14, py + HEAD + 14, Theme.FAINT);
@@ -60,12 +60,12 @@ public final class JobsScreen extends FlowScreen {
 
         // filtre pe categorie
         int cx = lx;
-        cx += chip(ms, "Toate", cx, top, 36, 14, mx, my, category.isEmpty(), Theme.ACCENT, () -> {
+        cx += chip(ms, "Toate", cx, top, Ui.width("Toate") + 10, 14, mx, my, category.isEmpty(), Theme.ACCENT, () -> {
             category = "";
             scroll = 0;
         }) + 3;
         for (String c : cats) {
-            int w = Ui.width(c) + 12;
+            int w = Ui.width(c) + 10;
             if (cx + w > lx + LIST_W) break;
             final String cat = c;
             cx += chip(ms, c, cx, top, w, 14, mx, my, c.equals(category), Theme.VIOLET, () -> {
@@ -89,7 +89,7 @@ public final class JobsScreen extends FlowScreen {
         int listH = py + ph - 8 - listTop;
         int visible = Math.max(1, listH / ROW_H);
         scroll = Math.max(0, Math.min(scroll, Math.max(0, rows.size() - visible)));
-        Ui.frame(ms, lx, listTop, LIST_W, listH, Theme.PANEL, Theme.LINE);
+        Ui.round(ms, lx, listTop, LIST_W, listH, Theme.PANEL_2);
         int y = listTop + 2;
         for (int i = scroll; i < Math.min(rows.size(), scroll + visible); i++) {
             JsonObject j = rows.get(i);
@@ -97,13 +97,13 @@ public final class JobsScreen extends FlowScreen {
             boolean sel = id.equals(selected);
             boolean active = id.equals(current);
             boolean hover = Ui.in(mx, my, lx + 2, y, LIST_W - 4, ROW_H - 2);
-            int fill = sel ? Theme.mix(Theme.PANEL, Theme.ACCENT, 0.18f) : (hover ? Theme.PANEL_3 : Theme.PANEL_2);
-            Ui.frame(ms, lx + 2, y, LIST_W - 4, ROW_H - 2, fill, sel ? Theme.ACCENT : Theme.LINE);
-            Ui.rect(ms, lx + 3, y + 1, 3, ROW_H - 4, difficultyColor(JsonClientModule.str(j, "difficulty", "")));
-            Ui.text(ms, Ui.clip(JsonClientModule.str(j, "name", id), LIST_W - 60), lx + 11, y + 4, Theme.TEXT);
-            Ui.text(ms, JsonClientModule.str(j, "category", ""), lx + 11, y + 15, Theme.FAINT);
-            Ui.textRight(ms, "Niv " + JsonClientModule.integer(j, "level", 1), lx + LIST_W - 8, y + 4, Theme.ACCENT);
-            if (active) Ui.textRight(ms, "ACTIV", lx + LIST_W - 8, y + 15, Theme.OK);
+            if (sel || hover) Ui.rect(ms, lx + 2, y, LIST_W - 4, ROW_H - 2, sel ? Theme.PANEL_3 : 0xFF22252B);
+            if (sel) Ui.rect(ms, lx + 2, y, 2, ROW_H - 2, Theme.ACCENT);
+            Ui.rect(ms, lx + 8, y + ROW_H - 1, LIST_W - 16, 1, Theme.LINE);
+            Ui.text(ms, Ui.clip(JsonClientModule.str(j, "name", id), LIST_W - 60), lx + 9, y + 5, sel ? Theme.TEXT : 0xFFD4D2CC);
+            Ui.text(ms, JsonClientModule.str(j, "category", ""), lx + 9, y + 16, Theme.FAINT);
+            Ui.textRight(ms, "niv. " + JsonClientModule.integer(j, "level", 1), lx + LIST_W - 8, y + 5, Theme.MUTED);
+            if (active) Ui.textRight(ms, "activ", lx + LIST_W - 8, y + 16, Theme.OK);
             hit(lx + 2, y, LIST_W - 4, ROW_H - 2, () -> selected = id);
             y += ROW_H;
         }
@@ -116,7 +116,7 @@ public final class JobsScreen extends FlowScreen {
         // detalii
         int dx = lx + LIST_W + 8;
         int dw = px + pw - 8 - dx;
-        Ui.frame(ms, dx, top, dw, py + ph - 8 - top, Theme.PANEL, Theme.LINE);
+        Ui.rect(ms, dx - 4, top, 1, py + ph - 8 - top, Theme.LINE);
         JsonObject j = null;
         for (JsonObject r : rows) if (selected.equals(JsonClientModule.str(r, "id", ""))) j = r;
         if (j == null) {
@@ -147,12 +147,12 @@ public final class JobsScreen extends FlowScreen {
 
         // progres + castig
         int by = py + ph - 8 - 62;
-        Ui.rect(ms, dx + 1, by - 6, dw - 2, 1, Theme.LINE);
+        Ui.rect(ms, dx + 6, by - 6, dw - 12, 1, Theme.LINE);
         int lvl = JsonClientModule.integer(j, "level", 1);
         long need = JsonClientModule.lng(j, "xpNeed", 0);
         float frac = need <= 0 ? 1f : (float) JsonClientModule.lng(j, "xp", 0) / need;
         Ui.text(ms, "Nivel " + lvl, ix, by, Theme.ACCENT);
-        Ui.bar(ms, ix + 56, by + 2, dw - 76 - 56, 6, frac, Theme.VIOLET);
+        Ui.bar(ms, ix + 56, by + 2, dw - 76 - 56, 5, frac, Theme.ACCENT);
         Ui.textRight(ms, "$" + Ui.money(JsonClientModule.num(j, "earned", 0)) + " castigati", dx + dw - 10, by, Theme.OK);
         Ui.text(ms, "+" + Math.round(JsonClientModule.num(d, "bonus", 0) * 100) + "% plata pe nivel", ix, by + 13, Theme.FAINT);
 
@@ -162,7 +162,7 @@ public final class JobsScreen extends FlowScreen {
         boolean hasLoc = JsonClientModule.bool(j, "hasLoc", false);
         final JsonObject jj = j;
         if (hasLoc) {
-            button(ms, "Arata pe harta (GPS)", bx, by + 28, bw, 16, mx, my, true, 0xFF24467A, () -> MapsClient.gpsTo(
+            ghost(ms, "Arata pe harta", bx, by + 28, bw, 16, mx, my, () -> MapsClient.gpsTo(
                 JsonClientModule.str(jj, "locName", JsonClientModule.str(jj, "name", "Job")), "job",
                 JsonClientModule.num(jj, "lx", 0), JsonClientModule.num(jj, "lz", 0)));
         } else {
@@ -170,10 +170,10 @@ public final class JobsScreen extends FlowScreen {
         }
         int rx = bx + bw + 8;
         if (active) {
-            button(ms, cd > 0 ? "Paraseste (" + Ui.duration(cd / 1000 + 1) + ")" : "Paraseste jobul", rx, by + 28, bw, 16, mx, my, cd <= 0, 0xFF5B2A35, () -> request("job_leave", null));
+            button(ms, cd > 0 ? "Paraseste (" + Ui.duration(cd / 1000 + 1) + ")" : "Paraseste jobul", rx, by + 28, bw, 16, mx, my, cd <= 0, 0xFF6B2F2B, () -> request("job_leave", null));
         } else {
             boolean can = current.isEmpty() || cd <= 0;
-            button(ms, can ? "Alege jobul" : "Schimbi peste " + Ui.duration(cd / 1000 + 1), rx, by + 28, bw, 16, mx, my, can, Theme.ACCENT_DIM, () -> request("job_select", id));
+            button(ms, can ? "Alege jobul" : "Schimbi peste " + Ui.duration(cd / 1000 + 1), rx, by + 28, bw, 16, mx, my, can, Theme.ACCENT, () -> request("job_select", id));
         }
     }
 

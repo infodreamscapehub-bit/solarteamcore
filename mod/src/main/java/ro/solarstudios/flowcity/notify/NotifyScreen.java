@@ -50,7 +50,7 @@ public final class NotifyScreen extends FlowScreen {
             Ui.rect(ms, px + pw - 5, top, 1, bottom - top, Theme.LINE);
             Ui.rect(ms, px + pw - 6, ty, 3, th, Theme.ACCENT_DIM);
         }
-        button(ms, "Sterge tot", px + 8, py + ph - 20, 70, 14, mx, my, !items.isEmpty(), 0xFF5B2A35, NotifyClient::clearAll);
+        button(ms, "Sterge tot", px + 8, py + ph - 20, 70, 14, mx, my, !items.isEmpty(), 0xFF6B2F2B, NotifyClient::clearAll);
     }
 
     @Override

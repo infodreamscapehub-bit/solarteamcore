@@ -103,6 +103,7 @@ public abstract class FlowScreen extends Screen {
         py = (height - ph) / 2;
         if (framed()) {
             Ui.rect(ms, 0, 0, width, height, Theme.DIM);
+            Ui.round(ms, px - 1, py + 2, pw + 2, ph, 0x66000000);
             Ui.frame(ms, px, py, pw, ph, Theme.PANEL, Theme.LINE);
         }
         try {
@@ -122,25 +123,51 @@ public abstract class FlowScreen extends Screen {
 
     // ------------------------------------------------------------------ componente
 
-    /** Antet standard: titlu in stanga, subtitlu, buton X. */
+    /** Antet standard: titlu in small caps, subtitlu discret, inchidere ca text simplu. */
     protected void header(GuiGraphics ms, String title, String subtitle, int mx, int my) {
         Ui.rect(ms, px + 1, py + 1, pw - 2, HEAD - 1, Theme.PANEL_2);
-        Ui.rect(ms, px + 1, py + HEAD, pw - 2, 1, Theme.ACCENT_DIM);
-        Ui.rect(ms, px + 8, py + 8, 3, 9, Theme.ACCENT);
-        Ui.textShadow(ms, title, px + 15, py + 8, Theme.TEXT);
+        Ui.rect(ms, px + 1, py + HEAD, pw - 2, 1, Theme.LINE);
+        Ui.smallCaps(ms, title, px + 10, py + 8, Theme.TEXT);
         if (subtitle != null && !subtitle.isEmpty()) {
-            Ui.text(ms, subtitle, px + 15 + Ui.width(title) + 8, py + 8, Theme.MUTED);
+            Ui.text(ms, subtitle, px + 10 + Ui.smallCapsWidth(title) + 8, py + 8, Theme.FAINT);
         }
-        button(ms, "X", px + pw - 18, py + 5, 12, 14, mx, my, true, 0xFF5B2A35, this::onClose);
+        int cx = px + pw - 20;
+        boolean hover = Ui.in(mx, my, cx, py + 4, 16, 16);
+        if (hover) Ui.round(ms, cx, py + 4, 16, 16, Theme.PANEL_3);
+        // X desenat din doua diagonale de cate 1px
+        int col = hover ? Theme.BAD : Theme.MUTED;
+        for (int i = 0; i < 7; i++) {
+            Ui.rect(ms, cx + 5 + i, py + 8 + i, 1, 1, col);
+            Ui.rect(ms, cx + 11 - i, py + 8 + i, 1, 1, col);
+        }
+        hit(cx, py + 4, 16, 16, this::onClose);
     }
 
+    /**
+     * Buton plin, cu muchie inferioara mai inchisa (efect de apasare) si fara stralucire.
+     * Pe accent textul e inchis la culoare, pe rest e deschis.
+     */
     protected void button(GuiGraphics ms, String label, int x, int y, int w, int h, int mx, int my,
                           boolean enabled, int color, Runnable action) {
         boolean hover = enabled && Ui.in(mx, my, x, y, w, h);
-        int bg = !enabled ? Theme.DISABLED : (hover ? Theme.lighten(color, 28) : color);
+        int bg = !enabled ? Theme.DISABLED : (hover ? Theme.lighten(color, 14) : color);
         Ui.round(ms, x, y, w, h, bg);
-        Ui.textCenter(ms, label, x + w / 2, y + (h - 8) / 2, enabled ? Theme.TEXT : Theme.FAINT);
+        if (enabled) Ui.rect(ms, x + 1, y + h - 1, w - 2, 1, Theme.mix(bg, 0xFF000000, 0.35f));
+        int fg = !enabled ? Theme.FAINT : (luma(bg) > 150 ? 0xFF1A1A1A : Theme.TEXT);
+        Ui.textCenter(ms, Ui.clip(label, w - 6), x + w / 2, y + (h - 8) / 2, fg);
         if (enabled) hits.add(new Hit(x, y, w, h, action));
+    }
+
+    private static int luma(int c) {
+        return (((c >> 16) & 0xFF) * 299 + ((c >> 8) & 0xFF) * 587 + (c & 0xFF) * 114) / 1000;
+    }
+
+    /** Buton secundar: doar contur, fundal transparent. */
+    protected void ghost(GuiGraphics ms, String label, int x, int y, int w, int h, int mx, int my, Runnable action) {
+        boolean hover = Ui.in(mx, my, x, y, w, h);
+        Ui.frame(ms, x, y, w, h, hover ? Theme.PANEL_3 : Theme.PANEL, hover ? Theme.MUTED : Theme.LINE);
+        Ui.textCenter(ms, Ui.clip(label, w - 6), x + w / 2, y + (h - 8) / 2, hover ? Theme.TEXT : Theme.MUTED);
+        hits.add(new Hit(x, y, w, h, action));
     }
 
     /** Buton fara text (ex. desenat de apelant), doar zona clicabila. */
@@ -148,24 +175,23 @@ public abstract class FlowScreen extends Screen {
         hits.add(new Hit(x, y, w, h, action));
     }
 
-    /** Chip comutabil. Intoarce latimea desenata. */
+    /** Fila (tab) cu subliniere cand e selectata. Intoarce latimea desenata. */
     protected int chip(GuiGraphics ms, String label, int x, int y, int w, int h, int mx, int my,
                        boolean selected, int color, Runnable action) {
         boolean hover = Ui.in(mx, my, x, y, w, h);
-        int border = selected ? color : Theme.LINE;
-        int fill = selected ? Theme.mix(Theme.PANEL, color, 0.30f) : (hover ? Theme.PANEL_3 : Theme.PANEL);
-        Ui.frame(ms, x, y, w, h, fill, border);
-        Ui.textCenter(ms, label, x + w / 2, y + (h - 8) / 2, selected ? Theme.TEXT : Theme.MUTED);
+        int fg = selected ? Theme.TEXT : (hover ? Theme.TEXT : Theme.MUTED);
+        Ui.textCenter(ms, label, x + w / 2, y + (h - 8) / 2 - 1, fg);
+        if (selected) Ui.rect(ms, x + 2, y + h - 2, w - 4, 2, Theme.ACCENT);
+        else if (hover) Ui.rect(ms, x + 2, y + h - 1, w - 4, 1, Theme.LINE);
         hits.add(new Hit(x, y, w, h, action));
         return w;
     }
 
-    /** Eticheta de stare necliclabila. Intoarce pozitia x urmatoare. */
+    /** Eticheta de stare: punct colorat + text. Intoarce pozitia x urmatoare. */
     protected int tag(GuiGraphics ms, String label, int x, int y, int color) {
-        int w = Ui.width(label) + 10;
-        Ui.round(ms, x, y, w, 12, Theme.alpha(color, 0x33));
-        Ui.text(ms, label, x + 5, y + 2, color);
-        return x + w + 4;
+        Ui.rect(ms, x, y + 4, 4, 4, color);
+        Ui.text(ms, label, x + 7, y + 2, Theme.MUTED);
+        return x + 7 + Ui.width(label) + 10;
     }
 
     /** Camp de text cu indiciu gri cand e gol. */
@@ -184,7 +210,8 @@ public abstract class FlowScreen extends Screen {
 
     /** Deseneaza un camp de text cu cadru la pozitia data. */
     protected void drawField(GuiGraphics ms, EditBox f, int x, int y, int w, int h, int mx, int my) {
-        Ui.frame(ms, x, y, w, h, Theme.PANEL_2, f.isFocused() ? Theme.ACCENT : Theme.LINE);
+        Ui.round(ms, x, y, w, h, Theme.PANEL_2);
+        Ui.rect(ms, x + 1, y + h - 1, w - 2, 1, f.isFocused() ? Theme.ACCENT : Theme.LINE);
         f.setX(x + 5);
         f.setY(y + (h - 8) / 2);
         f.setWidth(w - 10);
@@ -212,8 +239,9 @@ public abstract class FlowScreen extends Screen {
         int x = px + (pw - w) / 2;
         int y = py + ph - 22;
         int color = toastError ? Theme.BAD : Theme.OK;
-        Ui.frame(ms, x, y, w, 16, Theme.PANEL_3, color);
-        Ui.textCenter(ms, Ui.clip(toastText, w - 12), x + w / 2, y + 4, color);
+        Ui.round(ms, x, y, w, 16, Theme.PANEL_3);
+        Ui.rect(ms, x, y + 1, 2, 14, color);
+        Ui.textCenter(ms, Ui.clip(toastText, w - 12), x + w / 2 + 1, y + 4, Theme.TEXT);
     }
 
     // ------------------------------------------------------------------ input

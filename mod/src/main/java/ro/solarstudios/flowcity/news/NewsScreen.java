@@ -125,7 +125,7 @@ public final class NewsScreen extends FlowScreen {
         } finally {
             Ui.endScissor();
         }
-        button(ms, "X", px + pw - 18, py + 5, 12, 14, mx, my, true, 0xFF5B2A35, this::onClose);
+        button(ms, "X", px + pw - 18, py + 5, 12, 14, mx, my, true, 0xFF6B2F2B, this::onClose);
     }
 
     private List<NewsState.Item> filtered() {
@@ -188,7 +188,7 @@ public final class NewsScreen extends FlowScreen {
         }
         if (NewsState.canPublish) {
             button(ms, composing ? "Anuleaza" : "+ Publica stire", x, py + ph - 22, LIST_W, 15, mx, my, true,
-                composing ? 0xFF5B2A35 : Theme.ACCENT_DIM, () -> {
+                composing ? 0xFF6B2F2B : Theme.ACCENT_DIM, () -> {
                     composing = !composing;
                     if (composing && cat.isEmpty() && !NewsState.cats.isEmpty()) cat = NewsState.cats.get(0);
                 });
@@ -238,7 +238,7 @@ public final class NewsScreen extends FlowScreen {
         }
         if (NewsState.canDelete) {
             final long id = it.id;
-            button(ms, "Sterge stirea", x + w - 84, py + ph - 22, 84, 14, mx, my, true, 0xFF5B2A35, () -> NewsClient.delete(id));
+            button(ms, "Sterge stirea", x + w - 84, py + ph - 22, 84, 14, mx, my, true, 0xFF6B2F2B, () -> NewsClient.delete(id));
         }
     }
 

@@ -549,9 +549,9 @@ public final class MapScreen extends FlowScreen {
                 editorTab = 0;
                 if (editor) newDraftHere();
             });
-            button(ms, "INCHIDE", sx + 12 + hw, yy, hw, 15, mx, my, true, 0xFF5B2A35, this::onClose);
+            button(ms, "INCHIDE", sx + 12 + hw, yy, hw, 15, mx, my, true, 0xFF6B2F2B, this::onClose);
         } else {
-            button(ms, "INCHIDE HARTA", sx + 8, yy, bw, 15, mx, my, true, 0xFF5B2A35, this::onClose);
+            button(ms, "INCHIDE HARTA", sx + 8, yy, bw, 15, mx, my, true, 0xFF6B2F2B, this::onClose);
         }
     }
 

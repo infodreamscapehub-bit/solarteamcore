@@ -218,7 +218,7 @@ public final class WheelAdminScreen extends FlowScreen {
         button(ms, "+ BANCA", rx + 2 * (bw + 3), y, bw, 15, mx, my, selected < 0, Theme.VIOLET, () -> sendAdd("bank"));
         y += 19;
         button(ms, "SALVEAZA", rx, y, bw, 15, mx, my, selected >= 0, Theme.OK, this::sendSave);
-        button(ms, "STERGE", rx + bw + 3, y, bw, 15, mx, my, selected >= 0, 0xFF5B2A35, () -> {
+        button(ms, "STERGE", rx + bw + 3, y, bw, 15, mx, my, selected >= 0, 0xFF6B2F2B, () -> {
             JsonObject o = new JsonObject();
             o.addProperty("id", selected);
             WheelClient.sendAction("admin_delete", o);

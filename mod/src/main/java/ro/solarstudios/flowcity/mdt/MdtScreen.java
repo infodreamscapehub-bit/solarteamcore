@@ -627,10 +627,10 @@ public final class MdtScreen extends FlowScreen {
             final long id = JsonClientModule.lng(cur, "id", -1);
             if (sub == 0) {
                 rx -= 52;
-                button(ms, "Sterge", rx, bottom + 5, 52, 14, mx, my, true, 0xFF5B2A35, () -> MdtClient.act("record_del", "u", selUuid, "id", id));
+                button(ms, "Sterge", rx, bottom + 5, 52, 14, mx, my, true, 0xFF6B2F2B, () -> MdtClient.act("record_del", "u", selUuid, "id", id));
             } else if (sub == 1) {
                 rx -= 52;
-                button(ms, "Sterge", rx, bottom + 5, 52, 14, mx, my, true, 0xFF5B2A35, () -> MdtClient.act("fine_del", "u", selUuid, "id", id));
+                button(ms, "Sterge", rx, bottom + 5, 52, 14, mx, my, true, 0xFF6B2F2B, () -> MdtClient.act("fine_del", "u", selUuid, "id", id));
                 if (!b(cur, "paid")) {
                     rx -= 60;
                     button(ms, "Incaseaza", rx, bottom + 5, 56, 14, mx, my, true, 0xFF1F4D38, () -> MdtClient.act("fine_pay", "u", selUuid, "id", id, "charge", true));
@@ -639,12 +639,12 @@ public final class MdtScreen extends FlowScreen {
                 }
             } else if (sub == 2) {
                 rx -= 52;
-                button(ms, "Scoate", rx, bottom + 5, 52, 14, mx, my, true, 0xFF5B2A35, () -> MdtClient.act("veh_del", "u", selUuid, "id", id));
+                button(ms, "Scoate", rx, bottom + 5, 52, 14, mx, my, true, 0xFF6B2F2B, () -> MdtClient.act("veh_del", "u", selUuid, "id", id));
                 rx -= 82;
                 button(ms, "Schimba starea", rx, bottom + 5, 78, 14, mx, my, true, 0xFF2B3A52, () -> MdtClient.act("veh_status", "u", selUuid, "id", id));
             } else {
                 rx -= 52;
-                button(ms, "Sterge", rx, bottom + 5, 52, 14, mx, my, true, 0xFF5B2A35, () -> MdtClient.act("prop_del", "u", selUuid, "id", id));
+                button(ms, "Sterge", rx, bottom + 5, 52, 14, mx, my, true, 0xFF6B2F2B, () -> MdtClient.act("prop_del", "u", selUuid, "id", id));
             }
         }
     }
@@ -816,7 +816,7 @@ public final class MdtScreen extends FlowScreen {
         boolean inUnit = !mine.isEmpty();
         button(ms, "Disponibil", x + 56, fy + 24, 58, 14, mx, my, inUnit, 0xFF1F4D38, () -> MdtClient.act("unit_status", "status", "Available"));
         button(ms, "Ocupat", x + 118, fy + 24, 46, 14, mx, my, inUnit, 0xFF6B4D14, () -> MdtClient.act("unit_status", "status", "Busy"));
-        button(ms, "Paraseste", x + 168, fy + 24, 56, 14, mx, my, inUnit, 0xFF5B2A35, () -> MdtClient.act("unit_leave"));
+        button(ms, "Paraseste", x + 168, fy + 24, 56, 14, mx, my, inUnit, 0xFF6B2F2B, () -> MdtClient.act("unit_leave"));
 
         // ---- backup
         int bx = split + 10;
@@ -915,7 +915,7 @@ public final class MdtScreen extends FlowScreen {
             final int rk = i(cur, "rank");
             button(ms, "Promoveaza", rx, cy + 62, 80, 15, mx, my, ok && rk < 6, 0xFF1F4D38, () -> MdtClient.act("officer_set", "u", u, "rank", rk + 1));
             button(ms, "Retrogradeaza", rx + 86, cy + 62, 84, 15, mx, my, ok && rk > 1, 0xFF6B4D14, () -> MdtClient.act("officer_set", "u", u, "rank", rk - 1));
-            button(ms, "Da afara", rx, cy + 84, 80, 15, mx, my, ok, 0xFF5B2A35, () -> {
+            button(ms, "Da afara", rx, cy + 84, 80, 15, mx, my, ok, 0xFF6B2F2B, () -> {
                 MdtClient.act("officer_fire", "u", u);
                 selOfficer = -1;
             });

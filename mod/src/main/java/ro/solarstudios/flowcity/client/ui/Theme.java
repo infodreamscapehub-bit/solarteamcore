@@ -1,24 +1,24 @@
 package ro.solarstudios.flowcity.client.ui;
 
-/** Paleta FlowCity (ARGB). Schimba aici culorile pentru tot panoul. */
+/** Paleta FlowCity (ARGB): grafit cald + un singur accent chihlimbar. Schimba aici culorile pentru tot panoul. */
 public final class Theme {
     private Theme() {}
 
-    public static final int DIM = 0x99050912;
-    public static final int PANEL = 0xFF0E1627;
-    public static final int PANEL_2 = 0xFF141F36;
-    public static final int PANEL_3 = 0xFF1B2846;
-    public static final int LINE = 0xFF26365A;
-    public static final int ACCENT = 0xFF22D3EE;
-    public static final int ACCENT_DIM = 0xFF0E6F82;
-    public static final int VIOLET = 0xFF7C83FF;
-    public static final int TEXT = 0xFFE8EEF9;
-    public static final int MUTED = 0xFF8EA2C2;
-    public static final int FAINT = 0xFF56688A;
-    public static final int OK = 0xFF34D399;
-    public static final int WARN = 0xFFFBBF24;
-    public static final int BAD = 0xFFF87171;
-    public static final int DISABLED = 0xFF222D45;
+    public static final int DIM = 0xA0080909;
+    public static final int PANEL = 0xFF16181D;
+    public static final int PANEL_2 = 0xFF1D2026;
+    public static final int PANEL_3 = 0xFF262A32;
+    public static final int LINE = 0xFF30343D;
+    public static final int ACCENT = 0xFFE9A23B;
+    public static final int ACCENT_DIM = 0xFF9A6524;
+    public static final int VIOLET = 0xFF7F93B3;
+    public static final int TEXT = 0xFFEDEDEA;
+    public static final int MUTED = 0xFFA19F98;
+    public static final int FAINT = 0xFF67666A;
+    public static final int OK = 0xFF6DBE6F;
+    public static final int WARN = 0xFFE3B649;
+    public static final int BAD = 0xFFDA5F55;
+    public static final int DISABLED = 0xFF24272D;
 
     /** Face o culoare mai deschisa (pentru hover). */
     public static int lighten(int argb, int amount) {

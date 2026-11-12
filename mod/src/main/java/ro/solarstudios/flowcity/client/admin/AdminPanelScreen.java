@@ -268,7 +268,7 @@ public class AdminPanelScreen extends Screen {
         });
         button(ms, "ROATA", px + pw - 96, py + 5, 36, 14, mx, my, true, Theme.VIOLET, () ->
             Minecraft.getInstance().setScreen(new ro.solarstudios.flowcity.wheel.WheelAdminScreen()));
-        button(ms, "X", px + pw - 18, py + 5, 12, 14, mx, my, true, 0xFF5B2A35, this::onClose);
+        button(ms, "X", px + pw - 18, py + 5, 12, 14, mx, my, true, 0xFF6B2F2B, this::onClose);
     }
 
     private void drawList(GuiGraphics ms, int mx, int my) {
@@ -535,7 +535,7 @@ public class AdminPanelScreen extends Screen {
 
     private void drawSs(GuiGraphics ms, int mx, int my, int x, int y, int w, int h) {
         button(ms, "SOLICITA SS", x, y, 80, 14, mx, my, profile.online, Theme.ACCENT_DIM, () -> AdminX.requestSs(profile.uuid));
-        button(ms, "STERGE", x + 84, y, 50, 14, mx, my, AdminX.ssTex != null, 0xFF5B2A35, AdminX::clearSs);
+        button(ms, "STERGE", x + 84, y, 50, 14, mx, my, AdminX.ssTex != null, 0xFF6B2F2B, AdminX::clearSs);
         Ui.text(ms, Ui.clip(AdminX.ssStatus, w - 142), x + 140, y + 3, Theme.MUTED);
         int fy = y + 20;
         int fh = h - 22;
@@ -736,7 +736,7 @@ public class AdminPanelScreen extends Screen {
             Ui.text(ms, Ui.clip(s.reason + "  (" + s.admin + ")", right - reasonX - 4), reasonX, ly, s.deleted ? Theme.FAINT : Theme.TEXT);
             Ui.textRight(ms, status, x + w - (s.active && !s.deleted ? 14 : 2), ly, sc);
             if (s.active && !s.deleted) {
-                button(ms, "x", x + w - 11, ly - 2, 11, 11, mx, my, true, 0xFF5B2A35, () -> ClientBridge.revoke(s.id));
+                button(ms, "x", x + w - 11, ly - 2, 11, 11, mx, my, true, 0xFF6B2F2B, () -> ClientBridge.revoke(s.id));
             }
             ly += rowH;
         }
@@ -768,7 +768,7 @@ public class AdminPanelScreen extends Screen {
             Ui.text(ms, n.admin, x, ly, Theme.ACCENT);
             Ui.textRight(ms, Ui.time(n.ts), x + w - 14, ly, Theme.FAINT);
             Ui.text(ms, Ui.clip(n.text, w - 16), x, ly + 10, Theme.TEXT);
-            button(ms, "x", x + w - 11, ly - 1, 11, 11, mx, my, true, 0xFF5B2A35, () -> ClientBridge.noteDel(n.id));
+            button(ms, "x", x + w - 11, ly - 1, 11, 11, mx, my, true, 0xFF6B2F2B, () -> ClientBridge.noteDel(n.id));
             ly += rowH;
         }
     }
