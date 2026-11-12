@@ -17,8 +17,6 @@ public class FlowCity {
 
     public FlowCity() {
         ro.solarstudios.flowcity.content.ModContent.register();
-        ro.solarstudios.flowcity.vehicle.VehicleNet.init();
-        net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(new ro.solarstudios.flowcity.vehicle.VehicleCommand());
         net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(new ro.solarstudios.flowcity.content.GpsEvents());
         net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(new ro.solarstudios.flowcity.content.CityMapScanner.Events());
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> Bridge::init);

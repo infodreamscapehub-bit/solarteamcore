@@ -43,50 +43,5 @@
         "stream": false
       }
     ]
-  },
-  "vehicle.engine": {
-    "category": "neutral",
-    "sounds": [
-      {
-        "name": "flowcitycore:vehicle/engine",
-        "stream": false
-      }
-    ]
-  },
-  "vehicle.horn": {
-    "category": "neutral",
-    "sounds": [
-      {
-        "name": "flowcitycore:vehicle/horn",
-        "stream": false
-      }
-    ]
-  },
-  "vehicle.siren": {
-    "category": "neutral",
-    "sounds": [
-      {
-        "name": "flowcitycore:vehicle/siren",
-        "stream": false
-      }
-    ]
-  },
-  "vehicle.car_lock": {
-    "category": "neutral",
-    "sounds": [
-      {
-        "name": "flowcitycore:vehicle/car_lock",
-        "stream": false
-      }
-    ]
-  },
-  "vehicle.fuel_pump": {
-    "category": "neutral",
-    "sounds": [
-      {
-        "name": "flowcitycore:vehicle/fuel_pump",
-        "stream": false
-      }
-    ]
   }
 }

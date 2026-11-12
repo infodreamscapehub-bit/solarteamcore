@@ -36,7 +36,6 @@ public final class ClientInit {
         ro.solarstudios.flowcity.hype.HypeClient.register();
         ro.solarstudios.flowcity.phone.PhoneClient.register();
         ro.solarstudios.flowcity.maps.MapsClient.register();
-        ro.solarstudios.flowcity.vehicle.CarClient.register();
     }
 
     private static void setup(FMLClientSetupEvent event) {
@@ -49,7 +48,6 @@ public final class ClientInit {
         ro.solarstudios.flowcity.mdt.MdtClient.registerKeys(event);
         ro.solarstudios.flowcity.phone.PhoneClient.registerKeys(event);
         ro.solarstudios.flowcity.maps.MapsClient.registerKeys(event);
-        ro.solarstudios.flowcity.vehicle.CarClient.registerKeys(event);
     }
 
     public static final class Events {
