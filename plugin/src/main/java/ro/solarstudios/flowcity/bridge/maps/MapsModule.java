@@ -268,8 +268,11 @@ public final class MapsModule extends JsonModule {
                     return true;
                 }
                 try {
-                    Object n = Class.forName("ro.solarstudios.flowcity.content.GpsNetwork").getMethod("count").invoke(null);
-                    p.sendMessage("\u00a7aReteaua GPS are \u00a7f" + n + "\u00a7a noduri. Pune blocuri gps_* pe strazi (cu Cheia GPS in mana le vezi ca particule).");
+                    Class<?> g = Class.forName("ro.solarstudios.flowcity.content.GpsNetwork");
+                    Object n = g.getMethod("count").invoke(null);
+                    Object c = g.getMethod("connections").invoke(null);
+                    p.sendMessage("\u00a7aReteaua GPS: \u00a7f" + n + "\u00a7a noduri, \u00a7f" + c + "\u00a7a legaturi.");
+                    p.sendMessage("\u00a77Pune blocuri gps_* pe strazi, apoi cu Cheia GPS: click pe nod A, click pe nod B = legatura. Click in aer = sens unic/dublu. Shift+click = sterge legaturile. Sparge blocuri doar cu cheia in mana.");
                 } catch (ReflectiveOperationException | RuntimeException e) {
                     p.sendMessage("\u00a7cModul FlowCityCore nu e vizibil pe server.");
                 }
