@@ -30,5 +30,10 @@
   "block.flowcitycore.gps_twoway": "Gps Dublu Sens",
   "block.flowcitycore.gps_path": "Gps Curba/Segment",
   "item.flowcitycore.gps_wrench": "Cheie GPS",
-  "item.flowcitycore.harta": "Harta GPS"
+  "item.flowcitycore.harta": "Harta GPS",
+  "item.flowcitycore.mdt_tablet": "Tableta MDT Politie",
+  "key.flowcity.mdt_bk1": "MDT: backup 1 (urgent)",
+  "key.flowcity.mdt_bk2": "MDT: backup 2 (transport)",
+  "key.flowcity.mdt_bk3": "MDT: backup 3 (urmarire)",
+  "key.flowcity.mdt_panic": "MDT: panica cod 99"
 }

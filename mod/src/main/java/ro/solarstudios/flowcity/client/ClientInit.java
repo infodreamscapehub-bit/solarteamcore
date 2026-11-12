@@ -33,6 +33,7 @@ public final class ClientInit {
         ro.solarstudios.flowcity.wheel.WheelClient.register();
         ro.solarstudios.flowcity.hype.HypeClient.register();
         ro.solarstudios.flowcity.maps.MapsClient.register();
+        ro.solarstudios.flowcity.mdt.MdtClient.register();
         ro.solarstudios.flowcity.phone.PhoneClient.register();
     }
 
@@ -42,6 +43,7 @@ public final class ClientInit {
             ClientRegistry.registerKeyBinding(openAdmin);
             ro.solarstudios.flowcity.phone.PhoneClient.registerKeys();
             ro.solarstudios.flowcity.maps.MapsClient.registerKeys();
+            ro.solarstudios.flowcity.mdt.MdtClient.registerKeys();
             ClientBridge.registerHandler();
         });
     }

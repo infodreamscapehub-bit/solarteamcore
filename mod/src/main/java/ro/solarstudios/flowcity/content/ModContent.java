@@ -42,6 +42,7 @@ public final class ModContent {
         }
         ITEMS.register("gps_wrench", GpsWrench::new);
         ITEMS.register("harta", MapItem::new);
+        ITEMS.register("mdt_tablet", MdtItem::new);
         for (int i = 1; i <= 5; i++) ITEMS.register("phone" + i, PhoneItem::new);
         ITEMS.register("sim_card", () -> new Item(new Item.Properties().group(TAB).maxStackSize(16)));
         for (int i = 1; i <= 5; i++) ITEMS.register("cardbancar" + i, () -> new Item(new Item.Properties().group(TAB).maxStackSize(1)));
