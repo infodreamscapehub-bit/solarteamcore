@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "flowcitycore:block/gps_oneway" },
+    "facing=east":  { "model": "flowcitycore:block/gps_oneway", "y": 90 },
+    "facing=south": { "model": "flowcitycore:block/gps_oneway", "y": 180 },
+    "facing=west":  { "model": "flowcitycore:block/gps_oneway", "y": 270 }
+  }
+}

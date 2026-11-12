@@ -24,7 +24,7 @@ import ro.solarstudios.flowcity.bridge.module.JsonModule;
 
 /** eMaps (server): puncte de interes (primarie, banca, ATM...) si GPS. Harta/minimap/ruta se calculeaza pe client. */
 public final class MapsModule extends JsonModule {
-    private static final List<String> TYPES = Arrays.asList("primarie", "banca", "atm", "politie", "spital", "magazin", "job", "benzinarie", "altele");
+    private static final List<String> TYPES = Arrays.asList("banca", "atm", "garaj", "casa", "benzinarie", "restaurant", "primarie", "spital", "politie", "dealer", "magazin", "supermarket", "mecanic", "job", "special", "biserica", "autobuz", "armurier", "casino", "camion", "aeroport", "pescuit", "colete", "electric", "fermier", "gunoi", "lemnar", "pizza", "santier", "altele");
 
     private static final class Poi {
         int id;
@@ -60,6 +60,24 @@ public final class MapsModule extends JsonModule {
         reload(false);
 
         on("pois", (p, j) -> sendPois(p));
+        on("route", (p, j) -> {
+            double tx = num(j, "tx", 0);
+            double tz = num(j, "tz", 0);
+            JsonObject o = new JsonObject();
+            double[][] r = gpsRoute(p, tx, tz);
+            o.addProperty("ok", r != null);
+            if (r != null) {
+                JsonArray arr = new JsonArray();
+                for (double[] pt : r) {
+                    JsonArray a = new JsonArray();
+                    a.add(pt[0]);
+                    a.add(pt[1]);
+                    arr.add(a);
+                }
+                o.add("list", arr);
+            }
+            send(p, "route", o);
+        });
 
         Bukkit.getPluginManager().registerEvents(new Listener() {
             @EventHandler
@@ -75,12 +93,25 @@ public final class MapsModule extends JsonModule {
                 poiCommand(p, a);
                 return true;
             }
+            if (a.length >= 1 && a[0].equalsIgnoreCase("gps")) {
+                if (!p.hasPermission("flowcity.maps.admin")) {
+                    p.sendMessage("\u00a7cNu ai permisiunea.");
+                    return true;
+                }
+                try {
+                    Object n = Class.forName("ro.solarstudios.flowcity.content.GpsNetwork").getMethod("count").invoke(null);
+                    p.sendMessage("\u00a7aReteaua GPS are \u00a7f" + n + "\u00a7a noduri. Pune blocuri gps_* pe strazi (cu Cheia GPS in mana le vezi ca particule).");
+                } catch (ReflectiveOperationException | RuntimeException e) {
+                    p.sendMessage("\u00a7cModul FlowCityCore nu e vizibil pe server.");
+                }
+                return true;
+            }
             if (plugin.channel().hasMod(p)) send(p, "open", new JsonObject());
             else p.sendMessage("§cHarta necesita modul FlowCity pe client.");
             return true;
         }, (s, c, l, a) -> {
             List<String> out = new ArrayList<>();
-            if (a.length == 1) out.addAll(Arrays.asList("poi"));
+            if (a.length == 1) out.addAll(Arrays.asList("poi", "gps"));
             else if (a.length == 2) out.addAll(Arrays.asList("add", "del", "list"));
             else if (a.length == 3 && a[1].equalsIgnoreCase("add")) out.addAll(TYPES);
             out.removeIf(x -> !x.startsWith(a[a.length - 1].toLowerCase(Locale.ROOT)));
@@ -118,6 +149,7 @@ public final class MapsModule extends JsonModule {
                 return true;
             }
             o.addProperty("name", best.name);
+            o.addProperty("type", best.type);
             o.addProperty("x", best.x);
             o.addProperty("y", best.y);
             o.addProperty("z", best.z);
@@ -131,6 +163,19 @@ public final class MapsModule extends JsonModule {
             out.removeIf(x -> !x.startsWith(a[a.length - 1].toLowerCase(Locale.ROOT)));
             return out;
         });
+    }
+
+    /** Ruta pe reteaua GPS din mod (prin reflexie, ca pluginul sa nu depinda de el). null = fara ruta. */
+    private double[][] gpsRoute(Player p, double tx, double tz) {
+        if (p.getWorld().getEnvironment() != org.bukkit.World.Environment.NORMAL) return null;
+        try {
+            Object r = Class.forName("ro.solarstudios.flowcity.content.GpsNetwork")
+                .getMethod("route", double.class, double.class, double.class, double.class)
+                .invoke(null, p.getLocation().getX(), p.getLocation().getZ(), tx, tz);
+            return (double[][]) r;
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return null;
+        }
     }
 
     private void poiCommand(Player p, String[] a) {

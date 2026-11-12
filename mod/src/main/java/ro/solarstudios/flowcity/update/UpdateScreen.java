@@ -72,18 +72,12 @@ public final class UpdateScreen extends FlowScreen {
         Ui.rect(ms, x, y + 10, w, 1, Theme.LINE);
         y += 15;
         List<String> notes = UpdateChecker.notes;
-        int shown = 0;
+        int limitY = py + ph - 44 - 34;
         for (String n : notes) {
-            if (shown >= 7) break;
-            for (String l : Wrap.lines(n, w - 14)) {
-                if (shown >= 7) break;
-                Ui.rect(ms, x + 1, y + 3, 3, 3, Theme.ACCENT);
-                Ui.text(ms, l, x + 8, y, Theme.TEXT);
-                y += 11;
-                shown++;
-                // doar prima linie are punct; restul sunt continuari
-                break;
-            }
+            if (y + 10 > limitY) break;
+            Ui.rect(ms, x + 1, y + 3, 3, 3, Theme.ACCENT);
+            Ui.text(ms, Ui.clip(n, w - 14), x + 8, y, Theme.TEXT);
+            y += 11;
         }
         if (notes.isEmpty()) Ui.text(ms, "-", x + 8, y, Theme.FAINT);
 
@@ -94,9 +88,10 @@ public final class UpdateScreen extends FlowScreen {
         }
         String st = UpdateChecker.status;
         if (UpdateChecker.downloaded) {
-            Ui.text(ms, "Gata! Inchide jocul si inlocuieste fisierul vechi din mods/ cu cel din folderul deschis.", x, by - 26, Theme.OK);
+            Ui.text(ms, "Gata! Inchide jocul si pune fisierul nou in mods/", x, by - 28, Theme.OK);
+            Ui.text(ms, "(sterge-l pe cel vechi).", x, by - 38, Theme.MUTED);
         } else if (!st.isEmpty()) {
-            Ui.text(ms, st, x, by - 26, st.startsWith("Eroare") ? Theme.BAD : Theme.MUTED);
+            Ui.text(ms, Ui.clip(st, w), x, by - 26, st.startsWith("Eroare") ? Theme.BAD : Theme.MUTED);
         }
         int bw = (w - 12) / 3;
         button(ms, UpdateChecker.downloading ? "SE DESCARCA..." : "DESCARCA UPDATE", x, by, bw, 18, mx, my,

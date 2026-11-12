@@ -2,19 +2,16 @@ package ro.solarstudios.flowcity.maps;
 
 import com.mojang.blaze3d.matrix.MatrixStack;
 import com.mojang.blaze3d.systems.RenderSystem;
-import java.util.HashMap;
-import java.util.Map;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.AbstractGui;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.renderer.texture.NativeImage;
-import net.minecraft.client.world.ClientWorld;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.chunk.ChunkStatus;
-import net.minecraft.world.gen.Heightmap;
 
-/** Textura dinamica cu terenul din jurul unui punct, vazut de sus (culori ca pe harta vanilla, cu relief). */
+/**
+ * Textura dinamica a hartii in stil GTA (apa, parcuri, strazi albe, cladiri), construita din {@link MapCache}.
+ * Stilul "atlas" e deschis (harta mare); stilul "radar" e inchis (minimap).
+ */
 public final class MapView {
     public final int size;
     private final DynamicTexture tex;
@@ -24,13 +21,25 @@ public final class MapView {
     public int scale = 1;
     public long updated;
     private boolean ready;
+    private final boolean radar;
 
-    public MapView(int size, String name) {
+    // clase
+    private static final int UNKNOWN = 0, WATER = 1, LAND = 2, LAND_ALT = 3, PARK = 4, ROAD = 5, ROAD_EDGE = 6, BUILDING = 7, BUILD_EDGE = 8;
+
+    private static final int[] ATLAS = {0xFFB9C7D6, 0xFF7BA6D6, 0xFFEAE6D8, 0xFFE0DCCB, 0xFFB5D6A0, 0xFFFFFFFF, 0xFFB8B4A6, 0xFFD2CEC0, 0xFFA9A596};
+    private static final int[] RADAR = {0xFF10151C, 0xFF2B4C6F, 0xFF2A2F38, 0xFF303642, 0xFF2B4A36, 0xFF7E8798, 0xFF4D5565, 0xFF3B4150, 0xFF1F232B};
+
+    public MapView(int size, String name, boolean radar) {
         this.size = size;
+        this.radar = radar;
         NativeImage img = new NativeImage(NativeImage.PixelFormat.RGBA, size, size, false);
-        for (int y = 0; y < size; y++) for (int x = 0; x < size; x++) img.setPixelRGBA(x, y, 0xFF201008);
+        for (int y = 0; y < size; y++) for (int x = 0; x < size; x++) img.setPixelRGBA(x, y, abgr((radar ? RADAR : ATLAS)[UNKNOWN]));
         this.tex = new DynamicTexture(img);
         this.loc = Minecraft.getInstance().getTextureManager().getDynamicTextureLocation(name, tex);
+    }
+
+    private static int abgr(int argb) {
+        return (argb & 0xFF00FF00) | ((argb & 0xFF) << 16) | ((argb >> 16) & 0xFF);
     }
 
     public void close() {
@@ -41,75 +50,139 @@ public final class MapView {
         }
     }
 
-    public boolean needsRefresh(int ncx, int ncz, int nscale, long maxAgeMs) {
-        return !ready || nscale != scale || Math.abs(ncx - cx) >= Math.max(3, scale * 3) || Math.abs(ncz - cz) >= Math.max(3, scale * 3)
-            || System.currentTimeMillis() - updated > maxAgeMs;
+    /** Trebuie refacuta imaginea pentru o vedere centrata la (vx,vz) cu o fereastra de wTex x hTex texeli? */
+    public boolean needsRefresh(double vx, double vz, int nscale, int viewTexW, int viewTexH, long maxAgeMs) {
+        if (!ready || nscale != scale) return true;
+        double offX = Math.abs(vx - cx) / scale + viewTexW / 2.0;
+        double offZ = Math.abs(vz - cz) / scale + viewTexH / 2.0;
+        if (offX > size / 2.0 - 3 || offZ > size / 2.0 - 3) return true;
+        return System.currentTimeMillis() - updated > maxAgeMs;
     }
 
-    /** Reface imaginea centrata pe (ncx, ncz), cu nscale blocuri per pixel. */
-    public void refresh(ClientWorld w, int ncx, int ncz, int nscale) {
-        if (w == null) return;
+    public void refresh(int ncx, int ncz, int nscale) {
         cx = ncx;
         cz = ncz;
         scale = nscale;
         updated = System.currentTimeMillis();
         NativeImage img = tex.getTextureData();
         if (img == null) return;
-        int half = size * scale / 2;
-        Map<Long, Boolean> loaded = new HashMap<>();
-        int[] prevH = new int[size];
-        BlockPos.Mutable pos = new BlockPos.Mutable();
-        for (int j = 0; j < size; j++) {
+        int n = size;
+        int half = n * scale / 2;
+        int[] hh = new int[n * n];
+        int[] cc = new int[n * n];
+        for (int j = 0; j < n; j++) {
             int wz = cz - half + j * scale;
-            for (int i = 0; i < size; i++) {
+            for (int i = 0; i < n; i++) {
                 int wx = cx - half + i * scale;
-                long ck = ((long) (wx >> 4) << 32) ^ ((wz >> 4) & 0xFFFFFFFFL);
-                Boolean ok = loaded.get(ck);
-                if (ok == null) {
-                    ok = w.getChunkProvider().getChunk(wx >> 4, wz >> 4, ChunkStatus.FULL, false) != null;
-                    loaded.put(ck, ok);
+                hh[j * n + i] = MapCache.height(wx, wz);
+                cc[j * n + i] = MapCache.color(wx, wz);
+            }
+        }
+        int[] cls = new int[n * n];
+        for (int j = 0; j < n; j++) {
+            for (int i = 0; i < n; i++) {
+                int k = j * n + i;
+                int h = hh[k];
+                if (h < 0) {
+                    cls[k] = UNKNOWN;
+                    continue;
                 }
-                int color;
-                if (!ok) {
-                    color = 0xFF2A1A0E; // necunoscut (ABGR: albastru inchis)
-                    prevH[i] = 0;
-                } else {
-                    int h = w.getHeight(Heightmap.Type.MOTION_BLOCKING, wx, wz);
-                    if (h <= 0) {
-                        color = 0xFF2A1A0E;
-                    } else {
-                        pos.setPos(wx, h - 1, wz);
-                        int rgb = w.getBlockState(pos).getMaterialColor(w, pos).colorValue;
-                        if (rgb == 0) rgb = 0x404040;
-                        float shade = 1f;
-                        if (j > 0 && prevH[i] > 0) shade += Math.max(-3, Math.min(3, h - prevH[i])) * 0.07f;
-                        int r = Math.min(255, (int) (((rgb >> 16) & 255) * shade));
-                        int g = Math.min(255, (int) (((rgb >> 8) & 255) * shade));
-                        int b = Math.min(255, (int) ((rgb & 255) * shade));
-                        color = 0xFF000000 | (b << 16) | (g << 8) | r;
-                    }
-                    prevH[i] = h;
+                int c = cc[k];
+                if ((c & MapCache.WATER) != 0) {
+                    cls[k] = WATER;
+                    continue;
                 }
-                img.setPixelRGBA(i, j, color);
+                int r = (c >> 16) & 255;
+                int g = (c >> 8) & 255;
+                int b = c & 255;
+                int mx = Math.max(r, Math.max(g, b));
+                int mn = Math.min(r, Math.min(g, b));
+                int d = 2;
+                int low = h;
+                low = Math.min(low, known(hh, n, i - d, j, h));
+                low = Math.min(low, known(hh, n, i + d, j, h));
+                low = Math.min(low, known(hh, n, i, j - d, h));
+                low = Math.min(low, known(hh, n, i, j + d, h));
+                if (h - low >= 4) cls[k] = BUILDING;
+                else if (g > r + 6 && g > b + 6) cls[k] = PARK;
+                else if (mx - mn < 30 && mx < 110) cls[k] = ROAD;
+                else if (mx - mn < 30) cls[k] = LAND_ALT;
+                else cls[k] = LAND;
+            }
+        }
+        int[] pal = radar ? RADAR : ATLAS;
+        for (int j = 0; j < n; j++) {
+            for (int i = 0; i < n; i++) {
+                int k = j * n + i;
+                int cl = cls[k];
+                if (cl == ROAD && edge(cls, n, i, j, ROAD)) cl = ROAD_EDGE;
+                else if (cl == BUILDING && edge(cls, n, i, j, BUILDING)) cl = BUILD_EDGE;
+                img.setPixelRGBA(i, j, abgr(pal[cl]));
             }
         }
         tex.updateDynamicTexture();
         ready = true;
     }
 
-    public void draw(MatrixStack ms, int x, int y, int w, int h) {
+    private static int known(int[] hh, int n, int i, int j, int def) {
+        if (i < 0 || j < 0 || i >= n || j >= n) return def;
+        int v = hh[j * n + i];
+        return v < 0 ? def : v;
+    }
+
+    private static boolean edge(int[] cls, int n, int i, int j, int self) {
+        return diff(cls, n, i - 1, j, self) || diff(cls, n, i + 1, j, self) || diff(cls, n, i, j - 1, self) || diff(cls, n, i, j + 1, self);
+    }
+
+    private static boolean diff(int[] cls, int n, int i, int j, int self) {
+        if (i < 0 || j < 0 || i >= n || j >= n) return false;
+        return cls[j * n + i] != self;
+    }
+
+    // ------------------------------------------------------------------ desen
+
+    private void bind() {
         RenderSystem.enableBlend();
         RenderSystem.color4f(1f, 1f, 1f, 1f);
         Minecraft.getInstance().getTextureManager().bindTexture(loc);
-        AbstractGui.blit(ms, x, y, w, h, 0f, 0f, size, size, size, size);
+        RenderSystem.texParameter(3553, 10241, 9728);
+        RenderSystem.texParameter(3553, 10240, 9728);
     }
 
-    /** Lume -> pixel ecran pentru o vedere desenata la (x,y) cu latimea w. */
-    public float sx(double wx, int x, int w) {
-        return x + (float) ((wx - (cx - size * scale / 2.0)) / (size * (double) scale)) * w;
+    private int u0(double vx, int w, int f) {
+        return (int) Math.round(size / 2.0 + (vx - cx) / scale - w / (2.0 * f));
     }
 
-    public float sy(double wz, int y, int h) {
-        return y + (float) ((wz - (cz - size * scale / 2.0)) / (size * (double) scale)) * h;
+    private int v0(double vz, int h, int f) {
+        return (int) Math.round(size / 2.0 + (vz - cz) / scale - h / (2.0 * f));
+    }
+
+    /** Deseneaza fereastra (w x h pixeli GUI, w si h multiplu de f) centrata la (vx,vz); f = pixeli GUI per texel. */
+    public void draw(MatrixStack ms, int x, int y, int w, int h, double vx, double vz, int f) {
+        bind();
+        int rw = w / f;
+        int rh = h / f;
+        int u = Math.max(0, Math.min(size - rw, u0(vx, w, f)));
+        int v = Math.max(0, Math.min(size - rh, v0(vz, h, f)));
+        AbstractGui.blit(ms, x, y, rw * f, rh * f, (float) u, (float) v, rw, rh, size, size);
+    }
+
+    public float gx(double wx, int x, int w, double vx, int f) {
+        return x + (float) (((wx - cx) / scale + size / 2.0 - u0(vx, w, f)) * f);
+    }
+
+    public float gy(double wz, int y, int h, double vz, int f) {
+        return y + (float) (((wz - cz) / scale + size / 2.0 - v0(vz, h, f)) * f);
+    }
+
+    /** Radar rotit: imaginea intreaga centrata la (sx,sy), deplasata cu pozitia jucatorului si rotita cu rotDeg. */
+    public void drawRotated(MatrixStack ms, float sx, float sy, double px, double pz, float rotDeg) {
+        bind();
+        ms.push();
+        ms.translate(sx, sy, 0);
+        ms.rotate(net.minecraft.util.math.vector.Vector3f.ZP.rotationDegrees(rotDeg));
+        ms.translate(-(px - cx) / scale, -(pz - cz) / scale, 0);
+        AbstractGui.blit(ms, -size / 2, -size / 2, size, size, 0f, 0f, size, size, size, size);
+        ms.pop();
     }
 }

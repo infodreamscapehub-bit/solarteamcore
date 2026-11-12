@@ -1,8 +1,11 @@
 package ro.solarstudios.flowcity.maps;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.mojang.blaze3d.matrix.MatrixStack;
+import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.util.math.MathHelper;
@@ -20,16 +23,16 @@ import ro.solarstudios.flowcity.module.ClientModules;
 import ro.solarstudios.flowcity.module.JsonClientModule;
 import ro.solarstudios.flowcity.notify.NotifyToasts;
 
-import java.util.List;
-
-/** eMaps pe client: minimap, GPS cu ruta, tasta M pentru harta mare. */
+/** eMaps pe client, in stil GTA V: radar rotit, waypoint cu ruta pe reteaua GPS a serverului, harta mare (tasta M). */
 public final class MapsClient extends JsonClientModule {
     private static MapsClient instance;
     public static KeyBinding openKey;
     public static boolean needRoute;
-    private static final int MM = 96;
-    private static MapView mini;
+    public static final int MM = 108;
+    public static final int ROUTE_COLOR = 0xFFE056FD;
+    private static MapView radar;
     private static long lastRoute;
+    private static long waitingSince;
 
     private MapsClient() {
         on("pois", d -> {
@@ -53,8 +56,20 @@ public final class MapsClient extends JsonClientModule {
                 MapsState.clearTarget();
                 return;
             }
-            MapsState.setTarget(str(d, "name", "Destinatie"), num(d, "x", 0), num(d, "z", 0));
-            NotifyToasts.add("INFO", "GPS pornit", "Spre " + MapsState.targetName + ".");
+            gpsTo(str(d, "name", "Destinatie"), str(d, "type", null), num(d, "x", 0), num(d, "z", 0));
+        });
+        on("route", d -> {
+            waitingSince = 0;
+            if (!MapsState.hasTarget) return;
+            List<double[]> r = new ArrayList<>();
+            if (bool(d, "ok", false) && d.has("list")) {
+                for (JsonElement e : d.getAsJsonArray("list")) {
+                    JsonArray a = e.getAsJsonArray();
+                    r.add(new double[] {a.get(0).getAsDouble(), a.get(1).getAsDouble()});
+                }
+            }
+            MapsState.route = r;
+            MapsState.routeNetwork = !r.isEmpty();
         });
         on("open", d -> Minecraft.getInstance().displayGuiScreen(new MapScreen()));
     }
@@ -67,13 +82,14 @@ public final class MapsClient extends JsonClientModule {
     @Override
     public void onLogout() {
         MapsState.reset();
-        closeMini();
+        MapCache.unload();
+        closeRadar();
     }
 
-    private static void closeMini() {
-        if (mini != null) {
-            mini.close();
-            mini = null;
+    private static void closeRadar() {
+        if (radar != null) {
+            radar.close();
+            radar = null;
         }
     }
 
@@ -92,58 +108,77 @@ public final class MapsClient extends JsonClientModule {
         if (instance != null) instance.send("pois", new JsonObject());
     }
 
-    public static void gpsTo(String name, double x, double z) {
-        MapsState.setTarget(name, x, z);
-        NotifyToasts.add("INFO", "GPS pornit", "Spre " + name + ".");
+    /** Pune waypoint / porneste GPS. type = tipul iconitei (null = waypoint personal). */
+    public static void gpsTo(String name, String type, double x, double z) {
+        MapsState.setTarget(name, type, x, z);
+        FlowSounds.play("notify", 0.5F);
+        NotifyToasts.add("INFO", "Waypoint setat", name + " - ruta pe strazi se calculeaza.");
+    }
+
+    private static void requestRoute(double tx, double tz) {
+        if (instance == null) return;
+        JsonObject o = new JsonObject();
+        o.addProperty("tx", tx);
+        o.addProperty("tz", tz);
+        waitingSince = System.currentTimeMillis();
+        instance.send("route", o);
     }
 
     // ------------------------------------------------------------------ desen comun
 
-    /** Deseneaza ruta ca puncte pe o vedere (minimap sau harta mare). */
-    public static void drawRoute(MatrixStack ms, MapView v, int x, int y, int w, int h, int clipX0, int clipY0, int clipX1, int clipY1) {
-        List<double[]> r = MapsState.route;
+    /** Ruta ca linie groasa, pe o vedere data prin functiile de transformare (lume -> ecran). */
+    public interface Proj {
+        float x(double wx);
+
+        float y(double wz);
+    }
+
+    public static void drawRoute(MatrixStack ms, Proj pr, int thick, int x0, int y0, int x1, int y1) {
         Minecraft mc = Minecraft.getInstance();
         if (!MapsState.hasTarget || mc.player == null) return;
-        double px = mc.player.getPosX();
-        double pz = mc.player.getPosZ();
-        double[] prev = new double[] {px, pz};
-        int color = 0xFF3DDC84;
-        for (double[] p : r) {
-            segment(ms, v, x, y, w, h, prev, p, color, clipX0, clipY0, clipX1, clipY1);
+        double[] prev = new double[] {mc.player.getPosX(), mc.player.getPosZ()};
+        List<double[]> pts = MapsState.route;
+        int color = MapsState.routeNetwork ? ROUTE_COLOR : 0x99E056FD;
+        if (pts.isEmpty()) {
+            segment(ms, pr, prev, new double[] {MapsState.tx, MapsState.tz}, thick, color, x0, y0, x1, y1, true);
+            return;
+        }
+        for (double[] p : pts) {
+            segment(ms, pr, prev, p, thick, color, x0, y0, x1, y1, false);
             prev = p;
         }
-        if (r.isEmpty()) segment(ms, v, x, y, w, h, prev, new double[] {MapsState.tx, MapsState.tz}, 0xFFFFC83D, clipX0, clipY0, clipX1, clipY1);
     }
 
-    private static void segment(MatrixStack ms, MapView v, int x, int y, int w, int h, double[] a, double[] b, int color,
-                                int c0, int c1, int c2, int c3) {
-        double len = Math.sqrt((b[0] - a[0]) * (b[0] - a[0]) + (b[1] - a[1]) * (b[1] - a[1]));
-        int steps = (int) Math.max(1, Math.ceil(len / 2.0));
+    private static void segment(MatrixStack ms, Proj pr, double[] a, double[] b, int thick, int color, int x0, int y0, int x1, int y1, boolean dashed) {
+        float ax = pr.x(a[0]);
+        float ay = pr.y(a[1]);
+        float bx = pr.x(b[0]);
+        float by = pr.y(b[1]);
+        float len = (float) Math.hypot(bx - ax, by - ay);
+        int steps = (int) Math.max(1, Math.ceil(len / Math.max(1, thick - 0.5f)));
         for (int i = 0; i <= steps; i++) {
-            double t = i / (double) steps;
-            int sx = Math.round(v.sx(a[0] + (b[0] - a[0]) * t, x, w));
-            int sy = Math.round(v.sy(a[1] + (b[1] - a[1]) * t, y, h));
-            if (sx < c0 || sy < c1 || sx >= c2 || sy >= c3) continue;
-            Ui.rect(ms, sx - 1, sy - 1, 2, 2, color);
+            if (dashed && (i / 3) % 2 == 1) continue;
+            float t = i / (float) steps;
+            int sx = Math.round(ax + (bx - ax) * t);
+            int sy = Math.round(ay + (by - ay) * t);
+            if (sx < x0 || sy < y0 || sx + thick > x1 || sy + thick > y1) continue;
+            Ui.rect(ms, sx - thick / 2, sy - thick / 2, thick, thick, color);
         }
-    }
-
-    public static void drawPlayer(MatrixStack ms, float cx, float cy, float yaw) {
-        ms.push();
-        ms.translate(cx, cy, 0);
-        ms.rotate(Vector3f.ZP.rotationDegrees(yaw - 180f));
-        for (int i = 0; i < 6; i++) Ui.rect(ms, -i / 2 - 1 + (i % 2 == 0 ? 0 : 0), -4 + i, 1 + i / 2 * 2 + 1, 1, 0xFFFFFFFF);
-        Ui.rect(ms, -1, 2, 2, 2, 0xFF3FA0FF);
-        ms.pop();
     }
 
     public static void drawArrow(MatrixStack ms, float cx, float cy, float rotDeg, int color) {
         ms.push();
         ms.translate(cx, cy, 0);
         ms.rotate(Vector3f.ZP.rotationDegrees(rotDeg));
-        for (int i = 0; i < 6; i++) Ui.rect(ms, -i / 2, -4 + i, 1 + (i / 2) * 2, 1, color);
+        for (int i = 0; i < 6; i++) Ui.rect(ms, -i / 2 - 0, -4 + i, 1 + (i / 2) * 2, 1, color);
         Ui.rect(ms, -1, 2, 2, 3, color);
         ms.pop();
+    }
+
+    /** Sageata jucatorului pe harta mare: orientata dupa privire (yaw MC). */
+    public static void drawPlayer(MatrixStack ms, float cx, float cy, float yaw) {
+        drawArrow(ms, cx, cy, yaw - 180f, 0xFFFFFFFF);
+        Ui.rect(ms, Math.round(cx) - 1, Math.round(cy), 2, 2, 0xFF2F8CFF);
     }
 
     public static String meters(double d) {
@@ -160,34 +195,30 @@ public final class MapsClient extends JsonClientModule {
             if (e.phase != TickEvent.Phase.END) return;
             Minecraft mc = Minecraft.getInstance();
             if (mc.player == null || mc.world == null) return;
+            try {
+                MapCache.tick(mc.world, mc.player);
+            } catch (RuntimeException ignored) {
+                // harta nu trebuie sa strice jocul
+            }
             if (openKey != null && openKey.isPressed() && mc.currentScreen == null) mc.displayGuiScreen(new MapScreen());
             tick++;
             if (tick == 40) requestPois();
             if (!MapsState.hasTarget) return;
             double px = mc.player.getPosX();
             double pz = mc.player.getPosZ();
-            double d = Math.sqrt((MapsState.tx - px) * (MapsState.tx - px) + (MapsState.tz - pz) * (MapsState.tz - pz));
-            if (d < 5) {
-                NotifyToasts.add("OK", "GPS", "Ai ajuns la " + MapsState.targetName + ".");
+            double d = Math.hypot(MapsState.tx - px, MapsState.tz - pz);
+            if (d < 6) {
+                NotifyToasts.add("OK", "Waypoint", "Ai ajuns la " + MapsState.targetName + ".");
                 FlowSounds.play("money", 0.6F);
                 MapsState.clearTarget();
                 return;
             }
             long now = System.currentTimeMillis();
-            if (Router.busy()) {
-                List<double[]> r = Router.step(1200);
-                if (r != null) {
-                    MapsState.route = r;
-                    MapsState.routeIsStraight = false;
-                    lastRoute = now;
-                }
-            } else {
-                boolean moved = Math.hypot(px - Router.startX, pz - Router.startZ) > 8;
-                if (needRoute || (now - lastRoute > 5000 && moved)) {
-                    needRoute = false;
-                    lastRoute = now;
-                    Router.start(px, pz, MapsState.tx, MapsState.tz);
-                }
+            if (waitingSince != 0 && now - waitingSince > 4000) waitingSince = 0;
+            if (waitingSince == 0 && (needRoute || now - lastRoute > 6000)) {
+                needRoute = false;
+                lastRoute = now;
+                requestRoute(MapsState.tx, MapsState.tz);
             }
         }
 
@@ -198,68 +229,120 @@ public final class MapsClient extends JsonClientModule {
             if (!MapsState.minimap || mc.player == null || mc.world == null || mc.gameSettings.hideGUI) return;
             if (mc.currentScreen instanceof MapScreen) return;
             try {
-                MatrixStack ms = e.getMatrixStack();
-                int x = 10;
-                int y = 10;
-                int scale = MapsState.miniScale;
-                if (mini == null) mini = new MapView(MM, "flowcity_minimap");
-                int pcx = MathHelper.floor(mc.player.getPosX());
-                int pcz = MathHelper.floor(mc.player.getPosZ());
-                if (mini.needsRefresh(pcx, pcz, scale, 700)) mini.refresh(mc.world, pcx, pcz, scale);
-
-                Ui.rect(ms, x - 2, y - 2, MM + 4, MM + 4, 0xCC0A1220);
-                Ui.rect(ms, x - 2, y - 2, MM + 4, 2, 0xFF2F8CFF);
-                mini.draw(ms, x, y, MM, MM);
-                drawRoute(ms, mini, x, y, MM, MM, x, y, x + MM, y + MM);
-                // puncte de interes
-                for (MapsState.Poi p : MapsState.pois) {
-                    float sx = mini.sx(p.x, x, MM);
-                    float sy = mini.sy(p.z, y, MM);
-                    boolean out = sx < x + 3 || sy < y + 3 || sx > x + MM - 3 || sy > y + MM - 3;
-                    sx = Math.max(x + 3, Math.min(x + MM - 3, sx));
-                    sy = Math.max(y + 3, Math.min(y + MM - 3, sy));
-                    int c = MapsState.typeColor(p.type);
-                    Ui.rect(ms, Math.round(sx) - 2, Math.round(sy) - 2, 5, 5, 0xFF000000);
-                    Ui.rect(ms, Math.round(sx) - 1, Math.round(sy) - 1, out ? 2 : 3, out ? 2 : 3, c);
-                }
-                if (MapsState.hasTarget) {
-                    float sx = Math.max(x + 4, Math.min(x + MM - 4, mini.sx(MapsState.tx, x, MM)));
-                    float sy = Math.max(y + 4, Math.min(y + MM - 4, mini.sy(MapsState.tz, y, MM)));
-                    float pulse = 0.5f + 0.5f * (float) Math.sin(System.currentTimeMillis() / 220.0);
-                    Ui.rect(ms, Math.round(sx) - 3, Math.round(sy) - 3, 7, 7, Theme.alpha(0xFFFFC83D, (int) (160 + 95 * pulse)));
-                    Ui.rect(ms, Math.round(sx) - 1, Math.round(sy) - 1, 3, 3, 0xFF000000);
-                }
-                drawPlayer(ms, x + MM / 2f, y + MM / 2f, mc.player.rotationYaw);
-                Ui.textCenter(ms, "N", x + MM / 2, y + 2, 0xFFFFFFFF);
-
-                // bara de jos: coordonate sau GPS
-                int by = y + MM + 4;
-                Ui.rect(ms, x - 2, by, MM + 4, 16, 0xCC0A1220);
-                if (MapsState.hasTarget) {
-                    double dx = MapsState.tx - mc.player.getPosX();
-                    double dz = MapsState.tz - mc.player.getPosZ();
-                    double dist = Math.sqrt(dx * dx + dz * dz);
-                    // directia spre urmatorul punct al rutei (sau tinta)
-                    double nx = MapsState.tx;
-                    double nz = MapsState.tz;
-                    for (double[] p : MapsState.route) {
-                        if (Math.hypot(p[0] - mc.player.getPosX(), p[1] - mc.player.getPosZ()) > 6) {
-                            nx = p[0];
-                            nz = p[1];
-                            break;
-                        }
-                    }
-                    float targetYaw = (float) (Math.atan2(-(nx - mc.player.getPosX()), nz - mc.player.getPosZ()) * 180.0 / Math.PI);
-                    float rel = MathHelper.wrapDegrees(targetYaw - mc.player.rotationYaw);
-                    drawArrow(ms, x + 8, by + 8, rel, 0xFF3DDC84);
-                    Ui.text(ms, Ui.clip(MapsState.targetName, MM - 56), x + 18, by + 4, Theme.TEXT);
-                    Ui.textRight(ms, meters(dist), x + MM, by + 4, 0xFFFFC83D);
-                } else {
-                    Ui.textCenter(ms, pcx + ", " + pcz, x + MM / 2, by + 4, Theme.MUTED);
-                }
+                drawRadar(e.getMatrixStack(), mc);
             } catch (RuntimeException ex) {
-                closeMini();
+                closeRadar();
                 MapsState.minimap = false;
+            }
+        }
+
+        private void drawRadar(MatrixStack ms, Minecraft mc) {
+            int scale = MapsState.miniScale;
+            if (radar == null) radar = new MapView(160, "flowcity_radar", true);
+            double px = mc.player.getPosX();
+            double pz = mc.player.getPosZ();
+            if (radar.needsRefresh(px, pz, scale, 140, 140, 1500)) radar.refresh(MathHelper.floor(px), MathHelper.floor(pz), scale);
+
+            int x = 14;
+            int y = MapsState.radarPos == 0 ? mc.getMainWindow().getScaledHeight() - 14 - MM - 14 : 12;
+            int cx = x + MM / 2;
+            int cy = y + MM / 2;
+            float rot = 180f - mc.player.rotationYaw;
+            double rad = Math.toRadians(rot);
+            final float cos = (float) Math.cos(rad);
+            final float sin = (float) Math.sin(rad);
+
+            // rama
+            Ui.rect(ms, x - 3, y - 3, MM + 6, MM + 6, 0xFF05070C);
+            Ui.rect(ms, x - 2, y - 2, MM + 4, MM + 4, 0xFF8892A6);
+            Ui.rect(ms, x - 1, y - 1, MM + 2, MM + 2, 0xFF05070C);
+            Ui.scissor(x, y, MM, MM);
+            radar.drawRotated(ms, cx, cy, px, pz, rot);
+            Ui.endScissor();
+
+            // transformare completa (x si z impreuna): o facem manual, nu prin Proj
+            drawRouteRotated(ms, px, pz, scale, cx, cy, cos, sin, x, y);
+
+            // puncte de interes
+            for (MapsState.Poi p : MapsState.pois) {
+                if (MapsState.hidden.contains(p.type)) continue;
+                float[] r = rel(p.x, p.z, px, pz, scale, cos, sin);
+                boolean out = Math.abs(r[0]) > MM / 2f - 6 || Math.abs(r[1]) > MM / 2f - 6;
+                if (out) {
+                    float k = (MM / 2f - 6) / Math.max(Math.abs(r[0]), Math.abs(r[1]));
+                    r[0] *= k;
+                    r[1] *= k;
+                }
+                Ui.rect(ms, Math.round(cx + r[0]) - 1, Math.round(cy + r[1]) - 1, 3, 3, 0xFFFFFFFF);
+                if (!out) Blips.draw(ms, p.type, Math.round(cx + r[0]), Math.round(cy + r[1]), 8, false);
+            }
+            // waypoint
+            if (MapsState.hasTarget) {
+                float[] r = rel(MapsState.tx, MapsState.tz, px, pz, scale, cos, sin);
+                boolean out = Math.abs(r[0]) > MM / 2f - 8 || Math.abs(r[1]) > MM / 2f - 8;
+                if (out) {
+                    float k = (MM / 2f - 8) / Math.max(Math.abs(r[0]), Math.abs(r[1]));
+                    r[0] *= k;
+                    r[1] *= k;
+                }
+                Blips.pin(ms, Math.round(cx + r[0]), Math.round(cy + r[1]) + 4, 8, ROUTE_COLOR);
+            }
+            // N
+            float nx = sin;
+            float ny = -cos;
+            float kn = (MM / 2f - 7) / Math.max(Math.abs(nx), Math.abs(ny));
+            Ui.rect(ms, Math.round(cx + nx * kn) - 5, Math.round(cy + ny * kn) - 5, 11, 11, 0xCC05070C);
+            Ui.textCenter(ms, "N", Math.round(cx + nx * kn), Math.round(cy + ny * kn) - 4, 0xFFFF5050);
+            // jucator
+            drawArrow(ms, cx, cy, 0f, 0xFFFFFFFF);
+            Ui.rect(ms, cx - 1, cy, 2, 2, 0xFF2F8CFF);
+
+            // bare viata / armura
+            float hp = Math.max(0f, Math.min(1f, mc.player.getHealth() / Math.max(1f, mc.player.getMaxHealth())));
+            float ar = Math.max(0f, Math.min(1f, mc.player.getTotalArmorValue() / 20f));
+            Ui.rect(ms, x, y + MM + 4, MM, 4, 0xAA05070C);
+            Ui.rect(ms, x, y + MM + 4, Math.round(MM * hp), 4, 0xFF4CD964);
+            Ui.rect(ms, x, y + MM + 9, MM, 3, 0xAA05070C);
+            Ui.rect(ms, x, y + MM + 9, Math.round(MM * ar), 3, 0xFF3FA0FF);
+
+            // info waypoint
+            if (MapsState.hasTarget) {
+                double dist = Math.hypot(MapsState.tx - px, MapsState.tz - pz);
+                int ty = MapsState.radarPos == 0 ? y - 12 : y + MM + 16;
+                Ui.rect(ms, x, ty, MM, 11, 0xCC05070C);
+                Ui.text(ms, Ui.clip(MapsState.targetName, MM - 46), x + 3, ty + 2, Theme.TEXT);
+                Ui.textRight(ms, meters(dist), x + MM - 3, ty + 2, ROUTE_COLOR);
+            }
+        }
+
+        private float[] rel(double wx, double wz, double px, double pz, float scale, float cos, float sin) {
+            double dx = (wx - px) / scale;
+            double dz = (wz - pz) / scale;
+            return new float[] {(float) (dx * cos - dz * sin), (float) (dx * sin + dz * cos)};
+        }
+
+        private void drawRouteRotated(MatrixStack ms, double px, double pz, float scale, int cx, int cy, float cos, float sin, int x, int y) {
+            if (!MapsState.hasTarget) return;
+            List<double[]> pts = MapsState.route;
+            int color = MapsState.routeNetwork ? ROUTE_COLOR : 0x99E056FD;
+            double[] prev = new double[] {px, pz};
+            List<double[]> seq = new ArrayList<>();
+            seq.add(prev);
+            if (pts.isEmpty()) seq.add(new double[] {MapsState.tx, MapsState.tz});
+            else seq.addAll(pts);
+            for (int i = 0; i + 1 < seq.size(); i++) {
+                float[] a = rel(seq.get(i)[0], seq.get(i)[1], px, pz, scale, cos, sin);
+                float[] b = rel(seq.get(i + 1)[0], seq.get(i + 1)[1], px, pz, scale, cos, sin);
+                float len = (float) Math.hypot(b[0] - a[0], b[1] - a[1]);
+                int steps = (int) Math.max(1, Math.ceil(len / 1.5f));
+                for (int s = 0; s <= steps; s++) {
+                    if (pts.isEmpty() && (s / 3) % 2 == 1) continue;
+                    float t = s / (float) steps;
+                    int sx = Math.round(cx + a[0] + (b[0] - a[0]) * t);
+                    int sy = Math.round(cy + a[1] + (b[1] - a[1]) * t);
+                    if (sx < x + 1 || sy < y + 1 || sx > x + MM - 3 || sy > y + MM - 3) continue;
+                    Ui.rect(ms, sx - 1, sy - 1, 3, 3, color);
+                }
             }
         }
     }

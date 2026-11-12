@@ -23,6 +23,7 @@ public class FlowCity {
         ModLoadingContext.get().registerExtensionPoint(ExtensionPoint.DISPLAYTEST,
             () -> Pair.of(() -> FMLNetworkConstants.IGNORESERVERONLY, (remote, isServer) -> true));
         ro.solarstudios.flowcity.content.ModContent.register();
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(new ro.solarstudios.flowcity.content.GpsEvents());
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> Bridge::init);
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> ClientInit::register);
     }

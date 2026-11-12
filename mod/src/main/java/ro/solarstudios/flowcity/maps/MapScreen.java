@@ -3,33 +3,46 @@ package ro.solarstudios.flowcity.maps;
 import com.mojang.blaze3d.matrix.MatrixStack;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.math.MathHelper;
 import ro.solarstudios.flowcity.client.ui.FlowScreen;
 import ro.solarstudios.flowcity.client.ui.Theme;
 import ro.solarstudios.flowcity.client.ui.Ui;
 
-/** Harta mare eMaps: teren, puncte de interes, GPS. Trage = muta, rotita = zoom, click pe punct = GPS, click dreapta = punct propriu. */
+/** Harta mare in stil GTA V (meniul de pauza): teren descoperit, iconite, filtre, waypoint cu ruta. */
 public final class MapScreen extends FlowScreen {
-    private static final int S = 220;
+    private static final int[][] LEVELS = {{1, 4}, {1, 2}, {2, 2}, {4, 2}, {8, 2}}; // {blocuri/texel, px GUI/texel}
+    private static int level = 1;
+
     private MapView view;
-    private double centerX;
-    private double centerZ;
-    private int scale = 1;
+    private double vx;
+    private double vz;
+    private boolean follow = true;
     private int listScroll;
-    private int lastMx;
-    private int lastMy;
-    private boolean followPlayer = true;
+    private int mx0;
+    private int my0;
+    private int ax;
+    private int ay;
+    private int aw;
+    private int ah;
+    private final long born = System.currentTimeMillis();
 
     public MapScreen() {
-        super("eMaps", 440, 276);
+        super("eMaps", 100, 100);
         Minecraft mc = Minecraft.getInstance();
         if (mc.player != null) {
-            centerX = mc.player.getPosX();
-            centerZ = mc.player.getPosZ();
+            vx = mc.player.getPosX();
+            vz = mc.player.getPosZ();
         }
         MapsClient.requestPois();
+    }
+
+    @Override
+    protected boolean framed() {
+        return false;
     }
 
     @Override
@@ -38,155 +51,246 @@ public final class MapScreen extends FlowScreen {
         view = null;
     }
 
-    private int mapX() {
-        return px + 12;
+    private int f() {
+        return LEVELS[level][1];
     }
 
-    private int mapY() {
-        return py + 36;
+    private int scale() {
+        return LEVELS[level][0];
     }
 
-    private boolean inMap(double mx, double my) {
-        return Ui.in((int) mx, (int) my, mapX(), mapY(), S, S);
+    private boolean inMap(double x, double y) {
+        return Ui.in((int) x, (int) y, ax, ay, aw, ah);
+    }
+
+    private float gx(double wx) {
+        return view.gx(wx, ax, aw, vx, f());
+    }
+
+    private float gy(double wz) {
+        return view.gy(wz, ay, ah, vz, f());
+    }
+
+    private double wx(double sx) {
+        return vx + (sx - (ax + aw / 2.0)) * scale() / f();
+    }
+
+    private double wz(double sy) {
+        return vz + (sy - (ay + ah / 2.0)) * scale() / f();
     }
 
     @Override
     protected void draw(MatrixStack ms, int mx, int my) {
-        lastMx = mx;
-        lastMy = my;
+        mx0 = mx;
+        my0 = my;
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.world == null) return;
-        header(ms, "eMaps", "harta si GPS  |  M = inchide", mx, my);
-        if (followPlayer) {
-            centerX = mc.player.getPosX();
-            centerZ = mc.player.getPosZ();
+        px = 0;
+        py = 0;
+        pw = width;
+        ph = height;
+        long now = System.currentTimeMillis();
+        float appear = Math.min(1f, (now - born) / 200f);
+
+        Ui.rect(ms, 0, 0, width, height, 0xFF0A0F18);
+
+        // ---- bara de sus
+        Ui.rect(ms, 0, 0, width, 28, 0xFF0E1522);
+        Ui.rect(ms, 0, 27, width, 1, 0xFF2A3A57);
+        Ui.rect(ms, 10, 6, 4, 16, Theme.ACCENT);
+        ms.push();
+        ms.translate(20, 8, 0);
+        ms.scale(1.5f, 1.5f, 1f);
+        Ui.textShadow(ms, "HARTA", 0, 0, Theme.TEXT);
+        ms.pop();
+        Ui.text(ms, "FlowCity", 82, 11, Theme.MUTED);
+        String pos = (int) mc.player.getPosX() + ", " + (int) mc.player.getPosY() + ", " + (int) mc.player.getPosZ();
+        Ui.textRight(ms, "Tu: " + pos, width - 40, 10, Theme.MUTED);
+        button(ms, "X", width - 28, 6, 18, 16, mx, my, true, 0xFF5B2A35, this::closeScreen);
+
+        // ---- zona hartii
+        int rightW = Math.min(180, Math.max(140, width / 4));
+        int f = f();
+        int rawW = width - 20 - rightW - 10;
+        int rawH = height - 28 - 8 - 26;
+        aw = rawW / f * f;
+        ah = rawH / f * f;
+        ax = 10;
+        ay = 36;
+        if (view == null) view = new MapView(384, "flowcity_bigmap", false);
+        if (follow) {
+            vx = mc.player.getPosX();
+            vz = mc.player.getPosZ();
         }
-        int x = mapX();
-        int y = mapY();
-        if (view == null) view = new MapView(S, "flowcity_bigmap");
-        int cx = MathHelper.floor(centerX);
-        int cz = MathHelper.floor(centerZ);
-        if (view.needsRefresh(cx, cz, scale, 2000)) view.refresh(mc.world, cx, cz, scale);
+        if (view.needsRefresh(vx, vz, scale(), aw / f, ah / f, 6000)) view.refresh(MathHelper.floor(vx), MathHelper.floor(vz), scale());
 
-        Ui.rect(ms, x - 2, y - 2, S + 4, S + 4, Theme.LINE);
-        view.draw(ms, x, y, S, S);
-        hit(x, y, S, S, () -> { }); // zona hartii (sub restul hit-urilor)
+        Ui.rect(ms, ax - 2, ay - 2, aw + 4, ah + 4, 0xFF2A3A57);
+        view.draw(ms, ax, ay, aw, ah, vx, vz, f);
+        hit(ax, ay, aw, ah, () -> { });
+        Ui.scissor(ax, ay, aw, ah);
 
-        MapsClient.drawRoute(ms, view, x, y, S, S, x, y, x + S, y + S);
+        // ruta
+        
+        MapsClient.Proj pr = new MapsClient.Proj() {
+            @Override
+            public float x(double w) {
+                return gx(w);
+            }
 
-        // puncte de interes
+            @Override
+            public float y(double w) {
+                return gy(w);
+            }
+        };
+        MapsClient.drawRoute(ms, pr, 4, ax, ay, ax + aw, ay + ah);
+
+        // blips
         MapsState.Poi hover = null;
         for (MapsState.Poi p : MapsState.pois) {
-            int sx = Math.round(view.sx(p.x, x, S));
-            int sy = Math.round(view.sy(p.z, y, S));
-            if (sx < x + 4 || sy < y + 4 || sx > x + S - 4 || sy > y + S - 4) continue;
-            int c = MapsState.typeColor(p.type);
-            boolean h = Ui.in(mx, my, sx - 6, sy - 6, 12, 12);
-            Ui.round(ms, sx - 6, sy - 6, 12, 12, 0xFF000000);
-            Ui.round(ms, sx - 5, sy - 5, 10, 10, c);
-            Ui.textCenter(ms, MapsState.typeLetter(p.type), sx, sy - 4, 0xFF101010);
+            if (MapsState.hidden.contains(p.type)) continue;
+            int sx = Math.round(gx(p.x));
+            int sy = Math.round(gy(p.z));
+            if (sx < ax - 8 || sy < ay - 8 || sx > ax + aw + 8 || sy > ay + ah + 8) continue;
+            boolean h = Ui.in(mx, my, sx - 9, sy - 9, 18, 18) && inMap(mx, my);
+            Blips.draw(ms, p.type, sx, sy, h ? 18 : 14, h);
             if (h) hover = p;
             final MapsState.Poi pp = p;
-            hit(sx - 6, sy - 6, 12, 12, () -> {
-                MapsClient.gpsTo(pp.name, pp.x, pp.z);
-                toast("GPS spre " + pp.name, false);
+            hit(sx - 9, sy - 9, 18, 18, () -> {
+                MapsClient.gpsTo(pp.name, pp.type, pp.x, pp.z);
+                toast("Waypoint: " + pp.name, false);
             });
         }
+        // waypoint
         if (MapsState.hasTarget) {
-            int sx = Math.round(view.sx(MapsState.tx, x, S));
-            int sy = Math.round(view.sy(MapsState.tz, y, S));
-            if (sx >= x && sy >= y && sx < x + S && sy < y + S) {
-                float pulse = 0.5f + 0.5f * (float) Math.sin(System.currentTimeMillis() / 220.0);
-                Ui.rect(ms, sx - 4, sy - 4, 9, 9, Theme.alpha(0xFFFFC83D, (int) (150 + 100 * pulse)));
-                Ui.rect(ms, sx - 1, sy - 1, 3, 3, 0xFF000000);
-            }
-        }
-        float px0 = view.sx(mc.player.getPosX(), x, S);
-        float pz0 = view.sy(mc.player.getPosZ(), y, S);
-        if (px0 >= x && pz0 >= y && px0 < x + S && pz0 < y + S) MapsClient.drawPlayer(ms, px0, pz0, mc.player.rotationYaw);
-
-        Ui.text(ms, "1 pixel = " + scale + (scale == 1 ? " bloc" : " blocuri"), x + 4, y + S - 11, Theme.alpha(0xFFFFFFFF, 200));
-        if (hover != null) {
-            String t = hover.name + "  (" + hover.type + ")";
-            int w = Ui.width(t) + 10;
-            int tx = Math.min(x + S - w, Math.max(x, lastMx + 8));
-            Ui.frame(ms, tx, Math.max(y, lastMy - 18), w, 14, Theme.PANEL_3, Theme.ACCENT);
-            Ui.text(ms, t, tx + 5, Math.max(y, lastMy - 18) + 3, Theme.TEXT);
-        }
-
-        // panou dreapta
-        int rx = px + 12 + S + 12;
-        int rw = pw - (rx - px) - 12;
-        Ui.text(ms, "GPS", rx, y, Theme.MUTED);
-        if (MapsState.hasTarget) {
-            Ui.text(ms, Ui.clip(MapsState.targetName, rw), rx, y + 12, Theme.TEXT);
+            int sx = Math.round(gx(MapsState.tx));
+            int sy = Math.round(gy(MapsState.tz));
+            float bob = (float) Math.sin(now / 250.0) * 1.5f;
+            if (MapsState.targetType != null) Blips.draw(ms, MapsState.targetType, sx, sy - 22 + Math.round(bob), 14, true);
+            Blips.pin(ms, sx, sy + Math.round(bob), 12, MapsClient.ROUTE_COLOR);
             double d = Math.hypot(MapsState.tx - mc.player.getPosX(), MapsState.tz - mc.player.getPosZ());
-            Ui.text(ms, MapsClient.meters(d) + (MapsState.routeIsStraight ? "  (linie dreapta)" : "  (ruta pe strazi)"), rx, y + 24, 0xFFFFC83D);
-            button(ms, "OPRESTE GPS", rx, y + 38, rw, 16, mx, my, true, Theme.BAD, () -> {
+            String lab = MapsState.targetName + "  " + MapsClient.meters(d);
+            int lw = Ui.width(lab) + 10;
+            Ui.rect(ms, sx - lw / 2, sy + 4, lw, 12, 0xDD0A0F18);
+            Ui.textCenter(ms, lab, sx, sy + 6, Theme.TEXT);
+        }
+        // jucator
+        float ppx = gx(mc.player.getPosX());
+        float ppz = gy(mc.player.getPosZ());
+        MapsClient.drawPlayer(ms, ppx, ppz, mc.player.rotationYaw);
+        Ui.endScissor();
+
+        // tooltip blip
+        if (hover != null) {
+            String t = hover.name + "  -  " + Blips.label(hover.type);
+            int w = Ui.width(t) + 12;
+            int tx = Math.min(ax + aw - w, Math.max(ax, mx + 10));
+            int ty = Math.max(ay, my - 22);
+            Ui.rect(ms, tx, ty, w, 14, 0xF00A0F18);
+            Ui.rect(ms, tx, ty, 2, 14, Theme.ACCENT);
+            Ui.text(ms, t, tx + 6, ty + 3, Theme.TEXT);
+        }
+        // coordonate sub cursor
+        if (inMap(mx, my)) Ui.text(ms, (int) wx(mx) + ", " + (int) wz(my), ax + 6, ay + ah - 12, 0xFF1A2233);
+
+        // ---- panou dreapta
+        int rx = ax + aw + 14;
+        int rw = width - rx - 10;
+        int yy = 36;
+        Ui.rect(ms, rx, yy, rw, 62, 0xFF0E1522);
+        Ui.rect(ms, rx, yy, rw, 2, MapsState.hasTarget ? MapsClient.ROUTE_COLOR : Theme.LINE);
+        Ui.text(ms, "WAYPOINT", rx + 8, yy + 8, Theme.MUTED);
+        if (MapsState.hasTarget) {
+            double d = Math.hypot(MapsState.tx - mc.player.getPosX(), MapsState.tz - mc.player.getPosZ());
+            Ui.text(ms, Ui.clip(MapsState.targetName, rw - 16), rx + 8, yy + 20, Theme.TEXT);
+            Ui.text(ms, MapsClient.meters(d) + (MapsState.routeNetwork ? "  pe strazi" : "  linie dreapta"), rx + 8, yy + 31, MapsClient.ROUTE_COLOR);
+            button(ms, "STERGE WAYPOINT", rx + 8, yy + 42, rw - 16, 14, mx, my, true, Theme.BAD, () -> {
                 MapsState.clearTarget();
-                toast("GPS oprit", false);
+                toast("Waypoint sters", false);
             });
         } else {
-            Ui.text(ms, "Nicio destinatie.", rx, y + 12, Theme.FAINT);
-            Ui.text(ms, "Click pe un punct din lista", rx, y + 24, Theme.FAINT);
-            Ui.text(ms, "sau click dreapta pe harta.", rx, y + 34, Theme.FAINT);
+            Ui.text(ms, "Niciunul setat.", rx + 8, yy + 20, Theme.FAINT);
+            Ui.text(ms, "Click dreapta pe harta.", rx + 8, yy + 31, Theme.FAINT);
         }
+        yy += 68;
 
-        int by = y + 60;
         int hw = (rw - 6) / 2;
-        button(ms, "ZOOM -", rx, by, hw, 16, mx, my, scale < 4, Theme.ACCENT_DIM, () -> {
-            scale = Math.min(4, scale * 2);
-        });
-        button(ms, "ZOOM +", rx + hw + 6, by, hw, 16, mx, my, scale > 1, Theme.ACCENT_DIM, () -> {
-            scale = Math.max(1, scale / 2);
-        });
-        button(ms, "CENTREAZA", rx, by + 20, hw, 16, mx, my, !followPlayer, Theme.ACCENT_DIM, () -> followPlayer = true);
-        button(ms, MapsState.minimap ? "MINIMAP: ON" : "MINIMAP: OFF", rx + hw + 6, by + 20, hw, 16, mx, my, true, Theme.PANEL_3, () -> MapsState.minimap = !MapsState.minimap);
+        button(ms, "ZOOM +", rx, yy, hw, 15, mx, my, level > 0, Theme.ACCENT_DIM, () -> level = Math.max(0, level - 1));
+        button(ms, "ZOOM -", rx + hw + 6, yy, hw, 15, mx, my, level < LEVELS.length - 1, Theme.ACCENT_DIM, () -> level = Math.min(LEVELS.length - 1, level + 1));
+        yy += 19;
+        button(ms, "CENTREAZA", rx, yy, hw, 15, mx, my, !follow, Theme.ACCENT_DIM, () -> follow = true);
+        button(ms, MapsState.minimap ? "RADAR: ON" : "RADAR: OFF", rx + hw + 6, yy, hw, 15, mx, my, true, Theme.PANEL_3, () -> MapsState.minimap = !MapsState.minimap);
+        yy += 19;
+        button(ms, MapsState.radarPos == 0 ? "RADAR: JOS" : "RADAR: SUS", rx, yy, hw, 15, mx, my, true, Theme.PANEL_3, () -> MapsState.radarPos = 1 - MapsState.radarPos);
+        button(ms, "RADAR ZOOM", rx + hw + 6, yy, hw, 15, mx, my, true, Theme.PANEL_3, () -> MapsState.miniScale = MapsState.miniScale == 1 ? 2 : (MapsState.miniScale == 2 ? 4 : 1));
+        yy += 23;
 
-        // lista puncte, cele mai apropiate primele
-        int ly = by + 46;
-        Ui.text(ms, "PUNCTE DE INTERES", rx, ly, Theme.MUTED);
-        ly += 12;
-        List<MapsState.Poi> sorted = new ArrayList<>(MapsState.pois);
-        final double ppx = mc.player.getPosX();
-        final double ppz = mc.player.getPosZ();
-        sorted.sort(Comparator.comparingDouble(p -> Math.hypot(p.x - ppx, p.z - ppz)));
-        int listH = py + ph - 14 - ly;
-        int rowH = 20;
-        int total = sorted.size() * rowH;
-        int max = Math.max(0, total - listH);
+        // ---- legenda / filtre
+        Ui.text(ms, "LEGENDA", rx, yy, Theme.MUTED);
+        int bw = (rw - 40) / 2;
+        button(ms, "TOATE", rx + rw - 2 * bw - 4, yy - 3, bw, 13, mx, my, true, Theme.PANEL_3, () -> MapsState.hidden.clear());
+        button(ms, "NIMIC", rx + rw - bw, yy - 3, bw, 13, mx, my, true, Theme.PANEL_3, () -> {
+            for (MapsState.Poi p : MapsState.pois) MapsState.hidden.add(p.type);
+        });
+        yy += 14;
+        Map<String, Integer> counts = new HashMap<>();
+        for (MapsState.Poi p : MapsState.pois) counts.merge(p.type, 1, Integer::sum);
+        List<String> types = new ArrayList<>(counts.keySet());
+        types.sort(Comparator.comparing(Blips::label));
+        int listH = height - 30 - yy;
+        int rowH = 18;
+        int max = Math.max(0, types.size() * rowH - listH);
         listScroll = Math.max(0, Math.min(listScroll, max));
-        if (sorted.isEmpty()) Ui.text(ms, "Niciun punct (adminii le adauga cu /harta poi add).", rx, ly + 2, Theme.FAINT);
-        Ui.scissor(rx, ly, rw, listH);
-        int yy = ly - listScroll;
-        for (MapsState.Poi p : sorted) {
-            if (yy + rowH > ly && yy < ly + listH) {
-                boolean h = Ui.in(mx, my, rx, yy, rw, rowH - 2) && my >= ly && my < ly + listH;
-                Ui.round(ms, rx, yy, rw, rowH - 2, h ? Theme.PANEL_3 : Theme.PANEL_2);
-                Ui.rect(ms, rx + 3, yy + 5, 8, 8, MapsState.typeColor(p.type));
-                Ui.text(ms, Ui.clip(p.name, rw - 70), rx + 16, yy + 2, Theme.TEXT);
-                Ui.text(ms, p.type, rx + 16, yy + 10, Theme.FAINT);
-                Ui.textRight(ms, MapsClient.meters(Math.hypot(p.x - ppx, p.z - ppz)), rx + rw - 4, yy + 6, Theme.MUTED);
-                if (my >= ly && my < ly + listH) {
-                    final MapsState.Poi pp = p;
-                    hit(rx, yy, rw, rowH - 2, () -> {
-                        MapsClient.gpsTo(pp.name, pp.x, pp.z);
-                        toast("GPS spre " + pp.name, false);
+        if (types.isEmpty()) Ui.text(ms, "Niciun punct. Adminii: /harta poi add", rx, yy + 4, Theme.FAINT);
+        Ui.scissor(rx, yy, rw, listH);
+        int ry = yy - listScroll;
+        for (String t : types) {
+            if (ry + rowH > yy && ry < yy + listH) {
+                boolean on = !MapsState.hidden.contains(t);
+                boolean h = Ui.in(mx, my, rx, ry, rw, rowH - 2) && my >= yy && my < yy + listH;
+                Ui.rect(ms, rx, ry, rw, rowH - 2, h ? 0xFF1B2740 : 0xFF111A2B);
+                Blips.sprite(ms, Blips.icon(t), rx + 3, ry + 1, 14);
+                Ui.text(ms, Blips.label(t), rx + 22, ry + 4, on ? Theme.TEXT : Theme.FAINT);
+                Ui.textRight(ms, String.valueOf(counts.get(t)), rx + rw - 22, ry + 4, Theme.MUTED);
+                Ui.frame(ms, rx + rw - 16, ry + 3, 10, 10, 0xFF0A0F18, on ? Theme.OK : Theme.LINE);
+                if (on) Ui.rect(ms, rx + rw - 14, ry + 5, 6, 6, Theme.OK);
+                if (my >= yy && my < yy + listH) {
+                    final String tt = t;
+                    hit(rx, ry, rw, rowH - 2, () -> {
+                        if (!MapsState.hidden.remove(tt)) MapsState.hidden.add(tt);
                     });
                 }
             }
-            yy += rowH;
+            ry += rowH;
         }
         Ui.endScissor();
+
+        // ---- bara de jos (indicii taste)
+        int by = height - 24;
+        Ui.rect(ms, 0, by, width, 24, 0xFF0E1522);
+        Ui.rect(ms, 0, by, width, 1, 0xFF2A3A57);
+        int kx = 12;
+        kx = key(ms, kx, by + 6, "CLICK", "Waypoint la icon") + 14;
+        kx = key(ms, kx, by + 6, "CLICK DREAPTA", "Waypoint oriunde") + 14;
+        kx = key(ms, kx, by + 6, "TRAGE", "Muta harta") + 14;
+        kx = key(ms, kx, by + 6, "ROTITA", "Zoom") + 14;
+        key(ms, kx, by + 6, "M / ESC", "Inchide");
+    }
+
+    private int key(MatrixStack ms, int x, int y, String k, String label) {
+        int w = Ui.width(k) + 8;
+        Ui.rect(ms, x, y - 1, w, 12, 0xFF2A3A57);
+        Ui.text(ms, k, x + 4, y + 1, Theme.TEXT);
+        Ui.text(ms, label, x + w + 5, y + 1, Theme.MUTED);
+        return x + w + 5 + Ui.width(label);
     }
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
         if (button == 1 && inMap(mx, my) && view != null) {
-            double wx = view.cx - S * view.scale / 2.0 + (mx - mapX()) * view.scale;
-            double wz = view.cz - S * view.scale / 2.0 + (my - mapY()) * view.scale;
-            MapsClient.gpsTo("Punct pe harta", wx, wz);
-            toast("GPS spre punctul ales", false);
+            double x = wx(mx);
+            double z = wz(my);
+            MapsClient.gpsTo("Waypoint", null, x, z);
+            toast("Waypoint setat", false);
             return true;
         }
         return super.mouseClicked(mx, my, button);
@@ -195,9 +299,9 @@ public final class MapScreen extends FlowScreen {
     @Override
     public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
         if (button == 0 && inMap(mx, my)) {
-            centerX -= dx * scale;
-            centerZ -= dy * scale;
-            followPlayer = false;
+            vx -= dx * scale() / f();
+            vz -= dy * scale() / f();
+            follow = false;
             return true;
         }
         return super.mouseDragged(mx, my, button, dx, dy);
@@ -206,8 +310,8 @@ public final class MapScreen extends FlowScreen {
     @Override
     public boolean mouseScrolled(double mx, double my, double delta) {
         if (inMap(mx, my)) {
-            if (delta > 0) scale = Math.max(1, scale / 2);
-            else if (delta < 0) scale = Math.min(4, scale * 2);
+            if (delta > 0) level = Math.max(0, level - 1);
+            else if (delta < 0) level = Math.min(LEVELS.length - 1, level + 1);
         } else {
             listScroll -= (int) (delta * 20);
         }

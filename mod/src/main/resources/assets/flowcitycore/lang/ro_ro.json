@@ -24,5 +24,10 @@
   "item.flowcitycore.200_lei": "200 Lei",
   "item.flowcitycore.500_lei": "500 Lei",
   "itemGroup.flowcity": "FlowCity",
-  "key.flowcity.map": "Harta (eMaps)"
+  "key.flowcity.map": "Harta (eMaps)",
+  "block.flowcitycore.gps_intersection": "Gps Intersectie",
+  "block.flowcitycore.gps_oneway": "Gps Sens Unic",
+  "block.flowcitycore.gps_twoway": "Gps Dublu Sens",
+  "block.flowcitycore.gps_path": "Gps Curba/Segment",
+  "item.flowcitycore.gps_wrench": "Cheie GPS"
 }
