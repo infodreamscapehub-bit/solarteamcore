@@ -11,9 +11,9 @@ import java.util.List;
 import java.util.Set;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
-import com.mojang.blaze3d.platform.NativeImage;
-import net.minecraft.client.Screenshot;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.client.renderer.texture.NativeImage;
+import net.minecraft.util.ScreenShotHelper;
+import net.minecraft.util.ResourceLocation;
 import ro.solarstudios.flowcity.module.ClientModules;
 import ro.solarstudios.flowcity.module.JsonClientModule;
 
@@ -206,7 +206,7 @@ public final class AdminX extends JsonClientModule {
             try {
                 int w = mc.getWindow().getWidth();
                 int h = mc.getWindow().getHeight();
-                NativeImage full = Screenshot.takeScreenshot(mc.getWindow().getWidth(), mc.getWindow().getHeight(), mc.getMainRenderTarget());
+                NativeImage full = ScreenShotHelper.takeScreenshot(mc.getWindow().getWidth(), mc.getWindow().getHeight(), mc.getMainRenderTarget());
                 int tw = Math.min(w, 480);
                 int th = Math.max(1, Math.round(h * (tw / (float) w)));
                 byte[] png;

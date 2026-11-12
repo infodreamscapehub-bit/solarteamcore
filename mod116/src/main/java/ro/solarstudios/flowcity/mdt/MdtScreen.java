@@ -8,8 +8,8 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.client.gui.components.EditBox;
-import com.mojang.math.Vector3f;
+import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.util.math.vector.Vector3f;
 import ro.solarstudios.flowcity.client.ui.FlowScreen;
 import ro.solarstudios.flowcity.client.ui.Theme;
 import ro.solarstudios.flowcity.client.ui.Ui;
@@ -59,28 +59,28 @@ public final class MdtScreen extends FlowScreen {
 
     private int modal;
     private int newRank = 1;
-    private EditBox pendingFocus;
+    private TextFieldWidget pendingFocus;
     private boolean searchDirty;
     private long searchAt;
     private long openedAt = System.currentTimeMillis();
 
-    private final EditBox search = field("Cauta cetatean...", 24, s -> {
+    private final TextFieldWidget search = field("Cauta cetatean...", 24, s -> {
         searchDirty = true;
         searchAt = System.currentTimeMillis() + 250;
     });
-    private final EditBox plateField = field("AB-12-XYZ", 12, null);
-    private final EditBox unitName = field("Nume unitate", 20, null);
-    private final EditBox mRec = field("Descrie fapta", 200, null);
-    private final EditBox mAmt = field("ex. 500", 7, null);
-    private final EditBox mFineReason = field("Motivul amenzii", 150, null);
-    private final EditBox mWanted = field("Motivul urmaririi", 150, null);
-    private final EditBox mModel = field("ex. Dacia Logan", 30, null);
-    private final EditBox mPlate = field("ex. B-123-ABC", 12, null);
-    private final EditBox mAddr = field("Strada, numar", 70, null);
-    private final EditBox mOff = field("Nume jucator online", 16, null);
-    private final EditBox rkName = field("Nume grad", 24, null);
-    private final EditBox rkUp = field("Comanda la promovare (%player%)", 120, null);
-    private final EditBox rkDown = field("Comanda la retrogradare (%player%)", 120, null);
+    private final TextFieldWidget plateField = field("AB-12-XYZ", 12, null);
+    private final TextFieldWidget unitName = field("Nume unitate", 20, null);
+    private final TextFieldWidget mRec = field("Descrie fapta", 200, null);
+    private final TextFieldWidget mAmt = field("ex. 500", 7, null);
+    private final TextFieldWidget mFineReason = field("Motivul amenzii", 150, null);
+    private final TextFieldWidget mWanted = field("Motivul urmaririi", 150, null);
+    private final TextFieldWidget mModel = field("ex. Dacia Logan", 30, null);
+    private final TextFieldWidget mPlate = field("ex. B-123-ABC", 12, null);
+    private final TextFieldWidget mAddr = field("Strada, numar", 70, null);
+    private final TextFieldWidget mOff = field("Nume jucator online", 16, null);
+    private final TextFieldWidget rkName = field("Nume grad", 24, null);
+    private final TextFieldWidget rkUp = field("Comanda la promovare (%player%)", 120, null);
+    private final TextFieldWidget rkDown = field("Comanda la retrogradare (%player%)", 120, null);
 
     public MdtScreen() {
         super("MDT", 540, 310);
@@ -144,8 +144,8 @@ public final class MdtScreen extends FlowScreen {
     // ------------------------------------------------------------------ campuri / taste
 
     @Override
-    protected List<EditBox> fields() {
-        List<EditBox> l = new ArrayList<>();
+    protected List<TextFieldWidget> fields() {
+        List<TextFieldWidget> l = new ArrayList<>();
         switch (modal) {
             case 1:
                 l.add(mRec);
@@ -183,9 +183,9 @@ public final class MdtScreen extends FlowScreen {
     }
 
     @Override
-    protected void onEnter(EditBox f) {
+    protected void onEnter(TextFieldWidget f) {
         if (modal != 0) {
-            List<EditBox> fs = fields();
+            List<TextFieldWidget> fs = fields();
             int at = fs.indexOf(f);
             if (at >= 0 && at < fs.size() - 1) focus(fs.get(at + 1), true);
             else confirmModal();
@@ -200,7 +200,7 @@ public final class MdtScreen extends FlowScreen {
     public boolean keyPressed(int key, int scan, int mods) {
         if (key == 256 && modal != 0) { // ESC
             boolean typing = false;
-            for (EditBox f : fields()) typing |= f.isFocused();
+            for (TextFieldWidget f : fields()) typing |= f.isFocused();
             if (!typing) {
                 modal = 0;
                 return true;
@@ -220,7 +220,7 @@ public final class MdtScreen extends FlowScreen {
     }
 
     private void unfocusAll() {
-        for (EditBox f : fields()) focus(f, false);
+        for (TextFieldWidget f : fields()) focus(f, false);
     }
 
     private void setTab(int t) {
@@ -246,8 +246,8 @@ public final class MdtScreen extends FlowScreen {
     private void openModal(int kind) {
         unfocusAll();
         modal = kind;
-        EditBox[] all = {mRec, mAmt, mFineReason, mWanted, mModel, mPlate, mAddr, mOff};
-        for (EditBox f : all) f.setValue("");
+        TextFieldWidget[] all = {mRec, mAmt, mFineReason, mWanted, mModel, mPlate, mAddr, mOff};
+        for (TextFieldWidget f : all) f.setValue("");
         newRank = 1;
         pendingFocus = fields().isEmpty() ? null : fields().get(0);
     }
@@ -974,7 +974,7 @@ public final class MdtScreen extends FlowScreen {
         hit(0, 0, width, height, () -> { });
         Ui.rect(ms, px, py, pw, ph, 0xA0050709);
         String[] titles = {"", "Fapta in cazier", "Emite amenda", "Emite mandat", "Inmatriculeaza vehicul", "Adauga locuinta", "Angajeaza ofiter"};
-        List<EditBox> fs = fields();
+        List<TextFieldWidget> fs = fields();
         String[][] labels = {{}, {"Descriere"}, {"Suma (lei)", "Motiv"}, {"Motiv urmarire"}, {"Model", "Numar de inmatriculare"}, {"Adresa"}, {"Nume jucator (trebuie sa fie online)"}};
         int w = 250;
         int h = 56 + fs.size() * 32 + (modal == 6 ? 34 : 0);

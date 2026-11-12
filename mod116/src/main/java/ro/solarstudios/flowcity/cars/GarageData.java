@@ -6,18 +6,18 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.ListNBT;
+import net.minecraft.nbt.INBT;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.world.level.saveddata.SavedData;
+import net.minecraft.world.storage.WorldSavedData;
 
 /**
  * Garajele si masinile (salvate in lumea principala, data/flowcity_garage.dat).
  * Garajul e un punct pe harta (fara blocuri): marker de meniu, zona de parcare si locuri de spawn, ca pe FiveM.
  * Masina pastreaza NBT-ul complet al vehiculului, deci revine exact cum a fost parcata.
  */
-public final class GarageData extends SavedData {
+public final class GarageData extends WorldSavedData {
     private static final String NAME = "flowcity_garage";
 
     public static final String PUBLIC = "public";
@@ -36,8 +36,8 @@ public final class GarageData extends SavedData {
         public float radius = 4f;
         public final List<double[]> slots = new ArrayList<>(); // x, y, z, yaw
 
-        CompoundTag save() {
-            CompoundTag t = new CompoundTag();
+        CompoundNBT save() {
+            CompoundNBT t = new CompoundNBT();
             t.putInt("Id", id);
             t.putString("Name", name);
             t.putString("Type", type);
@@ -51,9 +51,9 @@ public final class GarageData extends SavedData {
             t.putDouble("SY", sy);
             t.putDouble("SZ", sz);
             t.putFloat("Radius", radius);
-            ListTag l = new ListTag();
+            ListNBT l = new ListNBT();
             for (double[] s : slots) {
-                CompoundTag c = new CompoundTag();
+                CompoundNBT c = new CompoundNBT();
                 c.putDouble("X", s[0]);
                 c.putDouble("Y", s[1]);
                 c.putDouble("Z", s[2]);
@@ -64,7 +64,7 @@ public final class GarageData extends SavedData {
             return t;
         }
 
-        static Garage load(CompoundTag t) {
+        static Garage load(CompoundNBT t) {
             Garage g = new Garage();
             g.id = t.getInt("Id");
             g.name = t.getString("Name");
@@ -79,9 +79,9 @@ public final class GarageData extends SavedData {
             g.sy = t.getDouble("SY");
             g.sz = t.getDouble("SZ");
             g.radius = t.contains("Radius") ? t.getFloat("Radius") : 4f;
-            ListTag l = t.getList("Slots", Tag.TAG_COMPOUND);
+            ListNBT l = t.getList("Slots", net.minecraftforge.common.util.Constants.NBT.TAG_COMPOUND);
             for (int i = 0; i < l.size(); i++) {
-                CompoundTag c = l.getCompound(i);
+                CompoundNBT c = l.getCompound(i);
                 g.slots.add(new double[] {c.getDouble("X"), c.getDouble("Y"), c.getDouble("Z"), c.getDouble("Yaw")});
             }
             return g;
@@ -96,7 +96,7 @@ public final class GarageData extends SavedData {
         public String type = "";
         public String name = "";
         public String plate = "";
-        public CompoundTag nbt = new CompoundTag();
+        public CompoundNBT nbt = new CompoundNBT();
         /** In lume (scoasa din garaj). */
         public boolean out;
         /** UUID-ul entitatii din lume cand e scoasa (pentru a evita dublurile). */
@@ -105,8 +105,8 @@ public final class GarageData extends SavedData {
         public boolean pound;
         public String poundReason = "";
 
-        CompoundTag save() {
-            CompoundTag t = new CompoundTag();
+        CompoundNBT save() {
+            CompoundNBT t = new CompoundNBT();
             t.putInt("Id", id);
             if (owner != null) t.putUUID("Owner", owner);
             t.putString("Faction", faction);
@@ -121,7 +121,7 @@ public final class GarageData extends SavedData {
             return t;
         }
 
-        static Car load(CompoundTag t) {
+        static Car load(CompoundNBT t) {
             Car c = new Car();
             c.id = t.getInt("Id");
             if (t.hasUUID("Owner")) c.owner = t.getUUID("Owner");
@@ -152,19 +152,19 @@ public final class GarageData extends SavedData {
     }
 
     @Override
-    public void load(CompoundTag tag) {
+    public void load(CompoundNBT tag) {
         GarageData d = this;
         d.cars.clear();
         d.garages.clear();
         d.nextId = Math.max(1, tag.getInt("NextId"));
         d.nextGarage = Math.max(1, tag.getInt("NextGarage"));
-        ListTag list = tag.getList("Cars", Tag.TAG_COMPOUND);
+        ListNBT list = tag.getList("Cars", net.minecraftforge.common.util.Constants.NBT.TAG_COMPOUND);
         for (int i = 0; i < list.size(); i++) {
             Car c = Car.load(list.getCompound(i));
             d.cars.put(c.id, c);
             d.nextId = Math.max(d.nextId, c.id + 1);
         }
-        ListTag gl = tag.getList("Garages", Tag.TAG_COMPOUND);
+        ListNBT gl = tag.getList("Garages", net.minecraftforge.common.util.Constants.NBT.TAG_COMPOUND);
         for (int i = 0; i < gl.size(); i++) {
             Garage g = Garage.load(gl.getCompound(i));
             d.garages.put(g.id, g);
@@ -173,13 +173,13 @@ public final class GarageData extends SavedData {
     }
 
     @Override
-    public CompoundTag save(CompoundTag tag) {
+    public CompoundNBT save(CompoundNBT tag) {
         tag.putInt("NextId", nextId);
         tag.putInt("NextGarage", nextGarage);
-        ListTag list = new ListTag();
+        ListNBT list = new ListNBT();
         for (Car c : cars.values()) list.add(c.save());
         tag.put("Cars", list);
-        ListTag gl = new ListTag();
+        ListNBT gl = new ListNBT();
         for (Garage g : garages.values()) gl.add(g.save());
         tag.put("Garages", gl);
         return tag;
@@ -187,7 +187,7 @@ public final class GarageData extends SavedData {
 
     // ------------------------------------------------------------------ masini
 
-    public Car add(UUID owner, String faction, String type, String name, String plate, CompoundTag nbt) {
+    public Car add(UUID owner, String faction, String type, String name, String plate, CompoundNBT nbt) {
         Car c = new Car();
         c.id = nextId++;
         c.owner = owner;

@@ -1,16 +1,16 @@
 package ro.solarstudios.flowcity.client.admin;
 
-import net.minecraft.network.chat.TextComponent;
+import net.minecraft.util.text.StringTextComponent;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.network.chat.Component;
-import net.minecraft.ChatFormatting;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextFormatting;
 import net.minecraftforge.client.event.RenderNameplateEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -79,10 +79,10 @@ public final class IdsClient extends JsonClientModule {
         public void onNameplate(RenderNameplateEvent e) {
             if (!overhead) return;
             Entity en = e.getEntity();
-            if (!(en instanceof Player)) return;
+            if (!(en instanceof PlayerEntity)) return;
             Integer id = IDS.get(en.getUUID());
             if (id == null) return;
-            e.setContent(new TextComponent("#" + id + " ").withStyle(ChatFormatting.AQUA).append(e.getContent()));
+            e.setContent(new StringTextComponent("#" + id + " ").withStyle(TextFormatting.AQUA).append(e.getContent()));
         }
     }
 }

@@ -1,9 +1,9 @@
 package ro.solarstudios.flowcity.maps;
 
-import net.minecraft.client.Camera;
+import net.minecraft.client.renderer.ActiveRenderInfo;
 import net.minecraft.client.Minecraft;
 import ro.solarstudios.flowcity.compat.GuiGraphics;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.math.vector.Vector3d;
 import ro.solarstudios.flowcity.client.ui.Theme;
 import ro.solarstudios.flowcity.client.ui.Ui;
 
@@ -18,8 +18,8 @@ public final class WorldMarkers {
 
     public static void draw(GuiGraphics ms, Minecraft mc) {
         if (!MapsState.worldMarkers || mc.player == null) return;
-        Camera cam = mc.gameRenderer.getMainCamera();
-        Vec3 c = cam.getPosition();
+        ActiveRenderInfo cam = mc.gameRenderer.getMainCamera();
+        Vector3d c = cam.getPosition();
         double yaw = Math.toRadians(cam.getYRot());
         double pitch = Math.toRadians(cam.getXRot());
         // baza camerei (conventia Minecraft: yaw 0 = spre +Z, pitch pozitiv = in jos)
@@ -44,11 +44,11 @@ public final class WorldMarkers {
     }
 
     private static final class Proj {
-        final Vec3 c;
+        final Vector3d c;
         final double fx, fy, fz, rx, ry, rz, ux, uy, uz, focal;
         final int w, h;
 
-        Proj(Vec3 c, double fx, double fy, double fz, double rx, double ry, double rz, double ux, double uy, double uz, int w, int h, double focal) {
+        Proj(Vector3d c, double fx, double fy, double fz, double rx, double ry, double rz, double ux, double uy, double uz, int w, int h, double focal) {
             this.c = c;
             this.fx = fx;
             this.fy = fy;

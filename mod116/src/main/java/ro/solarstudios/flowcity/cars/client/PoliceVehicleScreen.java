@@ -4,7 +4,7 @@ import com.google.gson.JsonObject;
 import java.util.Collections;
 import java.util.List;
 import ro.solarstudios.flowcity.compat.GuiGraphics;
-import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.widget.TextFieldWidget;
 import ro.solarstudios.flowcity.client.ui.FlowScreen;
 import ro.solarstudios.flowcity.client.ui.Theme;
 import ro.solarstudios.flowcity.client.ui.Ui;
@@ -20,7 +20,7 @@ public final class PoliceVehicleScreen extends FlowScreen {
     private JsonObject data;
     private int amount = AMOUNTS[1];
     private int reason;
-    private final EditBox custom;
+    private final TextFieldWidget custom;
     private boolean waiting;
 
     PoliceVehicleScreen(JsonObject data) {
@@ -39,7 +39,7 @@ public final class PoliceVehicleScreen extends FlowScreen {
     }
 
     @Override
-    protected List<EditBox> fields() {
+    protected List<TextFieldWidget> fields() {
         return Collections.singletonList(custom);
     }
 

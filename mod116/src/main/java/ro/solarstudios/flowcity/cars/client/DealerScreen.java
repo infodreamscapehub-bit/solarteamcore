@@ -3,21 +3,21 @@ package ro.solarstudios.flowcity.cars.client;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.mojang.blaze3d.platform.Lighting;
+import net.minecraft.client.renderer.RenderHelper;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.math.Vector3f;
+import net.minecraft.util.math.vector.Vector3f;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import net.minecraft.client.Minecraft;
 import ro.solarstudios.flowcity.compat.GuiGraphics;
-import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
-import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.IntArrayTag;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
+import net.minecraft.client.renderer.entity.EntityRendererManager;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.IntArrayNBT;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityType;
 import ro.solarstudios.flowcity.client.ui.FlowScreen;
 import ro.solarstudios.flowcity.client.ui.Theme;
 import ro.solarstudios.flowcity.client.ui.Ui;
@@ -177,8 +177,8 @@ public final class DealerScreen extends FlowScreen {
             preview = EntityType.byString(id).map(t -> t.create(mc.level)).orElse(null);
             if (preview != null) {
                 try {
-                    CompoundTag t = preview.saveWithoutId(new CompoundTag());
-                    t.put("Color", new IntArrayTag(new int[] {(color >> 16) & 255, (color >> 8) & 255, color & 255}));
+                    CompoundNBT t = preview.saveWithoutId(new CompoundNBT());
+                    t.put("Color", new IntArrayNBT(new int[] {(color >> 16) & 255, (color >> 8) & 255, color & 255}));
                     preview.load(t);
                 } catch (RuntimeException ignored) {
                     // unele vehicule nu accepta culoare
@@ -194,8 +194,8 @@ public final class DealerScreen extends FlowScreen {
         g.pose().scale(scale, -scale, scale);
         g.pose().mulPose(Vector3f.XP.rotationDegrees(-18f));
         g.pose().mulPose(Vector3f.YP.rotationDegrees(spin));
-        Lighting.setupFor3DItems();
-        EntityRenderDispatcher d = mc.getEntityRenderDispatcher();
+        RenderHelper.setupFor3DItems();
+        EntityRendererManager d = mc.getEntityRenderDispatcher();
         d.setRenderShadow(false);
         try {
             RenderSystem.runAsFancy(() -> d.render(preview, 0, 0, 0, 0f, 1f, g.pose(), g.bufferSource(), 0xF000F0));
@@ -204,7 +204,7 @@ public final class DealerScreen extends FlowScreen {
             preview = null;
         }
         d.setRenderShadow(true);
-        Lighting.setupFor3DItems();
+        RenderHelper.setupFor3DItems();
         g.pose().popPose();
     }
 

@@ -1,19 +1,19 @@
 package ro.solarstudios.flowcity.menu;
 
-import net.minecraft.network.chat.TextComponent;
+import net.minecraft.util.text.StringTextComponent;
 
 import ro.solarstudios.flowcity.compat.GuiGraphics;
 import com.mojang.blaze3d.systems.RenderSystem;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.ConnectScreen;
-import net.minecraft.client.gui.screens.OptionsScreen;
-import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screen.ConnectingScreen;
+import net.minecraft.client.gui.screen.OptionsScreen;
+import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.multiplayer.ServerData;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.Util;
-import net.minecraft.network.chat.Component;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.Util;
+import net.minecraft.util.text.ITextComponent;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.client.gui.screen.ModListScreen;
 import ro.solarstudios.flowcity.client.ui.Theme;
@@ -57,7 +57,7 @@ public final class FlowMainMenu extends Screen {
     private final MenuConfig cfg = MenuConfig.get();
 
     public FlowMainMenu() {
-        super(new TextComponent("FlowCity"));
+        super(new StringTextComponent("FlowCity"));
     }
 
     private Btn discordBtn;
@@ -82,7 +82,7 @@ public final class FlowMainMenu extends Screen {
     }
 
     private void connect() {
-        minecraft.setScreen(new ConnectScreen(this, minecraft, new ServerData(cfg.serverName, ip(), false)));
+        minecraft.setScreen(new ConnectingScreen(this, minecraft, new ServerData(cfg.serverName, ip(), false)));
     }
 
     /** Prima intrare: fereastra de regulament; dupa acceptare conectarea porneste direct. */
@@ -137,7 +137,7 @@ public final class FlowMainMenu extends Screen {
     }
 
     @Override
-    public void render(com.mojang.blaze3d.vertex.PoseStack poseIn, int mx, int my, float pt) {
+    public void render(com.mojang.blaze3d.matrix.MatrixStack poseIn, int mx, int my, float pt) {
         GuiGraphics ms = new GuiGraphics(poseIn);
         long now = System.currentTimeMillis();
         float dt = Math.min(0.1f, (now - last) / 1000f);
@@ -370,13 +370,13 @@ public final class FlowMainMenu extends Screen {
                 return true;
             }
             if (discordBtn != null && Ui.in((int) mx, (int) my, discordBtn.x, discordBtn.y, discordBtn.w, discordBtn.h)) {
-                minecraft.getSoundManager().play(net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK, 1.0F));
+                minecraft.getSoundManager().play(net.minecraft.client.audio.SimpleSound.forUI(net.minecraft.util.SoundEvents.UI_BUTTON_CLICK, 1.0F));
                 discordBtn.action.run();
                 return true;
             }
             for (Btn b : buttons) {
                 if (Ui.in((int) mx, (int) my, b.x, b.y, b.w, b.h)) {
-                    minecraft.getSoundManager().play(net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK, 1.0F));
+                    minecraft.getSoundManager().play(net.minecraft.client.audio.SimpleSound.forUI(net.minecraft.util.SoundEvents.UI_BUTTON_CLICK, 1.0F));
                     b.action.run();
                     return true;
                 }

@@ -1,15 +1,15 @@
 package ro.solarstudios.flowcity.content;
 
 
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.MobCategory;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.CreativeModeTab;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.level.block.Block;
+import net.minecraft.entity.EntityType;
+import net.minecraft.entity.EntityClassification;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.item.ItemGroup;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.BlockItem;
+import net.minecraft.item.Items;
+import net.minecraft.block.Block;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
@@ -24,7 +24,7 @@ public final class ModContent {
     public static final DeferredRegister<Item> ITEMS = DeferredRegister.create(ForgeRegistries.ITEMS, FlowCity.MODID);
     public static final DeferredRegister<EntityType<?>> ENTITIES = DeferredRegister.create(ForgeRegistries.ENTITIES, FlowCity.MODID);
     /** Tab-ul creativ FlowCity (pe 1.16.5 itemele intra in tab prin Item.Properties().tab(TAB)). */
-    public static final CreativeModeTab TAB = new CreativeModeTab("flowcity") {
+    public static final ItemGroup TAB = new ItemGroup("flowcity") {
         @Override
         public ItemStack makeIcon() {
             return PHONE != null && PHONE.isPresent() ? new ItemStack(PHONE.get()) : new ItemStack(Items.COMPASS);
@@ -51,7 +51,7 @@ public final class ModContent {
         ITEMS.register("harta", MapItem::new);
         ITEMS.register("gps_wrench", GpsWrench::new);
         for (String b : new String[] {"gps_path", "gps_intersection", "gps_oneway", "gps_twoway"})
-            ITEMS.register(b, () -> new BlockItem(ForgeRegistries.BLOCKS.getValue(new net.minecraft.resources.ResourceLocation(FlowCity.MODID, b)), props()));
+            ITEMS.register(b, () -> new BlockItem(ForgeRegistries.BLOCKS.getValue(new net.minecraft.util.ResourceLocation(FlowCity.MODID, b)), props()));
         for (int i = 1; i <= 5; i++) ITEMS.register("phone" + i, PhoneItem::new);
         ITEMS.register("sim_card", () -> new Item(props().stacksTo(16)));
         for (int i = 1; i <= 5; i++) ITEMS.register("cardbancar" + i, () -> new Item(props().stacksTo(1)));

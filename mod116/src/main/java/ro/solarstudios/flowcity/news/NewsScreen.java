@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.widget.TextFieldWidget;
 import ro.solarstudios.flowcity.client.ui.FlowScreen;
 import ro.solarstudios.flowcity.client.ui.Theme;
 import ro.solarstudios.flowcity.client.ui.Ui;
@@ -23,8 +23,8 @@ public final class NewsScreen extends FlowScreen {
     private int bodyScroll;
     private boolean composing;
     private String cat = "";
-    private final EditBox titleField = field("Titlul stirii", 80, null);
-    private final EditBox bodyField = field("Textul stirii (optional)", 600, null);
+    private final TextFieldWidget titleField = field("Titlul stirii", 80, null);
+    private final TextFieldWidget bodyField = field("Textul stirii (optional)", 600, null);
 
     public NewsScreen() {
         super("CNN", 470, 262);
@@ -36,8 +36,8 @@ public final class NewsScreen extends FlowScreen {
     }
 
     @Override
-    protected List<EditBox> fields() {
-        List<EditBox> l = new ArrayList<>();
+    protected List<TextFieldWidget> fields() {
+        List<TextFieldWidget> l = new ArrayList<>();
         if (composing) {
             l.add(titleField);
             l.add(bodyField);
@@ -46,7 +46,7 @@ public final class NewsScreen extends FlowScreen {
     }
 
     @Override
-    protected void onEnter(EditBox f) {
+    protected void onEnter(TextFieldWidget f) {
         if (f == titleField) focus(bodyField, true);
         else publish();
     }

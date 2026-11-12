@@ -1,9 +1,9 @@
 package ro.solarstudios.flowcity.cars;
 
 import java.util.function.Supplier;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.fml.network.NetworkEvent;
@@ -32,7 +32,7 @@ public final class CarsNet {
         if (channel != null) channel.sendToServer(new Act(act, a, b));
     }
 
-    static void reply(ServerPlayer p, String kind, String json) {
+    static void reply(ServerPlayerEntity p, String kind, String json) {
         channel.send(PacketDistributor.PLAYER.with(() -> p), new Data(kind, json));
     }
 
@@ -47,20 +47,20 @@ public final class CarsNet {
             this.b = b;
         }
 
-        static void write(Act m, FriendlyByteBuf buf) {
+        static void write(Act m, PacketBuffer buf) {
             buf.writeUtf(m.act, 16);
             buf.writeVarInt(m.a);
             buf.writeVarInt(m.b);
         }
 
-        static Act read(FriendlyByteBuf buf) {
+        static Act read(PacketBuffer buf) {
             return new Act(buf.readUtf(16), buf.readVarInt(), buf.readVarInt());
         }
 
         static void handle(Act m, Supplier<NetworkEvent.Context> ctx) {
             NetworkEvent.Context c = ctx.get();
             c.enqueueWork(() -> {
-                ServerPlayer p = c.getSender();
+                ServerPlayerEntity p = c.getSender();
                 if (p != null) CarsServer.handle(p, m.act, m.a, m.b);
             });
             c.setPacketHandled(true);
@@ -76,12 +76,12 @@ public final class CarsNet {
             this.json = json;
         }
 
-        static void write(Data d, FriendlyByteBuf buf) {
+        static void write(Data d, PacketBuffer buf) {
             buf.writeUtf(d.kind, 16);
             buf.writeUtf(d.json, 262144);
         }
 
-        static Data read(FriendlyByteBuf buf) {
+        static Data read(PacketBuffer buf) {
             return new Data(buf.readUtf(16), buf.readUtf(262144));
         }
 

@@ -4,12 +4,12 @@ import ro.solarstudios.flowcity.compat.GuiGraphics;
 import com.mojang.blaze3d.systems.RenderSystem;
 import java.util.List;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.resources.sounds.SimpleSoundInstance;
-import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.Tesselator;
-import net.minecraft.sounds.SoundEvents;
-import com.mojang.math.Matrix4f;
+import net.minecraft.client.audio.SimpleSound;
+import net.minecraft.client.renderer.BufferBuilder;
+import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import net.minecraft.client.renderer.Tessellator;
+import net.minecraft.util.SoundEvents;
+import net.minecraft.util.math.vector.Matrix4f;
 import ro.solarstudios.flowcity.client.ui.FlowScreen;
 import ro.solarstudios.flowcity.client.ui.Theme;
 import ro.solarstudios.flowcity.client.ui.Ui;
@@ -85,7 +85,7 @@ public final class WheelScreen extends FlowScreen {
                 doneAt = now;
                 rotation = toRot;
                 initConfetti();
-                Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.PLAYER_LEVELUP, 1.0F));
+                Minecraft.getInstance().getSoundManager().play(SimpleSound.forUI(SoundEvents.PLAYER_LEVELUP, 1.0F));
                 WheelClient.requestInfo();
             }
         } else if (ps.size() > 0 && doneAt == 0) {
@@ -136,7 +136,7 @@ public final class WheelScreen extends FlowScreen {
 
     private void tickSound(double t) {
         float pitch = 0.9f + (float) (1.0 - t) * 0.5f;
-        Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.NOTE_BLOCK_HAT.get(), pitch));
+        Minecraft.getInstance().getSoundManager().play(SimpleSound.forUI(SoundEvents.NOTE_BLOCK_HAT.get(), pitch));
     }
 
     // ------------------------------------------------------------------ desen roata
@@ -224,11 +224,11 @@ public final class WheelScreen extends FlowScreen {
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         RenderSystem.disableTexture();
-        Tesselator.getInstance().getBuilder().begin(mode, DefaultVertexFormat.POSITION_COLOR);
+        Tessellator.getInstance().getBuilder().begin(mode, DefaultVertexFormats.POSITION_COLOR);
     }
 
     private static void end() {
-        Tesselator.getInstance().end();
+        Tessellator.getInstance().end();
         RenderSystem.enableTexture();
     }
 
@@ -238,7 +238,7 @@ public final class WheelScreen extends FlowScreen {
 
     private static void sector(GuiGraphics ms, float cx, float cy, float r, double fromDeg, double toDeg, int color) {
         Matrix4f m = ms.pose().last().pose();
-        BufferBuilder b = Tesselator.getInstance().getBuilder();
+        BufferBuilder b = Tessellator.getInstance().getBuilder();
         begin(org.lwjgl.opengl.GL11.GL_TRIANGLE_FAN);
         vertex(b, m, cx, cy, color);
         int steps = Math.max(2, (int) Math.ceil((toDeg - fromDeg) / 4.0));
@@ -255,7 +255,7 @@ public final class WheelScreen extends FlowScreen {
 
     private static void fan(GuiGraphics ms, float[] pts, int color) {
         Matrix4f m = ms.pose().last().pose();
-        BufferBuilder b = Tesselator.getInstance().getBuilder();
+        BufferBuilder b = Tessellator.getInstance().getBuilder();
         begin(org.lwjgl.opengl.GL11.GL_TRIANGLE_FAN);
         for (int i = 0; i + 1 < pts.length; i += 2) vertex(b, m, pts[i], pts[i + 1], color);
         end();

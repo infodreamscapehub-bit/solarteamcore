@@ -4,7 +4,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import ro.solarstudios.flowcity.compat.GuiGraphics;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.KeyMapping;
+import net.minecraft.client.settings.KeyBinding;
 import net.minecraftforge.client.event.InputEvent;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import ro.solarstudios.flowcity.compat.RegisterKeyMappingsEvent;
@@ -22,7 +22,7 @@ import ro.solarstudios.flowcity.notify.NotifyToasts;
 /** Modulul client "phone" (ePhone): contacte, mesaje, apeluri; bannerul de apel primit si tasta de deschidere (P). */
 public final class PhoneClient extends JsonClientModule {
     private static PhoneClient instance;
-    public static KeyMapping openKey;
+    public static KeyBinding openKey;
 
     private PhoneClient() {
         on("state", d -> {
@@ -165,7 +165,7 @@ public final class PhoneClient extends JsonClientModule {
 
     /** Apelat din ClientInit.setup. */
     public static void registerKeys(RegisterKeyMappingsEvent event) {
-        openKey = new KeyMapping("key.flowcity.phone", GLFW.GLFW_KEY_P, "key.categories.flowcity");
+        openKey = new KeyBinding("key.flowcity.phone", GLFW.GLFW_KEY_P, "key.categories.flowcity");
         event.register(openKey);
     }
 

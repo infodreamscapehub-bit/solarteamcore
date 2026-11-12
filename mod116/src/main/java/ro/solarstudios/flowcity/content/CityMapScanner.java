@@ -13,12 +13,12 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.material.MaterialColor;
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.levelgen.Heightmap;
-import net.minecraft.server.level.ServerLevel;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.material.MaterialColor;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
+import net.minecraft.world.gen.Heightmap;
+import net.minecraft.world.server.ServerWorld;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.loading.FMLPaths;
@@ -121,7 +121,7 @@ public final class CityMapScanner {
         return null;
     }
 
-    private static void scan(ServerLevel w, int cx, int cz) {
+    private static void scan(ServerWorld w, int cx, int cz) {
         w.getChunk(cx, cz); // incarca (si genereaza daca nu exista)
         byte[] b = new byte[512];
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
@@ -150,7 +150,7 @@ public final class CityMapScanner {
         public void onTick(TickEvent.ServerTickEvent e) {
             if (e.phase != TickEvent.Phase.END || !running) return;
             net.minecraft.server.MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
-            ServerLevel w = server == null ? null : server.getLevel(Level.OVERWORLD);
+            ServerWorld w = server == null ? null : server.getLevel(World.OVERWORLD);
             if (w == null) {
                 running = false;
                 return;

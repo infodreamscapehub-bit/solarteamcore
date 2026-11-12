@@ -1,39 +1,39 @@
 package ro.solarstudios.flowcity.cars.client;
 
-import net.minecraft.network.chat.TextComponent;
+import net.minecraft.util.text.StringTextComponent;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.mojang.blaze3d.platform.InputConstants;
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.util.InputMappings;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import com.mojang.blaze3d.vertex.IVertexBuilder;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import net.minecraft.client.Camera;
-import net.minecraft.client.KeyMapping;
+import net.minecraft.client.renderer.ActiveRenderInfo;
+import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.FontRenderer;
 import ro.solarstudios.flowcity.compat.GuiGraphics;
 import net.minecraft.client.renderer.LightTexture;
-import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.IRenderTypeBuffer;
 import net.minecraft.client.renderer.RenderType;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.phys.EntityHitResult;
-import net.minecraft.world.phys.HitResult;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.util.math.EntityRayTraceResult;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.vector.Vector3d;
 import ro.solarstudios.flowcity.compat.RegisterKeyMappingsEvent;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import com.mojang.math.Matrix4f;
+import net.minecraft.util.math.vector.Matrix4f;
 import org.lwjgl.glfw.GLFW;
 import ro.solarstudios.flowcity.cars.CarsNet;
 import ro.solarstudios.flowcity.client.ui.Theme;
@@ -61,7 +61,7 @@ public final class GaragesClient {
 
     public static final List<G> garages = new ArrayList<>();
     public static final Set<String> factions = new HashSet<>();
-    public static KeyMapping interact;
+    public static KeyBinding interact;
 
     private static String prompt;
     private static Runnable action;
@@ -71,7 +71,7 @@ public final class GaragesClient {
     }
 
     public static void registerKeys(RegisterKeyMappingsEvent e) {
-        interact = new KeyMapping("key.flowcity.interact", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_E, "key.categories.flowcity");
+        interact = new KeyBinding("key.flowcity.interact", InputMappings.Type.KEYSYM, GLFW.GLFW_KEY_E, "key.categories.flowcity");
         e.register(interact);
     }
 
@@ -153,7 +153,7 @@ public final class GaragesClient {
     private static void findPrompt(Minecraft mc) {
         prompt = null;
         action = null;
-        Vec3 pos = mc.player.position();
+        Vector3d pos = mc.player.position();
         Entity root = mc.player.getRootVehicle();
         boolean inVehicle = root != mc.player;
         String d = dim(mc);
@@ -161,7 +161,7 @@ public final class GaragesClient {
         for (G g : garages) {
             if (!g.dim.equals(d) || !g.access) continue;
             if (inVehicle && !"pound".equals(g.type)) {
-                Vec3 z = g.store ? new Vec3(g.sx, g.sy, g.sz) : new Vec3(g.mx, g.my, g.mz);
+                Vector3d z = g.store ? new Vector3d(g.sx, g.sy, g.sz) : new Vector3d(g.mx, g.my, g.mz);
                 double dist = root.position().distanceTo(z);
                 if (dist <= (g.store ? g.r : 6) && dist < best) {
                     best = dist;
@@ -171,7 +171,7 @@ public final class GaragesClient {
                 }
             }
             if (!inVehicle) {
-                double dist = pos.distanceTo(new Vec3(g.mx, g.my, g.mz));
+                double dist = pos.distanceTo(new Vector3d(g.mx, g.my, g.mz));
                 if (dist <= 2.5 && dist < best) {
                     best = dist;
                     final int id = g.id;
@@ -181,8 +181,8 @@ public final class GaragesClient {
             }
         }
         if (prompt == null && !inVehicle && police()) {
-            HitResult hr = mc.hitResult;
-            EntityHitResult eh = hr instanceof EntityHitResult ? (EntityHitResult) hr : null;
+            RayTraceResult hr = mc.hitResult;
+            EntityRayTraceResult eh = hr instanceof EntityRayTraceResult ? (EntityRayTraceResult) hr : null;
             if (eh != null && !(eh.getEntity() instanceof LivingEntity) && eh.getEntity().distanceTo(mc.player) < 6
                 && eh.getEntity().getType().getRegistryName() != null && eh.getEntity().getType().getRegistryName().getNamespace().equals("vehicle")) {
                 final int eid = eh.getEntity().getId();
@@ -234,10 +234,10 @@ public final class GaragesClient {
         public void onWorld(RenderWorldLastEvent e) {
             Minecraft mc = Minecraft.getInstance();
             if (mc.player == null || mc.level == null || garages.isEmpty()) return;
-            Camera cam = Minecraft.getInstance().gameRenderer.getMainCamera();
-            Vec3 c = cam.getPosition();
-            PoseStack ps = e.getMatrixStack();
-            MultiBufferSource.BufferSource buf = mc.renderBuffers().bufferSource();
+            ActiveRenderInfo cam = Minecraft.getInstance().gameRenderer.getMainCamera();
+            Vector3d c = cam.getPosition();
+            MatrixStack ps = e.getMatrixStack();
+            IRenderTypeBuffer.Impl buf = mc.renderBuffers().bufferSource();
             String d = dim(mc);
             float t = (System.currentTimeMillis() % 2000L) / 2000f;
             float pulse = 0.75f + 0.25f * (float) Math.sin(t * Math.PI * 2);
@@ -260,8 +260,8 @@ public final class GaragesClient {
     }
 
     /** Inel orizontal pe sol (thick = latimea inelului; thick >= r = disc plin). */
-    private static void ring(PoseStack ps, MultiBufferSource buf, Vec3 c, double x, double y, double z, float r, float thick, int rgb, int alpha) {
-        VertexConsumer vc = buf.getBuffer(RenderType.lightning());
+    private static void ring(MatrixStack ps, IRenderTypeBuffer buf, Vector3d c, double x, double y, double z, float r, float thick, int rgb, int alpha) {
+        IVertexBuilder vc = buf.getBuffer(RenderType.lightning());
         ps.pushPose();
         ps.translate(x - c.x, y - c.y + 0.03, z - c.z);
         Matrix4f m = ps.last().pose();
@@ -280,19 +280,19 @@ public final class GaragesClient {
     }
 
     /** Text deasupra markerului, mereu cu fata spre camera (ca numele jucatorilor). */
-    private static void label(PoseStack ps, MultiBufferSource buf, Camera cam, Vec3 c, double x, double y, double z, String text, int rgb) {
-        Font font = Minecraft.getInstance().font;
+    private static void label(MatrixStack ps, IRenderTypeBuffer buf, ActiveRenderInfo cam, Vector3d c, double x, double y, double z, String text, int rgb) {
+        FontRenderer font = Minecraft.getInstance().font;
         ps.pushPose();
         ps.translate(x - c.x, y - c.y, z - c.z);
         ps.mulPose(cam.rotation());
         ps.scale(-0.025f, -0.025f, 0.025f);
         Matrix4f m = ps.last().pose();
-        Component comp = new TextComponent(text);
+        ITextComponent comp = new StringTextComponent(text);
         float w = -font.width(comp) / 2f;
         font.drawInBatch(comp, w, 0, 0xFFFFFFFF, false, m, buf, true, 0x90000000, LightTexture.FULL_BRIGHT);
         ps.popPose();
         // linie colorata sub text
-        VertexConsumer vc = buf.getBuffer(RenderType.lightning());
+        IVertexBuilder vc = buf.getBuffer(RenderType.lightning());
         ps.pushPose();
         ps.translate(x - c.x, y - c.y, z - c.z);
         ps.mulPose(cam.rotation());

@@ -1,24 +1,24 @@
 package ro.solarstudios.flowcity.content;
 
-import net.minecraft.network.chat.TranslatableComponent;
+import net.minecraft.util.text.TranslationTextComponent;
 
-import net.minecraft.network.chat.TextComponent;
+import net.minecraft.util.text.StringTextComponent;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.ParticleOptions;
-import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.InteractionResultHolder;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.context.UseOnContext;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.particles.IParticleData;
+import net.minecraft.particles.ParticleTypes;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.world.server.ServerWorld;
+import net.minecraft.util.Hand;
+import net.minecraft.util.ActionResultType;
+import net.minecraft.util.ActionResult;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.ItemUseContext;
+import net.minecraft.world.World;
+import net.minecraft.block.BlockState;
 
 /**
  * Cheia GPS (ca in EGK): click pe un bloc GPS = punct de start, click pe al doilea = legatura A-B.
@@ -34,94 +34,94 @@ public class GpsWrench extends Item {
         return st.getBlock() instanceof GpsBlock || st.getBlock() instanceof GpsDirBlock;
     }
 
-    private static boolean admin(Player p) {
+    private static boolean admin(PlayerEntity p) {
         return p.hasPermissions(2) || p.getAbilities().instabuild;
     }
 
     @Override
-    public InteractionResult useOn(UseOnContext ctx) {
-        Level w = ctx.getLevel();
-        Player p = ctx.getPlayer();
+    public ActionResultType useOn(ItemUseContext ctx) {
+        World w = ctx.getLevel();
+        PlayerEntity p = ctx.getPlayer();
         BlockPos pos = ctx.getClickedPos();
-        if (p == null) return InteractionResult.PASS;
+        if (p == null) return ActionResultType.PASS;
         BlockState st = w.getBlockState(pos);
-        if (!isGps(st)) return InteractionResult.PASS;
-        if (w.isClientSide) return InteractionResult.SUCCESS;
+        if (!isGps(st)) return ActionResultType.PASS;
+        if (w.isClientSide) return ActionResultType.SUCCESS;
         if (!admin(p)) {
-            p.displayClientMessage(new TextComponent("\u00a7cDoar adminii pot folosi Cheia GPS."), true);
-            return InteractionResult.SUCCESS;
+            p.displayClientMessage(new StringTextComponent("\u00a7cDoar adminii pot folosi Cheia GPS."), true);
+            return ActionResultType.SUCCESS;
         }
-        if (w.dimension() != Level.OVERWORLD) {
-            p.displayClientMessage(new TextComponent("\u00a7cReteaua GPS functioneaza doar in overworld."), true);
-            return InteractionResult.SUCCESS;
+        if (w.dimension() != World.OVERWORLD) {
+            p.displayClientMessage(new StringTextComponent("\u00a7cReteaua GPS functioneaza doar in overworld."), true);
+            return ActionResultType.SUCCESS;
         }
         ItemStack stack = ctx.getItemInHand();
-        CompoundTag tag = stack.getOrCreateTag();
+        CompoundNBT tag = stack.getOrCreateTag();
         if (p.isShiftKeyDown()) {
             tag.remove("startX");
             tag.remove("startY");
             tag.remove("startZ");
             if (GpsNetwork.disconnectAll(pos)) {
-                p.displayClientMessage(new TextComponent("\u00a7eToate conexiunile nodului " + fmt(pos) + " au fost sterse."), false);
-                ((ServerLevel) w).sendParticles(ParticleTypes.SMOKE, pos.getX() + 0.5, pos.getY() + 0.2, pos.getZ() + 0.5, 15, 0.3, 0, 0.3, 0.05);
+                p.displayClientMessage(new StringTextComponent("\u00a7eToate conexiunile nodului " + fmt(pos) + " au fost sterse."), false);
+                ((ServerWorld) w).sendParticles(ParticleTypes.SMOKE, pos.getX() + 0.5, pos.getY() + 0.2, pos.getZ() + 0.5, 15, 0.3, 0, 0.3, 0.05);
             } else {
-                p.displayClientMessage(new TextComponent("\u00a7cAcest bloc nu are conexiuni active."), true);
+                p.displayClientMessage(new StringTextComponent("\u00a7cAcest bloc nu are conexiuni active."), true);
             }
-            return InteractionResult.SUCCESS;
+            return ActionResultType.SUCCESS;
         }
         if (!tag.contains("startX")) {
             tag.putInt("startX", pos.getX());
             tag.putInt("startY", pos.getY());
             tag.putInt("startZ", pos.getZ());
-            p.displayClientMessage(new TextComponent("\u00a7aPunct de pornire setat la: " + fmt(pos)), true);
-            return InteractionResult.SUCCESS;
+            p.displayClientMessage(new StringTextComponent("\u00a7aPunct de pornire setat la: " + fmt(pos)), true);
+            return ActionResultType.SUCCESS;
         }
         BlockPos start = new BlockPos(tag.getInt("startX"), tag.getInt("startY"), tag.getInt("startZ"));
         tag.remove("startX");
         tag.remove("startY");
         tag.remove("startZ");
         if (start.equals(pos)) {
-            p.displayClientMessage(new TextComponent("\u00a7cConexiune anulata."), true);
-            return InteractionResult.SUCCESS;
+            p.displayClientMessage(new StringTextComponent("\u00a7cConexiune anulata."), true);
+            return ActionResultType.SUCCESS;
         }
         BlockState ss = w.getBlockState(start);
         if (!isGps(ss)) {
-            p.displayClientMessage(new TextComponent("\u00a7cEroare: blocul de pornire nu mai exista!"), true);
-            return InteractionResult.SUCCESS;
+            p.displayClientMessage(new StringTextComponent("\u00a7cEroare: blocul de pornire nu mai exista!"), true);
+            return ActionResultType.SUCCESS;
         }
         boolean oneWay = tag.getBoolean("oneWayMode") || ss.getBlock() == ModContent.GPS_ONEWAY.get() || st.getBlock() == ModContent.GPS_ONEWAY.get();
         if (GpsNetwork.connect(start, pos, !oneWay)) {
-            p.displayClientMessage(new TextComponent("\u00a7aConexiune creata intre " + fmt(start) + " si " + fmt(pos) + (oneWay ? " (Sens Unic)" : " (Dublu Sens)")), false);
-            line((ServerLevel) w, start, pos, ParticleTypes.HAPPY_VILLAGER);
+            p.displayClientMessage(new StringTextComponent("\u00a7aConexiune creata intre " + fmt(start) + " si " + fmt(pos) + (oneWay ? " (Sens Unic)" : " (Dublu Sens)")), false);
+            line((ServerWorld) w, start, pos, ParticleTypes.HAPPY_VILLAGER);
         } else {
-            p.displayClientMessage(new TextComponent("\u00a7cEroare la crearea conexiunii."), true);
+            p.displayClientMessage(new StringTextComponent("\u00a7cEroare la crearea conexiunii."), true);
         }
-        return InteractionResult.SUCCESS;
+        return ActionResultType.SUCCESS;
     }
 
     @Override
-    public InteractionResultHolder<ItemStack> use(Level w, Player p, InteractionHand hand) {
+    public ActionResult<ItemStack> use(World w, PlayerEntity p, Hand hand) {
         ItemStack stack = p.getItemInHand(hand);
         if (!w.isClientSide) {
-            CompoundTag tag = stack.getOrCreateTag();
+            CompoundNBT tag = stack.getOrCreateTag();
             boolean now = !tag.getBoolean("oneWayMode");
             tag.putBoolean("oneWayMode", now);
-            p.displayClientMessage(new TextComponent("\u00a7e[eMaps] Mod conexiune: " + (now ? "\u00a7bSens Unic" : "\u00a7dDublu Sens")), true);
+            p.displayClientMessage(new StringTextComponent("\u00a7e[eMaps] Mod conexiune: " + (now ? "\u00a7bSens Unic" : "\u00a7dDublu Sens")), true);
         }
-        return InteractionResultHolder.sidedSuccess(stack, w.isClientSide);
+        return ActionResult.sidedSuccess(stack, w.isClientSide);
     }
 
     @Override
-    public Component getName(ItemStack stack) {
+    public ITextComponent getName(ItemStack stack) {
         boolean one = stack.hasTag() && stack.getTag().getBoolean("oneWayMode");
-        return new TranslatableComponent(getDescriptionId(stack)).append(one ? " \u00a7b(Sens Unic)" : " \u00a7d(Dublu Sens)");
+        return new TranslationTextComponent(getDescriptionId(stack)).append(one ? " \u00a7b(Sens Unic)" : " \u00a7d(Dublu Sens)");
     }
 
     private static String fmt(BlockPos p) {
         return p.getX() + " " + p.getY() + " " + p.getZ();
     }
 
-    static void line(ServerLevel w, BlockPos a, BlockPos b, ParticleOptions part) {
+    static void line(ServerWorld w, BlockPos a, BlockPos b, IParticleData part) {
         double dx = b.getX() - a.getX();
         double dy = b.getY() - a.getY();
         double dz = b.getZ() - a.getZ();

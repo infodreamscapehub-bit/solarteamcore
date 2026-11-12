@@ -7,9 +7,9 @@ import ro.solarstudios.flowcity.compat.GuiGraphics;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.KeyMapping;
-import net.minecraft.util.Mth;
-import com.mojang.math.Vector3f;
+import net.minecraft.client.settings.KeyBinding;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.vector.Vector3f;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent;
@@ -26,8 +26,8 @@ import ro.solarstudios.flowcity.notify.NotifyToasts;
 /** eMaps pe client, in stil GTA V: radar rotit, waypoint cu ruta pe reteaua GPS a serverului, harta mare (tasta M). */
 public final class MapsClient extends JsonClientModule {
     private static MapsClient instance;
-    public static KeyMapping openKey;
-    public static KeyMapping waypointKey;
+    public static KeyBinding openKey;
+    public static KeyBinding waypointKey;
     public static boolean needRoute;
     public static final int MM = 108;
     public static final int ROUTE_COLOR = 0xFFE056FD;
@@ -179,9 +179,9 @@ public final class MapsClient extends JsonClientModule {
     }
 
     public static void registerKeys(RegisterKeyMappingsEvent event) {
-        openKey = new KeyMapping("key.flowcity.map", GLFW.GLFW_KEY_M, "key.categories.flowcity");
+        openKey = new KeyBinding("key.flowcity.map", GLFW.GLFW_KEY_M, "key.categories.flowcity");
         event.register(openKey);
-        waypointKey = new KeyMapping("key.flowcity.waypoint", GLFW.GLFW_KEY_B, "key.categories.flowcity");
+        waypointKey = new KeyBinding("key.flowcity.waypoint", GLFW.GLFW_KEY_B, "key.categories.flowcity");
         event.register(waypointKey);
     }
 
@@ -454,7 +454,7 @@ public final class MapsClient extends JsonClientModule {
             if (radar == null) radar = new MapView(160, "flowcity_radar", true);
             double px = mc.player.getX();
             double pz = mc.player.getZ();
-            if (radar.needsRefresh(px, pz, scale, 140, 140, 1500)) radar.refresh(Mth.floor(px), Mth.floor(pz), scale);
+            if (radar.needsRefresh(px, pz, scale, 140, 140, 1500)) radar.refresh(MathHelper.floor(px), MathHelper.floor(pz), scale);
 
             int x = 14;
             int y = MapsState.radarPos == 0 ? mc.getWindow().getGuiScaledHeight() - 14 - MM - 14 : 12;

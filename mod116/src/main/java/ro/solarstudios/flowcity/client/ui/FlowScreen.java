@@ -1,6 +1,6 @@
 package ro.solarstudios.flowcity.client.ui;
 
-import net.minecraft.network.chat.TextComponent;
+import net.minecraft.util.text.StringTextComponent;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -8,11 +8,11 @@ import java.util.List;
 import java.util.function.Consumer;
 import net.minecraft.client.Minecraft;
 import ro.solarstudios.flowcity.compat.GuiGraphics;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.resources.sounds.SimpleSoundInstance;
-import net.minecraft.network.chat.Component;
-import net.minecraft.sounds.SoundEvents;
+import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.audio.SimpleSound;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.SoundEvents;
 import org.lwjgl.glfw.GLFW;
 
 /**
@@ -62,7 +62,7 @@ public abstract class FlowScreen extends Screen {
     protected int ph;
 
     protected FlowScreen(String title, int wantedWidth, int wantedHeight) {
-        super(new TextComponent(title));
+        super(new StringTextComponent(title));
         this.wantW = wantedWidth;
         this.wantH = wantedHeight;
     }
@@ -71,12 +71,12 @@ public abstract class FlowScreen extends Screen {
     protected abstract void draw(GuiGraphics ms, int mx, int my);
 
     /** Campurile de text active in momentul curent (pentru focus/taste). */
-    protected List<EditBox> fields() {
+    protected List<TextFieldWidget> fields() {
         return Collections.emptyList();
     }
 
     /** Apasare Enter intr-un camp de text. */
-    protected void onEnter(EditBox field) {}
+    protected void onEnter(TextFieldWidget field) {}
 
     /** Daca ecranul tine jocul in pauza (implicit nu). */
     @Override
@@ -93,11 +93,11 @@ public abstract class FlowScreen extends Screen {
 
     @Override
     public void tick() {
-        for (EditBox f : fields()) f.tick();
+        for (TextFieldWidget f : fields()) f.tick();
     }
 
     @Override
-    public void render(com.mojang.blaze3d.vertex.PoseStack poseIn, int mx, int my, float pt) {
+    public void render(com.mojang.blaze3d.matrix.MatrixStack poseIn, int mx, int my, float pt) {
         GuiGraphics ms = new GuiGraphics(poseIn);
         hits.clear();
         pw = Math.min(width - 16, wantW);
@@ -198,8 +198,8 @@ public abstract class FlowScreen extends Screen {
     }
 
     /** Camp de text cu indiciu gri cand e gol. */
-    protected EditBox field(String hint, int maxLength, Consumer<String> onChange) {
-        EditBox f = new EditBox(Minecraft.getInstance().font, 0, 0, 100, 14, new TextComponent(hint));
+    protected TextFieldWidget field(String hint, int maxLength, Consumer<String> onChange) {
+        TextFieldWidget f = new TextFieldWidget(Minecraft.getInstance().font, 0, 0, 100, 14, new StringTextComponent(hint));
         f.setMaxLength(maxLength);
         f.setBordered(false);
         f.setTextColor(Theme.TEXT);
@@ -212,7 +212,7 @@ public abstract class FlowScreen extends Screen {
     }
 
     /** Deseneaza un camp de text cu cadru la pozitia data. */
-    protected void drawField(GuiGraphics ms, EditBox f, int x, int y, int w, int h, int mx, int my) {
+    protected void drawField(GuiGraphics ms, TextFieldWidget f, int x, int y, int w, int h, int mx, int my) {
         Ui.round(ms, x, y, w, h, Theme.PANEL_2);
         Ui.rect(ms, x + 1, y + h - 1, w - 2, 1, f.isFocused() ? Theme.ACCENT : Theme.LINE);
         f.x = x + 5;
@@ -221,13 +221,13 @@ public abstract class FlowScreen extends Screen {
         f.render(ms.pose(), mx, my, 0);
     }
 
-    /** Focus fara dependenta de numele metodei: EditBox isi seteaza singur focusul la click. */
-    protected void focus(EditBox f, boolean on) {
+    /** Focus fara dependenta de numele metodei: TextFieldWidget isi seteaza singur focusul la click. */
+    protected void focus(TextFieldWidget f, boolean on) {
         f.mouseClicked(on ? f.x + 1 : -10000, on ? f.y + 1 : -10000, 0);
     }
 
     protected void click() {
-        Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+        Minecraft.getInstance().getSoundManager().play(SimpleSound.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
     }
 
     public void toast(String message, boolean error) {
@@ -253,7 +253,7 @@ public abstract class FlowScreen extends Screen {
     public boolean mouseClicked(double mx, double my, int button) {
         if (button == 0) {
             boolean onField = false;
-            for (EditBox f : fields()) {
+            for (TextFieldWidget f : fields()) {
                 boolean inside = Ui.in((int) mx, (int) my, f.x - 4, f.y - 4, f.getWidth() + 8, 16);
                 f.mouseClicked(mx, my, button);
                 if (inside) {
@@ -278,7 +278,7 @@ public abstract class FlowScreen extends Screen {
 
     @Override
     public boolean keyPressed(int key, int scan, int mods) {
-        for (EditBox f : fields()) {
+        for (TextFieldWidget f : fields()) {
             if (f.isFocused()) {
                 if (key == GLFW.GLFW_KEY_ESCAPE) {
                     focus(f, false);
@@ -297,7 +297,7 @@ public abstract class FlowScreen extends Screen {
 
     @Override
     public boolean charTyped(char c, int mods) {
-        for (EditBox f : fields()) {
+        for (TextFieldWidget f : fields()) {
             if (f.isFocused() && f.charTyped(c, mods)) return true;
         }
         return super.charTyped(c, mods);

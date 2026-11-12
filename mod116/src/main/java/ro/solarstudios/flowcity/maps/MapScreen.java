@@ -10,8 +10,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Locale;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.util.Mth;
+import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.util.math.MathHelper;
 import ro.solarstudios.flowcity.client.ui.FlowScreen;
 import ro.solarstudios.flowcity.client.ui.Theme;
 import ro.solarstudios.flowcity.client.ui.Ui;
@@ -37,8 +37,8 @@ public final class MapScreen extends FlowScreen {
     // editor
     private boolean editor;
     private boolean sidebar;
-    private final EditBox wpField;
-    private final EditBox searchField;
+    private final TextFieldWidget wpField;
+    private final TextFieldWidget searchField;
     private boolean showPopup;
     private int popX;
     private int popY;
@@ -77,7 +77,7 @@ public final class MapScreen extends FlowScreen {
     private int legendStart;
     private String gpsToastName;
     private long gpsToastAt;
-    private final EditBox nameField;
+    private final TextFieldWidget nameField;
     private int draftId;
     private String draftType = "altele";
     private boolean draftSet;
@@ -129,8 +129,8 @@ public final class MapScreen extends FlowScreen {
     }
 
     @Override
-    protected java.util.List<EditBox> fields() {
-        List<EditBox> l = new ArrayList<>();
+    protected java.util.List<TextFieldWidget> fields() {
+        List<TextFieldWidget> l = new ArrayList<>();
         if (showDlg) l.add(wpField);
         else {
             if (editor) l.add(nameField);
@@ -240,7 +240,7 @@ public final class MapScreen extends FlowScreen {
             vx = mc.player.getX();
             vz = mc.player.getZ();
         }
-        if (view.needsRefresh(vx, vz, scale(), aw / f, ah / f, 6000)) view.refresh(Mth.floor(vx), Mth.floor(vz), scale());
+        if (view.needsRefresh(vx, vz, scale(), aw / f, ah / f, 6000)) view.refresh(MathHelper.floor(vx), MathHelper.floor(vz), scale());
         view.draw(ms, ax, ay, aw, ah, vx, vz, f);
         if (!(showPopup || showDlg)) hit(ax, ay, aw, ah, () -> {
             if (editor && editorTab == 0) {
@@ -1277,7 +1277,7 @@ public final class MapScreen extends FlowScreen {
 
     @Override
     public boolean keyPressed(int key, int scan, int mods) {
-        for (EditBox f : fields()) if (f.isFocused()) return super.keyPressed(key, scan, mods);
+        for (TextFieldWidget f : fields()) if (f.isFocused()) return super.keyPressed(key, scan, mods);
         if (key == 256 && (showDlg || showPopup)) {
             showDlg = false;
             showPopup = false;

@@ -1,33 +1,33 @@
 package ro.solarstudios.flowcity.compat;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.matrix.MatrixStack;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiComponent;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.gui.AbstractGui;
+import net.minecraft.client.renderer.IRenderTypeBuffer;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.item.ItemStack;
 
 /**
- * Strat de compatibilitate pentru 1.16.5: aceleasi metode ca GuiGraphics din 1.20.1, desenate cu PoseStack +
- * GuiComponent. Asa codul interfetelor ramane identic pe ambele versiuni.
+ * Strat de compatibilitate pentru 1.16.5: aceleasi metode ca GuiGraphics din 1.20.1, desenate cu MatrixStack +
+ * AbstractGui. Asa codul interfetelor ramane identic pe ambele versiuni.
  */
 public final class GuiGraphics {
-    private final PoseStack pose;
-    private final MultiBufferSource.BufferSource buffers;
+    private final MatrixStack pose;
+    private final IRenderTypeBuffer.Impl buffers;
 
-    public GuiGraphics(PoseStack pose) {
+    public GuiGraphics(MatrixStack pose) {
         this.pose = pose;
         this.buffers = Minecraft.getInstance().renderBuffers().bufferSource();
     }
 
-    public PoseStack pose() {
+    public MatrixStack pose() {
         return pose;
     }
 
-    public MultiBufferSource.BufferSource bufferSource() {
+    public IRenderTypeBuffer.Impl bufferSource() {
         return buffers;
     }
 
@@ -36,7 +36,7 @@ public final class GuiGraphics {
     }
 
     public void fill(int x0, int y0, int x1, int y1, int color) {
-        GuiComponent.fill(pose, x0, y0, x1, y1, color);
+        AbstractGui.fill(pose, x0, y0, x1, y1, color);
     }
 
     /** Gradient vertical (de sus in jos), desenat din benzi orizontale. */
@@ -56,28 +56,28 @@ public final class GuiGraphics {
         return (aa << 24) | (r << 16) | (g << 8) | bl;
     }
 
-    public int drawString(Font font, String text, int x, int y, int color, boolean shadow) {
+    public int drawString(FontRenderer font, String text, int x, int y, int color, boolean shadow) {
         return shadow ? font.drawShadow(pose, text, x, y, color) : font.draw(pose, text, x, y, color);
     }
 
-    public int drawString(Font font, Component text, int x, int y, int color, boolean shadow) {
+    public int drawString(FontRenderer font, ITextComponent text, int x, int y, int color, boolean shadow) {
         return shadow ? font.drawShadow(pose, text, x, y, color) : font.draw(pose, text, x, y, color);
     }
 
-    public int drawString(Font font, String text, int x, int y, int color) {
+    public int drawString(FontRenderer font, String text, int x, int y, int color) {
         return drawString(font, text, x, y, color, true);
     }
 
     /** blit(textura, x, y, latime, inaltime, u, v, latimeUV, inaltimeUV, latimeTextura, inaltimeTextura) */
     public void blit(ResourceLocation tex, int x, int y, int w, int h, float u, float v, int uw, int vh, int tw, int th) {
         Minecraft.getInstance().getTextureManager().bind(tex);
-        GuiComponent.blit(pose, x, y, w, h, u, v, uw, vh, tw, th);
+        AbstractGui.blit(pose, x, y, w, h, u, v, uw, vh, tw, th);
     }
 
     /** blit(textura, x, y, u, v, latime, inaltime, latimeTextura, inaltimeTextura) */
     public void blit(ResourceLocation tex, int x, int y, float u, float v, int w, int h, int tw, int th) {
         Minecraft.getInstance().getTextureManager().bind(tex);
-        GuiComponent.blit(pose, x, y, u, v, w, h, tw, th);
+        AbstractGui.blit(pose, x, y, u, v, w, h, tw, th);
     }
 
     public void renderItem(ItemStack stack, int x, int y) {

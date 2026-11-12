@@ -3,7 +3,7 @@ package ro.solarstudios.flowcity.phone;
 import com.google.gson.JsonObject;
 import ro.solarstudios.flowcity.compat.GuiGraphics;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.widget.TextFieldWidget;
 import ro.solarstudios.flowcity.client.ui.FlowScreen;
 import ro.solarstudios.flowcity.client.ui.FlowSounds;
 import ro.solarstudios.flowcity.client.ui.Theme;
@@ -49,8 +49,8 @@ public final class PhoneScreen extends FlowScreen {
     private int scrollMax;
     private String threadUuid = "";
     private String threadName = "";
-    private final EditBox msgField;
-    private final EditBox contactField;
+    private final TextFieldWidget msgField;
+    private final TextFieldWidget contactField;
     private boolean stickBottom;
     private final long born = System.currentTimeMillis();
 
@@ -69,14 +69,14 @@ public final class PhoneScreen extends FlowScreen {
     }
 
     @Override
-    protected List<EditBox> fields() {
+    protected List<TextFieldWidget> fields() {
         if (page == Page.THREAD) return Collections.singletonList(msgField);
         if (page == Page.CONTACTS) return Collections.singletonList(contactField);
         return Collections.emptyList();
     }
 
     @Override
-    protected void onEnter(EditBox f) {
+    protected void onEnter(TextFieldWidget f) {
         if (f == msgField) sendMsg();
         else if (f == contactField) addContact();
     }

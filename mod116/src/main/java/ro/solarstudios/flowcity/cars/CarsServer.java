@@ -1,6 +1,6 @@
 package ro.solarstudios.flowcity.cars;
 
-import net.minecraft.network.chat.TextComponent;
+import net.minecraft.util.text.StringTextComponent;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -12,19 +12,19 @@ import com.mojang.brigadier.context.CommandContext;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.commands.Commands;
-import net.minecraft.commands.arguments.EntityArgument;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.IntArrayTag;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.command.CommandSource;
+import net.minecraft.command.Commands;
+import net.minecraft.command.arguments.EntityArgument;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.IntArrayNBT;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.server.ServerWorld;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityType;
+import net.minecraft.util.math.vector.Vector3d;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.EntityJoinWorldEvent;
@@ -49,7 +49,7 @@ public final class CarsServer {
 
     // ------------------------------------------------------------------ actiuni din interfata
 
-    static void handle(ServerPlayer p, String act, int a, int b) {
+    static void handle(ServerPlayerEntity p, String act, int a, int b) {
         GarageData data = GarageData.get(p.server);
         switch (act) {
             case "open":
@@ -69,38 +69,38 @@ public final class CarsServer {
         }
     }
 
-    private static boolean sameDim(ServerPlayer p, GarageData.Garage g) {
+    private static boolean sameDim(ServerPlayerEntity p, GarageData.Garage g) {
         return p.level.dimension().location().toString().equals(g.dim);
     }
 
-    private static boolean nearMenu(ServerPlayer p, GarageData.Garage g) {
-        return sameDim(p, g) && p.position().distanceTo(new Vec3(g.mx, g.my, g.mz)) <= MENU_RANGE + 2;
+    private static boolean nearMenu(ServerPlayerEntity p, GarageData.Garage g) {
+        return sameDim(p, g) && p.position().distanceTo(new Vector3d(g.mx, g.my, g.mz)) <= MENU_RANGE + 2;
     }
 
-    static boolean member(ServerPlayer p, String faction) {
+    static boolean member(ServerPlayerEntity p, String faction) {
         return p.hasPermissions(2) || p.getTags().contains("fc_" + faction);
     }
 
-    private static boolean canAccess(ServerPlayer p, GarageData.Garage g) {
+    private static boolean canAccess(ServerPlayerEntity p, GarageData.Garage g) {
         return !GarageData.FACTION.equals(g.type) || member(p, g.faction);
     }
 
-    private static boolean canUse(ServerPlayer p, GarageData.Car c) {
+    private static boolean canUse(ServerPlayerEntity p, GarageData.Car c) {
         if (c == null) return false;
         if (c.owner != null) return c.owner.equals(p.getUUID());
         return member(p, c.faction);
     }
 
     /** Masinile vazute intr-un garaj: personale (public / pound) sau ale factiunii. */
-    private static List<GarageData.Car> carsFor(ServerPlayer p, GarageData data, GarageData.Garage g) {
+    private static List<GarageData.Car> carsFor(ServerPlayerEntity p, GarageData data, GarageData.Garage g) {
         if (GarageData.FACTION.equals(g.type)) return data.ofFaction(g.faction);
         return data.of(p.getUUID());
     }
 
-    private static void openMenu(ServerPlayer p, GarageData data, GarageData.Garage g, boolean ok, String msg) {
+    private static void openMenu(ServerPlayerEntity p, GarageData data, GarageData.Garage g, boolean ok, String msg) {
         if (g == null || !nearMenu(p, g)) return;
         if (!canAccess(p, g)) {
-            p.displayClientMessage(new TextComponent("Garajul e doar pentru " + g.faction + "."), true);
+            p.displayClientMessage(new StringTextComponent("Garajul e doar pentru " + g.faction + "."), true);
             return;
         }
         JsonObject o = new JsonObject();
@@ -112,9 +112,9 @@ public final class CarsServer {
         o.addProperty("msg", msg);
         JsonArray arr = new JsonArray();
         for (GarageData.Car c : carsFor(p, data, g)) {
-            CompoundTag nbt = c.nbt;
+            CompoundNBT nbt = c.nbt;
             Entity live = c.out ? findLoaded(p.server, c.entity) : null;
-            if (live != null) nbt = live.saveWithoutId(new CompoundTag());
+            if (live != null) nbt = live.saveWithoutId(new CompoundNBT());
             JsonObject j = new JsonObject();
             j.addProperty("id", c.id);
             j.addProperty("type", c.type);
@@ -140,7 +140,7 @@ public final class CarsServer {
         CarsNet.reply(p, "garage", o.toString());
     }
 
-    private static void spawnFrom(ServerPlayer p, GarageData data, GarageData.Garage g, GarageData.Car c) {
+    private static void spawnFrom(ServerPlayerEntity p, GarageData data, GarageData.Garage g, GarageData.Car c) {
         if (g == null || !nearMenu(p, g) || !canAccess(p, g) || !canUse(p, c)) return;
         String msg;
         boolean ok = false;
@@ -161,44 +161,44 @@ public final class CarsServer {
         openMenu(p, data, g, ok, msg);
     }
 
-    private static void storeAt(ServerPlayer p, GarageData data, GarageData.Garage g) {
+    private static void storeAt(ServerPlayerEntity p, GarageData data, GarageData.Garage g) {
         if (g == null || !sameDim(p, g) || GarageData.POUND.equals(g.type)) return;
         Entity v = p.getRootVehicle();
         if (v == p) {
-            p.displayClientMessage(new TextComponent("Trebuie sa fii in vehicul."), true);
+            p.displayClientMessage(new StringTextComponent("Trebuie sa fii in vehicul."), true);
             return;
         }
-        Vec3 zone = g.hasStore ? new Vec3(g.sx, g.sy, g.sz) : new Vec3(g.mx, g.my, g.mz);
+        Vector3d zone = g.hasStore ? new Vector3d(g.sx, g.sy, g.sz) : new Vector3d(g.mx, g.my, g.mz);
         double r = g.hasStore ? g.radius + 1.5 : 8;
         if (v.position().distanceTo(zone) > r) return;
         GarageData.Car c = v.getPersistentData().contains(TAG) ? data.get(v.getPersistentData().getInt(TAG)) : null;
         if (c == null || !c.out || !v.getUUID().equals(c.entity)) {
-            p.displayClientMessage(new TextComponent("Vehiculul nu e al tau."), true);
+            p.displayClientMessage(new StringTextComponent("Vehiculul nu e al tau."), true);
             return;
         }
         if (!canUse(p, c)) {
-            p.displayClientMessage(new TextComponent("Vehiculul nu e al tau."), true);
+            p.displayClientMessage(new StringTextComponent("Vehiculul nu e al tau."), true);
             return;
         }
         if (GarageData.FACTION.equals(g.type) != (c.owner == null)) {
-            p.displayClientMessage(new TextComponent(c.owner == null ? "Masinile factiunii se parcheaza la garajul factiunii." : "Aici se parcheaza doar masinile factiunii."), true);
+            p.displayClientMessage(new StringTextComponent(c.owner == null ? "Masinile factiunii se parcheaza la garajul factiunii." : "Aici se parcheaza doar masinile factiunii."), true);
             return;
         }
         storeEntity(v, c);
         data.setDirty();
-        p.displayClientMessage(new TextComponent(c.name + " a fost parcata in " + g.name + "."), true);
+        p.displayClientMessage(new StringTextComponent(c.name + " a fost parcata in " + g.name + "."), true);
     }
 
     private static void storeEntity(Entity v, GarageData.Car c) {
         v.ejectPassengers();
-        c.nbt = strip(v.saveWithoutId(new CompoundTag()));
+        c.nbt = strip(v.saveWithoutId(new CompoundNBT()));
         c.out = false;
         c.entity = null;
         v.discard();
     }
 
     /** Pune vehiculul pe primul loc de parcare liber (sau langa marker, daca nu sunt locuri setate). */
-    private static Entity spawn(ServerLevel level, GarageData.Garage g, GarageData.Car c) {
+    private static Entity spawn(ServerWorld level, GarageData.Garage g, GarageData.Car c) {
         EntityType<?> type = EntityType.byString(c.type).orElse(null);
         if (type == null) return null;
         List<double[]> spots = new ArrayList<>(g.slots);
@@ -221,7 +221,7 @@ public final class CarsServer {
     }
 
     /** Politia se uita la un vehicul: numar, model, proprietar, stare. */
-    private static void inspect(ServerPlayer p, GarageData data, int entityId) {
+    private static void inspect(ServerPlayerEntity p, GarageData data, int entityId) {
         Entity e = p.level.getEntity(entityId);
         if (e == null || e.distanceTo(p) > 8) return;
         JsonObject o = new JsonObject();
@@ -250,7 +250,7 @@ public final class CarsServer {
 
     private static Entity findLoaded(MinecraftServer server, UUID id) {
         if (id == null) return null;
-        for (ServerLevel l : server.getAllLevels()) {
+        for (ServerWorld l : server.getAllLevels()) {
             Entity e = l.getEntity(id);
             if (e != null && e.isAlive()) return e;
         }
@@ -258,19 +258,19 @@ public final class CarsServer {
     }
 
     /** Scoate din NBT ce tine de pozitie / identitate, ca masina sa poata fi pusa oriunde. */
-    private static CompoundTag strip(CompoundTag t) {
+    private static CompoundNBT strip(CompoundNBT t) {
         for (String k : new String[] {"UUID", "Pos", "Motion", "Rotation", "Passengers", "FallDistance", "Fire", "Air", "OnGround", "PortalCooldown", "ForgeData"}) t.remove(k);
         return t;
     }
 
-    private static int color(CompoundTag nbt) {
+    private static int color(CompoundNBT nbt) {
         int[] c = nbt.getIntArray("Color");
         if (c.length == 3) return ((c[0] & 255) << 16) | ((c[1] & 255) << 8) | (c[2] & 255);
         return 0xFFFFFF;
     }
 
     /** Lista garajelor (pentru markere / harta) + factiunile jucatorului. */
-    static void syncTo(ServerPlayer p) {
+    static void syncTo(ServerPlayerEntity p) {
         JsonObject o = new JsonObject();
         JsonArray arr = new JsonArray();
         for (GarageData.Garage g : GarageData.get(p.server).garages()) {
@@ -300,7 +300,7 @@ public final class CarsServer {
     }
 
     static void syncAll(MinecraftServer server) {
-        for (ServerPlayer p : server.getPlayerList().getPlayers()) syncTo(p);
+        for (ServerPlayerEntity p : server.getPlayerList().getPlayers()) syncTo(p);
     }
 
     // ------------------------------------------------------------------ evenimente + comenzi
@@ -313,20 +313,20 @@ public final class CarsServer {
         public void onJoin(EntityJoinWorldEvent e) {
             if (e.getWorld().isClientSide()) return;
             Entity en = e.getEntity();
-            if (!en.getPersistentData().contains(TAG) || !(e.getWorld() instanceof ServerLevel)) return;
-            ServerLevel sl = (ServerLevel) e.getWorld();
+            if (!en.getPersistentData().contains(TAG) || !(e.getWorld() instanceof ServerWorld)) return;
+            ServerWorld sl = (ServerWorld) e.getWorld();
             GarageData.Car c = GarageData.get(sl.getServer()).get(en.getPersistentData().getInt(TAG));
             if (c == null || !c.out || !en.getUUID().equals(c.entity)) e.setCanceled(true);
         }
 
         @SubscribeEvent
         public void onLogin(PlayerEvent.PlayerLoggedInEvent e) {
-            if (e.getPlayer() instanceof ServerPlayer) syncTo((ServerPlayer) e.getPlayer());
+            if (e.getPlayer() instanceof ServerPlayerEntity) syncTo((ServerPlayerEntity) e.getPlayer());
         }
 
         @SubscribeEvent
         public void onDim(PlayerEvent.PlayerChangedDimensionEvent e) {
-            if (e.getPlayer() instanceof ServerPlayer) syncTo((ServerPlayer) e.getPlayer());
+            if (e.getPlayer() instanceof ServerPlayerEntity) syncTo((ServerPlayerEntity) e.getPlayer());
         }
 
         /** Re-trimitem lista la 30 s (factiunile se pot schimba: politist nou in MDT etc.). */
@@ -343,19 +343,19 @@ public final class CarsServer {
         }
     }
 
-    private static int fail(CommandContext<CommandSourceStack> c, String msg) {
-        c.getSource().sendFailure(new TextComponent(msg));
+    private static int fail(CommandContext<CommandSource> c, String msg) {
+        c.getSource().sendFailure(new StringTextComponent(msg));
         return 0;
     }
 
-    private static int ok(CommandContext<CommandSourceStack> c, String msg) {
-        c.getSource().sendSuccess(new TextComponent(msg), false);
+    private static int ok(CommandContext<CommandSource> c, String msg) {
+        c.getSource().sendSuccess(new StringTextComponent(msg), false);
         syncAll(c.getSource().getServer());
         return 1;
     }
 
-    private static GarageData.Garage create(CommandContext<CommandSourceStack> c, String type, String faction, String name) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
-        ServerPlayer p = c.getSource().getPlayerOrException();
+    private static GarageData.Garage create(CommandContext<CommandSource> c, String type, String faction, String name) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        ServerPlayerEntity p = c.getSource().getPlayerOrException();
         GarageData data = GarageData.get(c.getSource().getServer());
         GarageData.Garage g = data.addGarage();
         g.name = name;
@@ -369,7 +369,7 @@ public final class CarsServer {
         return g;
     }
 
-    private static LiteralArgumentBuilder<CommandSourceStack> garajCommand() {
+    private static LiteralArgumentBuilder<CommandSource> garajCommand() {
         return Commands.literal("garaj").requires(s -> s.hasPermission(2))
             .then(Commands.literal("creeaza")
                 .then(Commands.literal("public").then(Commands.argument("nume", StringArgumentType.greedyString()).executes(c -> {
@@ -390,7 +390,7 @@ public final class CarsServer {
                 .executes(c -> setStore(c, 4f))
                 .then(Commands.argument("raza", FloatArgumentType.floatArg(2, 16)).executes(c -> setStore(c, FloatArgumentType.getFloat(c, "raza"))))))
             .then(Commands.literal("loc").then(Commands.argument("id", IntegerArgumentType.integer(1)).executes(c -> {
-                ServerPlayer p = c.getSource().getPlayerOrException();
+                ServerPlayerEntity p = c.getSource().getPlayerOrException();
                 GarageData data = GarageData.get(c.getSource().getServer());
                 GarageData.Garage g = data.garage(IntegerArgumentType.getInteger(c, "id"));
                 if (g == null) return fail(c, "Garajul nu exista.");
@@ -407,7 +407,7 @@ public final class CarsServer {
                 return ok(c, "Locurile de parcare au fost sterse.");
             }))))
             .then(Commands.literal("muta").then(Commands.argument("id", IntegerArgumentType.integer(1)).executes(c -> {
-                ServerPlayer p = c.getSource().getPlayerOrException();
+                ServerPlayerEntity p = c.getSource().getPlayerOrException();
                 GarageData data = GarageData.get(c.getSource().getServer());
                 GarageData.Garage g = data.garage(IntegerArgumentType.getInteger(c, "id"));
                 if (g == null) return fail(c, "Garajul nu exista.");
@@ -430,14 +430,14 @@ public final class CarsServer {
                 for (GarageData.Garage g : gs) {
                     String line = "#" + g.id + " " + g.name + " [" + g.type + (g.faction.isEmpty() ? "" : " " + g.faction) + "] "
                         + (int) g.mx + " " + (int) g.my + " " + (int) g.mz + " | parcare: " + (g.hasStore ? "da" : "nu") + " | locuri: " + g.slots.size();
-                    c.getSource().sendSuccess(new TextComponent(line), false);
+                    c.getSource().sendSuccess(new StringTextComponent(line), false);
                 }
                 return 1;
             }));
     }
 
-    private static int setStore(CommandContext<CommandSourceStack> c, float r) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
-        ServerPlayer p = c.getSource().getPlayerOrException();
+    private static int setStore(CommandContext<CommandSource> c, float r) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        ServerPlayerEntity p = c.getSource().getPlayerOrException();
         GarageData data = GarageData.get(c.getSource().getServer());
         GarageData.Garage g = data.garage(IntegerArgumentType.getInteger(c, "id"));
         if (g == null) return fail(c, "Garajul nu exista.");
@@ -450,7 +450,7 @@ public final class CarsServer {
         return ok(c, "Zona de parcare a garajului " + g.name + " e aici (raza " + r + ").");
     }
 
-    private static LiteralArgumentBuilder<CommandSourceStack> carsCommand() {
+    private static LiteralArgumentBuilder<CommandSource> carsCommand() {
         return Commands.literal("fccars").requires(s -> s.hasPermission(2))
             .then(Commands.literal("give").then(Commands.argument("player", EntityArgument.player())
                 .then(Commands.argument("type", StringArgumentType.string())
@@ -459,12 +459,12 @@ public final class CarsServer {
                             .then(Commands.argument("wheels", StringArgumentType.string())
                                 .then(Commands.argument("plate", StringArgumentType.string())
                                     .then(Commands.argument("name", StringArgumentType.greedyString()).executes(c -> {
-                                        ServerPlayer p = EntityArgument.getPlayer(c, "player");
+                                        ServerPlayerEntity p = EntityArgument.getPlayer(c, "player");
                                         GarageData.Car car = give(c.getSource().getServer(), p.getUUID(), "", StringArgumentType.getString(c, "type"),
                                             IntegerArgumentType.getInteger(c, "color"), StringArgumentType.getString(c, "engine"),
                                             StringArgumentType.getString(c, "wheels"), StringArgumentType.getString(c, "plate"), StringArgumentType.getString(c, "name"));
                                         if (car == null) return fail(c, "Vehicul necunoscut.");
-                                        p.displayClientMessage(new TextComponent(car.name + " (" + car.plate + ") te asteapta in orice garaj."), false);
+                                        p.displayClientMessage(new StringTextComponent(car.name + " (" + car.plate + ") te asteapta in orice garaj."), false);
                                         return 1;
                                     })))))))))
             .then(Commands.literal("givefaction").then(Commands.argument("faction", StringArgumentType.word())
@@ -485,7 +485,7 @@ public final class CarsServer {
             .then(Commands.literal("impound").then(Commands.argument("player", EntityArgument.player())
                 .then(Commands.argument("entity", StringArgumentType.string())
                     .then(Commands.argument("reason", StringArgumentType.greedyString()).executes(c -> {
-                        ServerPlayer officer = EntityArgument.getPlayer(c, "player");
+                        ServerPlayerEntity officer = EntityArgument.getPlayer(c, "player");
                         UUID id;
                         try {
                             id = UUID.fromString(StringArgumentType.getString(c, "entity"));
@@ -493,7 +493,7 @@ public final class CarsServer {
                             return fail(c, "UUID invalid.");
                         }
                         Entity v = officer.getLevel().getEntity(id);
-                        if (v == null || v.distanceTo(officer) > 10 || v instanceof net.minecraft.world.entity.player.Player) return fail(c, "Vehiculul nu e aproape.");
+                        if (v == null || v.distanceTo(officer) > 10 || v instanceof net.minecraft.entity.player.PlayerEntity) return fail(c, "Vehiculul nu e aproape.");
                         ResourceLocation key = ForgeRegistries.ENTITIES.getKey(v.getType());
                         GarageData data = GarageData.get(c.getSource().getServer());
                         GarageData.Car car = v.getPersistentData().contains(TAG) ? data.get(v.getPersistentData().getInt(TAG)) : null;
@@ -503,19 +503,19 @@ public final class CarsServer {
                             car.pound = true;
                             car.poundReason = StringArgumentType.getString(c, "reason");
                             data.setDirty();
-                            ServerPlayer owner = car.owner == null ? null : c.getSource().getServer().getPlayerList().getPlayer(car.owner);
-                            if (owner != null) owner.displayClientMessage(new TextComponent("Masina ta " + car.name + " (" + car.plate + ") a fost ridicata la pound: " + car.poundReason), false);
+                            ServerPlayerEntity owner = car.owner == null ? null : c.getSource().getServer().getPlayerList().getPlayer(car.owner);
+                            if (owner != null) owner.displayClientMessage(new StringTextComponent("Masina ta " + car.name + " (" + car.plate + ") a fost ridicata la pound: " + car.poundReason), false);
                         } else {
                             v.ejectPassengers();
                             v.discard(); // vehicul fara acte (nu e din garaj): se ridica definitiv
                         }
-                        officer.displayClientMessage(new TextComponent("Vehicul ridicat la pound."), true);
+                        officer.displayClientMessage(new StringTextComponent("Vehicul ridicat la pound."), true);
                         return 1;
                     })))))
             // scoatere de la pound dupa plata (pluginul ia taxa prin Vault)
             .then(Commands.literal("unpound").then(Commands.argument("player", EntityArgument.player())
                 .then(Commands.argument("car", IntegerArgumentType.integer(1)).then(Commands.argument("garage", IntegerArgumentType.integer(1)).executes(c -> {
-                    ServerPlayer p = EntityArgument.getPlayer(c, "player");
+                    ServerPlayerEntity p = EntityArgument.getPlayer(c, "player");
                     GarageData data = GarageData.get(c.getSource().getServer());
                     GarageData.Car car = data.get(IntegerArgumentType.getInteger(c, "car"));
                     GarageData.Garage g = data.garage(IntegerArgumentType.getInteger(c, "garage"));
@@ -528,7 +528,7 @@ public final class CarsServer {
                     car.entity = null;
                     Entity e = spawn(p.getLevel(), g, car);
                     data.setDirty();
-                    p.displayClientMessage(new TextComponent(e != null ? car.name + " te asteapta in parcarea pound-ului."
+                    p.displayClientMessage(new StringTextComponent(e != null ? car.name + " te asteapta in parcarea pound-ului."
                         : car.name + " a fost eliberata; locurile sunt ocupate, o poti scoate din orice garaj."), true);
                     openMenu(p, data, g, true, "");
                     return 1;
@@ -547,19 +547,19 @@ public final class CarsServer {
         if (t == null) return null;
         Entity e = t.create(server.overworld());
         if (e == null) return null;
-        CompoundTag init = e.saveWithoutId(new CompoundTag());
-        init.put("Color", new IntArrayTag(new int[] {(rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255}));
+        CompoundNBT init = e.saveWithoutId(new CompoundNBT());
+        init.put("Color", new IntArrayNBT(new int[] {(rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255}));
         if (!engine.isEmpty() && !engine.equals("-")) init.put("EngineStack", stack(engine));
         if (!wheels.isEmpty() && !wheels.equals("-")) init.put("WheelStack", stack(wheels));
         e.load(init);
-        CompoundTag nbt = strip(e.saveWithoutId(new CompoundTag()));
+        CompoundNBT nbt = strip(e.saveWithoutId(new CompoundNBT()));
         if (nbt.contains("FuelCapacity")) nbt.putFloat("CurrentFuel", nbt.getFloat("FuelCapacity") * 0.5f);
         e.discard();
         return GarageData.get(server).add(owner, faction, type, name, plate, nbt);
     }
 
-    private static CompoundTag stack(String id) {
-        CompoundTag s = new CompoundTag();
+    private static CompoundNBT stack(String id) {
+        CompoundNBT s = new CompoundNBT();
         s.putString("id", new ResourceLocation(id).toString());
         s.putByte("Count", (byte) 1);
         return s;

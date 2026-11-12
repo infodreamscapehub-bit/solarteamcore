@@ -15,11 +15,11 @@ import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ServerData;
-import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.chunk.ChunkStatus;
-import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.client.world.ClientWorld;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.chunk.ChunkStatus;
+import net.minecraft.world.gen.Heightmap;
 import net.minecraftforge.fml.loading.FMLPaths;
 
 /**
@@ -48,7 +48,7 @@ public final class MapCache {
         return ((long) cx << 32) ^ (cz & 0xFFFFFFFFL);
     }
 
-    private static String cacheName(ClientLevel w) {
+    private static String cacheName(ClientWorld w) {
         ServerData sd = Minecraft.getInstance().getCurrentServer();
         String base = sd == null ? "local" : sd.ip;
         return base.replaceAll("[^a-zA-Z0-9.\\-]", "_") + "_" + w.dimension().location().getPath();
@@ -78,7 +78,7 @@ public final class MapCache {
 
     // ------------------------------------------------------------------ scanare
 
-    public static void tick(ClientLevel w, Player p) {
+    public static void tick(ClientWorld w, PlayerEntity p) {
         String name = cacheName(w);
         if (!name.equals(loadedKey)) {
             save();
@@ -126,7 +126,7 @@ public final class MapCache {
         }
     }
 
-    private static void scan(ClientLevel w, int cx, int cz) {
+    private static void scan(ClientWorld w, int cx, int cz) {
         Chunk c = CHUNKS.computeIfAbsent(key(cx, cz), k -> new Chunk());
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
         for (int z = 0; z < 16; z++) {
@@ -141,7 +141,7 @@ public final class MapCache {
                     continue;
                 }
                 pos.set(wx, h - 1, wz);
-                net.minecraft.world.level.block.state.BlockState st = w.getBlockState(pos);
+                net.minecraft.block.BlockState st = w.getBlockState(pos);
                 int rgb = st.getMapColor(w, pos).col;
                 if (rgb == 0) rgb = 0x404040;
                 if (!st.getFluidState().isEmpty()) rgb |= WATER;
@@ -171,7 +171,7 @@ public final class MapCache {
                 for (int j = 0; j < 256; j++) {
                     int idx = b[j] & 63;
                     boolean water = (b[j] & 64) != 0;
-                    net.minecraft.world.level.material.MaterialColor mc = idx >= 0 && idx < 64 ? net.minecraft.world.level.material.MaterialColor.MATERIAL_COLORS[idx] : null;
+                    net.minecraft.block.material.MaterialColor mc = idx >= 0 && idx < 64 ? net.minecraft.block.material.MaterialColor.MATERIAL_COLORS[idx] : null;
                     int rgb = mc == null || mc.col == 0 ? 0x404040 : mc.col;
                     int h = b[256 + j] & 0xFF;
                     if (h == 0) {

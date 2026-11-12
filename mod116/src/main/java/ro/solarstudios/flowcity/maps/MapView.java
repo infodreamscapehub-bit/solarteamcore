@@ -4,8 +4,8 @@ import ro.solarstudios.flowcity.compat.GuiGraphics;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
-import com.mojang.blaze3d.platform.NativeImage;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.client.renderer.texture.NativeImage;
+import net.minecraft.util.ResourceLocation;
 
 /**
  * Textura dinamica a hartii in stil GTA (apa, parcuri, strazi albe, cladiri), construita din {@link MapCache}.

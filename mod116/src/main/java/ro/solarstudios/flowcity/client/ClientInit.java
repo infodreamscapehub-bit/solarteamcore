@@ -1,11 +1,11 @@
 package ro.solarstudios.flowcity.client;
 
-import net.minecraft.network.chat.TextComponent;
+import net.minecraft.util.text.StringTextComponent;
 
-import net.minecraft.client.KeyMapping;
+import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.client.Minecraft;
 import org.lwjgl.glfw.GLFW;
-import net.minecraft.network.chat.Component;
+import net.minecraft.util.text.ITextComponent;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import ro.solarstudios.flowcity.compat.RegisterKeyMappingsEvent;
 import net.minecraftforge.common.MinecraftForge;
@@ -18,7 +18,7 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 public final class ClientInit {
     private ClientInit() {}
 
-    public static KeyMapping openAdmin;
+    public static KeyBinding openAdmin;
     private static int helloTicks = -1;
     private static int helloTries;
 
@@ -48,7 +48,7 @@ public final class ClientInit {
     }
 
     private static void keys(RegisterKeyMappingsEvent event) {
-        openAdmin = new KeyMapping("key.flowcity.admin", GLFW.GLFW_KEY_F9, "key.categories.flowcity");
+        openAdmin = new KeyBinding("key.flowcity.admin", GLFW.GLFW_KEY_F9, "key.categories.flowcity");
         event.register(openAdmin);
         ro.solarstudios.flowcity.mdt.MdtClient.registerKeys(event);
         ro.solarstudios.flowcity.phone.PhoneClient.registerKeys(event);
@@ -84,7 +84,7 @@ public final class ClientInit {
                     if (helloTries < 12) {
                         helloTicks = 60; // reincearca la 3s pana raspunde serverul
                     } else {
-                        mc.player.displayClientMessage(new TextComponent(
+                        mc.player.displayClientMessage(new StringTextComponent(
                             "§e[FlowCity] §7Serverul nu raspunde: lipseste pluginul FlowCityBridge sau are alta versiune."), false);
                     }
                 }
@@ -97,7 +97,7 @@ public final class ClientInit {
             long pending = ClientBridge.pendingOpenAt;
             if (pending > 0 && System.currentTimeMillis() - pending > 3000) {
                 ClientBridge.pendingOpenAt = 0;
-                mc.player.displayClientMessage(new TextComponent("§cServerul nu a raspuns. §7Pluginul FlowCityBridge este instalat?"), true);
+                mc.player.displayClientMessage(new StringTextComponent("§cServerul nu a raspuns. §7Pluginul FlowCityBridge este instalat?"), true);
             }
         }
     }

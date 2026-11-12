@@ -3,14 +3,14 @@ package ro.solarstudios.flowcity.client;
 import io.netty.buffer.Unpooled;
 import java.util.function.Consumer;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.multiplayer.ClientPacketListener;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.game.ServerboundCustomPayloadPacket;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.client.network.play.ClientPlayNetHandler;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.network.play.client.CCustomPayloadPacket;
+import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.network.NetworkEvent;
-import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screen.Screen;
 import ro.solarstudios.flowcity.client.admin.AdminData;
 import ro.solarstudios.flowcity.client.admin.AdminPanelScreen;
 import ro.solarstudios.flowcity.module.ClientModules;
@@ -40,7 +40,7 @@ public final class ClientBridge {
             connected = true;
             final Runnable task;
             try {
-                FriendlyByteBuf buf = e.getPayload();
+                PacketBuffer buf = e.getPayload();
                 if (buf == null || buf.readableBytes() < 1) return;
                 int op = buf.readUnsignedByte();
                 switch (op) {
@@ -85,7 +85,7 @@ public final class ClientBridge {
                         final String moduleId = buf.readUtf(64);
                         final String action = buf.readUtf(64);
                         // copie proprie: buffer-ul retea nu e valid dupa ce iese din handler
-                        final FriendlyByteBuf copy = new FriendlyByteBuf(Unpooled.copiedBuffer(buf.readBytes(buf.readableBytes())));
+                        final PacketBuffer copy = new PacketBuffer(Unpooled.copiedBuffer(buf.readBytes(buf.readableBytes())));
                         task = () -> {
                             try {
                                 ClientModules.dispatch(moduleId, action, copy);
@@ -125,20 +125,20 @@ public final class ClientBridge {
 
     // ------------------------------------------------------------------ trimitere
 
-    private static void send(int op, Consumer<FriendlyByteBuf> body) {
-        ClientPacketListener conn = Minecraft.getInstance().getConnection();
+    private static void send(int op, Consumer<PacketBuffer> body) {
+        ClientPlayNetHandler conn = Minecraft.getInstance().getConnection();
         if (conn == null) return;
-        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        PacketBuffer buf = new PacketBuffer(Unpooled.buffer());
         buf.writeByte(op);
         if (body != null) body.accept(buf);
-        conn.send(new ServerboundCustomPayloadPacket(Bridge.ID, buf));
+        conn.send(new CCustomPayloadPacket(Bridge.ID, buf));
     }
 
     /**
      * Trimite un mesaj catre un modul de server. Limita pachetului client->server este ~32 KB:
      * pentru date mari (ex. harta) trimite pe bucati mici.
      */
-    public static void sendModule(String moduleId, String action, Consumer<FriendlyByteBuf> body) {
+    public static void sendModule(String moduleId, String action, Consumer<PacketBuffer> body) {
         send(Bridge.C_MODULE, b -> {
             b.writeUtf(moduleId);
             b.writeUtf(action);
@@ -149,11 +149,11 @@ public final class ClientBridge {
     public static void sendHello() {
         // Bukkit trimite pachete de plugin doar pe canale pe care clientul le-a "inregistrat" (minecraft:register).
         // Clientul Forge nu o face singur, asa ca o facem noi; altfel serverul ignora tacit tot ce trimite pluginul.
-        ClientPacketListener conn = Minecraft.getInstance().getConnection();
+        ClientPlayNetHandler conn = Minecraft.getInstance().getConnection();
         if (conn != null) {
-            FriendlyByteBuf reg = new FriendlyByteBuf(Unpooled.buffer());
+            PacketBuffer reg = new PacketBuffer(Unpooled.buffer());
             reg.writeBytes((Bridge.ID.toString() + "\0").getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            conn.send(new ServerboundCustomPayloadPacket(new ResourceLocation("minecraft", "register"), reg));
+            conn.send(new CCustomPayloadPacket(new ResourceLocation("minecraft", "register"), reg));
         }
         send(Bridge.C_HELLO, b -> b.writeVarInt(Bridge.PROTOCOL));
     }

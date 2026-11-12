@@ -3,7 +3,7 @@ package ro.solarstudios.flowcity.maps;
 import ro.solarstudios.flowcity.compat.GuiGraphics;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.ResourceLocation;
 import ro.solarstudios.flowcity.client.ui.Ui;
 
 /** Iconitele hartii FlowCity (desenate de noi): foaia blips.png, 8 coloane x 4 randuri, celule de 32 px. */

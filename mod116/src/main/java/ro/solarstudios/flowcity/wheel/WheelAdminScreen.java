@@ -6,10 +6,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.registries.ForgeRegistries;
 import ro.solarstudios.flowcity.client.ui.FlowScreen;
 import ro.solarstudios.flowcity.client.ui.Theme;
@@ -20,12 +20,12 @@ public final class WheelAdminScreen extends FlowScreen {
     private static final int ROW = 17;
     private static final int LIST_W = 196;
 
-    private final EditBox material = field("material (ex. DIAMOND)", 40, null);
-    private final EditBox name = field("nume (optional)", 24, null);
-    private final EditBox amount = field("cantitate / suma", 10, null);
-    private final EditBox weight = field("sansa (1-1000)", 4, null);
-    private final EditBox color = field("#RRGGBB", 7, null);
-    private final List<EditBox> all = new ArrayList<>();
+    private final TextFieldWidget material = field("material (ex. DIAMOND)", 40, null);
+    private final TextFieldWidget name = field("nume (optional)", 24, null);
+    private final TextFieldWidget amount = field("cantitate / suma", 10, null);
+    private final TextFieldWidget weight = field("sansa (1-1000)", 4, null);
+    private final TextFieldWidget color = field("#RRGGBB", 7, null);
+    private final List<TextFieldWidget> all = new ArrayList<>();
     private long selected = -1;
     private boolean announce;
     private int scroll;
@@ -47,7 +47,7 @@ public final class WheelAdminScreen extends FlowScreen {
     }
 
     @Override
-    protected List<EditBox> fields() {
+    protected List<TextFieldWidget> fields() {
         return all;
     }
 

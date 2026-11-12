@@ -5,7 +5,7 @@ import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import net.minecraft.client.multiplayer.ServerData;
-import net.minecraft.client.multiplayer.ServerStatusPinger;
+import net.minecraft.client.network.ServerPinger;
 
 /** Status live al serverului (online, jucatori, ping) pentru meniul principal. Reimprospatat la ~15s. */
 public final class StatusPing {
@@ -17,7 +17,7 @@ public final class StatusPing {
         t.setDaemon(true);
         return t;
     });
-    private static final ServerStatusPinger PINGER = new ServerStatusPinger();
+    private static final ServerPinger PINGER = new ServerPinger();
     private static ServerData data;
     private static String address = "";
     private static long lastStart;

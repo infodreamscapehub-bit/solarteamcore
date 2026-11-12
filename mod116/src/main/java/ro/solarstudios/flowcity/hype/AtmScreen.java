@@ -6,7 +6,7 @@ import com.google.gson.JsonObject;
 import ro.solarstudios.flowcity.compat.GuiGraphics;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.widget.TextFieldWidget;
 import ro.solarstudios.flowcity.client.ui.FlowScreen;
 import ro.solarstudios.flowcity.client.ui.Theme;
 import ro.solarstudios.flowcity.client.ui.Ui;
@@ -14,16 +14,16 @@ import ro.solarstudios.flowcity.module.JsonClientModule;
 
 /** ATM: depunere, retragere, transfer bancar + istoric. Serverul valideaza tot; aici doar cerem actiuni. */
 public final class AtmScreen extends FlowScreen {
-    private final EditBox amount = field("Suma", 12, null);
-    private final EditBox target = field("Jucator", 16, null);
+    private final TextFieldWidget amount = field("Suma", 12, null);
+    private final TextFieldWidget target = field("Jucator", 16, null);
 
     public AtmScreen() {
         super("ATM", 340, 200);
     }
 
     @Override
-    protected List<EditBox> fields() {
-        List<EditBox> l = new ArrayList<>();
+    protected List<TextFieldWidget> fields() {
+        List<TextFieldWidget> l = new ArrayList<>();
         l.add(amount);
         l.add(target);
         return l;
@@ -127,7 +127,7 @@ public final class AtmScreen extends FlowScreen {
     }
 
     @Override
-    protected void onEnter(EditBox f) {
+    protected void onEnter(TextFieldWidget f) {
         act(f == target ? "atm_transfer" : "atm_deposit");
     }
 }

@@ -4,14 +4,14 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.FontRenderer;
 import ro.solarstudios.flowcity.compat.GuiGraphics;
 
 /** Primitive de desen pentru interfata FlowCity (dreptunghiuri, text, small caps). */
 public final class Ui {
     private Ui() {}
 
-    private static Font font() {
+    private static FontRenderer font() {
         return Minecraft.getInstance().font;
     }
 
@@ -114,7 +114,7 @@ public final class Ui {
 
     /** Decupare dreptunghiulara (coordonate GUI). Se inchide cu {@link #endScissor()}. */
     public static void scissor(int x, int y, int w, int h) {
-        com.mojang.blaze3d.platform.Window win = Minecraft.getInstance().getWindow();
+        net.minecraft.client.MainWindow win = Minecraft.getInstance().getWindow();
         double sc = win.getGuiScale();
         RenderSystem.enableScissor((int) (x * sc), (int) (win.getHeight() - (y + h) * sc), Math.max(0, (int) (w * sc)), Math.max(0, (int) (h * sc)));
     }

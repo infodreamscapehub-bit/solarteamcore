@@ -1,10 +1,10 @@
 package ro.solarstudios.flowcity.hype;
 
-import net.minecraft.network.chat.TextComponent;
+import net.minecraft.util.text.StringTextComponent;
 
 import com.google.gson.JsonObject;
 import net.minecraft.client.Minecraft;
-import net.minecraft.network.chat.Component;
+import net.minecraft.util.text.ITextComponent;
 import net.minecraftforge.common.MinecraftForge;
 import ro.solarstudios.flowcity.client.ui.FlowScreen;
 import ro.solarstudios.flowcity.module.ClientModules;
@@ -85,6 +85,6 @@ public final class HypeClient extends JsonClientModule {
         if (text.isEmpty()) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.screen instanceof FlowScreen) ((FlowScreen) mc.screen).toast(text, !ok);
-        else if (mc.player != null) mc.player.displayClientMessage(new TextComponent((ok ? "§a" : "§c") + text), true);
+        else if (mc.player != null) mc.player.displayClientMessage(new StringTextComponent((ok ? "§a" : "§c") + text), true);
     }
 }

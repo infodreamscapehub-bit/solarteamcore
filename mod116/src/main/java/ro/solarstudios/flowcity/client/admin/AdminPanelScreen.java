@@ -1,17 +1,17 @@
 package ro.solarstudios.flowcity.client.admin;
 
-import net.minecraft.network.chat.TextComponent;
+import net.minecraft.util.text.StringTextComponent;
 
 import ro.solarstudios.flowcity.compat.GuiGraphics;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.resources.sounds.SimpleSoundInstance;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.network.chat.Component;
+import net.minecraft.client.audio.SimpleSound;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.util.SoundEvents;
+import net.minecraft.util.text.ITextComponent;
 import org.lwjgl.glfw.GLFW;
 import ro.solarstudios.flowcity.client.ClientBridge;
 import ro.solarstudios.flowcity.client.ui.Theme;
@@ -60,9 +60,9 @@ public class AdminPanelScreen extends Screen {
     private final String serverName;
     private final List<Hit> hits = new ArrayList<>();
 
-    private EditBox search;
-    private EditBox reason;
-    private EditBox note;
+    private TextFieldWidget search;
+    private TextFieldWidget reason;
+    private TextFieldWidget note;
 
     private AdminData.PlayerList list;
     private AdminData.Profile profile;
@@ -90,13 +90,13 @@ public class AdminPanelScreen extends Screen {
     private int pw;
     private int ph;
 
-    private EditBox idField;
-    private EditBox cashField;
+    private TextFieldWidget idField;
+    private TextFieldWidget cashField;
     private boolean cashOpen;
     private final long openedAt = System.currentTimeMillis();
 
     public AdminPanelScreen(String staffName, String serverName) {
-        super(new TextComponent("eAdmin"));
+        super(new StringTextComponent("eAdmin"));
         this.staffName = staffName;
         this.serverName = serverName;
     }
@@ -116,8 +116,8 @@ public class AdminPanelScreen extends Screen {
         if (list == null) ClientBridge.requestList("", 0);
     }
 
-    private EditBox field(String hint, int max, Consumer<String> onChange) {
-        EditBox f = new EditBox(font, 0, 0, 100, 14, new TextComponent(hint));
+    private TextFieldWidget field(String hint, int max, Consumer<String> onChange) {
+        TextFieldWidget f = new TextFieldWidget(font, 0, 0, 100, 14, new StringTextComponent(hint));
         f.setMaxLength(max);
         f.setBordered(false);
         f.setTextColor(Theme.TEXT);
@@ -219,19 +219,19 @@ public class AdminPanelScreen extends Screen {
         focus(note, false);
     }
 
-    /** Focus fara dependenta de numele metodei: EditBox isi seteaza singur focusul la click. */
-    private void focus(EditBox f, boolean on) {
+    /** Focus fara dependenta de numele metodei: TextFieldWidget isi seteaza singur focusul la click. */
+    private void focus(TextFieldWidget f, boolean on) {
         f.mouseClicked(on ? f.x + 1 : -10000, on ? f.y + 1 : -10000, 0);
     }
 
     private void click() {
-        Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+        Minecraft.getInstance().getSoundManager().play(SimpleSound.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
     }
 
     // ------------------------------------------------------------------ desenare
 
     @Override
-    public void render(com.mojang.blaze3d.vertex.PoseStack poseIn, int mx, int my, float pt) {
+    public void render(com.mojang.blaze3d.matrix.MatrixStack poseIn, int mx, int my, float pt) {
         GuiGraphics ms = new GuiGraphics(poseIn);
         hits.clear();
         pw = Math.min(width - 16, 476);
@@ -825,8 +825,8 @@ public class AdminPanelScreen extends Screen {
 
     // ------------------------------------------------------------------ input
 
-    private List<EditBox> fields() {
-        List<EditBox> f = new ArrayList<>();
+    private List<TextFieldWidget> fields() {
+        List<TextFieldWidget> f = new ArrayList<>();
         f.add(search);
         if (tab == Tab.SANCTIONS && selectedUuid != null) f.add(reason);
         if (tab == Tab.NOTES && selectedUuid != null) f.add(note);
@@ -840,7 +840,7 @@ public class AdminPanelScreen extends Screen {
         if (button == 0) {
             // intai campurile de text (isi gestioneaza singure focusul)
             boolean onField = false;
-            for (EditBox f : fields()) {
+            for (TextFieldWidget f : fields()) {
                 boolean inside = Ui.in((int) mx, (int) my, f.x - 4, f.y - 4, f.getWidth() + 8, 16);
                 f.mouseClicked(mx, my, button);
                 if (inside) {
@@ -874,7 +874,7 @@ public class AdminPanelScreen extends Screen {
 
     @Override
     public boolean keyPressed(int key, int scan, int mods) {
-        for (EditBox f : fields()) {
+        for (TextFieldWidget f : fields()) {
             if (f.isFocused()) {
                 if (key == GLFW.GLFW_KEY_ESCAPE) {
                     focus(f, false);
@@ -897,7 +897,7 @@ public class AdminPanelScreen extends Screen {
 
     @Override
     public boolean charTyped(char c, int mods) {
-        for (EditBox f : fields()) {
+        for (TextFieldWidget f : fields()) {
             if (f.isFocused() && f.charTyped(c, mods)) return true;
         }
         return super.charTyped(c, mods);

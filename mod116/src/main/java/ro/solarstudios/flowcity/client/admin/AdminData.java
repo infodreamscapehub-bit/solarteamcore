@@ -2,9 +2,9 @@ package ro.solarstudios.flowcity.client.admin;
 
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.PacketBuffer;
 
-/** Modele de date primite de la server + decodare din FriendlyByteBuf. */
+/** Modele de date primite de la server + decodare din PacketBuffer. */
 public final class AdminData {
     private AdminData() {}
 
@@ -88,7 +88,7 @@ public final class AdminData {
 
     // ------------------------------------------------------------------ decodare
 
-    public static PlayerList readPlayerList(FriendlyByteBuf b) {
+    public static PlayerList readPlayerList(PacketBuffer b) {
         PlayerList l = new PlayerList();
         l.total = b.readInt();
         l.page = b.readInt();
@@ -107,7 +107,7 @@ public final class AdminData {
         return l;
     }
 
-    public static Profile readProfile(FriendlyByteBuf b) {
+    public static Profile readProfile(PacketBuffer b) {
         Profile p = new Profile();
         p.uuid = b.readUtf(64);
         p.name = b.readUtf(64);
@@ -159,7 +159,7 @@ public final class AdminData {
         return p;
     }
 
-    public static Logs readLogs(FriendlyByteBuf b) {
+    public static Logs readLogs(PacketBuffer b) {
         Logs l = new Logs();
         l.type = b.readUtf(16);
         l.page = b.readInt();
