@@ -531,8 +531,8 @@ public final class MapsClient extends JsonClientModule {
                     int by = MapsState.radarPos == 0 ? y - 12 * rows - 26 : y + MM + 16 + 12 * rows;
                     Ui.rect(ms, x, by, MM, 24, 0xDD05070C);
                     Ui.rect(ms, x, by, 3, 24, ROUTE_COLOR);
-                    float rot = nt[1] == 1 ? 90f : (nt[1] == -1 ? -90f : (nt[1] == 2 ? 180f : 0f));
-                    drawArrow(ms, x + 18, by + 12, rot, 0xFFFFFFFF);
+                    float turnRot = nt[1] == 1 ? 90f : (nt[1] == -1 ? -90f : (nt[1] == 2 ? 180f : 0f));
+                    drawArrow(ms, x + 18, by + 12, turnRot, 0xFFFFFFFF);
                     String label = nt[1] == 1 ? "Vireaza la dreapta" : (nt[1] == -1 ? "Vireaza la stanga" : (nt[1] == 2 ? "Intoarce-te" : "Mergi inainte"));
                     Ui.text(ms, label, x + 32, by + 4, Theme.TEXT);
                     Ui.text(ms, nt[0] < 0 ? "pana la destinatie" : "peste " + meters(nt[0]), x + 32, by + 14, ROUTE_COLOR);
