@@ -1,6 +1,8 @@
 package ro.solarstudios.flowcity.client;
 
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
+import org.lwjgl.glfw.GLFW;
 import net.minecraft.network.chat.Component;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
@@ -14,6 +16,7 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 public final class ClientInit {
     private ClientInit() {}
 
+    public static KeyMapping openAdmin;
     private static int helloTicks = -1;
     private static int helloTries;
 
@@ -21,6 +24,13 @@ public final class ClientInit {
         FMLJavaModLoadingContext.get().getModEventBus().addListener(ClientInit::setup);
         FMLJavaModLoadingContext.get().getModEventBus().addListener(ClientInit::keys);
         MinecraftForge.EVENT_BUS.register(new Events());
+        MinecraftForge.EVENT_BUS.register(new ro.solarstudios.flowcity.menu.MenuEvents());
+        ro.solarstudios.flowcity.client.admin.IdsClient.register();
+        ro.solarstudios.flowcity.client.admin.DashPanel.register();
+        ro.solarstudios.flowcity.client.admin.AdminX.register();
+        ro.solarstudios.flowcity.update.UpdateClient.register();
+        ro.solarstudios.flowcity.news.NewsClient.register();
+        ro.solarstudios.flowcity.wheel.WheelClient.register();
         ro.solarstudios.flowcity.notify.NotifyClient.register();
         ro.solarstudios.flowcity.mdt.MdtClient.register();
         ro.solarstudios.flowcity.hype.HypeClient.register();
@@ -33,6 +43,8 @@ public final class ClientInit {
     }
 
     private static void keys(RegisterKeyMappingsEvent event) {
+        openAdmin = new KeyMapping("key.flowcity.admin", GLFW.GLFW_KEY_F9, "key.categories.flowcity");
+        event.register(openAdmin);
         ro.solarstudios.flowcity.mdt.MdtClient.registerKeys(event);
         ro.solarstudios.flowcity.phone.PhoneClient.registerKeys(event);
         ro.solarstudios.flowcity.maps.MapsClient.registerKeys(event);
@@ -70,6 +82,16 @@ public final class ClientInit {
                             "§e[FlowCity] §7Serverul nu raspunde: lipseste pluginul FlowCityBridge sau are alta versiune."), false);
                     }
                 }
+            }
+            if (openAdmin != null) {
+                while (openAdmin.consumeClick()) {
+                    if (mc.screen == null) ClientBridge.sendOpenRequest();
+                }
+            }
+            long pending = ClientBridge.pendingOpenAt;
+            if (pending > 0 && System.currentTimeMillis() - pending > 3000) {
+                ClientBridge.pendingOpenAt = 0;
+                mc.player.displayClientMessage(Component.literal("§cServerul nu a raspuns. §7Pluginul FlowCityBridge este instalat?"), true);
             }
         }
     }

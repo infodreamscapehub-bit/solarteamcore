@@ -10,6 +10,9 @@ import net.minecraft.network.protocol.game.ServerboundCustomPayloadPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.network.NetworkEvent;
+import net.minecraft.client.gui.screens.Screen;
+import ro.solarstudios.flowcity.client.admin.AdminData;
+import ro.solarstudios.flowcity.client.admin.AdminPanelScreen;
 import ro.solarstudios.flowcity.module.ClientModules;
 import ro.solarstudios.flowcity.net.Bridge;
 
@@ -41,6 +44,37 @@ public final class ClientBridge {
                 if (buf == null || buf.readableBytes() < 1) return;
                 int op = buf.readUnsignedByte();
                 switch (op) {
+                    case Bridge.S_OPEN: {
+                        final boolean ok = buf.readBoolean();
+                        final String staff = buf.readUtf(64);
+                        final String server = buf.readUtf(64);
+                        task = () -> onOpen(ok, staff, server);
+                        break;
+                    }
+                    case Bridge.S_PLAYER_LIST: {
+                        final AdminData.PlayerList l = AdminData.readPlayerList(buf);
+                        task = () -> {
+                            AdminPanelScreen s = current();
+                            if (s != null) s.onList(l);
+                        };
+                        break;
+                    }
+                    case Bridge.S_PROFILE: {
+                        final AdminData.Profile p = AdminData.readProfile(buf);
+                        task = () -> {
+                            AdminPanelScreen s = current();
+                            if (s != null) s.onProfile(p);
+                        };
+                        break;
+                    }
+                    case Bridge.S_LOGS: {
+                        final AdminData.Logs l = AdminData.readLogs(buf);
+                        task = () -> {
+                            AdminPanelScreen s = current();
+                            if (s != null) s.onLogs(l);
+                        };
+                        break;
+                    }
                     case Bridge.S_TOAST: {
                         final String msg = buf.readUtf(256);
                         final boolean error = buf.readBoolean();
@@ -72,8 +106,21 @@ public final class ClientBridge {
         }
     }
 
+    private static AdminPanelScreen current() {
+        Screen s = Minecraft.getInstance().screen;
+        return s instanceof AdminPanelScreen ? (AdminPanelScreen) s : null;
+    }
+
+    private static void onOpen(boolean ok, String staff, String server) {
+        pendingOpenAt = 0;
+        if (!ok) return;
+        if (current() == null) Minecraft.getInstance().setScreen(new AdminPanelScreen(staff, server));
+    }
+
     public static void toast(String message, boolean error) {
-        ro.solarstudios.flowcity.notify.NotifyToasts.add(error ? "BAD" : "OK", error ? "Eroare" : "Gata", message);
+        AdminPanelScreen s = current();
+        if (s != null) s.onToast(message, error);
+        else ro.solarstudios.flowcity.notify.NotifyToasts.add(error ? "BAD" : "OK", error ? "Eroare" : "Gata", message);
     }
 
     // ------------------------------------------------------------------ trimitere
@@ -109,5 +156,47 @@ public final class ClientBridge {
             conn.send(new ServerboundCustomPayloadPacket(new ResourceLocation("minecraft", "register"), reg));
         }
         send(Bridge.C_HELLO, b -> b.writeVarInt(Bridge.PROTOCOL));
+    }
+
+    public static void sendOpenRequest() {
+        pendingOpenAt = System.currentTimeMillis();
+        send(Bridge.C_OPEN_REQUEST, null);
+    }
+
+    public static void requestList(String query, int page) {
+        send(Bridge.C_PLAYER_LIST, b -> b.writeUtf(query).writeInt(page));
+    }
+
+    public static void requestProfile(String uuid) {
+        send(Bridge.C_PROFILE, b -> b.writeUtf(uuid));
+    }
+
+    public static void requestLogs(String uuid, String type, int page) {
+        send(Bridge.C_LOGS, b -> b.writeUtf(uuid).writeUtf(type).writeInt(page));
+    }
+
+    public static void sanction(String uuid, String type, int minutes, String reason) {
+        send(Bridge.C_SANCTION, b -> {
+            b.writeUtf(uuid);
+            b.writeUtf(type);
+            b.writeInt(minutes);
+            b.writeUtf(reason);
+        });
+    }
+
+    public static void revoke(int id) {
+        send(Bridge.C_REVOKE, b -> b.writeInt(id));
+    }
+
+    public static void noteAdd(String uuid, String text) {
+        send(Bridge.C_NOTE_ADD, b -> b.writeUtf(uuid).writeUtf(text));
+    }
+
+    public static void noteDel(int id) {
+        send(Bridge.C_NOTE_DEL, b -> b.writeInt(id));
+    }
+
+    public static void action(String action, String uuid) {
+        send(Bridge.C_ACTION, b -> b.writeUtf(action).writeUtf(uuid));
     }
 }
