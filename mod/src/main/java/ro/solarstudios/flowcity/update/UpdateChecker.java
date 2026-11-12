@@ -154,11 +154,11 @@ public final class UpdateChecker {
     }
 
     public static File updateDir() {
-        return new File(Minecraft.getInstance().gameDir, "flowcity-update");
+        return new File(Minecraft.getInstance().gameDirectory, "flowcity-update");
     }
 
     public static File modsDir() {
-        return new File(Minecraft.getInstance().gameDir, "mods");
+        return new File(Minecraft.getInstance().gameDirectory, "mods");
     }
 
     /** Descarca noul jar in flowcity-update/ pe un thread separat. */

@@ -26,7 +26,7 @@ public final class UpdateScreen extends FlowScreen {
     }
 
     @Override
-    public void closeScreen() {
+    public void onClose() {
         Minecraft.getInstance().setScreen(parent);
     }
 
