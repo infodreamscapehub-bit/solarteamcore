@@ -21,6 +21,7 @@ public final class MapView {
     public long updated;
     private boolean ready;
     private final boolean radar;
+    private boolean terrainUsed;
 
     // clase
     private static final int UNKNOWN = 0, WATER = 1, LAND = 2, LAND_ALT = 3, PARK = 4, ROAD = 5, ROAD_EDGE = 6, BUILDING = 7, BUILD_EDGE = 8;
@@ -51,7 +52,7 @@ public final class MapView {
 
     /** Trebuie refacuta imaginea pentru o vedere centrata la (vx,vz) cu o fereastra de wTex x hTex texeli? */
     public boolean needsRefresh(double vx, double vz, int nscale, int viewTexW, int viewTexH, long maxAgeMs) {
-        if (!ready || nscale != scale) return true;
+        if (!ready || nscale != scale || terrainUsed != MapsState.terrain) return true;
         double offX = Math.abs(vx - cx) / scale + viewTexW / 2.0;
         double offZ = Math.abs(vz - cz) / scale + viewTexH / 2.0;
         if (offX > size / 2.0 - 3 || offZ > size / 2.0 - 3) return true;
@@ -76,6 +77,13 @@ public final class MapView {
                 hh[j * n + i] = MapCache.height(wx, wz);
                 cc[j * n + i] = MapCache.color(wx, wz);
             }
+        }
+        terrainUsed = MapsState.terrain;
+        if (terrainUsed) {
+            paintTerrain(img, hh, cc, n);
+            tex.upload();
+            ready = true;
+            return;
         }
         int[] cls = new int[n * n];
         for (int j = 0; j < n; j++) {
@@ -121,6 +129,57 @@ public final class MapView {
         }
         tex.upload();
         ready = true;
+    }
+
+    /**
+     * Stil "teren": culoarea de harta a blocului de sus, umbrita dupa relief (lumina vine din nord-vest),
+     * apa mai inchisa cu cat e mai adanca fata de mal. Necunoscut = fundal inchis.
+     */
+    private void paintTerrain(NativeImage img, int[] hh, int[] cc, int n) {
+        int unknown = radar ? 0xFF0E1013 : 0xFF14161A;
+        for (int j = 0; j < n; j++) {
+            for (int i = 0; i < n; i++) {
+                int k = j * n + i;
+                int h = hh[k];
+                if (h < 0) {
+                    // model fin in zonele nedescoperite, ca sa nu fie un gol plat
+                    img.setPixelRGBA(i, j, abgr(((i + j) & 7) == 0 ? unknown + 0x030303 : unknown));
+                    continue;
+                }
+                int c = cc[k];
+                boolean water = (c & MapCache.WATER) != 0;
+                int rgb = c & 0xFFFFFF;
+                float f;
+                if (water) {
+                    // apa: nuanta usor variata pe diagonala, mai inchisa departe de mal
+                    int shore = 0;
+                    for (int d = 1; d <= 6 && shore == 0; d++) {
+                        if (!isWater(cc, hh, n, i - d, j) || !isWater(cc, hh, n, i + d, j) || !isWater(cc, hh, n, i, j - d) || !isWater(cc, hh, n, i, j + d)) shore = d;
+                    }
+                    f = shore == 0 ? 0.78f : 0.98f - shore * 0.03f;
+                    if (((i + j) & 3) == 0) f -= 0.02f;
+                } else {
+                    int north = known(hh, n, i, j - 1, h);
+                    int west = known(hh, n, i - 1, j, h);
+                    int d = (h - north) + (h - west);
+                    f = d > 0 ? Math.min(1.18f, 1f + d * 0.06f) : (d < 0 ? Math.max(0.68f, 1f + d * 0.08f) : 0.94f);
+                    // contur discret la margini de cladiri/pante abrupte
+                    if (h - north >= 3 || h - west >= 3) f = Math.min(1.22f, f + 0.04f);
+                    if (north - h >= 3 || west - h >= 3) f = Math.max(0.6f, f - 0.06f);
+                }
+                if (radar) f *= 0.82f;
+                int r = Math.min(255, Math.round(((rgb >> 16) & 255) * f));
+                int g = Math.min(255, Math.round(((rgb >> 8) & 255) * f));
+                int b = Math.min(255, Math.round((rgb & 255) * f));
+                img.setPixelRGBA(i, j, abgr(0xFF000000 | (r << 16) | (g << 8) | b));
+            }
+        }
+    }
+
+    private static boolean isWater(int[] cc, int[] hh, int n, int i, int j) {
+        if (i < 0 || j < 0 || i >= n || j >= n) return true;
+        if (hh[j * n + i] < 0) return true;
+        return (cc[j * n + i] & MapCache.WATER) != 0;
     }
 
     private static int known(int[] hh, int n, int i, int j, int def) {

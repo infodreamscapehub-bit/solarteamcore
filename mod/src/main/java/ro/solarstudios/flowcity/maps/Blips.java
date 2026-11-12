@@ -6,7 +6,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 import ro.solarstudios.flowcity.client.ui.Ui;
 
-/** Iconitele (blips) din EGK eMaps: foaia blips.png (8 coloane x 4 randuri, celule de 32 px). */
+/** Iconitele hartii FlowCity (desenate de noi): foaia blips.png, 8 coloane x 4 randuri, celule de 32 px. */
 public final class Blips {
     private Blips() {}
 
@@ -23,6 +23,7 @@ public final class Blips {
         {"camion", "Transport", "20"}, {"aeroport", "Aeroport", "21"}, {"pescuit", "Pescuit", "22"},
         {"colete", "Colete", "23"}, {"electric", "Electrician", "24"}, {"fermier", "Fermier", "25"},
         {"gunoi", "Gunoi", "26"}, {"lemnar", "Lemnar", "27"}, {"pizza", "Pizza", "28"}, {"santier", "Santier", "29"},
+        {"steag", "Steag", "8"}, {"inima", "Favorit", "30"}, {"tabara", "Tabara", "31"}, {"moarte", "Moarte", "16"},
         {"altele", "Altele", "14"},
     };
 
@@ -42,8 +43,8 @@ public final class Blips {
     /** Deseneaza iconita centrata, cu inel (ca in GTA). */
     public static void draw(GuiGraphics ms, String type, int cx, int cy, int size, boolean highlight) {
         int r = size / 2;
-        Ui.round(ms, cx - r - 2, cy - r - 2, size + 4, size + 4, highlight ? 0xFFFFD54A : 0xFFFFFFFF);
-        Ui.round(ms, cx - r - 1, cy - r - 1, size + 2, size + 2, 0xFF1A2233);
+        if (highlight) Ui.round(ms, cx - r - 2, cy - r - 2, size + 4, size + 4, 0xFFE9A23B);
+        Ui.round(ms, cx - r, cy + r - 1, size, 2, 0x55000000); // umbra
         sprite(ms, icon(type), cx - r, cy - r, size);
     }
 

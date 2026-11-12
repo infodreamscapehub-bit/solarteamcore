@@ -37,5 +37,6 @@
   "key.flowcity.mdt_bk3": "MDT: backup 3 (urmarire)",
   "key.flowcity.mdt_panic": "MDT: panica cod 99",
   "item.flowcitycore.car_spawn": "Masina FlowCity",
-  "entity.flowcitycore.car": "Masina FlowCity"
+  "entity.flowcitycore.car": "Masina FlowCity",
+  "key.flowcity.waypoint": "Waypoint rapid (harta)"
 }

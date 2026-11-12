@@ -27,6 +27,7 @@ import ro.solarstudios.flowcity.notify.NotifyToasts;
 public final class MapsClient extends JsonClientModule {
     private static MapsClient instance;
     public static KeyMapping openKey;
+    public static KeyMapping waypointKey;
     public static boolean needRoute;
     public static final int MM = 108;
     public static final int ROUTE_COLOR = 0xFFE056FD;
@@ -171,6 +172,7 @@ public final class MapsClient extends JsonClientModule {
     }
 
     public static void register() {
+        MapsState.loadSettings();
         instance = new MapsClient();
         ClientModules.register(instance);
         MinecraftForge.EVENT_BUS.register(new Events());
@@ -179,6 +181,8 @@ public final class MapsClient extends JsonClientModule {
     public static void registerKeys(RegisterKeyMappingsEvent event) {
         openKey = new KeyMapping("key.flowcity.map", GLFW.GLFW_KEY_M, "key.categories.flowcity");
         event.register(openKey);
+        waypointKey = new KeyMapping("key.flowcity.waypoint", GLFW.GLFW_KEY_B, "key.categories.flowcity");
+        event.register(waypointKey);
     }
 
     private static java.nio.file.Path cityVerFile() {
@@ -375,6 +379,7 @@ public final class MapsClient extends JsonClientModule {
 
     public static final class Events {
         private int tick;
+        private boolean wasDead;
 
         @SubscribeEvent
         public void onTick(TickEvent.ClientTickEvent e) {
@@ -387,6 +392,15 @@ public final class MapsClient extends JsonClientModule {
                 // harta nu trebuie sa strice jocul
             }
             if (openKey != null && openKey.consumeClick() && mc.screen == null) mc.setScreen(new MapScreen());
+            if (waypointKey != null && waypointKey.consumeClick() && mc.screen == null) mc.setScreen(MapScreen.quickWaypoint());
+            boolean dead = mc.player.isDeadOrDying();
+            if (dead && !wasDead) {
+                MapsState.hasDeath = true;
+                MapsState.deathX = mc.player.getX();
+                MapsState.deathY = mc.player.getY();
+                MapsState.deathZ = mc.player.getZ();
+            }
+            wasDead = dead;
             tick++;
             if (tick == 40) requestPois();
             if (tick % 10 == 0) {
@@ -426,8 +440,14 @@ public final class MapsClient extends JsonClientModule {
         @SubscribeEvent
         public void onRender(RenderGuiEvent.Post e) {
             Minecraft mc = Minecraft.getInstance();
-            if (!MapsState.minimap || mc.player == null || mc.level == null || mc.options.hideGui) return;
+            if (mc.player == null || mc.level == null || mc.options.hideGui) return;
             if (mc.screen instanceof MapScreen) return;
+            try {
+                WorldMarkers.draw(e.getGuiGraphics(), mc);
+            } catch (RuntimeException ex) {
+                MapsState.worldMarkers = false;
+            }
+            if (!MapsState.minimap) return;
             try {
                 drawRadar(e.getGuiGraphics(), mc);
             } catch (RuntimeException ex) {
