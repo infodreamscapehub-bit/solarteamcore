@@ -94,7 +94,7 @@ public final class MdtClient extends JsonClientModule {
 
     /** Marcheaza locul unui apel de backup (cand harta GPS e portata, aici se porneste ruta). */
     public static void gps(String name, double x, double z) {
-        NotifyToasts.add("INFO", "Backup " + name, "Coordonate: " + (int) x + ", " + (int) z);
+        ro.solarstudios.flowcity.maps.MapsClient.gpsTo(name, "politie", x, z);
     }
 
     // ------------------------------------------------------------------ taste rapide (backup / panica)
