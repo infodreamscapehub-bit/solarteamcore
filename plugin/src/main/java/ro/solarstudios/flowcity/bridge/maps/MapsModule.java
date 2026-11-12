@@ -82,10 +82,90 @@ public final class MapsModule extends JsonModule {
         } catch (Exception e) {
             plugin.getLogger().warning("eMaps: nu pot crea tabela de zone: " + e);
         }
+        try {
+            plugin.db().async(c -> {
+                try (Statement st = c.createStatement()) {
+                    st.execute("CREATE TABLE IF NOT EXISTS core_waypoints (id INTEGER PRIMARY KEY AUTOINCREMENT, owner TEXT NOT NULL, name TEXT NOT NULL, color INTEGER NOT NULL, type TEXT NOT NULL, world TEXT NOT NULL, x REAL NOT NULL, y REAL NOT NULL, z REAL NOT NULL)");
+                }
+                return null;
+            }).get(8, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            plugin.getLogger().warning("eMaps: nu pot crea tabela de waypoint-uri: " + e);
+        }
         reload(false);
         reloadZones(false);
 
         on("pois", (p, j) -> sendPois(p));
+        on("wp_save", (p, j) -> {
+            final int id = integer(j, "id", 0);
+            String nm = str(j, "name", "").trim();
+            if (nm.isEmpty() || nm.length() > 24) {
+                plugin.channel().toast(p, "Nume invalid (1-24 caractere).", true);
+                return;
+            }
+            final String name = nm;
+            final int color = integer(j, "color", 0xFF33CCFF);
+            String tp = str(j, "type", "").toLowerCase(Locale.ROOT);
+            final String type = TYPES.contains(tp) ? tp : "";
+            final double x = num(j, "x", p.getLocation().getX());
+            final double y = num(j, "y", p.getLocation().getY());
+            final double z = num(j, "z", p.getLocation().getZ());
+            final String world = p.getWorld().getName();
+            final String owner = p.getUniqueId().toString();
+            plugin.db().async(c -> {
+                if (id > 0) {
+                    try (PreparedStatement ps = c.prepareStatement("UPDATE core_waypoints SET name=?, color=?, type=?, x=?, y=?, z=? WHERE id=? AND owner=?")) {
+                        ps.setString(1, name);
+                        ps.setInt(2, color);
+                        ps.setString(3, type);
+                        ps.setDouble(4, x);
+                        ps.setDouble(5, y);
+                        ps.setDouble(6, z);
+                        ps.setInt(7, id);
+                        ps.setString(8, owner);
+                        ps.executeUpdate();
+                    }
+                    return Boolean.TRUE;
+                }
+                try (PreparedStatement cnt = c.prepareStatement("SELECT COUNT(*) FROM core_waypoints WHERE owner=?")) {
+                    cnt.setString(1, owner);
+                    try (ResultSet rs = cnt.executeQuery()) {
+                        if (rs.next() && rs.getInt(1) >= 40) return Boolean.FALSE;
+                    }
+                }
+                try (PreparedStatement ps = c.prepareStatement("INSERT INTO core_waypoints(owner, name, color, type, world, x, y, z) VALUES (?,?,?,?,?,?,?,?)")) {
+                    ps.setString(1, owner);
+                    ps.setString(2, name);
+                    ps.setInt(3, color);
+                    ps.setString(4, type);
+                    ps.setString(5, world);
+                    ps.setDouble(6, x);
+                    ps.setDouble(7, y);
+                    ps.setDouble(8, z);
+                    ps.executeUpdate();
+                }
+                return Boolean.TRUE;
+            }).thenAccept(ok -> Bukkit.getScheduler().runTask(plugin, () -> {
+                if (!ok) plugin.channel().toast(p, "Ai atins limita de 40 waypoint-uri.", true);
+                else plugin.channel().toast(p, id > 0 ? "Waypoint actualizat." : "Waypoint adaugat.", false);
+                sendMine(p);
+            }));
+        });
+        on("wp_del", (p, j) -> {
+            final int id = integer(j, "id", 0);
+            final String owner = p.getUniqueId().toString();
+            plugin.db().async(c -> {
+                try (PreparedStatement ps = c.prepareStatement("DELETE FROM core_waypoints WHERE id = ? AND owner = ?")) {
+                    ps.setInt(1, id);
+                    ps.setString(2, owner);
+                    ps.executeUpdate();
+                }
+                return null;
+            }).thenRun(() -> Bukkit.getScheduler().runTask(plugin, () -> {
+                plugin.channel().toast(p, "Waypoint sters.", false);
+                sendMine(p);
+            }));
+        });
         on("zone_save", (p, j) -> {
             if (!p.hasPermission("flowcity.maps.admin")) {
                 plugin.channel().toast(p, "Nu ai permisiunea.", true);
@@ -515,7 +595,40 @@ public final class MapsModule extends JsonModule {
         send(p, "zones", d);
     }
 
+    /** Waypoint-urile personale ale jucatorului (din DB), trimise pe thread-ul principal. */
+    private void sendMine(Player p) {
+        final String owner = p.getUniqueId().toString();
+        final String world = p.getWorld().getName();
+        plugin.db().async(c -> {
+            JsonArray arr = new JsonArray();
+            try (PreparedStatement ps = c.prepareStatement("SELECT id, name, color, type, x, y, z FROM core_waypoints WHERE owner=? AND world=? ORDER BY id")) {
+                ps.setString(1, owner);
+                ps.setString(2, world);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        JsonObject o = new JsonObject();
+                        o.addProperty("id", rs.getInt(1));
+                        o.addProperty("name", rs.getString(2));
+                        o.addProperty("color", rs.getInt(3));
+                        o.addProperty("type", rs.getString(4));
+                        o.addProperty("x", rs.getDouble(5));
+                        o.addProperty("y", rs.getDouble(6));
+                        o.addProperty("z", rs.getDouble(7));
+                        arr.add(o);
+                    }
+                }
+            }
+            return arr;
+        }).thenAccept(arr -> Bukkit.getScheduler().runTask(plugin, () -> {
+            if (!p.isOnline()) return;
+            JsonObject d = new JsonObject();
+            d.add("list", arr);
+            send(p, "wps", d);
+        }));
+    }
+
     private void sendPois(Player p) {
+        sendMine(p);
         sendZones(p);
         JsonArray arr = new JsonArray();
         String w = p.getWorld().getName();

@@ -55,6 +55,23 @@ public final class MapsClient extends JsonClientModule {
                 }
             }
         });
+        on("wps", d -> {
+            MapsState.wps.clear();
+            if (d.has("list")) {
+                for (JsonElement e : d.getAsJsonArray("list")) {
+                    JsonObject o = e.getAsJsonObject();
+                    MapsState.Wp w = new MapsState.Wp();
+                    w.id = integer(o, "id", 0);
+                    w.name = str(o, "name", "?");
+                    w.color = integer(o, "color", 0xFF33CCFF);
+                    w.type = str(o, "type", "");
+                    w.x = num(o, "x", 0);
+                    w.y = num(o, "y", 0);
+                    w.z = num(o, "z", 0);
+                    MapsState.wps.add(w);
+                }
+            }
+        });
         on("zones", d -> {
             MapsState.zones.clear();
             if (d.has("list")) {
@@ -158,6 +175,26 @@ public final class MapsClient extends JsonClientModule {
         JsonObject o = new JsonObject();
         o.addProperty("id", id);
         instance.send("poi_del", o);
+    }
+
+    public static void saveWp(int id, String name, int color, String type, double x, double y, double z) {
+        if (instance == null) return;
+        JsonObject o = new JsonObject();
+        o.addProperty("id", id);
+        o.addProperty("name", name);
+        o.addProperty("color", color);
+        o.addProperty("type", type == null ? "" : type);
+        o.addProperty("x", x);
+        o.addProperty("y", y);
+        o.addProperty("z", z);
+        instance.send("wp_save", o);
+    }
+
+    public static void deleteWp(int id) {
+        if (instance == null) return;
+        JsonObject o = new JsonObject();
+        o.addProperty("id", id);
+        instance.send("wp_del", o);
     }
 
     public static void saveZone(int id, String name, int type, java.util.List<double[]> pts) {

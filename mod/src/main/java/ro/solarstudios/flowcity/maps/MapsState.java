@@ -61,6 +61,21 @@ public final class MapsState {
 
     public static final List<Zone> zones = new ArrayList<>();
     public static boolean zonesVisible = true;
+    /** Waypoint personal (salvat pe server, per jucator). */
+    public static final class Wp {
+        public int id;
+        public String name = "?";
+        public int color = 0xFF33CCFF;
+        public String type = "";
+        public double x;
+        public double y;
+        public double z;
+    }
+
+    public static final List<Wp> wps = new ArrayList<>();
+    /** Culorile din paleta EGK. */
+    public static final int[] PALETTE = {-13382401, -52429, -13369515, -4557, -3394561, -30669, -16777046, -16733696, -16733526, -8388608,
+        -5635926, -5592406, -11184811, -11184641, -1, -16711809, -38476, -11861886, -16640, -2354116};
     public static final List<Poi> pois = new ArrayList<>();
     public static final Set<String> hidden = new HashSet<>();
 
@@ -103,6 +118,7 @@ public final class MapsState {
     public static void reset() {
         pois.clear();
         zones.clear();
+        wps.clear();
         clearTarget();
     }
 }

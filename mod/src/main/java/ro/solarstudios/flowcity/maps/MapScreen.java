@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Locale;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.util.math.MathHelper;
@@ -36,6 +37,31 @@ public final class MapScreen extends FlowScreen {
     // editor
     private boolean editor;
     private boolean sidebar;
+    private final TextFieldWidget wpField;
+    private final TextFieldWidget searchField;
+    private boolean showPopup;
+    private int popX;
+    private int popY;
+    private int popW;
+    private int popH;
+    private double popWx;
+    private double popWz;
+    private MapsState.Wp popWp;
+    private boolean showDlg;
+    private int dlgId;
+    private int dlgColor = MapsState.PALETTE[0];
+    private String dlgType = "";
+    private double dlgX;
+    private double dlgZ;
+    private int selWp;
+    private long lastClickAt;
+    private String lastClickKey = "";
+    private int srvScroll;
+    private int perScroll;
+    private int srvY0;
+    private int srvY1;
+    private int perY0;
+    private int perY1;
     private int editorTab; // 0 = puncte, 1 = zone
     private int zTool; // 0 alege, 1 dreptunghi, 2 poligon
     private int zId;
@@ -64,6 +90,8 @@ public final class MapScreen extends FlowScreen {
     public MapScreen(boolean openEditor) {
         super("eMaps", 100, 100);
         this.nameField = field("Nume punct", 40, null);
+        this.wpField = field("Nume punct...", 24, null);
+        this.searchField = field("Cauta...", 16, null);
         this.editor = openEditor && MapsState.admin;
         if (openEditor) newDraftHere();
         Minecraft mc = Minecraft.getInstance();
@@ -76,7 +104,13 @@ public final class MapScreen extends FlowScreen {
 
     @Override
     protected java.util.List<TextFieldWidget> fields() {
-        return editor ? Collections.singletonList(nameField) : Collections.<TextFieldWidget>emptyList();
+        List<TextFieldWidget> l = new ArrayList<>();
+        if (showDlg) l.add(wpField);
+        else {
+            if (editor) l.add(nameField);
+            if (sidebar) l.add(searchField);
+        }
+        return l;
     }
 
     private void newDraftHere() {
@@ -182,7 +216,7 @@ public final class MapScreen extends FlowScreen {
         }
         if (view.needsRefresh(vx, vz, scale(), aw / f, ah / f, 6000)) view.refresh(MathHelper.floor(vx), MathHelper.floor(vz), scale());
         view.draw(ms, ax, ay, aw, ah, vx, vz, f);
-        hit(ax, ay, aw, ah, () -> {
+        if (!(showPopup || showDlg)) hit(ax, ay, aw, ah, () -> {
             if (editor && editorTab == 0) {
                 draftX = wx(mx0);
                 draftZ = wz(my0);
@@ -233,16 +267,18 @@ public final class MapScreen extends FlowScreen {
 
         MapsClient.drawRoute(ms, pr, 4, ax, ay, ax + aw, ay + ah);
 
-        // blips
+        boolean modal = showPopup || showDlg;
+        // blips (puncte server)
         MapsState.Poi hover = null;
         for (MapsState.Poi p : MapsState.pois) {
             if (MapsState.hidden.contains(p.type)) continue;
             int sx = Math.round(gx(p.x));
             int sy = Math.round(gy(p.z));
             if (sx < ax - 8 || sy < ay - 8 || sx > ax + aw + 8 || sy > ay + ah + 8) continue;
-            boolean h = Ui.in(mx, my, sx - 9, sy - 9, 18, 18) && inMap(mx, my) && !overUi(mx, my);
+            boolean h = !modal && Ui.in(mx, my, sx - 9, sy - 9, 18, 18) && inMap(mx, my) && !overUi(mx, my);
             Blips.draw(ms, p.type, sx, sy, h ? 20 : 16, h);
             if (h) hover = p;
+            if (modal) continue;
             final MapsState.Poi pp = p;
             hit(sx - 9, sy - 9, 18, 18, () -> {
                 if (editor && editorTab == 1) return;
@@ -252,6 +288,26 @@ public final class MapScreen extends FlowScreen {
                 }
                 setGps(pp.name, pp.type, pp.x, pp.z);
             });
+        }
+        // waypoint-uri personale
+        MapsState.Wp hoverWp = null;
+        for (MapsState.Wp w : MapsState.wps) {
+            int sx = Math.round(gx(w.x));
+            int sy = Math.round(gy(w.z));
+            if (sx < ax - 8 || sy < ay - 24 || sx > ax + aw + 8 || sy > ay + ah + 8) continue;
+            boolean h = !modal && Ui.in(mx, my, sx - 8, sy - 18, 16, 20) && inMap(mx, my) && !overUi(mx, my);
+            int size = h ? 15 : 13;
+            if (w.id == selWp) Ui.rect(ms, sx - 9, sy - size - 3, 19, size + 6, 0x66FFFFFF);
+            Blips.pin(ms, sx, sy, size, w.color);
+            if (!w.type.isEmpty()) Blips.sprite(ms, Blips.icon(w.type), sx - 5, sy - size / 2 - 5, 10);
+            String nm = Ui.clip(w.name, 70);
+            int nw = Ui.smallCapsWidth(nm);
+            Ui.rect(ms, sx - nw / 2 - 2, sy - size - 14, nw + 4, 10, 0x99000000);
+            Ui.smallCaps(ms, nm, sx - nw / 2, sy - size - 13, 0xFFFFFFFF);
+            if (h) hoverWp = w;
+            if (modal) continue;
+            final MapsState.Wp ww = w;
+            hit(sx - 8, sy - size - 2, 16, size + 4, () -> clickWp(ww));
         }
         // waypoint
         if (MapsState.hasTarget) {
@@ -303,7 +359,17 @@ public final class MapScreen extends FlowScreen {
             Ui.text(ms, l2, tx + 8, ty + 18, Theme.OK);
         }
 
-        if (hover == null && hoverZone != null) {
+        if (!modal && hover == null && hoverWp != null) {
+            String l2 = "Dublu click: GPS   DEL: sterge";
+            int w = Math.max(Ui.smallCapsWidth(hoverWp.name), Ui.width(l2)) + 18;
+            int tx = Math.min(width - w - 4, mx + 12);
+            int ty = Math.max(4, my - 16);
+            Ui.rect(ms, tx, ty, w, 42, 0xEE0B1530);
+            Ui.rect(ms, tx, ty, 3, 42, hoverWp.color);
+            Ui.smallCaps(ms, hoverWp.name, tx + 9, ty + 5, hoverWp.color);
+            Ui.text(ms, "Coords: " + (int) hoverWp.x + ", " + (int) hoverWp.z, tx + 9, ty + 17, Theme.MUTED);
+            Ui.text(ms, l2, tx + 9, ty + 29, Theme.OK);
+        } else if (hover == null && hoverZone != null) {
             Object[] t = MapsState.zoneType(hoverZone.type);
             int w = Math.max(Ui.smallCapsWidth(hoverZone.name), Ui.smallCapsWidth(t[1] + " - " + t[2])) + 18;
             int tx = Math.min(width - w - 4, mx + 12);
@@ -332,6 +398,9 @@ public final class MapScreen extends FlowScreen {
 
         // ---- sidebar stanga
         if (sidebar) drawSidebar(ms, mx, my, mc);
+
+        if (showPopup) drawPopup(ms, mx, my);
+        if (showDlg) drawDialog(ms, mx, my);
 
         // ---- toast GPS setat
         long since = now - gpsToastAt;
@@ -367,7 +436,7 @@ public final class MapScreen extends FlowScreen {
 
     private boolean overUi(int mx, int my) {
         if (mx >= width - (editor ? 198 : 190)) return true;
-        if (sidebar && mx < 150) return true;
+        if (sidebar && mx < 164) return true;
         return mx < 36 && my < 36;
     }
 
@@ -378,28 +447,32 @@ public final class MapScreen extends FlowScreen {
     }
 
     private void drawLegend(MatrixStack ms, int mx, int my) {
-        int total = Blips.TYPES.length;
-        int perPage = Math.max(4, Math.min(15, (height - 60) / 28));
+        List<MapsState.Poi> list = new ArrayList<>(MapsState.pois);
+        Collections.sort(list, Comparator.comparing((MapsState.Poi q) -> q.name.toLowerCase(Locale.ROOT)));
+        int total = list.size();
+        int perPage = Math.max(3, Math.min(15, (height - 90) / 28));
         int maxStart = Math.max(0, total - perPage);
         legendStart = Math.max(0, Math.min(legendStart, maxStart));
         int y = 10;
         for (int i = legendStart; i < Math.min(total, legendStart + perPage); i++) {
-            String t = Blips.TYPES[i][0];
-            String lab = Blips.TYPES[i][1];
-            boolean on = !MapsState.hidden.contains(t);
-            int tw = Ui.smallCapsWidth(lab);
-            int w = tw + 44;
+            final MapsState.Poi p = list.get(i);
+            boolean on = !MapsState.hidden.contains(p.type);
+            String lab = Ui.clip(p.name, 150);
+            int w = Ui.smallCapsWidth(lab) + 44;
             int x = width - 10 - w;
-            boolean h = Ui.in(mx, my, x, y, w, 24);
+            boolean h = Ui.in(mx, my, x, y, w, 24) && !(showPopup || showDlg);
             Ui.rect(ms, x, y, w, 24, h ? 0xF0152A5E : 0xE60B1530);
             Ui.frame(ms, x, y, w, 24, 0x00000000, on ? 0xFF1E3A8A : 0xFF2A2F3F);
             Ui.smallCaps(ms, lab, x + 10, y + 8, on ? 0xFFFFFFFF : 0xFF6B7488);
-            Blips.sprite(ms, Blips.icon(t), x + w - 24, y + 4, 16);
-            if (!on) Ui.rect(ms, x + 6, y + 12, w - 12, 1, 0xAA6B7488);
-            final String tt = t;
-            hit(x, y, w, 24, () -> {
-                if (!MapsState.hidden.remove(tt)) MapsState.hidden.add(tt);
-            });
+            Blips.sprite(ms, Blips.icon(p.type), x + w - 24, y + 4, 16);
+            if (!(showPopup || showDlg)) {
+                hit(x, y, w, 24, () -> {
+                    vx = p.x;
+                    vz = p.z;
+                    follow = false;
+                    setGps(p.name, p.type, p.x, p.z);
+                });
+            }
             y += 28;
         }
         // comutator zone
@@ -413,73 +486,277 @@ public final class MapScreen extends FlowScreen {
             Ui.frame(ms, x, y, w, 24, 0x00000000, on ? 0xFF1E3A8A : 0xFF2A2F3F);
             Ui.smallCaps(ms, lab, x + 10, y + 8, on ? 0xFFFFFFFF : 0xFF6B7488);
             for (int i = 0; i < 4; i++) Ui.rect(ms, x + w - 38 + (i % 2) * 8, y + 4 + (i / 2) * 8, 7, 7, (on ? 0xFF000000 : 0x66000000) | MapsState.zoneRgb(i + 1));
-            hit(x, y, w, 24, () -> MapsState.zonesVisible = !MapsState.zonesVisible);
+            if (!(showPopup || showDlg)) hit(x, y, w, 24, () -> MapsState.zonesVisible = !MapsState.zonesVisible);
             y += 28;
         }
-        // pagina n/total + sageti
-        String pg = Math.min(total, legendStart + perPage) + "/" + total;
-        int w = Ui.width(pg) + 44;
-        int x = width - 10 - w;
-        Ui.rect(ms, x, y, w, 24, 0xE60B1530);
-        Ui.frame(ms, x, y, w, 24, 0x00000000, 0xFF1E3A8A);
-        Ui.text(ms, pg, x + 10, y + 8, Theme.TEXT);
-        Ui.text(ms, legendStart + perPage >= total ? "^" : "v", x + w - 18, y + 8, Theme.ACCENT);
-        hit(x, y, w, 24, () -> legendStart = legendStart + perPage >= total ? 0 : Math.min(maxStart, legendStart + perPage));
+        if (total > perPage) {
+            String pg = Math.min(total, legendStart + perPage) + "/" + total;
+            int w = Ui.width(pg) + 44;
+            int x = width - 10 - w;
+            Ui.rect(ms, x, y, w, 24, 0xE60B1530);
+            Ui.frame(ms, x, y, w, 24, 0x00000000, 0xFF1E3A8A);
+            Ui.text(ms, pg, x + 10, y + 8, Theme.TEXT);
+            Ui.text(ms, legendStart + perPage >= total ? "^" : "v", x + w - 18, y + 8, Theme.ACCENT);
+            if (!(showPopup || showDlg)) hit(x, y, w, 24, () -> legendStart = legendStart + perPage >= total ? 0 : Math.min(maxStart, legendStart + perPage));
+        }
     }
 
     private void drawSidebar(MatrixStack ms, int mx, int my, Minecraft mc) {
         int sx = 10;
         int sy = 40;
-        int sw = 138;
+        int sw = 154;
         int sh = height - 50;
         Ui.rect(ms, sx, sy, sw, sh, 0xEE0A0F18);
         Ui.frame(ms, sx, sy, sw, sh, 0x00000000, 0xFF2A3A57);
-        int yy = sy + 8;
-        Ui.smallCaps(ms, "eMaps", sx + 8, yy, Theme.TEXT);
-        Ui.rect(ms, sx + 8, yy + 11, sw - 16, 1, 0xFF2A3A57);
-        yy += 18;
-        if (MapsState.hasTarget) {
-            double d = Math.hypot(MapsState.tx - mc.player.getPosX(), MapsState.tz - mc.player.getPosZ());
-            Ui.smallCaps(ms, "GPS activ", sx + 8, yy, MapsClient.ROUTE_COLOR);
-            Ui.text(ms, Ui.clip(MapsState.targetName, sw - 16), sx + 8, yy + 11, Theme.TEXT);
-            Ui.text(ms, MapsClient.meters(d), sx + 8, yy + 22, Theme.MUTED);
-            yy += 36;
-        } else {
-            Ui.text(ms, "Niciun GPS setat.", sx + 8, yy, Theme.FAINT);
-            Ui.text(ms, "Click dreapta = GPS.", sx + 8, yy + 11, Theme.FAINT);
-            yy += 26;
-        }
+        Ui.rect(ms, sx, sy, sw, 2, Theme.ACCENT);
+        Ui.smallCaps(ms, "eMaps", sx + 8, sy + 8, Theme.TEXT);
+        drawField(ms, searchField, sx + 8, sy + 22, sw - 16, 14, mx, my);
+
         int bw = sw - 16;
         int hw = (bw - 4) / 2;
+        int bottomH = 4 * 17 + 4;
+        int listTop = sy + 44;
+        int listBot = sy + sh - bottomH - 6;
+        int boxH = Math.max(40, (listBot - listTop) / 2);
+        String q = searchField.getText().trim().toLowerCase(Locale.ROOT);
+
+        List<Object[]> srv = new ArrayList<>();
+        for (MapsState.Poi p : MapsState.pois) if (q.isEmpty() || p.name.toLowerCase(Locale.ROOT).contains(q)) srv.add(new Object[] {p.name, 0xFF00E676, p.type, p.x, p.z, p.id, false});
+        Collections.sort(srv, Comparator.comparing((Object[] o) -> ((String) o[0]).toLowerCase(Locale.ROOT)));
+        List<Object[]> per = new ArrayList<>();
+        for (MapsState.Wp w : MapsState.wps) if (q.isEmpty() || w.name.toLowerCase(Locale.ROOT).contains(q)) per.add(new Object[] {w.name, w.color, w.type, w.x, w.z, w.id, true});
+
+        srvY0 = listTop;
+        srvY1 = listTop + boxH - 4;
+        perY0 = listTop + boxH;
+        perY1 = listTop + 2 * boxH - 4;
+        srvScroll = listBox(ms, mx, my, sx + 8, srvY0, bw, srvY1 - srvY0, "SERVER", 0xFF00E676, srv, srvScroll);
+        perScroll = listBox(ms, mx, my, sx + 8, perY0, bw, perY1 - perY0, "PERSONAL", 0xFF33CCFF, per, perScroll);
+
+        int yy = sy + sh - bottomH - 2;
         button(ms, "ZOOM +", sx + 8, yy, hw, 15, mx, my, level > 0, Theme.ACCENT_DIM, () -> level = Math.max(0, level - 1));
         button(ms, "ZOOM -", sx + 12 + hw, yy, hw, 15, mx, my, level < LEVELS.length - 1, Theme.ACCENT_DIM, () -> level = Math.min(LEVELS.length - 1, level + 1));
-        yy += 19;
-        button(ms, "CENTREAZA PE MINE", sx + 8, yy, bw, 15, mx, my, !follow, Theme.ACCENT_DIM, () -> follow = true);
-        yy += 19;
-        button(ms, "ARATA TOATE ICOANELE", sx + 8, yy, bw, 15, mx, my, true, Theme.PANEL_3, () -> MapsState.hidden.clear());
-        yy += 19;
-        button(ms, "ASCUNDE ICOANELE", sx + 8, yy, bw, 15, mx, my, true, Theme.PANEL_3, () -> {
-            for (String[] t : Blips.TYPES) MapsState.hidden.add(t[0]);
-        });
-        yy += 19;
-        button(ms, MapsState.zonesVisible ? "ZONE: ARATA" : "ZONE: ASCUNSE", sx + 8, yy, bw, 15, mx, my, true, Theme.PANEL_3, () -> MapsState.zonesVisible = !MapsState.zonesVisible);
-        yy += 25;
-        Ui.smallCaps(ms, "Minimapa", sx + 8, yy, Theme.MUTED);
-        yy += 12;
-        button(ms, MapsState.minimap ? "RADAR: ON" : "RADAR: OFF", sx + 8, yy, hw, 15, mx, my, true, Theme.PANEL_3, () -> MapsState.minimap = !MapsState.minimap);
-        button(ms, MapsState.radarPos == 0 ? "JOS" : "SUS", sx + 12 + hw, yy, hw, 15, mx, my, true, Theme.PANEL_3, () -> MapsState.radarPos = 1 - MapsState.radarPos);
-        yy += 19;
-        button(ms, "RADAR ZOOM", sx + 8, yy, bw, 15, mx, my, true, Theme.PANEL_3, () -> MapsState.miniScale = MapsState.miniScale == 1 ? 2 : (MapsState.miniScale == 2 ? 4 : 1));
-        yy += 25;
+        yy += 17;
+        button(ms, "CENTREAZA", sx + 8, yy, hw, 15, mx, my, !follow, Theme.ACCENT_DIM, () -> follow = true);
+        button(ms, MapsState.minimap ? "RADAR: ON" : "RADAR: OFF", sx + 12 + hw, yy, hw, 15, mx, my, true, Theme.PANEL_3, () -> MapsState.minimap = !MapsState.minimap);
+        yy += 17;
+        button(ms, MapsState.zonesVisible ? "ZONE: ON" : "ZONE: OFF", sx + 8, yy, hw, 15, mx, my, true, Theme.PANEL_3, () -> MapsState.zonesVisible = !MapsState.zonesVisible);
+        button(ms, MapsState.radarPos == 0 ? "RADAR: JOS" : "RADAR: SUS", sx + 12 + hw, yy, hw, 15, mx, my, true, Theme.PANEL_3, () -> MapsState.radarPos = 1 - MapsState.radarPos);
+        yy += 17;
         if (MapsState.admin) {
-            button(ms, editor ? "IESI DIN EDITOR" : "EDITOR GPS", sx + 8, yy, bw, 15, mx, my, true, editor ? Theme.OK : 0xFF8A5A00, () -> {
+            button(ms, editor ? "IESI EDITOR" : "EDITOR GPS", sx + 8, yy, hw, 15, mx, my, true, editor ? Theme.OK : 0xFF8A5A00, () -> {
                 editor = !editor;
                 editorTab = 0;
                 if (editor) newDraftHere();
             });
-            yy += 19;
+            button(ms, "INCHIDE", sx + 12 + hw, yy, hw, 15, mx, my, true, 0xFF5B2A35, this::closeScreen);
+        } else {
+            button(ms, "INCHIDE HARTA", sx + 8, yy, bw, 15, mx, my, true, 0xFF5B2A35, this::closeScreen);
         }
-        button(ms, "INCHIDE HARTA", sx + 8, sy + sh - 23, bw, 15, mx, my, true, 0xFF5B2A35, this::closeScreen);
+    }
+
+    /** Cutie cu lista de waypoint-uri (SERVER / PERSONAL), cu scroll. Intoarce scroll-ul corectat. */
+    private int listBox(MatrixStack ms, int mx, int my, int x, int y, int w, int h, String title, int color, List<Object[]> items, int scroll) {
+        float pulse = (float) Math.sin((System.currentTimeMillis() % 2000L) / 2000.0 * Math.PI * 2) * 0.5f + 0.5f;
+        Ui.text(ms, title, x, y, color);
+        Ui.rect(ms, x + Ui.width(title) + 5, y + 3, 3, 3, Theme.mix(0xFF0A0F18, color, 0.4f + pulse * 0.6f));
+        Ui.text(ms, String.valueOf(items.size()), x + w - Ui.width(String.valueOf(items.size())), y, Theme.FAINT);
+        Ui.rect(ms, x, y + 10, w, 1, 0x30FFFFFF);
+        int lineH = 16;
+        int rows = Math.max(1, (h - 14) / lineH);
+        int maxScroll = Math.max(0, items.size() - rows);
+        scroll = Math.max(0, Math.min(scroll, maxScroll));
+        boolean modal = showPopup || showDlg;
+        if (items.isEmpty()) Ui.text(ms, "Nimic aici.", x + 2, y + 16, Theme.FAINT);
+        for (int i = 0; i < rows && scroll + i < items.size(); i++) {
+            final Object[] it = items.get(scroll + i);
+            int cy = y + 13 + i * lineH;
+            int rw = w - (items.size() > rows ? 5 : 0);
+            boolean hov = !modal && Ui.in(mx, my, x, cy, rw, 14);
+            Ui.rect(ms, x, cy, rw, 14, hov ? 0x33FFFFFF : 0x14FFFFFF);
+            boolean sel = (Boolean) it[6] && (Integer) it[5] == selWp;
+            if (sel) Ui.frame(ms, x, cy, rw, 14, 0x00000000, 0xFFFFFFFF);
+            Ui.rect(ms, x + 2, cy + 2, 2, 10, (Integer) it[1]);
+            Ui.text(ms, Ui.clip((String) it[0], rw - 12), x + 7, cy + 3, hov ? 0xFFFFFFFF : 0xFFCCCCCC);
+            if (!modal) {
+                hit(x, cy, rw, 14, () -> {
+                    vx = (Double) it[3];
+                    vz = (Double) it[4];
+                    follow = false;
+                    String k = (Boolean) it[6] ? "w" + it[5] : "p" + it[5];
+                    long now = System.currentTimeMillis();
+                    if ((Boolean) it[6]) selWp = (Integer) it[5];
+                    if (k.equals(lastClickKey) && now - lastClickAt < 450) {
+                        String t = (String) it[2];
+                        setGps((String) it[0], t == null || t.isEmpty() ? null : t, (Double) it[3], (Double) it[4]);
+                    }
+                    lastClickKey = k;
+                    lastClickAt = now;
+                });
+            }
+        }
+        if (items.size() > rows) {
+            int bx = x + w - 3;
+            int by = y + 13;
+            int bh = rows * lineH - 2;
+            int th = Math.max(4, rows * bh / items.size());
+            int ty = by + (maxScroll == 0 ? 0 : scroll * (bh - th) / maxScroll);
+            Ui.rect(ms, bx, by, 1, bh, 0x20FFFFFF);
+            Ui.rect(ms, bx, ty, 1, th, 0x80FFFFFF);
+        }
+        return scroll;
+    }
+
+    // ------------------------------------------------------------------ waypoint-uri personale (meniu click dreapta + dialog)
+
+    private void clickWp(MapsState.Wp w) {
+        long now = System.currentTimeMillis();
+        String k = "w" + w.id;
+        selWp = w.id;
+        if (k.equals(lastClickKey) && now - lastClickAt < 450) setGps(w.name, w.type.isEmpty() ? null : w.type, w.x, w.z);
+        lastClickKey = k;
+        lastClickAt = now;
+    }
+
+    private MapsState.Wp wpAt(double mx, double my) {
+        for (int i = MapsState.wps.size() - 1; i >= 0; i--) {
+            MapsState.Wp w = MapsState.wps.get(i);
+            int sx = Math.round(gx(w.x));
+            int sy = Math.round(gy(w.z));
+            if (Ui.in((int) mx, (int) my, sx - 8, sy - 18, 16, 20)) return w;
+        }
+        return null;
+    }
+
+    private void openDialog(MapsState.Wp w, double x, double z) {
+        showDlg = true;
+        showPopup = false;
+        dlgId = w == null ? 0 : w.id;
+        dlgColor = w == null ? MapsState.PALETTE[0] : w.color;
+        dlgType = w == null ? "" : w.type;
+        dlgX = w == null ? x : w.x;
+        dlgZ = w == null ? z : w.z;
+        wpField.setText(w == null ? "" : w.name);
+    }
+
+    private void drawPopup(MatrixStack ms, int mx, int my) {
+        List<String[]> items = new ArrayList<>();
+        items.add(new String[] {"Seteaza GPS", "gps", "ok"});
+        if (popWp != null) {
+            items.add(new String[] {"Editeaza waypoint", "edit", ""});
+            items.add(new String[] {"Sterge waypoint", "del", "bad"});
+        } else {
+            items.add(new String[] {"Adauga waypoint", "add", ""});
+            if (MapsState.admin) items.add(new String[] {"Adauga punct server", "srv", ""});
+        }
+        popW = 142;
+        popH = items.size() * 18 + 8;
+        popX = Math.min(Math.max(2, popX), width - popW - 2);
+        popY = Math.min(Math.max(2, popY), height - popH - 2);
+        Ui.rect(ms, popX, popY, popW, popH, 0xF00B1020);
+        Ui.frame(ms, popX, popY, popW, popH, 0x00000000, 0xFF2A3A57);
+        Ui.rect(ms, popX, popY, popW, 2, Theme.ACCENT);
+        for (int i = 0; i < items.size(); i++) {
+            final String[] it = items.get(i);
+            int iy = popY + 6 + i * 18;
+            boolean h = Ui.in(mx, my, popX + 3, iy, popW - 6, 17);
+            if (h) Ui.rect(ms, popX + 3, iy, popW - 6, 17, 0x33FFFFFF);
+            Ui.smallCaps(ms, it[0], popX + 9, iy + 5, it[2].equals("bad") ? Theme.BAD : (it[2].equals("ok") ? Theme.OK : Theme.TEXT));
+            hit(popX + 3, iy, popW - 6, 17, () -> popupAction(it[1]));
+        }
+    }
+
+    private void popupAction(String id) {
+        showPopup = false;
+        switch (id) {
+            case "gps":
+                if (popWp != null) setGps(popWp.name, popWp.type.isEmpty() ? null : popWp.type, popWp.x, popWp.z);
+                else setGps("Waypoint", null, popWx, popWz);
+                break;
+            case "add":
+                openDialog(null, popWx, popWz);
+                break;
+            case "edit":
+                openDialog(popWp, 0, 0);
+                break;
+            case "del":
+                if (popWp != null) MapsClient.deleteWp(popWp.id);
+                break;
+            case "srv":
+                editor = true;
+                editorTab = 0;
+                newDraftHere();
+                draftX = popWx;
+                draftZ = popWz;
+                draftSet = true;
+                break;
+            default:
+                break;
+        }
+    }
+
+    private int[] dlgBounds() {
+        int dw = 214;
+        int dh = 250;
+        return new int[] {(width - dw) / 2, (height - dh) / 2, dw, dh};
+    }
+
+    private void drawDialog(MatrixStack ms, int mx, int my) {
+        int[] b = dlgBounds();
+        int dx = b[0];
+        int dy = b[1];
+        int dw = b[2];
+        int dh = b[3];
+        Ui.rect(ms, 0, 0, width, height, 0x99000000);
+        Ui.rect(ms, dx, dy, dw, dh, 0xF20B1020);
+        Ui.frame(ms, dx, dy, dw, dh, 0x00000000, 0xFF2A3A57);
+        Ui.rect(ms, dx, dy, dw, 2, dlgColor);
+        Ui.smallCaps(ms, dlgId > 0 ? "Editeaza waypoint" : "Waypoint nou", dx + 10, dy + 10, Theme.TEXT);
+        Ui.smallCaps(ms, "Nume", dx + 10, dy + 26, Theme.MUTED);
+        drawField(ms, wpField, dx + 10, dy + 38, dw - 20, 16, mx, my);
+
+        Ui.smallCaps(ms, "Culoare", dx + 10, dy + 62, Theme.MUTED);
+        for (int i = 0; i < MapsState.PALETTE.length; i++) {
+            final int col = MapsState.PALETTE[i];
+            int cx = dx + 10 + (i % 10) * 19;
+            int cy = dy + 74 + (i / 10) * 19;
+            boolean sel = col == dlgColor;
+            if (sel) Ui.rect(ms, cx - 2, cy - 2, 19, 19, 0xFFFFFFFF);
+            else if (Ui.in(mx, my, cx, cy, 15, 15)) Ui.rect(ms, cx - 1, cy - 1, 17, 17, 0x99FFFFFF);
+            Ui.rect(ms, cx, cy, 15, 15, col);
+            hit(cx, cy, 15, 15, () -> dlgColor = col);
+        }
+
+        Ui.smallCaps(ms, "Iconita", dx + 10, dy + 114, Theme.MUTED);
+        for (int i = 0; i <= Blips.TYPES.length; i++) {
+            final String t = i == 0 ? "" : Blips.TYPES[i - 1][0];
+            int cx = dx + 10 + (i % 8) * 24;
+            int cy = dy + 126 + (i / 8) * 22;
+            boolean sel = t.equals(dlgType);
+            boolean h = Ui.in(mx, my, cx, cy, 22, 20);
+            Ui.rect(ms, cx, cy, 22, 20, sel ? 0xFF1E3A8A : (h ? 0xFF1B2740 : 0xFF111A2B));
+            if (sel) Ui.frame(ms, cx, cy, 22, 20, 0x00000000, 0xFFFFFFFF);
+            if (t.isEmpty()) Blips.pin(ms, cx + 11, cy + 17, 12, dlgColor);
+            else Blips.sprite(ms, Blips.icon(t), cx + 3, cy + 2, 16);
+            hit(cx, cy, 22, 20, () -> dlgType = t);
+        }
+
+        int hw = (dw - 24) / 2;
+        button(ms, "SALVEAZA", dx + 10, dy + dh - 26, hw, 18, mx, my, true, Theme.OK, this::saveWp);
+        button(ms, "ANULEAZA", dx + 14 + hw, dy + dh - 26, hw, 18, mx, my, true, Theme.BAD, () -> showDlg = false);
+    }
+
+    private void saveWp() {
+        String nm = wpField.getText().trim();
+        if (nm.isEmpty()) {
+            toast("Scrie un nume pentru waypoint.", true);
+            return;
+        }
+        Minecraft mc = Minecraft.getInstance();
+        int h = MapCache.height((int) Math.floor(dlgX), (int) Math.floor(dlgZ));
+        double y = h > 0 ? h : (mc.player != null ? mc.player.getPosY() : 64);
+        MapsClient.saveWp(dlgId, nm, dlgColor, dlgType, dlgX, y, dlgZ);
+        showDlg = false;
     }
 
     private void drawEditor(MatrixStack ms, int mx, int my, int rx, int rw) {
@@ -699,6 +976,27 @@ public final class MapScreen extends FlowScreen {
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
+        if (showDlg) {
+            int[] b = dlgBounds();
+            if (!Ui.in((int) mx, (int) my, b[0], b[1], b[2], b[3])) return true;
+            return super.mouseClicked(mx, my, button);
+        }
+        if (showPopup) {
+            if (!Ui.in((int) mx, (int) my, popX, popY, popW, popH)) {
+                showPopup = false;
+                return true;
+            }
+            return super.mouseClicked(mx, my, button);
+        }
+        if (button == 1 && inMap(mx, my) && view != null && !overUi((int) mx, (int) my) && !(editor && editorTab == 1)) {
+            popWp = wpAt(mx, my);
+            popWx = wx(mx);
+            popWz = wz(my);
+            popX = (int) mx;
+            popY = (int) my;
+            showPopup = true;
+            return true;
+        }
         if (editor && editorTab == 1 && inMap(mx, my) && !overUi((int) mx, (int) my) && view != null) {
             if (button == 0) {
                 double wxm = wx(mx);
@@ -783,6 +1081,12 @@ public final class MapScreen extends FlowScreen {
 
     @Override
     public boolean mouseScrolled(double mx, double my, double delta) {
+        if (sidebar && mx < 164 && !showDlg) {
+            int d = delta > 0 ? -1 : 1;
+            if (my >= perY0) perScroll = Math.max(0, perScroll + d);
+            else srvScroll = Math.max(0, srvScroll + d);
+            return true;
+        }
         if (inMap(mx, my) && !(mx >= width - 190 && !editor)) {
             if (delta > 0) level = Math.max(0, level - 1);
             else if (delta < 0) level = Math.min(LEVELS.length - 1, level + 1);
@@ -794,6 +1098,17 @@ public final class MapScreen extends FlowScreen {
 
     @Override
     public boolean keyPressed(int key, int scan, int mods) {
+        for (TextFieldWidget f : fields()) if (f.isFocused()) return super.keyPressed(key, scan, mods);
+        if (key == 256 && (showDlg || showPopup)) {
+            showDlg = false;
+            showPopup = false;
+            return true;
+        }
+        if (key == 261 && selWp > 0 && !showDlg) {
+            MapsClient.deleteWp(selWp);
+            selWp = 0;
+            return true;
+        }
         if (MapsClient.openKey != null && MapsClient.openKey.matchesKey(key, scan)) {
             closeScreen();
             return true;
