@@ -33,6 +33,9 @@ public final class MapsClient extends JsonClientModule {
     private static MapView radar;
     private static long lastRoute;
     private static long waitingSince;
+    private static int lastZoneId = -2;
+    /** Zona curenta a jucatorului (null = in afara zonelor). */
+    public static MapsState.Zone currentZone;
 
     private MapsClient() {
         on("pois", d -> {
@@ -51,6 +54,26 @@ public final class MapsClient extends JsonClientModule {
                     MapsState.pois.add(p);
                 }
             }
+        });
+        on("zones", d -> {
+            MapsState.zones.clear();
+            if (d.has("list")) {
+                for (JsonElement e : d.getAsJsonArray("list")) {
+                    JsonObject o = e.getAsJsonObject();
+                    MapsState.Zone z = new MapsState.Zone();
+                    z.id = integer(o, "id", 0);
+                    z.name = str(o, "name", "?");
+                    z.type = integer(o, "type", 3);
+                    if (o.has("pts")) {
+                        for (JsonElement pe : o.getAsJsonArray("pts")) {
+                            com.google.gson.JsonArray a = pe.getAsJsonArray();
+                            z.pts.add(new double[] {a.get(0).getAsDouble(), a.get(1).getAsDouble()});
+                        }
+                    }
+                    if (z.pts.size() >= 3) MapsState.zones.add(z);
+                }
+            }
+            lastZoneId = -2;
         });
         on("gps", d -> {
             if (bool(d, "stop", false)) {
@@ -135,6 +158,30 @@ public final class MapsClient extends JsonClientModule {
         JsonObject o = new JsonObject();
         o.addProperty("id", id);
         instance.send("poi_del", o);
+    }
+
+    public static void saveZone(int id, String name, int type, java.util.List<double[]> pts) {
+        if (instance == null) return;
+        JsonObject o = new JsonObject();
+        o.addProperty("id", id);
+        o.addProperty("name", name);
+        o.addProperty("type", type);
+        com.google.gson.JsonArray arr = new com.google.gson.JsonArray();
+        for (double[] p : pts) {
+            com.google.gson.JsonArray a = new com.google.gson.JsonArray();
+            a.add(Math.round(p[0]));
+            a.add(Math.round(p[1]));
+            arr.add(a);
+        }
+        o.add("pts", arr);
+        instance.send("zone_save", o);
+    }
+
+    public static void deleteZone(int id) {
+        if (instance == null) return;
+        JsonObject o = new JsonObject();
+        o.addProperty("id", id);
+        instance.send("zone_del", o);
     }
 
     public static void give(String item) {
@@ -232,6 +279,21 @@ public final class MapsClient extends JsonClientModule {
             if (openKey != null && openKey.isPressed() && mc.currentScreen == null) mc.displayGuiScreen(new MapScreen());
             tick++;
             if (tick == 40) requestPois();
+            if (tick % 10 == 0) {
+                MapsState.Zone z = MapsState.zoneAt(mc.player.getPosX(), mc.player.getPosZ());
+                int zid = z == null ? -1 : z.id;
+                currentZone = z;
+                if (zid != lastZoneId) {
+                    boolean first = lastZoneId == -2;
+                    lastZoneId = zid;
+                    if (z != null && !first) {
+                        Object[] t = MapsState.zoneType(z.type);
+                        NotifyToasts.add(z.type == 1 ? "BAD" : (z.type == 2 ? "OK" : "INFO"), "Zona: " + z.name, t[1] + " - " + t[2]);
+                    } else if (z == null && !first) {
+                        NotifyToasts.add("INFO", "Ai iesit din zona", "Esti in afara zonelor marcate.");
+                    }
+                }
+            }
             if (!MapsState.hasTarget) return;
             double px = mc.player.getPosX();
             double pz = mc.player.getPosZ();
@@ -334,6 +396,14 @@ public final class MapsClient extends JsonClientModule {
             Ui.rect(ms, x, y + MM + 9, MM, 3, 0xAA05070C);
             Ui.rect(ms, x, y + MM + 9, Math.round(MM * ar), 3, 0xFF3FA0FF);
 
+            // zona curenta
+            if (currentZone != null) {
+                int zy = MapsState.radarPos == 0 ? y - 12 - (MapsState.hasTarget ? 12 : 0) : y + MM + 16 + (MapsState.hasTarget ? 12 : 0);
+                int rgb = 0xFF000000 | MapsState.zoneRgb(currentZone.type);
+                Ui.rect(ms, x, zy, MM, 11, 0xCC05070C);
+                Ui.rect(ms, x, zy, 3, 11, rgb);
+                Ui.text(ms, Ui.clip(currentZone.name, MM - 10), x + 7, zy + 2, Theme.TEXT);
+            }
             // info waypoint
             if (MapsState.hasTarget) {
                 double dist = Math.hypot(MapsState.tx - px, MapsState.tz - pz);

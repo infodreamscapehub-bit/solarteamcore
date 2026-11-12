@@ -18,6 +18,49 @@ public final class MapsState {
         public double z;
     }
 
+    public static final class Zone {
+        public int id;
+        public String name = "?";
+        public int type = 3;
+        public final List<double[]> pts = new ArrayList<>();
+
+        public boolean contains(double x, double z) {
+            return inside(pts, x, z);
+        }
+    }
+
+    /** {id, nume, regula} + culoare RGB + opacitate (ca in EGK). */
+    public static final Object[][] ZONE_TYPES = {
+        {1, "Periculoasa", "Jaf permis", 0xE53935, 38},
+        {2, "Sigura", "Jaf interzis", 0x43A047, 34},
+        {3, "Neutra", "Reguli normale", 0xFDD835, 32},
+        {4, "Libera", "Fara restrictii", 0x757575, 36}};
+
+    public static Object[] zoneType(int id) {
+        return ZONE_TYPES[Math.max(0, Math.min(ZONE_TYPES.length - 1, id - 1))];
+    }
+
+    public static int zoneRgb(int id) {
+        return (Integer) zoneType(id)[3];
+    }
+
+    public static boolean inside(List<double[]> pts, double x, double z) {
+        boolean in = false;
+        for (int i = 0, j = pts.size() - 1; i < pts.size(); j = i++) {
+            double[] a = pts.get(i);
+            double[] b = pts.get(j);
+            if ((a[1] > z) != (b[1] > z) && x < (b[0] - a[0]) * (z - a[1]) / (b[1] - a[1]) + a[0]) in = !in;
+        }
+        return in;
+    }
+
+    public static Zone zoneAt(double x, double z) {
+        for (int i = zones.size() - 1; i >= 0; i--) if (zones.get(i).contains(x, z)) return zones.get(i);
+        return null;
+    }
+
+    public static final List<Zone> zones = new ArrayList<>();
+    public static boolean zonesVisible = true;
     public static final List<Poi> pois = new ArrayList<>();
     public static final Set<String> hidden = new HashSet<>();
 
@@ -59,6 +102,7 @@ public final class MapsState {
 
     public static void reset() {
         pois.clear();
+        zones.clear();
         clearTarget();
     }
 }

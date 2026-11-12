@@ -6,6 +6,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Arrays;
 import java.util.Collections;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.widget.TextFieldWidget;
@@ -35,6 +36,17 @@ public final class MapScreen extends FlowScreen {
     // editor
     private boolean editor;
     private boolean sidebar;
+    private int editorTab; // 0 = puncte, 1 = zone
+    private int zTool; // 0 alege, 1 dreptunghi, 2 poligon
+    private int zId;
+    private int zType = 1;
+    private final List<double[]> zPts = new ArrayList<>();
+    private boolean zDrag;
+    private double zDragX;
+    private double zDragZ;
+    private boolean zPressing;
+    private double zPressX;
+    private double zPressY;
     private int legendStart;
     private String gpsToastName;
     private long gpsToastAt;
@@ -171,7 +183,7 @@ public final class MapScreen extends FlowScreen {
         if (view.needsRefresh(vx, vz, scale(), aw / f, ah / f, 6000)) view.refresh(MathHelper.floor(vx), MathHelper.floor(vz), scale());
         view.draw(ms, ax, ay, aw, ah, vx, vz, f);
         hit(ax, ay, aw, ah, () -> {
-            if (editor) {
+            if (editor && editorTab == 0) {
                 draftX = wx(mx0);
                 draftZ = wz(my0);
                 draftSet = true;
@@ -190,6 +202,35 @@ public final class MapScreen extends FlowScreen {
                 return gy(w);
             }
         };
+        MapsState.Zone hoverZone = null;
+        if (MapsState.zonesVisible || (editor && editorTab == 1)) {
+            boolean canHover = inMap(mx, my) && !overUi(mx, my) && !(editor && editorTab == 1 && zTool != 0);
+            double hxw = wx(mx);
+            double hzw = wz(my);
+            if (canHover) {
+                for (int i = MapsState.zones.size() - 1; i >= 0; i--) {
+                    if (MapsState.zones.get(i).contains(hxw, hzw)) {
+                        hoverZone = MapsState.zones.get(i);
+                        break;
+                    }
+                }
+            }
+            for (MapsState.Zone z : MapsState.zones) {
+                if (editor && editorTab == 1 && z.id == zId && !zPts.isEmpty()) continue; // se deseneaza ciorna
+                int rgb = MapsState.zoneRgb(z.type);
+                int op = (Integer) MapsState.zoneType(z.type)[4];
+                int al = Math.min(255, op * 255 / 100 + (z == hoverZone ? 40 : 0));
+                fillPoly(ms, z.pts, al << 24 | rgb);
+                outline(ms, z.pts, true, (z == hoverZone ? 0xFF000000 : 0xCC000000) | rgb);
+            }
+        }
+        if (editor && editorTab == 1 && !zPts.isEmpty()) {
+            int rgb = MapsState.zoneRgb(zType);
+            if (zPts.size() >= 3) fillPoly(ms, zPts, 0x70000000 | rgb);
+            outline(ms, zPts, zPts.size() >= 3, 0xFF000000 | rgb);
+            for (double[] pt : zPts) Ui.rect(ms, Math.round(gx(pt[0])) - 2, Math.round(gy(pt[1])) - 2, 5, 5, 0xFFFFFFFF);
+        }
+
         MapsClient.drawRoute(ms, pr, 4, ax, ay, ax + aw, ay + ah);
 
         // blips
@@ -204,6 +245,7 @@ public final class MapScreen extends FlowScreen {
             if (h) hover = p;
             final MapsState.Poi pp = p;
             hit(sx - 9, sy - 9, 18, 18, () -> {
+                if (editor && editorTab == 1) return;
                 if (editor) {
                     selectPoi(pp);
                     return;
@@ -261,6 +303,17 @@ public final class MapScreen extends FlowScreen {
             Ui.text(ms, l2, tx + 8, ty + 18, Theme.OK);
         }
 
+        if (hover == null && hoverZone != null) {
+            Object[] t = MapsState.zoneType(hoverZone.type);
+            int w = Math.max(Ui.smallCapsWidth(hoverZone.name), Ui.smallCapsWidth(t[1] + " - " + t[2])) + 18;
+            int tx = Math.min(width - w - 4, mx + 12);
+            int ty = Math.max(4, my - 16);
+            Ui.rect(ms, tx, ty, w, 30, 0xEE0B1530);
+            Ui.rect(ms, tx, ty, 3, 30, 0xFF000000 | MapsState.zoneRgb(hoverZone.type));
+            Ui.smallCaps(ms, hoverZone.name, tx + 9, ty + 5, Theme.TEXT);
+            Ui.smallCaps(ms, t[1] + " - " + t[2], tx + 9, ty + 18, 0xFF000000 | MapsState.zoneRgb(hoverZone.type));
+        }
+
         // ---- buton hamburger
         boolean hh = Ui.in(mx, my, 10, 10, 24, 24);
         Ui.rect(ms, 10, 10, 24, 24, hh ? 0xFF2A56C8 : 0xFF1E44A8);
@@ -313,7 +366,7 @@ public final class MapScreen extends FlowScreen {
     }
 
     private boolean overUi(int mx, int my) {
-        if (mx >= width - 190) return true;
+        if (mx >= width - (editor ? 198 : 190)) return true;
         if (sidebar && mx < 150) return true;
         return mx < 36 && my < 36;
     }
@@ -347,6 +400,20 @@ public final class MapScreen extends FlowScreen {
             hit(x, y, w, 24, () -> {
                 if (!MapsState.hidden.remove(tt)) MapsState.hidden.add(tt);
             });
+            y += 28;
+        }
+        // comutator zone
+        {
+            String lab = "Zone";
+            int w = Ui.smallCapsWidth(lab) + 44;
+            int x = width - 10 - w;
+            boolean on = MapsState.zonesVisible;
+            boolean h = Ui.in(mx, my, x, y, w, 24);
+            Ui.rect(ms, x, y, w, 24, h ? 0xF0152A5E : 0xE60B1530);
+            Ui.frame(ms, x, y, w, 24, 0x00000000, on ? 0xFF1E3A8A : 0xFF2A2F3F);
+            Ui.smallCaps(ms, lab, x + 10, y + 8, on ? 0xFFFFFFFF : 0xFF6B7488);
+            for (int i = 0; i < 4; i++) Ui.rect(ms, x + w - 38 + (i % 2) * 8, y + 4 + (i / 2) * 8, 7, 7, (on ? 0xFF000000 : 0x66000000) | MapsState.zoneRgb(i + 1));
+            hit(x, y, w, 24, () -> MapsState.zonesVisible = !MapsState.zonesVisible);
             y += 28;
         }
         // pagina n/total + sageti
@@ -394,6 +461,8 @@ public final class MapScreen extends FlowScreen {
         button(ms, "ASCUNDE ICOANELE", sx + 8, yy, bw, 15, mx, my, true, Theme.PANEL_3, () -> {
             for (String[] t : Blips.TYPES) MapsState.hidden.add(t[0]);
         });
+        yy += 19;
+        button(ms, MapsState.zonesVisible ? "ZONE: ARATA" : "ZONE: ASCUNSE", sx + 8, yy, bw, 15, mx, my, true, Theme.PANEL_3, () -> MapsState.zonesVisible = !MapsState.zonesVisible);
         yy += 25;
         Ui.smallCaps(ms, "Minimapa", sx + 8, yy, Theme.MUTED);
         yy += 12;
@@ -405,6 +474,7 @@ public final class MapScreen extends FlowScreen {
         if (MapsState.admin) {
             button(ms, editor ? "IESI DIN EDITOR" : "EDITOR GPS", sx + 8, yy, bw, 15, mx, my, true, editor ? Theme.OK : 0xFF8A5A00, () -> {
                 editor = !editor;
+                editorTab = 0;
                 if (editor) newDraftHere();
             });
             yy += 19;
@@ -413,6 +483,155 @@ public final class MapScreen extends FlowScreen {
     }
 
     private void drawEditor(MatrixStack ms, int mx, int my, int rx, int rw) {
+        int tw = (rw - 4) / 2;
+        button(ms, "PUNCTE", rx, 10, tw, 18, mx, my, true, editorTab == 0 ? 0xFF8A5A00 : Theme.PANEL_3, () -> {
+            editorTab = 0;
+            newDraftHere();
+        });
+        button(ms, "ZONE", rx + tw + 4, 10, tw, 18, mx, my, true, editorTab == 1 ? 0xFF8A5A00 : Theme.PANEL_3, () -> {
+            editorTab = 1;
+            newZone();
+        });
+        if (editorTab == 1) drawZoneEditor(ms, mx, my, rx, rw);
+        else drawPoiEditor(ms, mx, my, rx, rw);
+    }
+
+    private void newZone() {
+        zId = 0;
+        zPts.clear();
+        zDrag = false;
+        nameField.setText("");
+    }
+
+    private void selectZone(MapsState.Zone z) {
+        zId = z.id;
+        zType = z.type;
+        zPts.clear();
+        for (double[] p : z.pts) zPts.add(new double[] {p[0], p[1]});
+        nameField.setText(z.name);
+    }
+
+    private void saveZone() {
+        String nm = nameField.getText().trim();
+        if (nm.isEmpty() || zPts.size() < 3) {
+            toast("Scrie un nume si deseneaza zona (min. 3 colturi).", true);
+            return;
+        }
+        MapsClient.saveZone(zId, nm, zType, zPts);
+        newZone();
+    }
+
+    private void drawZoneEditor(MatrixStack ms, int mx, int my, int rx, int rw) {
+        int yy = 36;
+        Ui.rect(ms, rx, yy, rw, 3, 0xFF8A5A00);
+        yy += 8;
+        Ui.smallCaps(ms, "Editor de zone", rx, yy, Theme.TEXT);
+        yy += 14;
+        String[] hint = zTool == 0 ? new String[] {"Click pe o zona = o editezi.", "Alege o unealta ca sa desenezi."}
+            : (zTool == 1 ? new String[] {"Trage pe harta = dreptunghi.", ""} : new String[] {"Click = adaugi colt.", "Click dreapta = sterge ultimul."});
+        Ui.text(ms, hint[0], rx, yy, Theme.FAINT);
+        Ui.text(ms, hint[1], rx, yy + 10, Theme.FAINT);
+        yy += 24;
+
+        int tw = (rw - 8) / 3;
+        String[] names = {"ALEGE", "DREPT.", "POLIGON"};
+        for (int i = 0; i < 3; i++) {
+            final int t = i;
+            button(ms, names[i], rx + i * (tw + 4), yy, tw, 16, mx, my, true, zTool == i ? 0xFF8A5A00 : Theme.PANEL_3, () -> {
+                zTool = t;
+                zDrag = false;
+            });
+        }
+        yy += 24;
+
+        Ui.smallCaps(ms, "Nume", rx, yy, Theme.MUTED);
+        yy += 11;
+        drawField(ms, nameField, rx, yy, rw, 16, mx, my);
+        yy += 24;
+
+        Ui.smallCaps(ms, "Tip", rx, yy, Theme.MUTED);
+        Ui.textRight(ms, String.valueOf(MapsState.zoneType(zType)[2]), rx + rw, yy, Theme.ACCENT);
+        yy += 11;
+        int hw = (rw - 4) / 2;
+        for (int i = 0; i < 4; i++) {
+            final int id = i + 1;
+            int cx = rx + (i % 2) * (hw + 4);
+            int cy = yy + (i / 2) * 20;
+            boolean sel = zType == id;
+            boolean h = Ui.in(mx, my, cx, cy, hw, 18);
+            Ui.rect(ms, cx, cy, hw, 18, sel ? 0xFF1E3A8A : (h ? 0xFF1B2740 : 0xFF111A2B));
+            Ui.rect(ms, cx + 4, cy + 4, 10, 10, 0xFF000000 | MapsState.zoneRgb(id));
+            Ui.smallCaps(ms, String.valueOf(MapsState.zoneType(id)[1]), cx + 19, cy + 5, Theme.TEXT);
+            hit(cx, cy, hw, 18, () -> zType = id);
+        }
+        yy += 46;
+
+        Ui.smallCaps(ms, "Colturi", rx, yy, Theme.MUTED);
+        Ui.textRight(ms, String.valueOf(zPts.size()), rx + rw, yy, Theme.TEXT);
+        yy += 13;
+        button(ms, zId > 0 ? "SALVEAZA #" + zId : "ADAUGA ZONA", rx, yy, hw, 16, mx, my, zPts.size() >= 3, Theme.OK, this::saveZone);
+        button(ms, "ZONA NOUA", rx + hw + 4, yy, hw, 16, mx, my, true, Theme.ACCENT_DIM, this::newZone);
+        yy += 20;
+        button(ms, "STERGE ZONA", rx, yy, rw, 16, mx, my, zId > 0, Theme.BAD, () -> {
+            MapsClient.deleteZone(zId);
+            newZone();
+        });
+    }
+
+    private void fillPoly(MatrixStack ms, List<double[]> pts, int argb) {
+        int n = pts.size();
+        if (n < 3) return;
+        float[] px = new float[n];
+        float[] py = new float[n];
+        float minY = Float.MAX_VALUE;
+        float maxY = -Float.MAX_VALUE;
+        for (int i = 0; i < n; i++) {
+            px[i] = gx(pts.get(i)[0]);
+            py[i] = gy(pts.get(i)[1]);
+            minY = Math.min(minY, py[i]);
+            maxY = Math.max(maxY, py[i]);
+        }
+        int y0 = Math.max(0, (int) minY) & ~1;
+        int y1 = Math.min(height, (int) maxY + 1);
+        float[] xs = new float[n];
+        for (int y = y0; y < y1; y += 2) {
+            float yy = y + 1;
+            int c = 0;
+            for (int i = 0, j = n - 1; i < n; j = i++) {
+                if ((py[i] > yy) != (py[j] > yy)) xs[c++] = px[j] + (yy - py[j]) * (px[i] - px[j]) / (py[i] - py[j]);
+            }
+            Arrays.sort(xs, 0, c);
+            for (int k = 0; k + 1 < c; k += 2) {
+                int a = Math.max(0, Math.round(xs[k]));
+                int b = Math.min(width, Math.round(xs[k + 1]));
+                if (b > a) Ui.rect(ms, a, y, b - a, 2, argb);
+            }
+        }
+    }
+
+    private void outline(MatrixStack ms, List<double[]> pts, boolean closed, int argb) {
+        int n = pts.size();
+        for (int i = 0; i < n; i++) {
+            if (!closed && i == n - 1) break;
+            double[] a = pts.get(i);
+            double[] b = pts.get((i + 1) % n);
+            float x0 = gx(a[0]);
+            float y0 = gy(a[1]);
+            float x1 = gx(b[0]);
+            float y1 = gy(b[1]);
+            float len = (float) Math.hypot(x1 - x0, y1 - y0);
+            int steps = (int) Math.min(2000, Math.max(1, Math.ceil(len / 2f)));
+            for (int k = 0; k <= steps; k++) {
+                float t = k / (float) steps;
+                int sx = Math.round(x0 + (x1 - x0) * t);
+                int sy = Math.round(y0 + (y1 - y0) * t);
+                if (sx < 0 || sy < 0 || sx >= width || sy >= height) continue;
+                Ui.rect(ms, sx - 1, sy - 1, 2, 2, argb);
+            }
+        }
+    }
+
+    private void drawPoiEditor(MatrixStack ms, int mx, int my, int rx, int rw) {
         int yy = 36;
         Ui.rect(ms, rx, yy, rw, 3, 0xFF8A5A00);
         yy += 8;
@@ -480,6 +699,34 @@ public final class MapScreen extends FlowScreen {
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
+        if (editor && editorTab == 1 && inMap(mx, my) && !overUi((int) mx, (int) my) && view != null) {
+            if (button == 0) {
+                double wxm = wx(mx);
+                double wzm = wz(my);
+                if (zTool == 1) {
+                    zDrag = true;
+                    zDragX = wxm;
+                    zDragZ = wzm;
+                    setRect(wxm, wzm);
+                    return true;
+                }
+                if (zTool == 2) {
+                    zPressing = true;
+                    zPressX = mx;
+                    zPressY = my;
+                } else {
+                    for (int i = MapsState.zones.size() - 1; i >= 0; i--) {
+                        if (MapsState.zones.get(i).contains(wxm, wzm)) {
+                            selectZone(MapsState.zones.get(i));
+                            return true;
+                        }
+                    }
+                }
+            } else if (button == 1) {
+                if (zTool == 2 && !zPts.isEmpty()) zPts.remove(zPts.size() - 1);
+                return true;
+            }
+        }
         if (button == 1 && inMap(mx, my) && view != null && !overUi((int) mx, (int) my)) {
             double x = wx(mx);
             double z = wz(my);
@@ -489,8 +736,42 @@ public final class MapScreen extends FlowScreen {
         return super.mouseClicked(mx, my, button);
     }
 
+    private void setRect(double x1, double z1) {
+        zPts.clear();
+        double x0 = Math.round(zDragX);
+        double z0 = Math.round(zDragZ);
+        x1 = Math.round(x1);
+        z1 = Math.round(z1);
+        zPts.add(new double[] {x0, z0});
+        zPts.add(new double[] {x1, z0});
+        zPts.add(new double[] {x1, z1});
+        zPts.add(new double[] {x0, z1});
+    }
+
+    @Override
+    public boolean mouseReleased(double mx, double my, int button) {
+        if (button == 0) {
+            if (zDrag) {
+                zDrag = false;
+                if (zPts.size() == 4 && (Math.abs(zPts.get(0)[0] - zPts.get(1)[0]) < 3 || Math.abs(zPts.get(1)[1] - zPts.get(2)[1]) < 3)) zPts.clear();
+                return true;
+            }
+            if (zPressing) {
+                zPressing = false;
+                if (Math.hypot(mx - zPressX, my - zPressY) < 4 && zPts.size() < 64) zPts.add(new double[] {Math.round(wx(mx)), Math.round(wz(my))});
+                return true;
+            }
+        }
+        return super.mouseReleased(mx, my, button);
+    }
+
     @Override
     public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
+        if (zDrag && button == 0) {
+            setRect(wx(mx), wz(my));
+            return true;
+        }
+        if (zPressing && Math.hypot(mx - zPressX, my - zPressY) >= 4) zPressing = false;
         if (button == 0 && inMap(mx, my)) {
             vx -= dx * scale() / f();
             vz -= dy * scale() / f();
