@@ -23,7 +23,7 @@ public final class Blips {
         {"camion", "Transport", "20"}, {"aeroport", "Aeroport", "21"}, {"pescuit", "Pescuit", "22"},
         {"colete", "Colete", "23"}, {"electric", "Electrician", "24"}, {"fermier", "Fermier", "25"},
         {"gunoi", "Gunoi", "26"}, {"lemnar", "Lemnar", "27"}, {"pizza", "Pizza", "28"}, {"santier", "Santier", "29"},
-        {"steag", "Steag", "8"}, {"inima", "Favorit", "30"}, {"tabara", "Tabara", "31"}, {"moarte", "Moarte", "16"},
+        {"steag", "Steag", "8"}, {"inima", "Favorit", "30"}, {"tabara", "Tabara", "31"},
         {"altele", "Altele", "14"},
     };
 

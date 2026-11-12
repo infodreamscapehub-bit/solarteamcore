@@ -379,7 +379,6 @@ public final class MapsClient extends JsonClientModule {
 
     public static final class Events {
         private int tick;
-        private boolean wasDead;
 
         @SubscribeEvent
         public void onTick(TickEvent.ClientTickEvent e) {
@@ -393,14 +392,7 @@ public final class MapsClient extends JsonClientModule {
             }
             if (openKey != null && openKey.consumeClick() && mc.screen == null) mc.setScreen(new MapScreen());
             if (waypointKey != null && waypointKey.consumeClick() && mc.screen == null) mc.setScreen(MapScreen.quickWaypoint());
-            boolean dead = mc.player.isDeadOrDying();
-            if (dead && !wasDead) {
-                MapsState.hasDeath = true;
-                MapsState.deathX = mc.player.getX();
-                MapsState.deathY = mc.player.getY();
-                MapsState.deathZ = mc.player.getZ();
-            }
-            wasDead = dead;
+
             tick++;
             if (tick == 40) requestPois();
             if (tick % 10 == 0) {

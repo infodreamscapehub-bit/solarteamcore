@@ -101,13 +101,6 @@ public final class MapsState {
     public static boolean terrain = true;
     /** Waypoint-urile apar si in lume (iconita + distanta). */
     public static boolean worldMarkers = true;
-    /** Grila de chunk-uri pe harta mare. */
-    public static boolean grid;
-    /** Locul ultimei morti (doar pe client, se sterge la relog). */
-    public static boolean hasDeath;
-    public static double deathX;
-    public static double deathY;
-    public static double deathZ;
 
     private static java.nio.file.Path settingsFile() {
         return net.minecraftforge.fml.loading.FMLPaths.CONFIGDIR.get().resolve("flowcity-maps.properties");
@@ -122,7 +115,6 @@ public final class MapsState {
         }
         terrain = Boolean.parseBoolean(p.getProperty("terrain", "true"));
         worldMarkers = Boolean.parseBoolean(p.getProperty("worldMarkers", "true"));
-        grid = Boolean.parseBoolean(p.getProperty("grid", "false"));
         minimap = Boolean.parseBoolean(p.getProperty("minimap", "true"));
         try {
             radarPos = Integer.parseInt(p.getProperty("radarPos", "0"));
@@ -136,7 +128,6 @@ public final class MapsState {
         java.util.Properties p = new java.util.Properties();
         p.setProperty("terrain", String.valueOf(terrain));
         p.setProperty("worldMarkers", String.valueOf(worldMarkers));
-        p.setProperty("grid", String.valueOf(grid));
         p.setProperty("minimap", String.valueOf(minimap));
         p.setProperty("radarPos", String.valueOf(radarPos));
         p.setProperty("miniScale", String.valueOf(miniScale));

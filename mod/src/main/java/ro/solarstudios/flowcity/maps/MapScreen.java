@@ -250,7 +250,6 @@ public final class MapScreen extends FlowScreen {
             }
         });
         Ui.scissor(ax, ay, aw, ah);
-        if (MapsState.grid) drawGrid(ms);
 
         MapsClient.Proj pr = new MapsClient.Proj() {
             @Override
@@ -335,12 +334,6 @@ public final class MapScreen extends FlowScreen {
             if (modal) continue;
             final MapsState.Wp ww = w;
             hit(sx - 8, sy - size - 2, 16, size + 4, () -> clickWp(ww));
-        }
-        // locul ultimei morti
-        if (MapsState.hasDeath) {
-            int sx = Math.round(gx(MapsState.deathX));
-            int sy = Math.round(gy(MapsState.deathZ));
-            Blips.sprite(ms, Blips.icon("moarte"), sx - 6, sy - 6, 12);
         }
         // waypoint
         if (MapsState.hasTarget) {
@@ -529,25 +522,6 @@ public final class MapScreen extends FlowScreen {
         }
     }
 
-    private void drawGrid(GuiGraphics ms) {
-        int sc = scale();
-        int f = f();
-        double chunkPx = 16.0 * f / sc;
-        int step = chunkPx >= 8 ? 16 : (chunkPx * 32 >= 24 ? 512 : 0);
-        if (step == 0) return;
-        double left = wx(ax), right = wx(ax + aw), top = wz(ay), bottom = wz(ay + ah);
-        for (long gx0 = (long) Math.floor(left / step) * step; gx0 <= right; gx0 += step) {
-            int sx = Math.round(gx(gx0));
-            boolean region = Math.floorMod(gx0, 512) == 0;
-            Ui.rect(ms, sx, ay, 1, ah, region ? 0x50FFFFFF : 0x1EFFFFFF);
-        }
-        for (long gz0 = (long) Math.floor(top / step) * step; gz0 <= bottom; gz0 += step) {
-            int sy = Math.round(gy(gz0));
-            boolean region = Math.floorMod(gz0, 512) == 0;
-            Ui.rect(ms, ax, sy, aw, 1, region ? 0x50FFFFFF : 0x1EFFFFFF);
-        }
-    }
-
     /** Bara de jos: coordonatele de sub cursor (cu inaltimea cunoscuta), scara si scurtaturile. */
     private void drawInfoBar(GuiGraphics ms, int mx, int my, Minecraft mc) {
         boolean cur = inMap(mx, my) && !overUi(mx, my);
@@ -584,7 +558,6 @@ public final class MapScreen extends FlowScreen {
             if (MapsState.hasTarget) return;
             kx = key(ms, kx, by + 3, "B", "waypoint") + 10;
             kx = key(ms, kx, by + 3, "Spatiu", "centreaza") + 10;
-            kx = key(ms, kx, by + 3, "G", "grila") + 10;
             key(ms, kx, by + 3, "T", "stil");
         }
     }
@@ -615,7 +588,7 @@ public final class MapScreen extends FlowScreen {
 
         int bw = sw - 16;
         int hw = (bw - 4) / 2;
-        int bottomH = 6 * 15 + 2 * 18 + 8;
+        int bottomH = 5 * 15 + 2 * 18 + 8;
         int listTop = sy + 44;
         int listBot = sy + sh - bottomH - 6;
         int boxH = Math.max(40, (listBot - listTop) / 2);
@@ -639,8 +612,6 @@ public final class MapScreen extends FlowScreen {
         toggleRow(ms, sx + 8, yy, bw, "Teren real", MapsState.terrain, mx, my, () -> MapsState.terrain = !MapsState.terrain);
         yy += 15;
         toggleRow(ms, sx + 8, yy, bw, "Waypoint-uri in lume", MapsState.worldMarkers, mx, my, () -> MapsState.worldMarkers = !MapsState.worldMarkers);
-        yy += 15;
-        toggleRow(ms, sx + 8, yy, bw, "Grila chunk-uri", MapsState.grid, mx, my, () -> MapsState.grid = !MapsState.grid);
         yy += 15;
         toggleRow(ms, sx + 8, yy, bw, "Zone", MapsState.zonesVisible, mx, my, () -> MapsState.zonesVisible = !MapsState.zonesVisible);
         yy += 15;
@@ -1330,10 +1301,6 @@ public final class MapScreen extends FlowScreen {
                     return true;
                 case 32: // Spatiu: centreaza
                     follow = true;
-                    return true;
-                case 71: // G: grila
-                    MapsState.grid = !MapsState.grid;
-                    MapsState.saveSettings();
                     return true;
                 case 84: // T: teren real / atlas
                     MapsState.terrain = !MapsState.terrain;

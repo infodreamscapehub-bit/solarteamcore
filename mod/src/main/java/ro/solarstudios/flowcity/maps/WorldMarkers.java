@@ -32,7 +32,6 @@ public final class WorldMarkers {
         double focal = (h / 2.0) / Math.tan(fov / 2.0);
         Proj p = new Proj(c, fx, fy, fz, rx, ry, rz, ux, uy, uz, w, h, focal);
 
-        if (MapsState.hasDeath) marker(ms, p, "Ultima moarte", "moarte", 0xFF8A8A8A, MapsState.deathX, MapsState.deathY + 1.2, MapsState.deathZ, 0);
         for (MapsState.Wp wp : MapsState.wps) {
             marker(ms, p, wp.name, wp.type, wp.color, wp.x, wp.y + 1.2, wp.z, 0);
         }
