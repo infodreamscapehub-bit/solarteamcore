@@ -14,6 +14,7 @@ import net.minecraft.util.Mth;
 public final class CarRenderer extends EntityRenderer<CarEntity> {
     private final CarModel model;
     private final java.util.Map<Integer, double[]> wheelState = new java.util.HashMap<>();
+    private final java.util.Map<Integer, double[]> speedState = new java.util.HashMap<>();
 
     public CarRenderer(EntityRendererProvider.Context ctx) {
         super(ctx);
@@ -42,8 +43,22 @@ public final class CarRenderer extends EntityRenderer<CarEntity> {
         st[1] = e.getX();
         st[2] = e.getZ();
         float wheelRot = (float) (st[0] / 0.4);   // raza rotii ~0.3 blocuri
+        // stopuri: soferul local stie cand franeaza; la ceilalti ghicim din scaderea vitezei
+        double[] sp = speedState.computeIfAbsent(e.getId(), k -> new double[] {0, 0});
+        double v = Math.abs(along);
+        boolean brake;
+        if (e.getControllingPassenger() == net.minecraft.client.Minecraft.getInstance().player) brake = e.braking();
+        else {
+            if (v > 0.001 || sp[0] > 0.001) sp[1] = (sp[0] - v > 0.002) ? 20 : Math.max(0, sp[1] - 1);
+            brake = sp[1] > 0;
+        }
+        sp[0] = v;
+        int beacon = 0;
+        if (e.flag(CarEntity.F_BEACON)) beacon = ((System.currentTimeMillis() / 180) % 2 == 0) ? 1 : 2;
+        boolean flash = e.flash > 0 && (e.flash / 3) % 2 == 0;
         VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(CarModel.TEXTURE));
-        model.render(pose, vc, light, net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY, e.getColor(), wheelRot);
+        model.render(pose, vc, light, net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY, e.getColor(), e.getVariant(), wheelRot,
+            e.flag(CarEntity.F_LIGHTS), brake, beacon, flash);
         pose.popPose();
         super.render(e, yaw, pt, pose, buffers, light);
     }

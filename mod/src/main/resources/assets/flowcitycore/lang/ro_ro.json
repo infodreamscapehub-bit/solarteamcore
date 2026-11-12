@@ -38,5 +38,14 @@
   "key.flowcity.mdt_panic": "MDT: panica cod 99",
   "item.flowcitycore.car_spawn": "Masina FlowCity",
   "entity.flowcitycore.car": "Masina FlowCity",
-  "key.flowcity.waypoint": "Waypoint rapid (harta)"
+  "key.flowcity.waypoint": "Waypoint rapid (harta)",
+  "item.flowcitycore.car_key": "Cheie masina",
+  "item.flowcitycore.canistra": "Canistra",
+  "block.flowcitycore.pompa_benzina": "Pompa de benzina",
+  "key.categories.flowcity_car": "FlowCity - Masina",
+  "key.flowcity.car_horn": "Claxon",
+  "key.flowcity.car_lights": "Faruri",
+  "key.flowcity.car_siren": "Girofar / sirena",
+  "key.flowcity.car_lock": "Incuie / descuie",
+  "key.flowcity.car_seat": "Schimba locul"
 }

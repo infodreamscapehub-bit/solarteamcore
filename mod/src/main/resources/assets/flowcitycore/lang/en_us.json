@@ -38,5 +38,14 @@
   "key.flowcity.mdt_panic": "MDT: panica cod 99",
   "item.flowcitycore.car_spawn": "FlowCity Car",
   "entity.flowcitycore.car": "FlowCity Car",
-  "key.flowcity.waypoint": "Quick waypoint (map)"
+  "key.flowcity.waypoint": "Quick waypoint (map)",
+  "item.flowcitycore.car_key": "Car key",
+  "item.flowcitycore.canistra": "Jerry can",
+  "block.flowcitycore.pompa_benzina": "Gas pump",
+  "key.categories.flowcity_car": "FlowCity - Car",
+  "key.flowcity.car_horn": "Horn",
+  "key.flowcity.car_lights": "Headlights",
+  "key.flowcity.car_siren": "Beacon / siren",
+  "key.flowcity.car_lock": "Lock / unlock",
+  "key.flowcity.car_seat": "Change seat"
 }

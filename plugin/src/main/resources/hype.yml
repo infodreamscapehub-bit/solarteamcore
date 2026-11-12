@@ -247,3 +247,8 @@ clearlag:
   exempt-named: true         # nu sterge obiectele cu nume custom
   exempt-materials: [DIAMOND, NETHERITE_INGOT, ELYTRA, SHULKER_BOX, TOTEM_OF_UNDYING, PAPER]
   worlds: []                 # gol = toate lumile
+
+# Vehicule: pretul benzinei (lei / litru) si raza in care jucatorul trebuie sa fie langa o pompa
+vehicles:
+  fuel-price: 7.0
+  pump-radius: 6

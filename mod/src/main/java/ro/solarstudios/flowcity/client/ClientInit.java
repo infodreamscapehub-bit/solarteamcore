@@ -49,6 +49,7 @@ public final class ClientInit {
         ro.solarstudios.flowcity.mdt.MdtClient.registerKeys(event);
         ro.solarstudios.flowcity.phone.PhoneClient.registerKeys(event);
         ro.solarstudios.flowcity.maps.MapsClient.registerKeys(event);
+        ro.solarstudios.flowcity.vehicle.CarClient.registerKeys(event);
     }
 
     public static final class Events {

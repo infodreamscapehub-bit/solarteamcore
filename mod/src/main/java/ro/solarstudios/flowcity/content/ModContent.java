@@ -36,6 +36,10 @@ public final class ModContent {
         () -> EntityType.Builder.<ro.solarstudios.flowcity.vehicle.CarEntity>of(ro.solarstudios.flowcity.vehicle.CarEntity::new, MobCategory.MISC)
             .sized(1.9f, 1.5f).clientTrackingRange(10).updateInterval(1).build("car"));
     public static final RegistryObject<Item> CAR_ITEM = ITEMS.register("car_spawn", ro.solarstudios.flowcity.vehicle.CarItem::new);
+    public static final RegistryObject<Item> CAR_KEY = ITEMS.register("car_key", ro.solarstudios.flowcity.vehicle.CarKeyItem::new);
+    public static final RegistryObject<Item> JERRY_CAN = ITEMS.register("canistra", ro.solarstudios.flowcity.vehicle.JerryCanItem::new);
+    public static final RegistryObject<Block> GAS_PUMP = BLOCKS.register("pompa_benzina", ro.solarstudios.flowcity.vehicle.GasPumpBlock::new);
+    public static final RegistryObject<Item> GAS_PUMP_ITEM = ITEMS.register("pompa_benzina", () -> new BlockItem(GAS_PUMP.get(), new Item.Properties()));
     public static final RegistryObject<Item> PHONE = ITEMS.register("phone", PhoneItem::new);
 
     public static final RegistryObject<CreativeModeTab> TAB = TABS.register("flowcity", () -> CreativeModeTab.builder()
@@ -45,7 +49,16 @@ public final class ModContent {
         .displayItems((params, out) -> {
             for (RegistryObject<Item> i : ITEMS.getEntries()) {
                 if (i == CAR_ITEM) {
-                    for (int rgb : new int[] {0xE8EEF9, 0x1B1F2A, 0xC8283C, 0x2F6FDB, 0xF2C230, 0x2E9D5B, 0x7C83FF}) out.accept(ro.solarstudios.flowcity.vehicle.CarEntity.stackFor(rgb));
+                    for (int rgb : new int[] {0xE8EEF9, 0x1B1F2A, 0xC8283C, 0x2F6FDB, 0x9AA3AE, 0x2E9D5B, 0x6B4A2E}) out.accept(ro.solarstudios.flowcity.vehicle.CarEntity.stackFor(rgb));
+                    out.accept(ro.solarstudios.flowcity.vehicle.CarEntity.stackFor(0xF4F4F2, ro.solarstudios.flowcity.vehicle.CarEntity.V_POLICE));
+                    out.accept(ro.solarstudios.flowcity.vehicle.CarEntity.stackFor(0xF2C230, ro.solarstudios.flowcity.vehicle.CarEntity.V_TAXI));
+                } else if (i == CAR_KEY) {
+                    // cheile se primesc odata cu masina
+                } else if (i == JERRY_CAN) {
+                    ItemStack can = new ItemStack(JERRY_CAN.get());
+                    ro.solarstudios.flowcity.vehicle.JerryCanItem.setFuel(can, ro.solarstudios.flowcity.vehicle.JerryCanItem.CAPACITY);
+                    out.accept(new ItemStack(JERRY_CAN.get()));
+                    out.accept(can);
                 } else out.accept(i.get());
             }
         })
