@@ -38,8 +38,8 @@ public class AdminPanelScreen extends Screen {
         final Runnable action;
 
         Hit(int x, int y, int w, int h, Runnable action) {
-            this.setX(x);
-            this.setY(y);
+            this.x = x;
+            this.y = y;
             this.w = w;
             this.h = h;
             this.action = action;
@@ -838,7 +838,7 @@ public class AdminPanelScreen extends Screen {
             // intai campurile de text (isi gestioneaza singure focusul)
             boolean onField = false;
             for (EditBox f : fields()) {
-                boolean inside = Ui.in((int) mx, (int) my, f.getX() - 4, f.y - 4, f.getWidth() + 8, 16);
+                boolean inside = Ui.in((int) mx, (int) my, f.getX() - 4, f.getY() - 4, f.getWidth() + 8, 16);
                 f.mouseClicked(mx, my, button);
                 if (inside) {
                     focus(f, true);

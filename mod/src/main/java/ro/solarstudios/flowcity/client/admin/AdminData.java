@@ -95,8 +95,8 @@ public final class AdminData {
         int n = b.readInt();
         for (int i = 0; i < n; i++) {
             PlayerEntry e = new PlayerEntry();
-            e.uuid = b.readString(64);
-            e.name = b.readString(64);
+            e.uuid = b.readUtf(64);
+            e.name = b.readUtf(64);
             e.id = b.readInt();
             e.online = b.readBoolean();
             e.lastSeen = b.readLong();
@@ -109,15 +109,15 @@ public final class AdminData {
 
     public static Profile readProfile(FriendlyByteBuf b) {
         Profile p = new Profile();
-        p.uuid = b.readString(64);
-        p.name = b.readString(64);
+        p.uuid = b.readUtf(64);
+        p.name = b.readUtf(64);
         p.id = b.readInt();
         p.online = b.readBoolean();
         p.first = b.readLong();
         p.last = b.readLong();
         p.playSeconds = b.readLong();
-        p.ip = b.readString(64);
-        p.balance = b.readString(64);
+        p.ip = b.readUtf(64);
+        p.balance = b.readUtf(64);
         p.muted = b.readBoolean();
         p.banned = b.readBoolean();
         p.warns = b.readInt();
@@ -128,9 +128,9 @@ public final class AdminData {
         for (int i = 0; i < ns; i++) {
             Sanction s = new Sanction();
             s.id = b.readInt();
-            s.type = b.readString(16);
-            s.admin = b.readString(64);
-            s.reason = b.readString(512);
+            s.type = b.readUtf(16);
+            s.admin = b.readUtf(64);
+            s.reason = b.readUtf(512);
             s.minutes = b.readInt();
             s.ts = b.readLong();
             s.expires = b.readLong();
@@ -142,17 +142,17 @@ public final class AdminData {
         for (int i = 0; i < nn; i++) {
             Note n = new Note();
             n.id = b.readInt();
-            n.admin = b.readString(64);
-            n.text = b.readString(512);
+            n.admin = b.readUtf(64);
+            n.text = b.readUtf(512);
             n.ts = b.readLong();
             p.notes.add(n);
         }
         int nf = b.readInt();
         for (int i = 0; i < nf; i++) {
             Flag f = new Flag();
-            f.severity = b.readString(16);
-            f.trigger = b.readString(64);
-            f.details = b.readString(512);
+            f.severity = b.readUtf(16);
+            f.trigger = b.readUtf(64);
+            f.details = b.readUtf(512);
             f.ts = b.readLong();
             p.flags.add(f);
         }
@@ -161,7 +161,7 @@ public final class AdminData {
 
     public static Logs readLogs(FriendlyByteBuf b) {
         Logs l = new Logs();
-        l.type = b.readString(16);
+        l.type = b.readUtf(16);
         l.page = b.readInt();
         l.pages = b.readInt();
         l.total = b.readInt();
@@ -169,9 +169,9 @@ public final class AdminData {
         for (int i = 0; i < n; i++) {
             LogRow r = new LogRow();
             r.ts = b.readLong();
-            r.a = b.readString(1024);
-            r.b = b.readString(1024);
-            r.c = b.readString(1024);
+            r.a = b.readUtf(1024);
+            r.b = b.readUtf(1024);
+            r.c = b.readUtf(1024);
             l.rows.add(r);
         }
         return l;

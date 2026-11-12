@@ -106,7 +106,7 @@ public final class RulesScreen extends FlowScreen {
         button(ms, onAccept != null ? "ACCEPT SI INTRA" : "ACCEPT", px + pw - 154, by, 140, 22, mx, my, checked && canCheck, Theme.OK, () -> {
             Rules.accept();
             if (onAccept != null) onAccept.run();
-            else closeScreen();
+            else onClose();
         });
     }
 
