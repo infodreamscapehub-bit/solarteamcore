@@ -32,7 +32,7 @@ public final class ModContent {
     };
 
     public static Item.Properties props() {
-        return props().tab(TAB);
+        return new Item.Properties().tab(TAB);
     }
 
     public static final RegistryObject<Item> MDT_TABLET = ITEMS.register("mdt_tablet", MdtItem::new);
