@@ -33,6 +33,8 @@ public final class MapsClient extends JsonClientModule {
     private static MapView radar;
     private static long lastRoute;
     private static long waitingSince;
+    private static byte[][] parts;
+    private static String partVersion = "";
     private static int lastZoneId = -2;
     /** Zona curenta a jucatorului (null = in afara zonelor). */
     public static MapsState.Zone currentZone;
@@ -54,6 +56,39 @@ public final class MapsClient extends JsonClientModule {
                     MapsState.pois.add(p);
                 }
             }
+        });
+        on("citymap_info", d -> {
+            String v = str(d, "v", "");
+            if (v.isEmpty()) return;
+            if (!v.equals(cityVersion()) || MapCache.chunkCount() < 50) {
+                JsonObject o = new JsonObject();
+                o.addProperty("have", MapCache.chunkCount() < 50 ? "" : cityVersion());
+                send("citymap_req", o);
+            }
+        });
+        on("citymap_part", d -> {
+            String v = str(d, "v", "");
+            int n = integer(d, "n", 0);
+            int i = integer(d, "i", 0);
+            if (n <= 0 || n > 400 || i < 0 || i >= n) return;
+            if (!v.equals(partVersion) || parts == null || parts.length != n) {
+                partVersion = v;
+                parts = new byte[n][];
+            }
+            parts[i] = java.util.Base64.getDecoder().decode(str(d, "d", ""));
+            for (byte[] p : parts) if (p == null) return;
+            int len = 0;
+            for (byte[] p : parts) len += p.length;
+            byte[] all = new byte[len];
+            int off = 0;
+            for (byte[] p : parts) {
+                System.arraycopy(p, 0, all, off, p.length);
+                off += p.length;
+            }
+            parts = null;
+            MapCache.mergeServer(all);
+            saveCityVersion(v);
+            NotifyToasts.add("OK", "Harta orasului", "Harta orasului a fost actualizata.");
         });
         on("wps", d -> {
             MapsState.wps.clear();
@@ -143,6 +178,35 @@ public final class MapsClient extends JsonClientModule {
     public static void registerKeys() {
         openKey = new KeyBinding("key.flowcity.map", GLFW.GLFW_KEY_M, "key.categories.flowcity");
         ClientRegistry.registerKeyBinding(openKey);
+    }
+
+    private static java.nio.file.Path cityVerFile() {
+        return net.minecraftforge.fml.loading.FMLPaths.GAMEDIR.get().resolve("flowcity-mapcache").resolve("citymap.ver");
+    }
+
+    private static String cityVersion() {
+        try {
+            return new String(java.nio.file.Files.readAllBytes(cityVerFile()), java.nio.charset.StandardCharsets.UTF_8).trim();
+        } catch (java.io.IOException e) {
+            return "";
+        }
+    }
+
+    private static void saveCityVersion(String v) {
+        try {
+            java.nio.file.Files.createDirectories(cityVerFile().getParent());
+            java.nio.file.Files.write(cityVerFile(), v.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (java.io.IOException ignored) {
+            // nu e critic
+        }
+    }
+
+    /** Admin: scaneaza orasul in jurul tau pe server (raza in blocuri). */
+    public static void scanCity(int radius) {
+        if (instance == null) return;
+        JsonObject o = new JsonObject();
+        o.addProperty("r", radius);
+        instance.send("citymap_scan", o);
     }
 
     public static void requestPois() {

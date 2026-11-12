@@ -964,6 +964,19 @@ public final class MapScreen extends FlowScreen {
             int by2 = yy + (i / 2) * 19;
             button(ms, items[i][0], bx, by2, hw, 16, mx, my, true, Theme.PANEL_3, () -> MapsClient.give(it));
         }
+        yy += 3 * 19 + 8;
+        Ui.smallCaps(ms, "Harta orasului", rx, yy, Theme.MUTED);
+        yy += 12;
+        int tw3 = (rw - 8) / 3;
+        int[] radii = {256, 512, 1024};
+        for (int i = 0; i < 3; i++) {
+            final int r = radii[i];
+            button(ms, "R " + r, rx + i * (tw3 + 4), yy, tw3, 16, mx, my, true, 0xFF0E6F82, () -> {
+                MapsClient.scanCity(r);
+                toast("Scanare ceruta (raza " + r + ").", false);
+            });
+        }
+        Ui.text(ms, "Scaneaza zona din jurul tau.", rx, yy + 20, Theme.FAINT);
     }
 
     private int key(MatrixStack ms, int x, int y, String k, String label) {

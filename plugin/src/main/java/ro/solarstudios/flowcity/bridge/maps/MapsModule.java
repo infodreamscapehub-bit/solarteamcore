@@ -96,6 +96,28 @@ public final class MapsModule extends JsonModule {
         reloadZones(false);
 
         on("pois", (p, j) -> sendPois(p));
+        on("citymap_req", (p, j) -> sendCityMap(p, str(j, "have", "")));
+        on("citymap_scan", (p, j) -> {
+            if (!p.hasPermission("flowcity.maps.admin")) {
+                plugin.channel().toast(p, "Nu ai permisiunea.", true);
+                return;
+            }
+            int r = Math.max(64, Math.min(1024, integer(j, "r", 512)));
+            int cx = p.getLocation().getBlockX();
+            int cz = p.getLocation().getBlockZ();
+            try {
+                Class<?> g = Class.forName("ro.solarstudios.flowcity.content.CityMapScanner");
+                Object res = g.getMethod("start", int.class, int.class, int.class, int.class).invoke(null, cx - r, cz - r, cx + r, cz + r);
+                if (res != null) {
+                    plugin.channel().toast(p, String.valueOf(res), true);
+                    return;
+                }
+                plugin.channel().toast(p, "Scanare pornita (raza " + r + "). Dureaza cateva minute.", false);
+                watchScan(p);
+            } catch (ReflectiveOperationException | RuntimeException e) {
+                plugin.channel().toast(p, "Modul FlowCityCore nu e pe server.", true);
+            }
+        });
         on("wp_save", (p, j) -> {
             final int id = integer(j, "id", 0);
             String nm = str(j, "name", "").trim();
@@ -595,6 +617,88 @@ public final class MapsModule extends JsonModule {
         send(p, "zones", d);
     }
 
+    private static java.io.File cityFile() {
+        return new java.io.File("flowcity-citymap.bin");
+    }
+
+    private static String cityVersion() {
+        java.io.File f = cityFile();
+        return f.exists() ? f.lastModified() + ":" + f.length() : "";
+    }
+
+    /** Urmareste scanarea; la final anunta toti jucatorii cu modul ca exista o harta noua. */
+    private void watchScan(Player starter) {
+        final String uid = starter.getUniqueId().toString();
+        new org.bukkit.scheduler.BukkitRunnable() {
+            int ticks;
+
+            @Override
+            public void run() {
+                try {
+                    Class<?> g = Class.forName("ro.solarstudios.flowcity.content.CityMapScanner");
+                    boolean running = (Boolean) g.getMethod("running").invoke(null);
+                    Player p = Bukkit.getPlayer(java.util.UUID.fromString(uid));
+                    if (running) {
+                        if (++ticks % 3 == 0 && p != null) {
+                            plugin.channel().toast(p, "Scanare harta: " + g.getMethod("done").invoke(null) + "/" + g.getMethod("total").invoke(null) + " chunk-uri", false);
+                        }
+                        return;
+                    }
+                    if (p != null) plugin.channel().toast(p, "Scanare terminata! Se trimite harta jucatorilor.", false);
+                    for (Player o : Bukkit.getOnlinePlayers()) if (plugin.channel().hasMod(o)) sendCityInfo(o);
+                } catch (ReflectiveOperationException | RuntimeException ignored) {
+                    // oprim urmarirea
+                }
+                cancel();
+            }
+        }.runTaskTimer(plugin, 100L, 100L);
+    }
+
+    private void sendCityInfo(Player p) {
+        String v = cityVersion();
+        if (v.isEmpty()) return;
+        JsonObject d = new JsonObject();
+        d.addProperty("v", v);
+        send(p, "citymap_info", d);
+    }
+
+    /** Trimite fisierul in bucati (cate 2 pe tick), daca clientul nu are deja versiunea curenta. */
+    private void sendCityMap(Player p, String have) {
+        final String v = cityVersion();
+        if (v.isEmpty() || v.equals(have)) return;
+        final byte[] all;
+        try {
+            all = java.nio.file.Files.readAllBytes(cityFile().toPath());
+        } catch (java.io.IOException e) {
+            return;
+        }
+        final int chunk = 18000;
+        final int n = (all.length + chunk - 1) / chunk;
+        if (n > 400) return;
+        final String uid = p.getUniqueId().toString();
+        new org.bukkit.scheduler.BukkitRunnable() {
+            int i;
+
+            @Override
+            public void run() {
+                Player q = Bukkit.getPlayer(java.util.UUID.fromString(uid));
+                if (q != null) {
+                    for (int k = 0; k < 2 && i < n; k++, i++) {
+                        int from = i * chunk;
+                        int to = Math.min(all.length, from + chunk);
+                        JsonObject d = new JsonObject();
+                        d.addProperty("v", v);
+                        d.addProperty("i", i);
+                        d.addProperty("n", n);
+                        d.addProperty("d", java.util.Base64.getEncoder().encodeToString(java.util.Arrays.copyOfRange(all, from, to)));
+                        send(q, "citymap_part", d);
+                    }
+                }
+                if (q == null || i >= n) cancel();
+            }
+        }.runTaskTimer(plugin, 1L, 1L);
+    }
+
     /** Waypoint-urile personale ale jucatorului (din DB), trimise pe thread-ul principal. */
     private void sendMine(Player p) {
         final String owner = p.getUniqueId().toString();
@@ -652,5 +756,6 @@ public final class MapsModule extends JsonModule {
     @Override
     public void onClientReady(Player p) {
         sendPois(p);
+        sendCityInfo(p);
     }
 }

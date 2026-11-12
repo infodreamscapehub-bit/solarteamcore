@@ -42,6 +42,7 @@ public final class MapCache {
     private static boolean dirty;
     private static long lastSave;
     private static int tick;
+    private static byte[] pendingServer;
 
     private static long key(int cx, int cz) {
         return ((long) cx << 32) ^ (cz & 0xFFFFFFFFL);
@@ -85,6 +86,11 @@ public final class MapCache {
             SCANNED.clear();
             loadedKey = name;
             load(name);
+            if (pendingServer != null) {
+                byte[] pd = pendingServer;
+                pendingServer = null;
+                mergeServer(pd);
+            }
         }
         tick++;
         int pcx = ((int) Math.floor(p.getPosX())) >> 4;
@@ -144,6 +150,44 @@ public final class MapCache {
             }
         }
         dirty = true;
+    }
+
+    /** Combina harta orasului primita de la server (GZIP, vezi CityMapScanner). Chunk-urile scanate deja de client raman neatinse. */
+    public static void mergeServer(byte[] gz) {
+        if (loadedKey.isEmpty()) {
+            pendingServer = gz;
+            return;
+        }
+        try (DataInputStream in = new DataInputStream(new BufferedInputStream(new GZIPInputStream(new java.io.ByteArrayInputStream(gz))))) {
+            int n = in.readInt();
+            byte[] b = new byte[512];
+            for (int i = 0; i < n; i++) {
+                int cx = in.readInt();
+                int cz = in.readInt();
+                in.readFully(b);
+                long k = key(cx, cz);
+                if (SCANNED.contains(k)) continue;
+                Chunk c = new Chunk();
+                for (int j = 0; j < 256; j++) {
+                    int idx = b[j] & 63;
+                    boolean water = (b[j] & 64) != 0;
+                    net.minecraft.block.material.MaterialColor mc = net.minecraft.block.material.MaterialColor.COLORS[idx];
+                    int rgb = mc == null || mc.colorValue == 0 ? 0x404040 : mc.colorValue;
+                    int h = b[256 + j] & 0xFF;
+                    if (h == 0) {
+                        c.rgb[j] = 0;
+                        c.h[j] = 0;
+                        continue;
+                    }
+                    c.rgb[j] = water ? rgb | WATER : rgb;
+                    c.h[j] = (short) h;
+                }
+                CHUNKS.put(k, c);
+            }
+            dirty = true;
+        } catch (IOException | RuntimeException ignored) {
+            // date stricate: ignorate
+        }
     }
 
     // ------------------------------------------------------------------ disc
