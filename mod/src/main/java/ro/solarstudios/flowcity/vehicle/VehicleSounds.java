@@ -111,7 +111,7 @@ public final class VehicleSounds {
             // motor: merge doar cu sofer si benzina; turatia urca lin dupa viteza
             boolean running = car.getControllingPassenger() != null && car.getFuel() > 0f;
             double v = Math.hypot(car.getX() - car.xo, car.getZ() - car.zo);
-            float target = running ? (float) Math.min(1.0, v / CarEntity.MAX_FORWARD) : 0f;
+            float target = running ? (float) Math.min(1.0, v / car.maxForward()) : 0f;
             rpm += (target - rpm) * 0.15f;
             this.pitch = 0.55f + rpm * 1.15f;
             this.volume = running ? 0.35f + rpm * 0.45f : Math.max(0f, this.volume - 0.05f);

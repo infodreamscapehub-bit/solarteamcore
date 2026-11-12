@@ -49,7 +49,6 @@ public class CarEntity extends Entity {
     public static final int V_SEDAN = 0;
     public static final int V_POLICE = 1;
     public static final int V_TAXI = 2;
-    public static final String[] VARIANT_NAMES = {"Sedan", "Politie", "Taxi"};
 
     /** Viteze in blocuri/tick (1.0 = 72 km/h). */
     public static final double MAX_FORWARD = 1.35;
@@ -120,11 +119,24 @@ public class CarEntity extends Entity {
     }
 
     public void setVariant(int v) {
-        this.entityData.set(VARIANT, Mth.clamp(v, 0, VARIANT_NAMES.length - 1));
+        this.entityData.set(VARIANT, Mth.clamp(v, 0, VehicleTypes.TYPES.length - 1));
     }
 
+    public VehicleTypes.Type type() {
+        return VehicleTypes.get(getVariant());
+    }
+
+    /** Are girofar (politie, jandarmerie, ambulanta, primarie, service). */
     public boolean hasSiren() {
-        return getVariant() == V_POLICE;
+        return type().livery.beaconA != 0;
+    }
+
+    public double maxForward() {
+        return MAX_FORWARD * type().speed;
+    }
+
+    public int seatCount() {
+        return type().seats;
     }
 
     public float getFuel() {
@@ -153,7 +165,7 @@ public class CarEntity extends Entity {
     }
 
     public String displayName() {
-        return VARIANT_NAMES[Mth.clamp(getVariant(), 0, VARIANT_NAMES.length - 1)];
+        return type().name;
     }
 
     @Override
@@ -280,7 +292,7 @@ public class CarEntity extends Entity {
             say(player, "Masina e incuiata.");
             return InteractionResult.CONSUME;
         }
-        if (this.getPassengers().size() >= SEATS) return InteractionResult.PASS;
+        if (this.getPassengers().size() >= seatCount()) return InteractionResult.PASS;
         return player.startRiding(this) ? InteractionResult.CONSUME : InteractionResult.PASS;
     }
 
@@ -321,9 +333,9 @@ public class CarEntity extends Entity {
                 break;
             case VehicleNet.SIREN:
                 if (!driver || !hasSiren()) break;
-                // oprit -> girofar -> girofar + sirena -> oprit
+                // oprit -> girofar -> girofar + sirena (daca are) -> oprit
                 if (!flag(F_BEACON)) setFlag(F_BEACON, true);
-                else if (!flag(F_SIREN)) setFlag(F_SIREN, true);
+                else if (!flag(F_SIREN) && type().livery.siren) setFlag(F_SIREN, true);
                 else {
                     setFlag(F_BEACON, false);
                     setFlag(F_SIREN, false);
@@ -360,7 +372,7 @@ public class CarEntity extends Entity {
 
     @Override
     protected boolean canAddPassenger(Entity passenger) {
-        return this.getPassengers().size() < SEATS;
+        return this.getPassengers().size() < seatCount();
     }
 
     @Override
@@ -370,7 +382,7 @@ public class CarEntity extends Entity {
         boolean canDrive = !(passenger instanceof Player pl) || !flag(F_LOCKED) || hasKey(pl);
         int seat = -1;
         if (canDrive && !seats.containsValue(0)) seat = 0;
-        for (int s = 1; s < SEATS && seat < 0; s++) if (!seats.containsValue(s)) seat = s;
+        for (int s = 1; s < seatCount() && seat < 0; s++) if (!seats.containsValue(s)) seat = s;
         seats.put(passenger.getId(), Math.max(0, seat));
         syncSeats();
     }
@@ -386,8 +398,8 @@ public class CarEntity extends Entity {
 
     private void nextSeat(ServerPlayer p) {
         int cur = seats.getOrDefault(p.getId(), 0);
-        for (int i = 1; i < SEATS; i++) {
-            int s = (cur + i) % SEATS;
+        for (int i = 1; i < seatCount(); i++) {
+            int s = (cur + i) % seatCount();
             if (seats.containsValue(s)) continue;
             if (s == 0 && flag(F_LOCKED) && !hasKey(p)) continue;
             seats.put(p.getId(), s);
@@ -434,9 +446,10 @@ public class CarEntity extends Entity {
     protected void positionRider(Entity passenger, MoveFunction move) {
         if (!this.hasPassenger(passenger)) return;
         int seat = seatOf(passenger);
-        if (seat < 0) seat = Math.min(SEATS - 1, this.getPassengers().indexOf(passenger));
+        if (seat < 0) seat = Math.min(seatCount() - 1, this.getPassengers().indexOf(passenger));
+        VehicleTypes.Spec spec = VehicleTypes.SPECS[type().body];
         double side = (seat % 2 == 0) ? -0.42 : 0.42;     // sofer pe stanga
-        double fwd = seat < 2 ? 0.35 : -0.75;
+        double fwd = seat < 2 ? spec.seatFront : spec.seatRear;
         float yaw = this.getYRot() * Mth.DEG_TO_RAD;
         double fx = -Mth.sin(yaw);
         double fz = Mth.cos(yaw);
@@ -444,7 +457,7 @@ public class CarEntity extends Entity {
         double rz = -Mth.sin(yaw);
         double x = this.getX() + fx * fwd + rx * side;
         double z = this.getZ() + fz * fwd + rz * side;
-        move.accept(passenger, x, this.getY() + 0.28, z);
+        move.accept(passenger, x, this.getY() + spec.seatY, z);
         passenger.setYRot(passenger.getYRot() + (this.getYRot() - this.yRotO));
         passenger.setYHeadRot(passenger.getYHeadRot() + (this.getYRot() - this.yRotO));
     }
@@ -530,21 +543,23 @@ public class CarEntity extends Entity {
     private void drive() {
         boolean driver = getControllingPassenger() != null;
         boolean engine = getFuel() > 0f;
+        double maxF = maxForward();
+        double acc = ACCEL * type().accel;
         if (driver) {
-            if (inUp && !inDown) speed += speed < 0 ? BRAKE : (engine ? ACCEL * (1.0 - 0.55 * Math.min(1.0, speed / MAX_FORWARD)) : -COAST);
-            else if (inDown && !inUp) speed -= speed > 0 ? BRAKE : (engine ? ACCEL * 0.6 : -COAST);
+            if (inUp && !inDown) speed += speed < 0 ? BRAKE : (engine ? acc * (1.0 - 0.55 * Math.min(1.0, speed / maxF)) : -COAST);
+            else if (inDown && !inUp) speed -= speed > 0 ? BRAKE : (engine ? acc * 0.6 : -COAST);
             else speed = coast(speed);
             if (inBrake) speed = coast(coast(coast(speed)));
             if (!engine) speed = coast(speed);
         } else {
             speed = coast(coast(speed));
         }
-        speed = Mth.clamp(speed, -MAX_REVERSE, MAX_FORWARD);
+        speed = Mth.clamp(speed, -MAX_REVERSE, maxF);
 
         float turn = (inRight ? 1 : 0) - (inLeft ? 1 : 0);
         if (driver && turn != 0 && Math.abs(speed) > 0.02) {
             double grip = Math.min(1.0, Math.abs(speed) / 0.45);
-            double rate = 3.6 * grip * (1.0 - 0.45 * Math.min(1.0, Math.abs(speed) / MAX_FORWARD));
+            double rate = 3.6 * grip * (1.0 - 0.45 * Math.min(1.0, Math.abs(speed) / maxF));
             float yaw = this.getYRot() + (float) (turn * rate * Math.signum(speed));
             this.setYRot(yaw);
         }

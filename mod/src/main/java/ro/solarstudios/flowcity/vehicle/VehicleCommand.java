@@ -18,7 +18,7 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 /**
  * Comenzi de server pentru vehicule (nivel 2, folosite si de pluginul bridge dupa plata):
  * /fcveh fuel &lt;uuid-masina&gt; &lt;litri&gt;, /fcveh fuelcan &lt;jucator&gt; &lt;litri&gt;,
- * /fcveh key &lt;jucator&gt; (cheie dublura pentru masina in care sta jucatorul), /fcveh variant &lt;jucator&gt; &lt;0-2&gt;.
+ * /fcveh key &lt;jucator&gt; (cheie dublura pentru masina in care sta jucatorul), /fcveh variant &lt;jucator&gt; &lt;0-11&gt;.
  */
 public final class VehicleCommand {
     @SubscribeEvent
@@ -61,7 +61,7 @@ public final class VehicleCommand {
                 })))
             .then(Commands.literal("variant")
                 .then(Commands.argument("player", EntityArgument.player())
-                    .then(Commands.argument("variant", IntegerArgumentType.integer(0, CarEntity.VARIANT_NAMES.length - 1)).executes(c -> {
+                    .then(Commands.argument("variant", IntegerArgumentType.integer(0, VehicleTypes.TYPES.length - 1)).executes(c -> {
                         ServerPlayer p = EntityArgument.getPlayer(c, "player");
                         if (!(p.getVehicle() instanceof CarEntity car)) return 0;
                         car.setVariant(IntegerArgumentType.getInteger(c, "variant"));

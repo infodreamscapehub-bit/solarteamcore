@@ -45,7 +45,7 @@ public class CarItem extends Item {
     @Override
     public void appendHoverText(ItemStack st, @Nullable Level level, List<Component> tip, TooltipFlag flag) {
         int v = st.hasTag() ? st.getTag().getInt("Variant") : 0;
-        tip.add(Component.literal(CarEntity.VARIANT_NAMES[Math.max(0, Math.min(CarEntity.VARIANT_NAMES.length - 1, v))]).withStyle(net.minecraft.ChatFormatting.GOLD));
+        tip.add(Component.literal(VehicleTypes.get(v).name).withStyle(net.minecraft.ChatFormatting.GOLD));
         tip.add(Component.literal("Click pe sol: pui masina si primesti cheia.").withStyle(net.minecraft.ChatFormatting.GRAY));
     }
 }

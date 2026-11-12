@@ -50,7 +50,10 @@ public final class CarClient {
     }
 
     private static void layers(EntityRenderersEvent.RegisterLayerDefinitions e) {
-        e.registerLayerDefinition(CarModel.LAYER, CarModel::createLayer);
+        for (int i = 0; i < CarModel.LAYERS.length; i++) {
+            final int body = i;
+            e.registerLayerDefinition(CarModel.LAYERS[i], () -> CarModel.createLayer(body));
+        }
     }
 
     private static void renderers(EntityRenderersEvent.RegisterRenderers e) {
@@ -120,6 +123,7 @@ public final class CarClient {
         String sp = String.valueOf(kmh);
         g.pose().pushPose();
         g.pose().translate(x + 10, y + 8, 0);
+        // nume vehicul deasupra bordului
         g.pose().scale(2f, 2f, 1f);
         Ui.text(g, sp, 0, 0, Theme.TEXT);
         g.pose().popPose();
