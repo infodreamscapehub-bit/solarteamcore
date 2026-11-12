@@ -62,6 +62,14 @@ public final class HypeModule extends JsonModule implements Listener {
         String name;
         String desc;
         String summary;
+        String category = "Diverse";
+        String difficulty = "Usor";
+        List<String> tasks = new ArrayList<>();
+        boolean hasLoc;
+        double lx;
+        double ly;
+        double lz;
+        String locName = "";
         int limitPerMinute;
         final JobRules rules = new JobRules();
     }
@@ -146,6 +154,17 @@ public final class HypeModule extends JsonModule implements Listener {
             j.desc = s.getString("desc", "");
             j.summary = s.getString("summary", "");
             j.limitPerMinute = s.getInt("limit-per-minute", 0);
+            j.category = s.getString("category", "Diverse");
+            j.difficulty = s.getString("difficulty", "Usor");
+            j.tasks = new ArrayList<>(s.getStringList("tasks"));
+            ConfigurationSection loc = s.getConfigurationSection("location");
+            if (loc != null && loc.contains("x") && loc.contains("z")) {
+                j.hasLoc = true;
+                j.lx = loc.getDouble("x");
+                j.ly = loc.getDouble("y", 64);
+                j.lz = loc.getDouble("z");
+                j.locName = loc.getString("name", j.name);
+            }
             for (Map<?, ?> m : s.getMapList("rules")) {
                 Object ev = m.get("event");
                 Object mats = m.get("materials");
@@ -529,6 +548,17 @@ public final class HypeModule extends JsonModule implements Listener {
             j.addProperty("name", jd.name);
             j.addProperty("desc", jd.desc);
             j.addProperty("summary", jd.summary);
+            j.addProperty("category", jd.category);
+            j.addProperty("difficulty", jd.difficulty);
+            JsonArray ts = new JsonArray();
+            for (String t : jd.tasks) ts.add(t);
+            j.add("tasks", ts);
+            if (jd.hasLoc) {
+                j.addProperty("hasLoc", true);
+                j.addProperty("lx", jd.lx);
+                j.addProperty("lz", jd.lz);
+                j.addProperty("locName", jd.locName);
+            }
             j.addProperty("level", lvl);
             j.addProperty("xp", HypeMath.xpIntoLevel(total, base, growth, max));
             j.addProperty("xpNeed", lvl >= max ? 0 : HypeMath.xpForLevel(lvl, base, growth));
@@ -709,7 +739,7 @@ public final class HypeModule extends JsonModule implements Listener {
         Commands.register(plugin, "hype", "flowcity.hype.admin", (s, c, l, a) -> {
             hypeAdmin(s, a);
             return true;
-        }, (s, c, l, a) -> a.length == 1 ? Commands.filter(java.util.Arrays.asList("atm", "reload"), a[0])
+        }, (s, c, l, a) -> a.length == 1 ? Commands.filter(java.util.Arrays.asList("atm", "jobloc", "reload"), a[0])
             : a.length == 2 && "atm".equalsIgnoreCase(a[0]) ? Commands.filter(java.util.Arrays.asList("set", "remove", "list"), a[1])
             : new ArrayList<String>());
     }
@@ -758,6 +788,31 @@ public final class HypeModule extends JsonModule implements Listener {
             }
             return;
         }
-        s.sendMessage("§7/hype atm <set|remove|list> | /hype reload");
+        if (a.length >= 2 && "jobloc".equalsIgnoreCase(a[0])) {
+            if (!(s instanceof Player)) {
+                s.sendMessage("Doar jucatorii pot folosi aceasta comanda.");
+                return;
+            }
+            Player p = (Player) s;
+            String id = a[1].toLowerCase(Locale.ROOT);
+            JobDef jd = jobs.get(id);
+            if (jd == null) {
+                p.sendMessage("§cJob necunoscut. Joburi: " + String.join(", ", jobs.keySet()));
+                return;
+            }
+            String base = "jobs.list." + id + ".location";
+            if (a.length >= 3 && "clear".equalsIgnoreCase(a[2])) cfg.set(base, null);
+            else {
+                cfg.set(base + ".x", Math.round(p.getLocation().getX() * 10) / 10.0);
+                cfg.set(base + ".y", Math.round(p.getLocation().getY() * 10) / 10.0);
+                cfg.set(base + ".z", Math.round(p.getLocation().getZ() * 10) / 10.0);
+                cfg.set(base + ".name", a.length >= 3 ? String.join(" ", java.util.Arrays.copyOfRange(a, 2, a.length)) : jd.name);
+            }
+            ModConfig.save(cfg, plugin, "hype");
+            loadJobs();
+            p.sendMessage("§aLocatia jobului " + jd.name + " a fost actualizata (butonul GPS din ecranul de joburi).");
+            return;
+        }
+        s.sendMessage("§7/hype atm <set|remove|list> | /hype jobloc <job> [nume|clear] | /hype reload");
     }
 }

@@ -32,6 +32,12 @@ jobs:
   trash-block: CAULDRON     # Gunoier: click dreapta cu un obiect pe acest bloc
   list:
     miner:
+      category: "Resurse"
+      difficulty: "Mediu"
+      tasks:
+        - "Mergi in mina si sparge minereuri"
+        - "Vinde-ti resursele sau pastreaza-le"
+        - "Creste in nivel pentru bonus la plata"
       name: "Miner"
       desc: "Sparge minereuri si primesti bani si XP."
       summary: "Minereuri: 1.5-8$ / bloc"
@@ -43,6 +49,12 @@ jobs:
         - {event: break, materials: [DIAMOND_ORE, EMERALD_ORE], pay: 8, xp: 12}
         - {event: break, materials: [ANCIENT_DEBRIS], pay: 15, xp: 20}
     fisher:
+      category: "Resurse"
+      difficulty: "Usor"
+      tasks:
+        - "Ia o undita si mergi la apa"
+        - "Pescuieste pesti si obiecte rare"
+        - "Fiecare captura se plateste"
       name: "Pescar"
       desc: "Pescuieste pesti cu undita."
       summary: "Peste prins: 3-12$"
@@ -52,6 +64,12 @@ jobs:
         - {event: fish, materials: [TROPICAL_FISH, PUFFERFISH], pay: 6, xp: 8}
         - {event: fish, materials: [NAUTILUS_SHELL, NAME_TAG, SADDLE, ENCHANTED_BOOK, BOW, FISHING_ROD], pay: 12, xp: 15}
     farmer:
+      category: "Resurse"
+      difficulty: "Usor"
+      tasks:
+        - "Recolteaza doar culturile coapte"
+        - "Replanteaza ca sa ai de lucru"
+        - "Platesti-te pe fiecare bucata"
       name: "Fermier"
       desc: "Recolteaza culturi coapte."
       summary: "Culturi coapte: 1-2.5$ / bucata"
@@ -61,6 +79,12 @@ jobs:
         - {event: break, materials: [PUMPKIN, MELON], pay: 2.5, xp: 3}
         - {event: break, materials: [SWEET_BERRY_BUSH, COCOA], mature: true, placed-check: false, pay: 1.5, xp: 2}
     lumberjack:
+      category: "Resurse"
+      difficulty: "Usor"
+      tasks:
+        - "Taie copaci cu toporul"
+        - "Lemnul exotic se plateste mai bine"
+        - "Planteaza butasi dupa taiere"
       name: "Padurar"
       desc: "Taie copaci."
       summary: "Busteni: 1.2-1.8$ / bustean"
@@ -69,6 +93,12 @@ jobs:
         - {event: break, materials: ["*_LOG", "*_STEM"], pay: 1.2, xp: 2}
         - {event: break, materials: [DARK_OAK_LOG, JUNGLE_LOG, ACACIA_LOG], pay: 1.8, xp: 3}
     gardener:
+      category: "Resurse"
+      difficulty: "Usor"
+      tasks:
+        - "Aduna flori de pe teren"
+        - "Planteaza butasi noi"
+        - "Primesti plata pe fiecare"
       name: "Gradinar"
       desc: "Aduna flori si planteaza butasi."
       summary: "Flori: 1.5$, butasi: 0.8$"
@@ -77,6 +107,12 @@ jobs:
         - {event: break, materials: [DANDELION, POPPY, BLUE_ORCHID, ALLIUM, AZURE_BLUET, "*_TULIP", OXEYE_DAISY, CORNFLOWER, LILY_OF_THE_VALLEY, SUNFLOWER, LILAC, ROSE_BUSH, PEONY], pay: 1.5, xp: 2}
         - {event: place, materials: ["*_SAPLING"], pay: 0.8, xp: 1}
     electrician:
+      category: "Servicii"
+      difficulty: "Mediu"
+      tasks:
+        - "Instaleaza redstone, lampi si repetitoare"
+        - "Foloseste obiecte puse chiar de tine"
+        - "Plata pe fiecare instalatie"
       name: "Electrician"
       desc: "Instaleaza instalatii: redstone, lampi, repetitoare."
       summary: "Instalatii plasate: 1-2.5$"
@@ -85,6 +121,12 @@ jobs:
         - {event: place, materials: [REDSTONE_WIRE, REDSTONE_TORCH, REPEATER, COMPARATOR], pay: 1.0, xp: 1}
         - {event: place, materials: [REDSTONE_LAMP, LEVER, "*_BUTTON", "*_PRESSURE_PLATE", OBSERVER, DAYLIGHT_DETECTOR], pay: 2.0, xp: 2}
     garbage:
+      category: "Servicii"
+      difficulty: "Usor"
+      tasks:
+        - "Strange gunoiul din oras"
+        - "Da click dreapta pe un cos cu gunoi in mana"
+        - "Primesti plata pe obiect"
       name: "Gunoier"
       desc: "Da click dreapta pe un cos (cazan) cu gunoi in mana."
       summary: "Gunoi aruncat: 0.5-1$ / obiect"
@@ -93,6 +135,12 @@ jobs:
         - {event: trash, materials: [ROTTEN_FLESH, STICK, BONE, STRING, SPIDER_EYE, PAPER, GLASS_BOTTLE, LEATHER, FEATHER, BOWL, POISONOUS_POTATO], pay: 0.5, xp: 1}
         - {event: trash, materials: [GUNPOWDER, SLIME_BALL, INK_SAC, FLINT], pay: 1.0, xp: 2}
     diver:
+      category: "Resurse"
+      difficulty: "Greu"
+      tasks:
+        - "Scufunda-te cu echipament"
+        - "Aduna resurse de pe fundul apei"
+        - "Obiectele rare platesc cel mai bine"
       name: "Scafandru"
       desc: "Colecteaza resurse de sub apa (kelp, bureti, muraturi)."
       summary: "Resurse subacvatice: 1-6$"
