@@ -1,6 +1,6 @@
 package ro.solarstudios.flowcity.notify;
 
-import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.GuiGraphics;
 import java.util.List;
 import ro.solarstudios.flowcity.client.ui.FlowScreen;
 import ro.solarstudios.flowcity.client.ui.Theme;
@@ -16,7 +16,7 @@ public final class NotifyScreen extends FlowScreen {
     }
 
     @Override
-    protected void draw(MatrixStack ms, int mx, int my) {
+    protected void draw(GuiGraphics ms, int mx, int my) {
         header(ms, "Notificari", NotifyState.history.size() + " in istoric", mx, my);
         int x = px + 8;
         int top = py + HEAD + 8;

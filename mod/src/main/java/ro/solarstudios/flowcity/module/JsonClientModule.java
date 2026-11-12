@@ -8,7 +8,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
-import net.minecraft.network.PacketBuffer;
+import net.minecraft.network.FriendlyByteBuf;
 import ro.solarstudios.flowcity.client.ClientBridge;
 
 /**
@@ -35,7 +35,7 @@ public abstract class JsonClientModule implements ClientModule {
     }
 
     @Override
-    public final void onMessage(String action, PacketBuffer buf) {
+    public final void onMessage(String action, FriendlyByteBuf buf) {
         Consumer<JsonObject> h = handlers.get(action);
         if (h == null) return;
         try {

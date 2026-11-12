@@ -1,58 +1,63 @@
 package ro.solarstudios.flowcity.client.ui;
 
-import com.mojang.blaze3d.matrix.MatrixStack;
+import com.mojang.blaze3d.systems.RenderSystem;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.AbstractGui;
-import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
 
-/** Primitive de desenare pentru panou (mod imediat: se redeseneaza la fiecare frame). */
+/** Primitive de desen pentru interfata FlowCity (dreptunghiuri, text, small caps). */
 public final class Ui {
     private Ui() {}
 
-    private static FontRenderer font() {
-        return Minecraft.getInstance().fontRenderer;
+    private static Font font() {
+        return Minecraft.getInstance().font;
     }
 
-    public static void rect(MatrixStack ms, int x, int y, int w, int h, int color) {
-        AbstractGui.fill(ms, x, y, x + w, y + h, color);
+    public static void rect(GuiGraphics g, int x, int y, int w, int h, int color) {
+        g.fill(x, y, x + w, y + h, color);
     }
 
     /** Dreptunghi cu colturi usor rotunjite (1px). */
-    public static void round(MatrixStack ms, int x, int y, int w, int h, int color) {
+    public static void round(GuiGraphics g, int x, int y, int w, int h, int color) {
         if (w < 3 || h < 3) {
-            rect(ms, x, y, w, h, color);
+            rect(g, x, y, w, h, color);
             return;
         }
-        rect(ms, x + 1, y, w - 2, h, color);
-        rect(ms, x, y + 1, w, h - 2, color);
+        rect(g, x + 1, y, w - 2, h, color);
+        rect(g, x, y + 1, w, h - 2, color);
     }
 
     /** Dreptunghi rotunjit cu contur de 1px. */
-    public static void frame(MatrixStack ms, int x, int y, int w, int h, int fill, int border) {
-        round(ms, x, y, w, h, border);
-        round(ms, x + 1, y + 1, w - 2, h - 2, fill);
+    public static void frame(GuiGraphics g, int x, int y, int w, int h, int fill, int border) {
+        round(g, x, y, w, h, border);
+        round(g, x + 1, y + 1, w - 2, h - 2, fill);
+    }
+
+    /** Gradient vertical (de sus in jos). */
+    public static void gradient(GuiGraphics g, int x, int y, int w, int h, int top, int bottom) {
+        g.fillGradient(x, y, x + w, y + h, top, bottom);
     }
 
     public static int width(String s) {
-        return font().getStringWidth(s);
+        return font().width(s);
     }
 
-    public static void text(MatrixStack ms, String s, int x, int y, int color) {
-        font().drawString(ms, s, (float) x, (float) y, color);
+    public static void text(GuiGraphics g, String s, int x, int y, int color) {
+        g.drawString(font(), s, x, y, color, false);
     }
 
-    public static void textShadow(MatrixStack ms, String s, int x, int y, int color) {
-        font().drawStringWithShadow(ms, s, (float) x, (float) y, color);
+    public static void textShadow(GuiGraphics g, String s, int x, int y, int color) {
+        g.drawString(font(), s, x, y, color, true);
     }
 
-    public static void textRight(MatrixStack ms, String s, int xRight, int y, int color) {
-        text(ms, s, xRight - width(s), y, color);
+    public static void textRight(GuiGraphics g, String s, int xRight, int y, int color) {
+        text(g, s, xRight - width(s), y, color);
     }
 
-    public static void textCenter(MatrixStack ms, String s, int cx, int y, int color) {
-        text(ms, s, cx - width(s) / 2, y, color);
+    public static void textCenter(GuiGraphics g, String s, int cx, int y, int color) {
+        text(g, s, cx - width(s) / 2, y, color);
     }
 
     /** Taie textul la latimea data, cu "..." la final. */
@@ -71,10 +76,10 @@ public final class Ui {
     }
 
     /** Bara de progres (frac 0..1). */
-    public static void bar(MatrixStack ms, int x, int y, int w, int h, float frac, int color) {
-        round(ms, x, y, w, h, Theme.PANEL_3);
+    public static void bar(GuiGraphics g, int x, int y, int w, int h, float frac, int color) {
+        round(g, x, y, w, h, Theme.PANEL_3);
         int fw = Math.round((w - 2) * Math.max(0f, Math.min(1f, frac)));
-        if (fw > 0) rect(ms, x + 1, y + 1, fw, h - 2, color);
+        if (fw > 0) rect(g, x + 1, y + 1, fw, h - 2, color);
     }
 
     /** Suma formatata: 1 234 567 (separator de mii cu spatiu), fara zecimale daca e intreaga. */
@@ -109,19 +114,19 @@ public final class Ui {
 
     /** Decupare dreptunghiulara (coordonate GUI). Se inchide cu {@link #endScissor()}. */
     public static void scissor(int x, int y, int w, int h) {
-        net.minecraft.client.MainWindow win = net.minecraft.client.Minecraft.getInstance().getMainWindow();
-        double sc = win.getGuiScaleFactor();
-        com.mojang.blaze3d.systems.RenderSystem.enableScissor((int) (x * sc), (int) (win.getFramebufferHeight() - (y + h) * sc), Math.max(0, (int) (w * sc)), Math.max(0, (int) (h * sc)));
+        com.mojang.blaze3d.platform.Window win = Minecraft.getInstance().getWindow();
+        double sc = win.getGuiScale();
+        RenderSystem.enableScissor((int) (x * sc), (int) (win.getHeight() - (y + h) * sc), Math.max(0, (int) (w * sc)), Math.max(0, (int) (h * sc)));
     }
 
     public static void endScissor() {
-        com.mojang.blaze3d.systems.RenderSystem.disableScissor();
+        RenderSystem.disableScissor();
     }
 
     private static final float SC = 0.78f;
 
     /** Text in small caps: prima litera din fiecare cuvant normala, restul majuscule mai mici. */
-    public static void smallCaps(MatrixStack ms, String text, int x, int y, int color) {
+    public static void smallCaps(GuiGraphics g, String text, int x, int y, int color) {
         float cx = x;
         boolean word = true;
         for (int i = 0; i < text.length(); i++) {
@@ -133,11 +138,11 @@ public final class Ui {
             }
             boolean small = !word && Character.isLowerCase(c);
             String ch = String.valueOf(word || small ? Character.toUpperCase(c) : c);
-            ms.push();
-            ms.translate(cx, small ? y + 1.5f : y, 0);
-            if (small) ms.scale(SC, SC, 1f);
-            text(ms, ch, 0, 0, color);
-            ms.pop();
+            g.pose().pushPose();
+            g.pose().translate(cx, small ? y + 1.5f : y, 0);
+            if (small) g.pose().scale(SC, SC, 1f);
+            text(g, ch, 0, 0, color);
+            g.pose().popPose();
             cx += width(ch) * (small ? SC : 1f);
             word = false;
         }

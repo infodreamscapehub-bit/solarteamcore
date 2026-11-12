@@ -1,8 +1,8 @@
 package ro.solarstudios.flowcity.net;
 
-import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.fml.network.NetworkRegistry;
-import net.minecraftforge.fml.network.event.EventNetworkChannel;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraftforge.network.NetworkRegistry;
+import net.minecraftforge.network.event.EventNetworkChannel;
 
 /** Canalul flowcity:bridge si codurile de operatie (identice cu pluginul FlowCityBridge). */
 public final class Bridge {
@@ -36,6 +36,10 @@ public final class Bridge {
 
     /** Canal de tip "event": primeste bytes bruti; accepta orice versiune / server fara canal (ABSENT). */
     public static void init() {
-        channel = NetworkRegistry.newEventChannel(ID, () -> String.valueOf(PROTOCOL), v -> true, v -> true);
+        channel = NetworkRegistry.ChannelBuilder.named(ID)
+            .networkProtocolVersion(() -> String.valueOf(PROTOCOL))
+            .clientAcceptedVersions(v -> true)
+            .serverAcceptedVersions(v -> true)
+            .eventNetworkChannel();
     }
 }

@@ -1,60 +1,45 @@
-buildscript {
-    repositories {
-        maven { url = 'https://maven.minecraftforge.net' }
-        mavenCentral()
-    }
-    dependencies {
-        classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '5.1.+', changing: true
-    }
+plugins {
+    id 'java'
+    id 'net.minecraftforge.gradle' version '[6.0.24,6.2)'
 }
-
-apply plugin: 'net.minecraftforge.gradle'
-apply plugin: 'eclipse'
-apply plugin: 'maven-publish'
 
 version = '1.0.0'
 group = 'ro.solarstudios.flowcity'
-archivesBaseName = 'FlowCityCore-1.16.5'
+base { archivesName = 'FlowCityCore-1.20.1' }
 
-// Foloseste un JDK 8 pentru Forge 1.16.5
-java.toolchain.languageVersion = JavaLanguageVersion.of(8)
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
 minecraft {
-    mappings channel: 'snapshot', version: '20210309-1.16.5'
+    mappings channel: 'official', version: '1.20.1'
 
     runs {
-        server {
-            workingDirectory project.file('run-server')
+        configureEach {
             property 'forge.logging.console.level', 'info'
-            args '--nogui'
             mods {
                 flowcitycore {
                     source sourceSets.main
                 }
             }
         }
+        server {
+            workingDirectory project.file('run-server')
+            args '--nogui'
+        }
         client {
             workingDirectory project.file('run')
-            property 'forge.logging.markers', 'REGISTRIES'
-            property 'forge.logging.console.level', 'debug'
-            mods {
-                flowcitycore {
-                    source sourceSets.main
-                }
-            }
         }
     }
 }
 
-sourceSets.main.resources { srcDir 'src/generated/resources' }
-
-dependencies {
-    minecraft 'net.minecraftforge:forge:1.16.5-36.2.39'
-    // API PlasmoVoice 2.1.8 (doar la compilare; modul real e pe server)
-    compileOnly files('libs/plasmovoice-api.jar')
+repositories {
+    mavenCentral()
 }
 
-jar {
+dependencies {
+    minecraft 'net.minecraftforge:forge:1.20.1-47.3.0'
+}
+
+tasks.named('jar', Jar).configure {
     manifest {
         attributes([
             "Specification-Title"     : "flowcitycore",
@@ -66,10 +51,9 @@ jar {
             "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
         ])
     }
+    finalizedBy 'reobfJar'
 }
 
-jar.finalizedBy('reobfJar')
-
-tasks.withType(JavaCompile) {
+tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
 }

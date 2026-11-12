@@ -1,11 +1,11 @@
 package ro.solarstudios.flowcity.content;
 
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.world.World;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
 import ro.solarstudios.flowcity.client.ClientHooks;
@@ -13,13 +13,13 @@ import ro.solarstudios.flowcity.client.ClientHooks;
 /** Tableta MDT a politiei: click dreapta deschide terminalul (serverul verifica accesul). */
 public class MdtItem extends Item {
     public MdtItem() {
-        super(new Item.Properties().group(ModContent.TAB).maxStackSize(1));
+        super(new Item.Properties().stacksTo(1));
     }
 
     @Override
-    public ActionResult<ItemStack> onItemRightClick(World world, PlayerEntity player, Hand hand) {
-        ItemStack stack = player.getHeldItem(hand);
-        if (world.isRemote) DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> ClientHooks::openMdt);
-        return ActionResult.resultSuccess(stack);
+    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
+        ItemStack stack = player.getItemInHand(hand);
+        if (level.isClientSide) DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> ClientHooks::openMdt);
+        return InteractionResultHolder.sidedSuccess(stack, level.isClientSide);
     }
 }

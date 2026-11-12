@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "flowcitycore:block/bancomat" },
+    "facing=east":  { "model": "flowcitycore:block/bancomat", "y": 90 },
+    "facing=south": { "model": "flowcitycore:block/bancomat", "y": 180 },
+    "facing=west":  { "model": "flowcitycore:block/bancomat", "y": 270 }
+  }
+}

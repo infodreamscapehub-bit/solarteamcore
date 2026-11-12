@@ -1,11 +1,11 @@
 package ro.solarstudios.flowcity.notify;
 
-import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.GuiGraphics;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import net.minecraft.client.Minecraft;
-import net.minecraftforge.client.event.RenderGameOverlayEvent;
+import net.minecraftforge.client.event.RenderGuiEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import ro.solarstudios.flowcity.client.ui.Theme;
 import ro.solarstudios.flowcity.client.ui.Ui;
@@ -64,7 +64,7 @@ public final class NotifyToasts {
     private static boolean broken;
 
     @SubscribeEvent
-    public void onRender(RenderGameOverlayEvent.Post e) {
+    public void onRender(RenderGuiEvent.Post e) {
         if (broken) return;
         try {
             doRender(e);
@@ -78,12 +78,12 @@ public final class NotifyToasts {
         }
     }
 
-    private void doRender(RenderGameOverlayEvent.Post e) {
-        if (e.getType() != RenderGameOverlayEvent.ElementType.ALL || TOASTS.isEmpty()) return;
+    private void doRender(RenderGuiEvent.Post e) {
+        if (TOASTS.isEmpty()) return;
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null || mc.gameSettings.hideGUI) return;
-        MatrixStack ms = e.getMatrixStack();
-        int sw = mc.getMainWindow().getScaledWidth();
+        if (mc.player == null || mc.options.hideGui) return;
+        GuiGraphics ms = e.getGuiGraphics();
+        int sw = mc.getWindow().getGuiScaledWidth();
         long now = System.currentTimeMillis();
         int slot = 0;
         Iterator<Toast> it = TOASTS.iterator();
@@ -96,7 +96,7 @@ public final class NotifyToasts {
             }
             float slide = age < IN ? ease(age / (float) IN) : (age > IN + HOLD ? 1f - ease((age - IN - HOLD) / (float) OUT) : 1f);
             int x = sw - 8 - Math.round(slide * (W + 8));
-            int y = Math.max(8, ro.solarstudios.flowcity.hype.HypeHud.occupiedBottom) + slot * (H + 4);
+            int y = 8 + slot * (H + 4);
             slot++;
             int c = NotifyState.color(t.type);
             Ui.round(ms, x, y, W, H, Theme.alpha(Theme.PANEL, 0xEE));

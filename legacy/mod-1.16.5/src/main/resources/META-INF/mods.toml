@@ -1,0 +1,25 @@
+modLoader="javafml"
+loaderVersion="[36,)"
+license="All Rights Reserved"
+
+[[mods]]
+modId="flowcitycore"
+version="${file.jarVersion}"
+displayName="FlowCityCore"
+authors="SolarStudios"
+description='''FlowCityCore - modul client pentru serverul FlowCity (SolarStudios).
+Panou eAdmin in joc, conectat prin FlowCityBridge (plugin Bukkit pe Mohist/Arclight).'''
+
+[[dependencies.flowcitycore]]
+    modId="forge"
+    mandatory=true
+    versionRange="[36,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.flowcitycore]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="[1.16.5]"
+    ordering="NONE"
+    side="BOTH"

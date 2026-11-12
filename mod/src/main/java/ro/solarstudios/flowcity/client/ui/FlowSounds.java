@@ -1,10 +1,11 @@
 package ro.solarstudios.flowcity.client.ui;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.audio.ISound;
-import net.minecraft.client.audio.SimpleSound;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.SoundCategory;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.client.resources.sounds.SoundInstance;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.RandomSource;
 
 /** Sunetele FlowCity (tonuri de notificare in stil telefon): notify, message, money, alert. Redate local, fara pozitie. */
 public final class FlowSounds {
@@ -13,12 +14,12 @@ public final class FlowSounds {
     /** Multiplicator global de volum (setat din telefon > Setari). */
     public static float volume = 1.0F;
 
-    public static void play(String name, float volume) {
+    public static void play(String name, float vol) {
         if (FlowSounds.volume <= 0.01F) return;
-        volume *= FlowSounds.volume;
+        vol *= FlowSounds.volume;
         Minecraft mc = Minecraft.getInstance();
-        if (mc.getSoundHandler() == null) return;
-        mc.getSoundHandler().play(new SimpleSound(new ResourceLocation("flowcitycore", name), SoundCategory.MASTER,
-            volume, 1.0F, false, 0, ISound.AttenuationType.NONE, 0.0D, 0.0D, 0.0D, true));
+        if (mc.getSoundManager() == null) return;
+        mc.getSoundManager().play(new SimpleSoundInstance(new ResourceLocation("flowcitycore", name), SoundSource.MASTER,
+            vol, 1.0F, RandomSource.create(), false, 0, SoundInstance.Attenuation.NONE, 0.0D, 0.0D, 0.0D, true));
     }
 }

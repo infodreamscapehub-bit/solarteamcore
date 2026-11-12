@@ -3,18 +3,17 @@ package ro.solarstudios.flowcity.mdt;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.GuiGraphics;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.util.math.vector.Vector3f;
+import net.minecraft.client.gui.components.EditBox;
+import com.mojang.math.Axis;
 import ro.solarstudios.flowcity.client.ui.FlowScreen;
 import ro.solarstudios.flowcity.client.ui.Theme;
 import ro.solarstudios.flowcity.client.ui.Ui;
 import ro.solarstudios.flowcity.client.ui.Wrap;
-import ro.solarstudios.flowcity.maps.MapsClient;
 import ro.solarstudios.flowcity.module.JsonClientModule;
 
 /**
@@ -60,28 +59,28 @@ public final class MdtScreen extends FlowScreen {
 
     private int modal;
     private int newRank = 1;
-    private TextFieldWidget pendingFocus;
+    private EditBox pendingFocus;
     private boolean searchDirty;
     private long searchAt;
     private long openedAt = System.currentTimeMillis();
 
-    private final TextFieldWidget search = field("Cauta cetatean...", 24, s -> {
+    private final EditBox search = field("Cauta cetatean...", 24, s -> {
         searchDirty = true;
         searchAt = System.currentTimeMillis() + 250;
     });
-    private final TextFieldWidget plateField = field("AB-12-XYZ", 12, null);
-    private final TextFieldWidget unitName = field("Nume unitate", 20, null);
-    private final TextFieldWidget mRec = field("Descrie fapta", 200, null);
-    private final TextFieldWidget mAmt = field("ex. 500", 7, null);
-    private final TextFieldWidget mFineReason = field("Motivul amenzii", 150, null);
-    private final TextFieldWidget mWanted = field("Motivul urmaririi", 150, null);
-    private final TextFieldWidget mModel = field("ex. Dacia Logan", 30, null);
-    private final TextFieldWidget mPlate = field("ex. B-123-ABC", 12, null);
-    private final TextFieldWidget mAddr = field("Strada, numar", 70, null);
-    private final TextFieldWidget mOff = field("Nume jucator online", 16, null);
-    private final TextFieldWidget rkName = field("Nume grad", 24, null);
-    private final TextFieldWidget rkUp = field("Comanda la promovare (%player%)", 120, null);
-    private final TextFieldWidget rkDown = field("Comanda la retrogradare (%player%)", 120, null);
+    private final EditBox plateField = field("AB-12-XYZ", 12, null);
+    private final EditBox unitName = field("Nume unitate", 20, null);
+    private final EditBox mRec = field("Descrie fapta", 200, null);
+    private final EditBox mAmt = field("ex. 500", 7, null);
+    private final EditBox mFineReason = field("Motivul amenzii", 150, null);
+    private final EditBox mWanted = field("Motivul urmaririi", 150, null);
+    private final EditBox mModel = field("ex. Dacia Logan", 30, null);
+    private final EditBox mPlate = field("ex. B-123-ABC", 12, null);
+    private final EditBox mAddr = field("Strada, numar", 70, null);
+    private final EditBox mOff = field("Nume jucator online", 16, null);
+    private final EditBox rkName = field("Nume grad", 24, null);
+    private final EditBox rkUp = field("Comanda la promovare (%player%)", 120, null);
+    private final EditBox rkDown = field("Comanda la retrogradare (%player%)", 120, null);
 
     public MdtScreen() {
         super("MDT", 540, 310);
@@ -145,8 +144,8 @@ public final class MdtScreen extends FlowScreen {
     // ------------------------------------------------------------------ campuri / taste
 
     @Override
-    protected List<TextFieldWidget> fields() {
-        List<TextFieldWidget> l = new ArrayList<>();
+    protected List<EditBox> fields() {
+        List<EditBox> l = new ArrayList<>();
         switch (modal) {
             case 1:
                 l.add(mRec);
@@ -184,9 +183,9 @@ public final class MdtScreen extends FlowScreen {
     }
 
     @Override
-    protected void onEnter(TextFieldWidget f) {
+    protected void onEnter(EditBox f) {
         if (modal != 0) {
-            List<TextFieldWidget> fs = fields();
+            List<EditBox> fs = fields();
             int at = fs.indexOf(f);
             if (at >= 0 && at < fs.size() - 1) focus(fs.get(at + 1), true);
             else confirmModal();
@@ -201,7 +200,7 @@ public final class MdtScreen extends FlowScreen {
     public boolean keyPressed(int key, int scan, int mods) {
         if (key == 256 && modal != 0) { // ESC
             boolean typing = false;
-            for (TextFieldWidget f : fields()) typing |= f.isFocused();
+            for (EditBox f : fields()) typing |= f.isFocused();
             if (!typing) {
                 modal = 0;
                 return true;
@@ -215,13 +214,13 @@ public final class MdtScreen extends FlowScreen {
         super.tick();
         if (searchDirty && System.currentTimeMillis() >= searchAt) {
             searchDirty = false;
-            String q = search.getText().trim();
+            String q = search.getValue().trim();
             if (!q.isEmpty()) MdtClient.act("find", "q", q);
         }
     }
 
     private void unfocusAll() {
-        for (TextFieldWidget f : fields()) focus(f, false);
+        for (EditBox f : fields()) focus(f, false);
     }
 
     private void setTab(int t) {
@@ -247,8 +246,8 @@ public final class MdtScreen extends FlowScreen {
     private void openModal(int kind) {
         unfocusAll();
         modal = kind;
-        TextFieldWidget[] all = {mRec, mAmt, mFineReason, mWanted, mModel, mPlate, mAddr, mOff};
-        for (TextFieldWidget f : all) f.setText("");
+        EditBox[] all = {mRec, mAmt, mFineReason, mWanted, mModel, mPlate, mAddr, mOff};
+        for (EditBox f : all) f.setValue("");
         newRank = 1;
         pendingFocus = fields().isEmpty() ? null : fields().get(0);
     }
@@ -256,16 +255,16 @@ public final class MdtScreen extends FlowScreen {
     private void confirmModal() {
         switch (modal) {
             case 1:
-                if (mRec.getText().trim().isEmpty()) {
+                if (mRec.getValue().trim().isEmpty()) {
                     toast("Scrie fapta.", true);
                     return;
                 }
-                MdtClient.act("record_add", "u", selUuid, "text", mRec.getText().trim());
+                MdtClient.act("record_add", "u", selUuid, "text", mRec.getValue().trim());
                 break;
             case 2: {
                 int amt;
                 try {
-                    amt = Integer.parseInt(mAmt.getText().trim());
+                    amt = Integer.parseInt(mAmt.getValue().trim());
                 } catch (NumberFormatException e) {
                     amt = 0;
                 }
@@ -273,36 +272,36 @@ public final class MdtScreen extends FlowScreen {
                     toast("Suma trebuie sa fie un numar pozitiv.", true);
                     return;
                 }
-                MdtClient.act("fine_add", "u", selUuid, "amount", amt, "reason", mFineReason.getText().trim());
+                MdtClient.act("fine_add", "u", selUuid, "amount", amt, "reason", mFineReason.getValue().trim());
                 break;
             }
             case 3:
-                if (mWanted.getText().trim().isEmpty()) {
+                if (mWanted.getValue().trim().isEmpty()) {
                     toast("Scrie motivul.", true);
                     return;
                 }
-                MdtClient.act("wanted", "u", selUuid, "on", true, "reason", mWanted.getText().trim());
+                MdtClient.act("wanted", "u", selUuid, "on", true, "reason", mWanted.getValue().trim());
                 break;
             case 4:
-                if (mModel.getText().trim().isEmpty() || mPlate.getText().trim().length() < 3) {
+                if (mModel.getValue().trim().isEmpty() || mPlate.getValue().trim().length() < 3) {
                     toast("Completeaza modelul si numarul.", true);
                     return;
                 }
-                MdtClient.act("veh_add", "u", selUuid, "model", mModel.getText().trim(), "plate", mPlate.getText().trim());
+                MdtClient.act("veh_add", "u", selUuid, "model", mModel.getValue().trim(), "plate", mPlate.getValue().trim());
                 break;
             case 5:
-                if (mAddr.getText().trim().isEmpty()) {
+                if (mAddr.getValue().trim().isEmpty()) {
                     toast("Scrie adresa.", true);
                     return;
                 }
-                MdtClient.act("prop_add", "u", selUuid, "addr", mAddr.getText().trim());
+                MdtClient.act("prop_add", "u", selUuid, "addr", mAddr.getValue().trim());
                 break;
             case 6:
-                if (mOff.getText().trim().isEmpty()) {
+                if (mOff.getValue().trim().isEmpty()) {
                     toast("Scrie numele jucatorului.", true);
                     return;
                 }
-                MdtClient.act("officer_add", "name", mOff.getText().trim(), "rank", newRank);
+                MdtClient.act("officer_add", "name", mOff.getValue().trim(), "rank", newRank);
                 break;
             default:
                 break;
@@ -311,7 +310,7 @@ public final class MdtScreen extends FlowScreen {
     }
 
     private void lookupPlate() {
-        String p = plateField.getText().trim();
+        String p = plateField.getValue().trim();
         if (p.length() < 3) {
             toast("Scrie un numar de inmatriculare.", true);
             return;
@@ -321,19 +320,19 @@ public final class MdtScreen extends FlowScreen {
     }
 
     private void createUnit() {
-        String n = unitName.getText().trim();
+        String n = unitName.getValue().trim();
         if (n.isEmpty()) {
             toast("Da un nume unitatii.", true);
             return;
         }
         MdtClient.act("unit_create", "name", n, "type", unitType);
-        unitName.setText("");
+        unitName.setValue("");
     }
 
     // ------------------------------------------------------------------ desen general
 
     @Override
-    protected void draw(MatrixStack ms, int mx, int my) {
+    protected void draw(GuiGraphics ms, int mx, int my) {
         Ui.rect(ms, 0, 0, width, height, 0xB8040608);
         // rama tabletei
         Ui.frame(ms, px - 7, py - 7, pw + 14, ph + 14, 0xFF07090C, 0xFF2C3544);
@@ -366,7 +365,7 @@ public final class MdtScreen extends FlowScreen {
         if (modal != 0) drawModal(ms, mx, my);
     }
 
-    private void drawTop(MatrixStack ms, int mx, int my) {
+    private void drawTop(GuiGraphics ms, int mx, int my) {
         Ui.rect(ms, px, py, pw, TOP, SIDE);
         Ui.rect(ms, px, py + TOP - 1, pw, 1, RULE);
         // insigna
@@ -377,7 +376,7 @@ public final class MdtScreen extends FlowScreen {
         Ui.text(ms, "MDT", px + 23 + Ui.smallCapsWidth("Politia FlowCity") + 6, py + 6, FAINT);
 
         int xr = px + pw - 8;
-        button(ms, "x", xr - 12, py + 3, 12, 14, mx, my, true, 0xFF3A2328, this::closeScreen);
+        button(ms, "x", xr - 12, py + 3, 12, 14, mx, my, true, 0xFF3A2328, this::onClose);
         xr -= 22;
         Ui.textRight(ms, LocalTime.now().format(CLOCK), xr, py + 6, DIM);
         xr -= Ui.width("00:00") + 10;
@@ -399,7 +398,7 @@ public final class MdtScreen extends FlowScreen {
         }
     }
 
-    private void drawRail(MatrixStack ms, int mx, int my) {
+    private void drawRail(GuiGraphics ms, int mx, int my) {
         int y0 = py + TOP;
         Ui.rect(ms, px, y0, RAIL, ph - TOP, SIDE);
         Ui.rect(ms, px + RAIL - 1, y0, 1, ph - TOP, RULE);
@@ -437,7 +436,7 @@ public final class MdtScreen extends FlowScreen {
     }
 
     /** Pictograme simple (10x10) desenate din dreptunghiuri. */
-    private void glyph(MatrixStack ms, int kind, int x, int y, int c) {
+    private void glyph(GuiGraphics ms, int kind, int x, int y, int c) {
         switch (kind) {
             case 0:
                 Ui.rect(ms, x + 3, y, 4, 4, c);
@@ -469,7 +468,7 @@ public final class MdtScreen extends FlowScreen {
     }
 
     /** Eticheta aliniata la dreapta; intoarce marginea stanga. */
-    private int pill(MatrixStack ms, String label, int xRight, int y, int color) {
+    private int pill(GuiGraphics ms, String label, int xRight, int y, int color) {
         int w = Ui.width(label) + 10;
         Ui.round(ms, xRight - w, y, w, 11, Theme.alpha(color, 0x38));
         Ui.text(ms, label, xRight - w + 5, y + 2, color);
@@ -489,11 +488,11 @@ public final class MdtScreen extends FlowScreen {
 
     // ------------------------------------------------------------------ tab 0: cetateni
 
-    private void drawCitizens(MatrixStack ms, int mx, int my, int cx, int cy, int cw, int ch) {
+    private void drawCitizens(GuiGraphics ms, int mx, int my, int cx, int cy, int cw, int ch) {
         // coloana de cautare
         Ui.rect(ms, cx + LIST, cy, 1, ch, RULE);
         drawField(ms, search, cx + 8, cy + 8, LIST - 16, 16, mx, my);
-        boolean searching = !search.getText().trim().isEmpty();
+        boolean searching = !search.getValue().trim().isEmpty();
         Ui.smallCaps(ms, searching ? "Rezultate" : "Online acum", cx + 9, cy + 30, FAINT);
         List<JsonObject> items = searching ? list(MdtState.found) : list(arr(MdtState.state, "online"));
         int top = cy + 42;
@@ -523,7 +522,7 @@ public final class MdtScreen extends FlowScreen {
         drawDossier(ms, mx, my, cx + LIST + 1, cy, cw - LIST - 1, ch);
     }
 
-    private void drawDossier(MatrixStack ms, int mx, int my, int x0, int cy, int w0, int ch) {
+    private void drawDossier(GuiGraphics ms, int mx, int my, int x0, int cy, int w0, int ch) {
         int dx = x0 + 10;
         int dw = w0 - 20;
         if (selUuid.isEmpty()) {
@@ -538,23 +537,23 @@ public final class MdtScreen extends FlowScreen {
         }
         boolean wanted = b(d, "w");
         // antet de dosar
-        ms.push();
-        ms.translate(dx, cy + 10, 0);
-        ms.scale(1.35f, 1.35f, 1f);
+        ms.pose().pushPose();
+        ms.pose().translate(dx, cy + 10, 0);
+        ms.pose().scale(1.35f, 1.35f, 1f);
         Ui.textShadow(ms, s(d, "n"), 0, 0, INK);
-        ms.pop();
+        ms.pose().popPose();
         Ui.text(ms, "Fisa  #" + shortId(s(d, "u")) + "   " + (b(d, "on") ? "online" : "offline"), dx, cy + 27, FAINT);
         if (wanted) {
-            ms.push();
-            ms.translate(x0 + w0 - 74, cy + 12, 0);
-            ms.rotate(Vector3f.ZP.rotationDegrees(-6f));
+            ms.pose().pushPose();
+            ms.pose().translate(x0 + w0 - 74, cy + 12, 0);
+            ms.pose().mulPose(Axis.ZP.rotationDegrees(-6f));
             Ui.rect(ms, 0, 0, 64, 16, 0x22DB4B42);
             Ui.rect(ms, 0, 0, 64, 1, RED);
             Ui.rect(ms, 0, 15, 64, 1, RED);
             Ui.rect(ms, 0, 0, 1, 16, RED);
             Ui.rect(ms, 63, 0, 1, 16, RED);
             Ui.textCenter(ms, "URMARIT", 32, 4, RED);
-            ms.pop();
+            ms.pose().popPose();
         } else {
             pill(ms, "FARA MANDAT", x0 + w0 - 10, cy + 12, GREEN);
         }
@@ -650,7 +649,7 @@ public final class MdtScreen extends FlowScreen {
         }
     }
 
-    private void drawRow(MatrixStack ms, JsonObject r, int dx, int ry, int dw) {
+    private void drawRow(GuiGraphics ms, JsonObject r, int dx, int ry, int dw) {
         if (sub == 0) {
             Ui.text(ms, Ui.clip(s(r, "t"), dw - 8), dx + 2, ry + 4, INK);
             Ui.text(ms, s(r, "d") + "  -  " + s(r, "by"), dx + 2, ry + 15, FAINT);
@@ -674,7 +673,7 @@ public final class MdtScreen extends FlowScreen {
     }
 
     /** Numar de inmatriculare in stil european (banda albastra in stanga). */
-    private void plateChip(MatrixStack ms, String plate, int x, int y) {
+    private void plateChip(GuiGraphics ms, String plate, int x, int y) {
         int w = Ui.width(plate) + 14;
         Ui.round(ms, x, y, w, 12, 0xFFE9ECEF);
         Ui.rect(ms, x, y + 1, 5, 10, 0xFF2A56B8);
@@ -683,7 +682,7 @@ public final class MdtScreen extends FlowScreen {
 
     // ------------------------------------------------------------------ tab 1: urmariti
 
-    private void drawWanted(MatrixStack ms, int mx, int my, int cx, int cy, int cw, int ch) {
+    private void drawWanted(GuiGraphics ms, int mx, int my, int cx, int cy, int cw, int ch) {
         List<JsonObject> items = list(arr(MdtState.state, "wanted"));
         int x = cx + 12;
         int w = cw - 24;
@@ -718,7 +717,7 @@ public final class MdtScreen extends FlowScreen {
 
     // ------------------------------------------------------------------ tab 2: numere de inmatriculare
 
-    private void drawPlates(MatrixStack ms, int mx, int my, int cx, int cy, int cw, int ch) {
+    private void drawPlates(GuiGraphics ms, int mx, int my, int cx, int cy, int cw, int ch) {
         int x = cx + 14;
         Ui.smallCaps(ms, "Cautare dupa numar de inmatriculare", x, cy + 12, INK);
         // placuta
@@ -727,8 +726,8 @@ public final class MdtScreen extends FlowScreen {
         Ui.round(ms, x, py0, pwid, 26, 0xFFE9ECEF);
         Ui.round(ms, x, py0, 18, 26, 0xFF2A56B8);
         Ui.textCenter(ms, "RO", x + 9, py0 + 9, 0xFFFFFFFF);
-        plateField.x = x + 24;
-        plateField.y = py0 + 9;
+        plateField.setX(x + 24);
+        plateField.setY(py0 + 9);
         plateField.setWidth(pwid - 30);
         plateField.render(ms, mx, my, 0);
         button(ms, "Cauta", x + pwid + 8, py0 + 5, 54, 16, mx, my, true, 0xFF24467A, this::lookupPlate);
@@ -745,11 +744,11 @@ public final class MdtScreen extends FlowScreen {
         int w = cw - 28;
         Ui.frame(ms, x, y, w, 70, CARD, RULE);
         Ui.smallCaps(ms, "Vehicul identificat", x + 10, y + 8, FAINT);
-        ms.push();
-        ms.translate(x + 10, y + 22, 0);
-        ms.scale(1.3f, 1.3f, 1f);
+        ms.pose().pushPose();
+        ms.pose().translate(x + 10, y + 22, 0);
+        ms.pose().scale(1.3f, 1.3f, 1f);
         Ui.textShadow(ms, s(p, "model"), 0, 0, INK);
-        ms.pop();
+        ms.pose().popPose();
         String st = s(p, "status");
         int c = "Clean".equalsIgnoreCase(st) ? GREEN : "Stolen".equalsIgnoreCase(st) ? RED : AMBER;
         String label = "Clean".equalsIgnoreCase(st) ? "CURAT" : "Stolen".equalsIgnoreCase(st) ? "FURAT" : "CONFISCAT";
@@ -766,7 +765,7 @@ public final class MdtScreen extends FlowScreen {
 
     // ------------------------------------------------------------------ tab 3: dispecerat
 
-    private void drawDispatch(MatrixStack ms, int mx, int my, int cx, int cy, int cw, int ch) {
+    private void drawDispatch(GuiGraphics ms, int mx, int my, int cx, int cy, int cw, int ch) {
         int split = cx + (cw * 11) / 20;
         Ui.rect(ms, split, cy, 1, ch, RULE);
         // ---- unitati
@@ -852,7 +851,7 @@ public final class MdtScreen extends FlowScreen {
             final double bxp = JsonClientModule.num(bk, "x", 0);
             final double bzp = JsonClientModule.num(bk, "z", 0);
             button(ms, "OK", bx + bw - 24, y + 8, 22, 14, mx, my, true, 0xFF1F4D38, () -> MdtClient.act("backup_resolve", "id", id));
-            button(ms, "GPS", bx + bw - 54, y + 8, 28, 14, mx, my, true, 0xFF24467A, () -> MapsClient.gpsTo("Backup " + nm, null, bxp, bzp));
+            button(ms, "GPS", bx + bw - 54, y + 8, 28, 14, mx, my, true, 0xFF24467A, () -> MdtClient.gps(nm, bxp, bzp));
         }
     }
 
@@ -864,7 +863,7 @@ public final class MdtScreen extends FlowScreen {
         return i(m, "rank") >= 4 && i(o, "rank") < i(m, "rank");
     }
 
-    private void drawTeam(MatrixStack ms, int mx, int my, int cx, int cy, int cw, int ch) {
+    private void drawTeam(GuiGraphics ms, int mx, int my, int cx, int cy, int cw, int ch) {
         int lw = 200;
         Ui.rect(ms, cx + lw, cy, 1, ch, RULE);
         List<JsonObject> offs = list(arr(MdtState.state, "officers"));
@@ -904,11 +903,11 @@ public final class MdtScreen extends FlowScreen {
         if (rankConfig && admin) {
             drawRankConfig(ms, mx, my, rx, rw, cy);
         } else if (cur != null) {
-            ms.push();
-            ms.translate(rx, cy + 10, 0);
-            ms.scale(1.3f, 1.3f, 1f);
+            ms.pose().pushPose();
+            ms.pose().translate(rx, cy + 10, 0);
+            ms.pose().scale(1.3f, 1.3f, 1f);
             Ui.textShadow(ms, s(cur, "n"), 0, 0, INK);
-            ms.pop();
+            ms.pose().popPose();
             Ui.text(ms, "Grad " + i(cur, "rank") + "  -  " + rankLabel(i(cur, "rank")), rx, cy + 28, DIM);
             Ui.text(ms, b(cur, "on") ? "online" : "offline", rx, cy + 40, b(cur, "on") ? GREEN : FAINT);
             boolean ok = canManage(cur);
@@ -944,13 +943,13 @@ public final class MdtScreen extends FlowScreen {
         cfgRank = r;
         for (JsonObject k : list(arr(MdtState.state, "ranks"))) {
             if (i(k, "r") != r) continue;
-            rkName.setText(s(k, "name"));
-            rkUp.setText(s(k, "up"));
-            rkDown.setText(s(k, "down"));
+            rkName.setValue(s(k, "name"));
+            rkUp.setValue(s(k, "up"));
+            rkDown.setValue(s(k, "down"));
         }
     }
 
-    private void drawRankConfig(MatrixStack ms, int mx, int my, int rx, int rw, int cy) {
+    private void drawRankConfig(GuiGraphics ms, int mx, int my, int rx, int rw, int cy) {
         Ui.smallCaps(ms, "Configurare grade", rx, cy + 10, INK);
         int cxp = rx;
         for (int r = 1; r <= 6; r++) {
@@ -965,17 +964,17 @@ public final class MdtScreen extends FlowScreen {
         Ui.text(ms, "Comanda la retrogradare", rx, cy + 120, FAINT);
         drawField(ms, rkDown, rx, cy + 130, rw, 16, mx, my);
         button(ms, "Salveaza gradul", rx, cy + 156, 90, 15, mx, my, true, 0xFF1F4D38,
-            () -> MdtClient.act("rank_save", "rank", cfgRank, "name", rkName.getText(), "up", rkUp.getText(), "down", rkDown.getText()));
+            () -> MdtClient.act("rank_save", "rank", cfgRank, "name", rkName.getValue(), "up", rkUp.getValue(), "down", rkDown.getValue()));
         Ui.text(ms, "Comenzile ruleaza din consola. Ex: lp user %player% parent set politist", rx, cy + 178, FAINT);
     }
 
     // ------------------------------------------------------------------ fereastra de formular
 
-    private void drawModal(MatrixStack ms, int mx, int my) {
+    private void drawModal(GuiGraphics ms, int mx, int my) {
         hit(0, 0, width, height, () -> { });
         Ui.rect(ms, px, py, pw, ph, 0xA0050709);
         String[] titles = {"", "Fapta in cazier", "Emite amenda", "Emite mandat", "Inmatriculeaza vehicul", "Adauga locuinta", "Angajeaza ofiter"};
-        List<TextFieldWidget> fs = fields();
+        List<EditBox> fs = fields();
         String[][] labels = {{}, {"Descriere"}, {"Suma (lei)", "Motiv"}, {"Motiv urmarire"}, {"Model", "Numar de inmatriculare"}, {"Adresa"}, {"Nume jucator (trebuie sa fie online)"}};
         int w = 250;
         int h = 56 + fs.size() * 32 + (modal == 6 ? 34 : 0);

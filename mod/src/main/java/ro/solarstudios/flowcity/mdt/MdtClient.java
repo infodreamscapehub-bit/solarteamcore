@@ -3,11 +3,11 @@ package ro.solarstudios.flowcity.mdt;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.settings.KeyBinding;
+import net.minecraft.client.KeyMapping;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.client.registry.ClientRegistry;
+import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
 import org.lwjgl.glfw.GLFW;
 import ro.solarstudios.flowcity.client.ui.FlowSounds;
 import ro.solarstudios.flowcity.module.ClientModules;
@@ -17,17 +17,17 @@ import ro.solarstudios.flowcity.notify.NotifyToasts;
 /** Modulul client "mdt": terminalul de politie. Datele vin ca JSON de la server si sunt tinute in {@link MdtState}. */
 public final class MdtClient extends JsonClientModule {
     private static MdtClient instance;
-    private static KeyBinding bk1;
-    private static KeyBinding bk2;
-    private static KeyBinding bk3;
-    private static KeyBinding panic;
+    private static KeyMapping bk1;
+    private static KeyMapping bk2;
+    private static KeyMapping bk3;
+    private static KeyMapping panic;
 
     private MdtClient() {
         on("state", d -> {
             MdtState.state = d;
             MdtState.officer = true;
             Minecraft mc = Minecraft.getInstance();
-            if (bool(d, "open", false) && !(mc.currentScreen instanceof MdtScreen)) mc.displayGuiScreen(new MdtScreen());
+            if (bool(d, "open", false) && !(mc.screen instanceof MdtScreen)) mc.setScreen(new MdtScreen());
         });
         on("citizen", d -> MdtState.citizen = d);
         on("found", d -> {
@@ -62,15 +62,15 @@ public final class MdtClient extends JsonClientModule {
         MinecraftForge.EVENT_BUS.register(new Events());
     }
 
-    public static void registerKeys() {
-        bk1 = new KeyBinding("key.flowcity.mdt_bk1", GLFW.GLFW_KEY_KP_1, "key.categories.flowcity");
-        bk2 = new KeyBinding("key.flowcity.mdt_bk2", GLFW.GLFW_KEY_KP_2, "key.categories.flowcity");
-        bk3 = new KeyBinding("key.flowcity.mdt_bk3", GLFW.GLFW_KEY_KP_3, "key.categories.flowcity");
-        panic = new KeyBinding("key.flowcity.mdt_panic", GLFW.GLFW_KEY_KP_0, "key.categories.flowcity");
-        ClientRegistry.registerKeyBinding(bk1);
-        ClientRegistry.registerKeyBinding(bk2);
-        ClientRegistry.registerKeyBinding(bk3);
-        ClientRegistry.registerKeyBinding(panic);
+    public static void registerKeys(RegisterKeyMappingsEvent event) {
+        bk1 = new KeyMapping("key.flowcity.mdt_bk1", GLFW.GLFW_KEY_KP_1, "key.categories.flowcity");
+        bk2 = new KeyMapping("key.flowcity.mdt_bk2", GLFW.GLFW_KEY_KP_2, "key.categories.flowcity");
+        bk3 = new KeyMapping("key.flowcity.mdt_bk3", GLFW.GLFW_KEY_KP_3, "key.categories.flowcity");
+        panic = new KeyMapping("key.flowcity.mdt_panic", GLFW.GLFW_KEY_KP_0, "key.categories.flowcity");
+        ClientRegistry.registerKeyMapping(bk1);
+        ClientRegistry.registerKeyMapping(bk2);
+        ClientRegistry.registerKeyMapping(bk3);
+        ClientRegistry.registerKeyMapping(panic);
     }
 
     // ------------------------------------------------------------------ apeluri catre server
@@ -92,6 +92,11 @@ public final class MdtClient extends JsonClientModule {
         instance.send(action, o);
     }
 
+    /** Marcheaza locul unui apel de backup (cand harta GPS e portata, aici se porneste ruta). */
+    public static void gps(String name, double x, double z) {
+        NotifyToasts.add("INFO", "Backup " + name, "Coordonate: " + (int) x + ", " + (int) z);
+    }
+
     // ------------------------------------------------------------------ taste rapide (backup / panica)
 
     public static final class Events {
@@ -99,11 +104,11 @@ public final class MdtClient extends JsonClientModule {
         public void onTick(TickEvent.ClientTickEvent e) {
             if (e.phase != TickEvent.Phase.END || !MdtState.officer) return;
             Minecraft mc = Minecraft.getInstance();
-            if (mc.player == null || mc.currentScreen != null) return;
-            if (bk1 != null && bk1.isPressed()) act("backup", "code", 1);
-            if (bk2 != null && bk2.isPressed()) act("backup", "code", 2);
-            if (bk3 != null && bk3.isPressed()) act("backup", "code", 3);
-            if (panic != null && panic.isPressed()) act("panic");
+            if (mc.player == null || mc.screen != null) return;
+            if (bk1 != null && bk1.consumeClick()) act("backup", "code", 1);
+            if (bk2 != null && bk2.consumeClick()) act("backup", "code", 2);
+            if (bk3 != null && bk3.consumeClick()) act("backup", "code", 3);
+            if (panic != null && panic.consumeClick()) act("panic");
         }
     }
 }

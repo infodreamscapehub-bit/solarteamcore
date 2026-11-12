@@ -35,7 +35,7 @@ public final class NotifyClient extends JsonClientModule {
             }
             NotifyState.unread = 0;
             Minecraft mc = Minecraft.getInstance();
-            if (bool(d, "open", false) && !(mc.currentScreen instanceof NotifyScreen)) mc.displayGuiScreen(new NotifyScreen());
+            if (bool(d, "open", false) && !(mc.screen instanceof NotifyScreen)) mc.setScreen(new NotifyScreen());
         });
     }
 

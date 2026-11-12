@@ -2,7 +2,7 @@ package ro.solarstudios.flowcity.module;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
-import net.minecraft.network.PacketBuffer;
+import net.minecraft.network.FriendlyByteBuf;
 
 /** Registrul modulelor client. */
 public final class ClientModules {
@@ -14,7 +14,7 @@ public final class ClientModules {
         MODULES.put(m.id(), m);
     }
 
-    public static void dispatch(String id, String action, PacketBuffer buf) {
+    public static void dispatch(String id, String action, FriendlyByteBuf buf) {
         ClientModule m = MODULES.get(id);
         if (m == null) return;
         try {
