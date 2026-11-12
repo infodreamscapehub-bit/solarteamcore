@@ -31,6 +31,39 @@ jobs:
   placed-max: 60000
   trash-block: CAULDRON     # Gunoier: click dreapta cu un obiect pe acest bloc
   list:
+    courier:
+      name: "Curier"
+      desc: "Ridica coletele de la depozit si le duci la adresele din oras."
+      summary: "Livrari: baza + bonus la distanta"
+      category: "Livrari"
+      difficulty: "Mediu"
+      tasks:
+        - "Mergi la depozitul de colete"
+        - "Primesti automat o adresa pe harta (GPS)"
+        - "Du coletul la destinatie si primesti plata"
+      delivery: {item: "coletul", radius: 4, base-pay: 12, per-100m: 5, xp: 6}
+    pizzachef:
+      name: "Pizzaiolo"
+      desc: "Ia pizza calda de la pizzerie si o livrezi clientilor."
+      summary: "Livrari de pizza: baza + bonus la distanta"
+      category: "Livrari"
+      difficulty: "Usor"
+      tasks:
+        - "Intra in pizzerie, la punctul de ridicare"
+        - "Urmeaza GPS-ul pana la client"
+        - "Livreaza cat mai repede"
+      delivery: {item: "pizza", radius: 4, base-pay: 8, per-100m: 4, xp: 5}
+    trucker:
+      name: "Camionist"
+      desc: "Transporti marfa intre depozite, pe distante lungi."
+      summary: "Transport: baza mare + bonus la distanta"
+      category: "Livrari"
+      difficulty: "Greu"
+      tasks:
+        - "Ridica marfa de la terminal"
+        - "Condu pana la depozitul indicat pe harta"
+        - "Distantele lungi se platesc mai bine"
+      delivery: {item: "marfa", radius: 6, base-pay: 40, per-100m: 6, xp: 12}
     miner:
       category: "Resurse"
       difficulty: "Mediu"

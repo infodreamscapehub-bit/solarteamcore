@@ -71,8 +71,47 @@ public final class HypeModule extends JsonModule implements Listener {
         double lz;
         String locName = "";
         int limitPerMinute;
+        Delivery delivery;
         final JobRules rules = new JobRules();
     }
+
+    private static final class Point {
+        String name;
+        String world;
+        double x;
+        double y;
+        double z;
+
+        double dist(Point o) {
+            return Math.sqrt((x - o.x) * (x - o.x) + (z - o.z) * (z - o.z));
+        }
+    }
+
+    private static final class Delivery {
+        final List<Point> pickups = new ArrayList<>();
+        final List<Point> drops = new ArrayList<>();
+        double radius = 4;
+        double basePay = 10;
+        double per100m = 4;
+        long xp = 6;
+        String item = "coletul";
+    }
+
+    private static final class Trip {
+        final JobDef job;
+        final Point from;
+        final Point to;
+        final long startedAt = System.currentTimeMillis();
+
+        Trip(JobDef job, Point from, Point to) {
+            this.job = job;
+            this.from = from;
+            this.to = to;
+        }
+    }
+
+    private final Map<UUID, Trip> trips = new HashMap<>();
+    private final java.util.Random rnd = new java.util.Random();
 
     private YamlConfiguration cfg;
     private HypeDb hdb;
@@ -121,6 +160,7 @@ public final class HypeModule extends JsonModule implements Listener {
         // push de stare la 2s, drain de sete la 5s, salvare la 3 minute, curatare blocuri puse la 1 minut
         tasks.add(Bukkit.getScheduler().runTaskTimer(plugin, this::tickState, 40L, 40L));
         tasks.add(Bukkit.getScheduler().runTaskTimer(plugin, this::tickThirst, 100L, 100L));
+        tasks.add(Bukkit.getScheduler().runTaskTimer(plugin, this::tickDelivery, 20L, 20L));
         tasks.add(Bukkit.getScheduler().runTaskTimer(plugin, this::saveDirty, 3600L, 3600L));
         tasks.add(Bukkit.getScheduler().runTaskTimer(plugin, () -> placed.purge(System.currentTimeMillis()), 1200L, 1200L));
 
@@ -165,6 +205,18 @@ public final class HypeModule extends JsonModule implements Listener {
                 j.lz = loc.getDouble("z");
                 j.locName = loc.getString("name", j.name);
             }
+            ConfigurationSection ds = s.getConfigurationSection("delivery");
+            if (ds != null) {
+                Delivery dv = new Delivery();
+                dv.radius = ds.getDouble("radius", 4);
+                dv.basePay = ds.getDouble("base-pay", 10);
+                dv.per100m = ds.getDouble("per-100m", 4);
+                dv.xp = ds.getLong("xp", 6);
+                dv.item = ds.getString("item", "coletul");
+                readPoints(ds.getMapList("pickups"), dv.pickups);
+                readPoints(ds.getMapList("drops"), dv.drops);
+                j.delivery = dv;
+            }
             for (Map<?, ?> m : s.getMapList("rules")) {
                 Object ev = m.get("event");
                 Object mats = m.get("materials");
@@ -180,6 +232,32 @@ public final class HypeModule extends JsonModule implements Listener {
             }
             jobs.put(j.id, j);
         }
+    }
+
+    private static void readPoints(List<Map<?, ?>> in, List<Point> out) {
+        for (Map<?, ?> m : in) {
+            Point pt = new Point();
+            pt.name = String.valueOf(m.get("name") == null ? "Punct" : m.get("name"));
+            pt.world = String.valueOf(m.get("world") == null ? "world" : m.get("world"));
+            pt.x = m.get("x") instanceof Number ? ((Number) m.get("x")).doubleValue() : 0;
+            pt.y = m.get("y") instanceof Number ? ((Number) m.get("y")).doubleValue() : 64;
+            pt.z = m.get("z") instanceof Number ? ((Number) m.get("z")).doubleValue() : 0;
+            out.add(pt);
+        }
+    }
+
+    private static List<Map<String, Object>> writePoints(List<Point> pts) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (Point pt : pts) {
+            Map<String, Object> m = new java.util.LinkedHashMap<>();
+            m.put("name", pt.name);
+            m.put("world", pt.world);
+            m.put("x", pt.x);
+            m.put("y", pt.y);
+            m.put("z", pt.z);
+            out.add(m);
+        }
+        return out;
     }
 
     // ------------------------------------------------------------------ date jucator
@@ -444,15 +522,21 @@ public final class HypeModule extends JsonModule implements Listener {
             if (w.firstBlock()) p.sendMessage("§eAi atins limita de castig pe minut pentru acest job. Mai asteapta putin.");
             return false;
         }
+        payOut(p, d, jd, r.pay, r.xp);
+        return true;
+    }
+
+    /** Plateste suma (cu bonus de nivel) si acorda XP; folosit de reguli si de livrari. */
+    private void payOut(Player p, PlayerData d, JobDef jd, double rawPay, long rawXp) {
         double base = cfg.getDouble("jobs.xp-base", 100);
         double growth = cfg.getDouble("jobs.xp-growth", 1.35);
         int max = cfg.getInt("jobs.max-level", 50);
         Long old = d.xp.get(jd.id);
         long before = old == null ? 0 : old;
         int lvlBefore = HypeMath.levelFor(before, base, growth, max);
-        double pay = HypeMath.payWithBonus(r.pay, lvlBefore, cfg.getDouble("jobs.bonus-per-level", 0.03));
+        double pay = HypeMath.payWithBonus(rawPay, lvlBefore, cfg.getDouble("jobs.bonus-per-level", 0.03));
         if (pay > 0) plugin.money().deposit(p.getUniqueId(), pay);
-        long after = before + r.xp;
+        long after = before + rawXp;
         d.xp.put(jd.id, after);
         Double e = d.earned.get(jd.id);
         d.earned.put(jd.id, HypeMath.round2((e == null ? 0 : e) + pay));
@@ -465,12 +549,11 @@ public final class HypeModule extends JsonModule implements Listener {
         if (plugin.channel().hasMod(p)) {
             JsonObject o = new JsonObject();
             o.addProperty("pay", pay);
-            o.addProperty("xp", r.xp);
+            o.addProperty("xp", rawXp);
             send(p, "earn", o);
         } else {
-            p.sendMessage("§7+§a$" + Fmt.money(pay) + " §8| §b+" + r.xp + " XP");
+            p.sendMessage("§7+§a$" + Fmt.money(pay) + " §8| §b+" + rawXp + " XP");
         }
-        return true;
     }
 
     private JobDef activeJob(Player p, PlayerData d, String event) {
@@ -549,6 +632,7 @@ public final class HypeModule extends JsonModule implements Listener {
             j.addProperty("desc", jd.desc);
             j.addProperty("summary", jd.summary);
             j.addProperty("category", jd.category);
+            if (jd.delivery != null) j.addProperty("delivery", true);
             j.addProperty("difficulty", jd.difficulty);
             JsonArray ts = new JsonArray();
             for (String t : jd.tasks) ts.add(t);
@@ -739,7 +823,7 @@ public final class HypeModule extends JsonModule implements Listener {
         Commands.register(plugin, "hype", "flowcity.hype.admin", (s, c, l, a) -> {
             hypeAdmin(s, a);
             return true;
-        }, (s, c, l, a) -> a.length == 1 ? Commands.filter(java.util.Arrays.asList("atm", "jobloc", "reload"), a[0])
+        }, (s, c, l, a) -> a.length == 1 ? Commands.filter(java.util.Arrays.asList("atm", "jobloc", "delivery", "reload"), a[0])
             : a.length == 2 && "atm".equalsIgnoreCase(a[0]) ? Commands.filter(java.util.Arrays.asList("set", "remove", "list"), a[1])
             : new ArrayList<String>());
     }
@@ -755,6 +839,122 @@ public final class HypeModule extends JsonModule implements Listener {
         }
         cmd.run((Player) s);
         return true;
+    }
+
+    // ------------------------------------------------------------------ livrari (curier, pizzaiolo, camionist)
+
+    private void sendMaps(Player p, JsonObject o) {
+        if (p == null || !p.isOnline() || !plugin.channel().hasMod(p)) return;
+        byte[] bytes = o.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        plugin.channel().sendModule(p, "maps", "gps", new ro.solarstudios.flowcity.bridge.net.Wire.Out().u8(0).byteArray(bytes));
+    }
+
+    private void gpsStop(Player p) {
+        JsonObject o = new JsonObject();
+        o.addProperty("stop", true);
+        sendMaps(p, o);
+    }
+
+    private static boolean near(Player p, Point pt, double radius) {
+        if (!p.getWorld().getName().equals(pt.world)) return false;
+        double dx = p.getLocation().getX() - pt.x;
+        double dz = p.getLocation().getZ() - pt.z;
+        double dy = p.getLocation().getY() - pt.y;
+        return dx * dx + dz * dz <= radius * radius && Math.abs(dy) <= 6;
+    }
+
+    private void tickDelivery() {
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            PlayerData d = data.get(p.getUniqueId());
+            if (d == null || !d.loaded) continue;
+            JobDef jd = d.job == null ? null : jobs.get(d.job);
+            Trip t = trips.get(p.getUniqueId());
+            if (t != null && (jd == null || jd != t.job)) {
+                trips.remove(p.getUniqueId());
+                gpsStop(p);
+                t = null;
+            }
+            if (jd == null || jd.delivery == null || creative(p)) continue;
+            Delivery dv = jd.delivery;
+            if (t == null) {
+                for (Point from : dv.pickups) {
+                    if (!near(p, from, dv.radius)) continue;
+                    Point to = pickDrop(dv, from);
+                    if (to == null) break;
+                    trips.put(p.getUniqueId(), new Trip(jd, from, to));
+                    plugin.notifications().send(p, ro.solarstudios.flowcity.bridge.notify.NotifyModule.Type.JOB,
+                        "Livrare noua", "Du " + dv.item + " la " + to.name + ".");
+                    JsonObject o = new JsonObject();
+                    o.addProperty("name", to.name);
+                    o.addProperty("type", "job");
+                    o.addProperty("x", to.x);
+                    o.addProperty("z", to.z);
+                    sendMaps(p, o);
+                    break;
+                }
+            } else if (near(p, t.to, dv.radius)) {
+                trips.remove(p.getUniqueId());
+                gpsStop(p);
+                double dist = t.from.dist(t.to);
+                long minMs = (long) (dist / 30.0 * 1000);   // sub ~108 km/h: nu platim teleportarile
+                if (System.currentTimeMillis() - t.startedAt < minMs) {
+                    msg(p, false, "Livrare prea rapida: nu a fost platita.");
+                    continue;
+                }
+                double pay = HypeMath.round2(dv.basePay + dv.per100m * (dist / 100.0));
+                payOut(p, d, jd, pay, dv.xp);
+                plugin.notifications().send(p, ro.solarstudios.flowcity.bridge.notify.NotifyModule.Type.JOB,
+                    "Livrare incheiata", t.to.name + " - " + Math.round(dist) + " m");
+            }
+        }
+    }
+
+    private Point pickDrop(Delivery dv, Point from) {
+        List<Point> pool = new ArrayList<>();
+        for (Point pt : dv.drops) if (pt.world.equals(from.world) && pt.dist(from) >= 40) pool.add(pt);
+        if (pool.isEmpty()) for (Point pt : dv.drops) if (pt.world.equals(from.world)) pool.add(pt);
+        return pool.isEmpty() ? null : pool.get(rnd.nextInt(pool.size()));
+    }
+
+    /** /hype delivery <job> <pickup|drop> <add [nume]|list|clear> */
+    private void deliveryAdmin(CommandSender s, String[] a) {
+        if (!(s instanceof Player) || a.length < 4) {
+            s.sendMessage("§7/hype delivery <job> <pickup|drop> <add [nume]|list|clear> (din joc)");
+            return;
+        }
+        Player p = (Player) s;
+        JobDef jd = jobs.get(a[1].toLowerCase(Locale.ROOT));
+        if (jd == null || jd.delivery == null) {
+            p.sendMessage("§cJobul nu are livrari configurate (sectiunea delivery din hype.yml).");
+            return;
+        }
+        boolean pickup = a[2].equalsIgnoreCase("pickup");
+        List<Point> list = pickup ? jd.delivery.pickups : jd.delivery.drops;
+        String sub = a[3].toLowerCase(Locale.ROOT);
+        if ("list".equals(sub)) {
+            p.sendMessage("§b" + (pickup ? "Puncte de ridicare" : "Puncte de livrare") + ": §f" + list.size());
+            for (Point pt : list) p.sendMessage("§7- §f" + pt.name + " §8(" + Math.round(pt.x) + ", " + Math.round(pt.y) + ", " + Math.round(pt.z) + ")");
+            return;
+        }
+        String key = "jobs.list." + jd.id + ".delivery." + (pickup ? "pickups" : "drops");
+        if ("clear".equals(sub)) {
+            cfg.set(key, new ArrayList<>());
+        } else if ("add".equals(sub)) {
+            Point pt = new Point();
+            pt.name = a.length >= 5 ? String.join(" ", java.util.Arrays.copyOfRange(a, 4, a.length)) : (pickup ? "Depozit" : "Adresa") + " " + (list.size() + 1);
+            pt.world = p.getWorld().getName();
+            pt.x = Math.round(p.getLocation().getX() * 10) / 10.0;
+            pt.y = Math.round(p.getLocation().getY() * 10) / 10.0;
+            pt.z = Math.round(p.getLocation().getZ() * 10) / 10.0;
+            list.add(pt);
+            cfg.set(key, writePoints(list));
+        } else {
+            p.sendMessage("§cFolosire: add [nume] | list | clear");
+            return;
+        }
+        ModConfig.save(cfg, plugin, "hype");
+        loadJobs();
+        p.sendMessage("§aSalvat.");
     }
 
     private void hypeAdmin(CommandSender s, String[] a) {
@@ -786,6 +986,10 @@ public final class HypeModule extends JsonModule implements Listener {
             } else if ("remove".equals(sub)) {
                 p.sendMessage(atm.setAtmBlock(b.getLocation(), false) ? "§aATM sters." : "§eBlocul nu e un ATM.");
             }
+            return;
+        }
+        if (a.length >= 1 && "delivery".equalsIgnoreCase(a[0])) {
+            deliveryAdmin(s, a);
             return;
         }
         if (a.length >= 2 && "jobloc".equalsIgnoreCase(a[0])) {
