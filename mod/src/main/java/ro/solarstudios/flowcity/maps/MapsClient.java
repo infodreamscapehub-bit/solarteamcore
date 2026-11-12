@@ -30,6 +30,7 @@ public final class MapsClient extends JsonClientModule {
     public static boolean needRoute;
     public static final int MM = 108;
     public static final int ROUTE_COLOR = 0xFFE056FD;
+    public static final int OUTLINE = 0xFF2A0E36;
     private static MapView radar;
     private static long lastRoute;
     private static long waitingSince;
@@ -317,9 +318,17 @@ public final class MapsClient extends JsonClientModule {
         List<double[]> pts = MapsState.route;
         int color = MapsState.routeNetwork ? ROUTE_COLOR : 0x99E056FD;
         if (pts.isEmpty()) {
-            segment(ms, pr, prev, new double[] {MapsState.tx, MapsState.tz}, thick, color, x0, y0, x1, y1, true);
+            double[] to = new double[] {MapsState.tx, MapsState.tz};
+            segment(ms, pr, prev, to, thick + 2, OUTLINE, x0, y0, x1, y1, true);
+            segment(ms, pr, prev, to, thick, color, x0, y0, x1, y1, true);
             return;
         }
+        double[] start = prev;
+        for (double[] p : pts) {
+            segment(ms, pr, prev, p, thick + 2, OUTLINE, x0, y0, x1, y1, false);
+            prev = p;
+        }
+        prev = start;
         for (double[] p : pts) {
             segment(ms, pr, prev, p, thick, color, x0, y0, x1, y1, false);
             prev = p;
@@ -504,6 +513,31 @@ public final class MapsClient extends JsonClientModule {
                 Ui.rect(ms, x, zy, 3, 11, rgb);
                 Ui.text(ms, Ui.clip(currentZone.name, MM - 10), x + 7, zy + 2, Theme.TEXT);
             }
+            // pulsul waypoint-ului pe radar (ca in GTA V)
+            if (MapsState.hasTarget) {
+                float[] r = rel(MapsState.tx, MapsState.tz, px, pz, scale, cos, sin);
+                if (Math.abs(r[0]) < MM / 2f - 8 && Math.abs(r[1]) < MM / 2f - 8) {
+                    float ph = (System.currentTimeMillis() % 1400L) / 1400f;
+                    int rr = 4 + Math.round(ph * 9);
+                    int al = Math.round((1f - ph) * 120);
+                    Ui.round(ms, Math.round(cx + r[0]) - rr, Math.round(cy + r[1]) - rr + 2, rr * 2, rr * 2, Theme.alpha(ROUTE_COLOR, al));
+                }
+            }
+            // urmatoarea manevra (GPS)
+            if (MapsState.hasTarget) {
+                float[] nt = nextTurn(px, pz);
+                if (nt != null) {
+                    int rows = (currentZone != null ? 1 : 0) + 1;
+                    int by = MapsState.radarPos == 0 ? y - 12 * rows - 26 : y + MM + 16 + 12 * rows;
+                    Ui.rect(ms, x, by, MM, 24, 0xDD05070C);
+                    Ui.rect(ms, x, by, 3, 24, ROUTE_COLOR);
+                    float rot = nt[1] == 1 ? 90f : (nt[1] == -1 ? -90f : (nt[1] == 2 ? 180f : 0f));
+                    drawArrow(ms, x + 18, by + 12, rot, 0xFFFFFFFF);
+                    String label = nt[1] == 1 ? "Vireaza la dreapta" : (nt[1] == -1 ? "Vireaza la stanga" : (nt[1] == 2 ? "Intoarce-te" : "Mergi inainte"));
+                    Ui.text(ms, label, x + 32, by + 4, Theme.TEXT);
+                    Ui.text(ms, nt[0] < 0 ? "pana la destinatie" : "peste " + meters(nt[0]), x + 32, by + 14, ROUTE_COLOR);
+                }
+            }
             // info waypoint
             if (MapsState.hasTarget) {
                 double dist = Math.hypot(MapsState.tx - px, MapsState.tz - pz);
@@ -512,6 +546,46 @@ public final class MapsClient extends JsonClientModule {
                 Ui.text(ms, Ui.clip(MapsState.targetName, MM - 46), x + 3, ty + 2, Theme.TEXT);
                 Ui.textRight(ms, meters(dist), x + MM - 3, ty + 2, ROUTE_COLOR);
             }
+        }
+
+        /** {distanta pana la manevra (-1 = fara), tip: -1 stanga, 0 inainte, 1 dreapta, 2 intoarcere} */
+        private float[] nextTurn(double px, double pz) {
+            List<double[]> pts = MapsState.route;
+            if (pts.isEmpty()) return new float[] {(float) Math.hypot(MapsState.tx - px, MapsState.tz - pz), 0f};
+            int start = 0;
+            double best = Double.MAX_VALUE;
+            for (int i = 0; i < pts.size(); i++) {
+                double d = Math.hypot(pts.get(i)[0] - px, pts.get(i)[1] - pz);
+                if (d < best) {
+                    best = d;
+                    start = i;
+                }
+            }
+            List<double[]> seq = new ArrayList<>();
+            seq.add(new double[] {px, pz});
+            for (int i = start; i < pts.size(); i++) seq.add(pts.get(i));
+            seq.add(new double[] {MapsState.tx, MapsState.tz});
+            double acc = 0;
+            for (int k = 1; k + 1 < seq.size(); k++) {
+                double[] a = seq.get(k - 1);
+                double[] b = seq.get(k);
+                double[] c = seq.get(k + 1);
+                double hx = b[0] - a[0];
+                double hz = b[1] - a[1];
+                double nx = c[0] - b[0];
+                double nz = c[1] - b[1];
+                double l1 = Math.hypot(hx, hz);
+                double l2 = Math.hypot(nx, nz);
+                acc += l1;
+                if (l1 < 0.5 || l2 < 0.5) continue;
+                double cos = (hx * nx + hz * nz) / (l1 * l2);
+                double ang = Math.toDegrees(Math.acos(Math.max(-1, Math.min(1, cos))));
+                if (ang >= 35) {
+                    double cross = hx * nz - hz * nx;
+                    return new float[] {(float) acc, ang > 150 ? 2f : (cross > 0 ? 1f : -1f)};
+                }
+            }
+            return new float[] {-1f, 0f};
         }
 
         private float[] rel(double wx, double wz, double px, double pz, float scale, float cos, float sin) {
@@ -529,6 +603,7 @@ public final class MapsClient extends JsonClientModule {
             seq.add(prev);
             if (pts.isEmpty()) seq.add(new double[] {MapsState.tx, MapsState.tz});
             else seq.addAll(pts);
+            for (int pass = 0; pass < 2; pass++)
             for (int i = 0; i + 1 < seq.size(); i++) {
                 float[] a = rel(seq.get(i)[0], seq.get(i)[1], px, pz, scale, cos, sin);
                 float[] b = rel(seq.get(i + 1)[0], seq.get(i + 1)[1], px, pz, scale, cos, sin);
@@ -540,7 +615,8 @@ public final class MapsClient extends JsonClientModule {
                     int sx = Math.round(cx + a[0] + (b[0] - a[0]) * t);
                     int sy = Math.round(cy + a[1] + (b[1] - a[1]) * t);
                     if (sx < x + 1 || sy < y + 1 || sx > x + MM - 3 || sy > y + MM - 3) continue;
-                    Ui.rect(ms, sx - 1, sy - 1, 3, 3, color);
+                    if (pass == 0) Ui.rect(ms, sx - 2, sy - 2, 5, 5, OUTLINE);
+                    else Ui.rect(ms, sx - 1, sy - 1, 3, 3, color);
                 }
             }
         }
