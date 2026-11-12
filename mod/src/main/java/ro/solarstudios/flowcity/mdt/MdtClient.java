@@ -67,10 +67,10 @@ public final class MdtClient extends JsonClientModule {
         bk2 = new KeyMapping("key.flowcity.mdt_bk2", GLFW.GLFW_KEY_KP_2, "key.categories.flowcity");
         bk3 = new KeyMapping("key.flowcity.mdt_bk3", GLFW.GLFW_KEY_KP_3, "key.categories.flowcity");
         panic = new KeyMapping("key.flowcity.mdt_panic", GLFW.GLFW_KEY_KP_0, "key.categories.flowcity");
-        ClientRegistry.registerKeyMapping(bk1);
-        ClientRegistry.registerKeyMapping(bk2);
-        ClientRegistry.registerKeyMapping(bk3);
-        ClientRegistry.registerKeyMapping(panic);
+        event.register(bk1);
+        event.register(bk2);
+        event.register(bk3);
+        event.register(panic);
     }
 
     // ------------------------------------------------------------------ apeluri catre server
