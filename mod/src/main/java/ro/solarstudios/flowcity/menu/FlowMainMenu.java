@@ -218,9 +218,9 @@ public final class FlowMainMenu extends Screen {
             ms.pose().pushPose();
             ms.pose().translate(cx, 30 + (float) wave * 0.8f, 0);
             ms.pose().scale(ts, ts, 1f);
-            font.drawStringWithShadow(ms, ch, 0, 0, color);
+            ms.drawString(font, ch, 0, 0, color, true);
             ms.pose().popPose();
-            cx += font.getStringWidth(ch) * ts;
+            cx += font.width(ch) * ts;
         }
         Ui.text(ms, cfg.tagline, x + logoS + 14 + slide, 58, Theme.alpha(Theme.MUTED, (int) (255 * ease)));
         Ui.text(ms, "Un oras viu: joburi, economie, telefon si poveste.", x + slide, 96, Theme.alpha(0xFFD6E4FF, (int) (255 * ease)));
@@ -249,7 +249,7 @@ public final class FlowMainMenu extends Screen {
         ms.pose().pushPose();
         ms.pose().translate(x + 14, b.y + (b.h - 8 * sc) / 2f, 0);
         ms.pose().scale(sc, sc, 1f);
-        font.drawStringWithShadow(ms, b.label, 0, 0, Theme.alpha(0xFFFFFFFF, a));
+        ms.drawString(font, b.label, 0, 0, Theme.alpha(0xFFFFFFFF, a), true);
         ms.pose().popPose();
         if (b.primary || b.hover > 0.05f) {
             Ui.textRight(ms, b.hint, x + b.w - 10, b.y + (b.h - 8) / 2, Theme.alpha(b.primary ? 0xFFDDF1FF : Theme.MUTED, (int) (a * (b.primary ? 0.8f : b.hover))));
@@ -352,7 +352,7 @@ public final class FlowMainMenu extends Screen {
         drawUpdateBadge(ms, t);
         int y = height - 14;
         Ui.text(ms, "Minecraft 1.16.5  |  " + ModList.get().size() + " moduri  |  FlowCity", 10, y, Theme.alpha(Theme.FAINT, 220));
-        String name = minecraft.getSession().getUsername();
+        String name = minecraft.getUser().getName();
         Ui.textRight(ms, "Salut, " + name + "  |  (c) SolarStudios", width - 10, y, Theme.alpha(Theme.MUTED, 230));
     }
 

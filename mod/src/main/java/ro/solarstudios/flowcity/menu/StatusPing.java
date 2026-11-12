@@ -34,7 +34,7 @@ public final class StatusPing {
     /** Apelat la fiecare tick de meniu. */
     public static void tick(String ip) {
         try {
-            PINGER.pingPendingNetworks();
+            PINGER.tick();
         } catch (RuntimeException ignored) {
             // conexiune inchisa
         }

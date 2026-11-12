@@ -38,8 +38,8 @@ public class AdminPanelScreen extends Screen {
         final Runnable action;
 
         Hit(int x, int y, int w, int h, Runnable action) {
-            this.x = x;
-            this.y = y;
+            this.setX(x);
+            this.setY(y);
             this.w = w;
             this.h = h;
             this.action = action;
@@ -116,8 +116,8 @@ public class AdminPanelScreen extends Screen {
 
     private EditBox field(String hint, int max, Consumer<String> onChange) {
         EditBox f = new EditBox(font, 0, 0, 100, 14, Component.literal(hint));
-        f.setMaxStringLength(max);
-        f.setEnableBackgroundDrawing(false);
+        f.setMaxLength(max);
+        f.setBordered(false);
         f.setTextColor(Theme.TEXT);
         f.setSuggestion(hint);
         f.setResponder(s -> {
@@ -219,7 +219,7 @@ public class AdminPanelScreen extends Screen {
 
     /** Focus fara dependenta de numele metodei: EditBox isi seteaza singur focusul la click. */
     private void focus(EditBox f, boolean on) {
-        f.mouseClicked(on ? f.getX() + 1 : -10000, on ? f.y + 1 : -10000, 0);
+        f.mouseClicked(on ? f.getX() + 1 : -10000, on ? f.getY() + 1 : -10000, 0);
     }
 
     private void click() {
@@ -276,8 +276,8 @@ public class AdminPanelScreen extends Screen {
         int top = py + HEAD + 6;
         // casuta de cautare
         Ui.frame(ms, x, top, LIST_W, 16, Theme.PANEL_2, search.isFocused() ? Theme.ACCENT : Theme.LINE);
-        search.x = x + 5;
-        search.y = top + 4;
+        search.setX(x + 5);
+        search.setY(top + 4);
         search.setWidth(LIST_W - 10);
         search.render(ms, mx, my, 0);
 
@@ -445,8 +445,8 @@ public class AdminPanelScreen extends Screen {
         int fx = x + 44;
         int fw = 80;
         Ui.frame(ms, fx, y + 2, fw, 12, Theme.PANEL_2, cashField.isFocused() ? Theme.ACCENT : Theme.LINE);
-        cashField.x = fx + 4;
-        cashField.y = y + 4;
+        cashField.setX(fx + 4);
+        cashField.setY(y + 4);
         cashField.setWidth(fw - 8);
         cashField.render(ms, mx, my, 0);
         int bx = fx + fw + 6;
@@ -552,7 +552,6 @@ public class AdminPanelScreen extends Screen {
         int dy = fy + (fh - dh) / 2;
         com.mojang.blaze3d.systems.RenderSystem.enableBlend();
         com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-        Minecraft.getInstance().getTextureManager().bindTexture(AdminX.ssTex);
         ms.blit(AdminX.ssTex, dx, dy, dw, dh, 0f, 0f, AdminX.ssW, AdminX.ssH, AdminX.ssW, AdminX.ssH);
     }
 
@@ -607,8 +606,8 @@ public class AdminPanelScreen extends Screen {
         int fx = x;
         int fw = Math.min(90, Math.max(40, x + w - fx - 78));
         Ui.frame(ms, fx, actionsY, fw, 14, Theme.PANEL, idField.isFocused() ? Theme.ACCENT : Theme.LINE);
-        idField.x = fx + 4;
-        idField.y = actionsY + 3;
+        idField.setX(fx + 4);
+        idField.setY(actionsY + 3);
         idField.setWidth(fw - 8);
         idField.render(ms, mx, my, 0);
         button(ms, "SETEAZA ID", fx + fw + 4, actionsY, 74, 14, mx, my, true, 0xFF4B4FA8, this::setId);
@@ -709,8 +708,8 @@ public class AdminPanelScreen extends Screen {
         int applyW = 54;
         int fw = w - applyW - 4;
         Ui.frame(ms, x, fy, fw, 16, Theme.PANEL, reason.isFocused() ? Theme.ACCENT : Theme.LINE);
-        reason.x = x + 5;
-        reason.y = fy + 4;
+        reason.setX(x + 5);
+        reason.setY(fy + 4);
         reason.setWidth(fw - 10);
         reason.render(ms, mx, my, 0);
         button(ms, "APLICA", x + fw + 4, fy, applyW, 16, mx, my, true, sType.equals("BAN") ? 0xFF8A2D3A : Theme.ACCENT_DIM, this::applySanction);
@@ -750,8 +749,8 @@ public class AdminPanelScreen extends Screen {
         int addW = 60;
         int fw = w - addW - 4;
         Ui.frame(ms, x, y, fw, 16, Theme.PANEL, note.isFocused() ? Theme.ACCENT : Theme.LINE);
-        note.x = x + 5;
-        note.y = y + 4;
+        note.setX(x + 5);
+        note.setY(y + 4);
         note.setWidth(fw - 10);
         note.render(ms, mx, my, 0);
         button(ms, "ADAUGA", x + fw + 4, y, addW, 16, mx, my, true, Theme.ACCENT_DIM, this::addNote);

@@ -29,7 +29,7 @@ public final class RulesScreen extends FlowScreen {
     }
 
     @Override
-    public void closeScreen() {
+    public void onClose() {
         Minecraft.getInstance().setScreen(parent);
     }
 
