@@ -1,0 +1,81 @@
+buildscript {
+    repositories {
+        maven { url = 'https://maven.minecraftforge.net' }
+        mavenCentral()
+    }
+    dependencies {
+        classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '5.1.+', changing: true
+    }
+}
+
+apply plugin: 'net.minecraftforge.gradle'
+
+version = '1.0.0'
+group = 'ro.solarstudios.flowcity'
+archivesBaseName = 'FlowCityCore-1.16.5'
+
+// Forge 1.16.5 ruleaza pe Java 8 (si 11): compilam pentru Java 8
+java.toolchain.languageVersion = JavaLanguageVersion.of(8)
+
+minecraft {
+    // mapari oficiale Mojang, ca pe 1.20.1 (numele claselor sunt aproape aceleasi)
+    mappings channel: 'official', version: '1.16.5'
+
+    runs {
+        server {
+            workingDirectory project.file('run-server')
+            property 'forge.logging.console.level', 'info'
+            args '--nogui'
+            mods {
+                flowcitycore {
+                    source sourceSets.main
+                }
+            }
+        }
+        client {
+            workingDirectory project.file('run')
+            property 'forge.logging.console.level', 'info'
+            mods {
+                flowcitycore {
+                    source sourceSets.main
+                }
+            }
+        }
+    }
+}
+
+repositories {
+    mavenCentral()
+    // MrCrayfish's Vehicle Mod (1.16.5), doar pentru compilare (bordul masinilor)
+    maven {
+        url = 'https://cursemaven.com'
+        content { includeGroup 'curse.maven' }
+    }
+}
+
+dependencies {
+    minecraft 'net.minecraftforge:forge:1.16.5-36.2.39'
+    // API PlasmoVoice 2.1.8 (doar la compilare; modul real e pe server)
+    compileOnly files('libs/plasmovoice-api.jar')
+}
+
+jar {
+    manifest {
+        attributes([
+            "Specification-Title"     : "flowcitycore",
+            "Specification-Vendor"    : "SolarStudios",
+            "Specification-Version"   : "1",
+            "Implementation-Title"    : project.name,
+            "Implementation-Version"  : project.jar.archiveVersion,
+            "Implementation-Vendor"   : "SolarStudios",
+            "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
+        ])
+    }
+}
+
+jar.finalizedBy('reobfJar')
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+    options.compilerArgs << '-Xmaxerrs' << '2000'
+}

@@ -1,0 +1,19 @@
+{
+ "variants": {
+  "facing=north": {
+   "model": "flowcitycore:block/dealer_auto"
+  },
+  "facing=east": {
+   "model": "flowcitycore:block/dealer_auto",
+   "y": 90
+  },
+  "facing=south": {
+   "model": "flowcitycore:block/dealer_auto",
+   "y": 180
+  },
+  "facing=west": {
+   "model": "flowcitycore:block/dealer_auto",
+   "y": 270
+  }
+ }
+}

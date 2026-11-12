@@ -1,0 +1,309 @@
+package ro.solarstudios.flowcity.cars.client;
+
+import net.minecraft.network.chat.TextComponent;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.mojang.blaze3d.platform.InputConstants;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import net.minecraft.client.Camera;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import ro.solarstudios.flowcity.compat.GuiGraphics;
+import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
+import ro.solarstudios.flowcity.compat.RegisterKeyMappingsEvent;
+import net.minecraftforge.client.event.RenderGuiEvent;
+import net.minecraftforge.client.event.RenderLevelStageEvent;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import com.mojang.math.Matrix4f;
+import org.lwjgl.glfw.GLFW;
+import ro.solarstudios.flowcity.cars.CarsNet;
+import ro.solarstudios.flowcity.client.ui.Theme;
+import ro.solarstudios.flowcity.client.ui.Ui;
+import ro.solarstudios.flowcity.module.JsonClientModule;
+
+/**
+ * Garajele pe client, ca pe FiveM: cercuri luminoase pe sol cu numele deasupra, mesaj "[E] ..." cand esti aproape,
+ * tasta E (aceeasi cu inventarul: langa un garaj E deschide garajul in loc de inventar).
+ */
+public final class GaragesClient {
+    private GaragesClient() {}
+
+    public static final class G {
+        public int id;
+        public String name;
+        public String type;
+        public String faction;
+        public String dim;
+        public double mx, my, mz, sx, sy, sz;
+        public boolean store;
+        public float r;
+        public boolean access;
+    }
+
+    public static final List<G> garages = new ArrayList<>();
+    public static final Set<String> factions = new HashSet<>();
+    public static KeyMapping interact;
+
+    private static String prompt;
+    private static Runnable action;
+
+    public static void register() {
+        MinecraftForge.EVENT_BUS.register(new Events());
+    }
+
+    public static void registerKeys(RegisterKeyMappingsEvent e) {
+        interact = new KeyMapping("key.flowcity.interact", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_E, "key.categories.flowcity");
+        e.register(interact);
+    }
+
+    public static boolean police() {
+        return factions.contains("politie") || factions.contains("admin");
+    }
+
+    /** Raspunsurile serverului (CarsNet). */
+    public static void receive(String kind, String json) {
+        JsonObject o;
+        try {
+            o = JsonParser.parseString(json).getAsJsonObject();
+        } catch (RuntimeException ex) {
+            return;
+        }
+        Minecraft mc = Minecraft.getInstance();
+        switch (kind) {
+            case "garages":
+                garages.clear();
+                for (JsonElement e : o.getAsJsonArray("garages")) {
+                    JsonObject j = e.getAsJsonObject();
+                    G g = new G();
+                    g.id = JsonClientModule.integer(j, "id", 0);
+                    g.name = JsonClientModule.str(j, "name", "Garaj");
+                    g.type = JsonClientModule.str(j, "type", "public");
+                    g.faction = JsonClientModule.str(j, "faction", "");
+                    g.dim = JsonClientModule.str(j, "dim", "");
+                    g.mx = JsonClientModule.num(j, "mx", 0);
+                    g.my = JsonClientModule.num(j, "my", 0);
+                    g.mz = JsonClientModule.num(j, "mz", 0);
+                    g.store = JsonClientModule.bool(j, "store", false);
+                    g.sx = JsonClientModule.num(j, "sx", 0);
+                    g.sy = JsonClientModule.num(j, "sy", 0);
+                    g.sz = JsonClientModule.num(j, "sz", 0);
+                    g.r = (float) JsonClientModule.num(j, "r", 4);
+                    g.access = JsonClientModule.bool(j, "access", true);
+                    garages.add(g);
+                }
+                ro.solarstudios.flowcity.maps.MapsState.garagePois.clear();
+                for (G g : garages) {
+                    if (!g.access) continue;
+                    ro.solarstudios.flowcity.maps.MapsState.Poi p = new ro.solarstudios.flowcity.maps.MapsState.Poi();
+                    p.id = -g.id;
+                    p.name = g.name;
+                    p.type = "garaj";
+                    p.x = g.mx;
+                    p.y = g.my;
+                    p.z = g.mz;
+                    ro.solarstudios.flowcity.maps.MapsState.garagePois.add(p);
+                }
+                factions.clear();
+                JsonArray f = o.getAsJsonArray("factions");
+                if (f != null) for (JsonElement e : f) factions.add(e.getAsString());
+                break;
+            case "garage":
+                if (mc.screen instanceof GarageScreen) ((GarageScreen) mc.screen).update(o);
+                else mc.setScreen(new GarageScreen(o));
+                break;
+            case "inspect":
+                if (mc.screen instanceof PoliceVehicleScreen) ((PoliceVehicleScreen) mc.screen).update(o);
+                else mc.setScreen(new PoliceVehicleScreen(o));
+                break;
+            default:
+                break;
+        }
+    }
+
+    private static int color(G g) {
+        if ("pound".equals(g.type)) return 0xE0473E;
+        if ("factiune".equals(g.type)) return 0x3F7FE0;
+        return 0xE9A23B;
+    }
+
+    private static String dim(Minecraft mc) {
+        return mc.level.dimension().location().toString();
+    }
+
+    /** Ce se poate face acum (cel mai apropiat lucru): garaj, parcare sau control de politie. */
+    private static void findPrompt(Minecraft mc) {
+        prompt = null;
+        action = null;
+        Vec3 pos = mc.player.position();
+        Entity root = mc.player.getRootVehicle();
+        boolean inVehicle = root != mc.player;
+        String d = dim(mc);
+        double best = Double.MAX_VALUE;
+        for (G g : garages) {
+            if (!g.dim.equals(d) || !g.access) continue;
+            if (inVehicle && !"pound".equals(g.type)) {
+                Vec3 z = g.store ? new Vec3(g.sx, g.sy, g.sz) : new Vec3(g.mx, g.my, g.mz);
+                double dist = root.position().distanceTo(z);
+                if (dist <= (g.store ? g.r : 6) && dist < best) {
+                    best = dist;
+                    final int id = g.id;
+                    prompt = "Parcheaza vehiculul (" + g.name + ")";
+                    action = () -> CarsNet.send("store", id, 0);
+                }
+            }
+            if (!inVehicle) {
+                double dist = pos.distanceTo(new Vec3(g.mx, g.my, g.mz));
+                if (dist <= 2.5 && dist < best) {
+                    best = dist;
+                    final int id = g.id;
+                    prompt = "pound".equals(g.type) ? "Pound: scoate masina ridicata" : "Deschide " + g.name;
+                    action = () -> CarsNet.send("open", id, 0);
+                }
+            }
+        }
+        if (prompt == null && !inVehicle && police()) {
+            HitResult hr = mc.hitResult;
+            EntityHitResult eh = hr instanceof EntityHitResult ? (EntityHitResult) hr : null;
+            if (eh != null && !(eh.getEntity() instanceof LivingEntity) && eh.getEntity().distanceTo(mc.player) < 6
+                && eh.getEntity().getType().getRegistryName() != null && eh.getEntity().getType().getRegistryName().getNamespace().equals("vehicle")) {
+                final int eid = eh.getEntity().getId();
+                prompt = "Politie: verifica vehiculul";
+                action = () -> CarsNet.send("inspect", eid, 0);
+            }
+        }
+    }
+
+    public static final class Events {
+        @SubscribeEvent
+        public void onTick(TickEvent.ClientTickEvent e) {
+            if (e.phase != TickEvent.Phase.START) return;
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.player == null || mc.level == null) {
+                prompt = null;
+                return;
+            }
+            if (mc.screen != null) return;
+            findPrompt(mc);
+            if (interact == null) return;
+            boolean pressed = false;
+            while (interact.consumeClick()) pressed = true;
+            if (pressed && action != null) {
+                // E e si tasta inventarului: daca am folosit-o aici, inventarul nu se mai deschide
+                if (interact.same(mc.options.keyInventory)) while (mc.options.keyInventory.consumeClick()) { }
+                action.run();
+            }
+        }
+
+        @SubscribeEvent
+        public void onHud(RenderGuiEvent.Post e) {
+            Minecraft mc = Minecraft.getInstance();
+            if (prompt == null || mc.screen != null || mc.options.hideGui) return;
+            GuiGraphics g = e.getGuiGraphics();
+            String key = interact == null ? "E" : interact.getTranslatedKeyMessage().getString().toUpperCase();
+            int kw = Ui.width(key) + 8;
+            int w = kw + 8 + Ui.width(prompt) + 12;
+            int x = mc.getWindow().getGuiScaledWidth() / 2 - w / 2;
+            int y = mc.getWindow().getGuiScaledHeight() - 92;
+            Ui.round(g, x, y, w, 18, 0xD016181D);
+            Ui.round(g, x + 4, y + 3, kw, 12, Theme.ACCENT);
+            Ui.textCenter(g, key, x + 4 + kw / 2, y + 5, 0xFF1A1A1A);
+            Ui.text(g, prompt, x + kw + 12, y + 5, Theme.TEXT);
+        }
+
+        @SubscribeEvent
+        public void onWorld(RenderLevelStageEvent e) {
+            if (e.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return;
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.player == null || mc.level == null || garages.isEmpty()) return;
+            Camera cam = e.getCamera();
+            Vec3 c = cam.getPosition();
+            PoseStack ps = e.getPoseStack();
+            MultiBufferSource.BufferSource buf = mc.renderBuffers().bufferSource();
+            String d = dim(mc);
+            float t = (System.currentTimeMillis() % 2000L) / 2000f;
+            float pulse = 0.75f + 0.25f * (float) Math.sin(t * Math.PI * 2);
+            boolean inVehicle = mc.player.getRootVehicle() != mc.player;
+            for (G g : garages) {
+                if (!g.dim.equals(d) || !g.access) continue;
+                if (c.distanceToSqr(g.mx, g.my, g.mz) > 64 * 64) continue;
+                int col = color(g);
+                ring(ps, buf, c, g.mx, g.my, g.mz, 1.0f, 0.12f, col, (int) (170 * pulse));
+                ring(ps, buf, c, g.mx, g.my, g.mz, 0.85f, 0.85f, col, 40);
+                if (g.store && !"pound".equals(g.type)) {
+                    ring(ps, buf, c, g.sx, g.sy, g.sz, g.r, 0.18f, col, inVehicle ? 200 : 110);
+                    ring(ps, buf, c, g.sx, g.sy, g.sz, g.r - 0.18f, g.r - 0.18f, col, inVehicle ? 45 : 22);
+                    label(ps, buf, cam, c, g.sx, g.sy + 2.2, g.sz, "P  Parcare " + g.name, col);
+                }
+                label(ps, buf, cam, c, g.mx, g.my + 1.9, g.mz, g.name, col);
+            }
+            buf.endBatch();
+        }
+    }
+
+    /** Inel orizontal pe sol (thick = latimea inelului; thick >= r = disc plin). */
+    private static void ring(PoseStack ps, MultiBufferSource buf, Vec3 c, double x, double y, double z, float r, float thick, int rgb, int alpha) {
+        VertexConsumer vc = buf.getBuffer(RenderType.lightning());
+        ps.pushPose();
+        ps.translate(x - c.x, y - c.y + 0.03, z - c.z);
+        Matrix4f m = ps.last().pose();
+        int seg = 48;
+        float in = Math.max(0f, r - thick);
+        int cr = (rgb >> 16) & 255, cg = (rgb >> 8) & 255, cb = rgb & 255;
+        for (int i = 0; i < seg; i++) {
+            double a0 = i * Math.PI * 2 / seg, a1 = (i + 1) * Math.PI * 2 / seg;
+            float c0 = (float) Math.cos(a0), s0 = (float) Math.sin(a0), c1 = (float) Math.cos(a1), s1 = (float) Math.sin(a1);
+            vc.vertex(m, c0 * in, 0, s0 * in).color(cr, cg, cb, alpha).endVertex();
+            vc.vertex(m, c0 * r, 0, s0 * r).color(cr, cg, cb, alpha).endVertex();
+            vc.vertex(m, c1 * r, 0, s1 * r).color(cr, cg, cb, alpha).endVertex();
+            vc.vertex(m, c1 * in, 0, s1 * in).color(cr, cg, cb, alpha).endVertex();
+        }
+        ps.popPose();
+    }
+
+    /** Text deasupra markerului, mereu cu fata spre camera (ca numele jucatorilor). */
+    private static void label(PoseStack ps, MultiBufferSource buf, Camera cam, Vec3 c, double x, double y, double z, String text, int rgb) {
+        Font font = Minecraft.getInstance().font;
+        ps.pushPose();
+        ps.translate(x - c.x, y - c.y, z - c.z);
+        ps.mulPose(cam.rotation());
+        ps.scale(-0.025f, -0.025f, 0.025f);
+        Matrix4f m = ps.last().pose();
+        Component comp = new TextComponent(text);
+        float w = -font.width(comp) / 2f;
+        font.drawInBatch(comp, w, 0, 0xFFFFFFFF, false, m, buf, Font.DisplayMode.SEE_THROUGH, 0x90000000, LightTexture.FULL_BRIGHT);
+        ps.popPose();
+        // linie colorata sub text
+        VertexConsumer vc = buf.getBuffer(RenderType.lightning());
+        ps.pushPose();
+        ps.translate(x - c.x, y - c.y, z - c.z);
+        ps.mulPose(cam.rotation());
+        ps.scale(-0.025f, -0.025f, 0.025f);
+        Matrix4f m2 = ps.last().pose();
+        float hw = font.width(comp) / 2f + 1;
+        int cr = (rgb >> 16) & 255, cg = (rgb >> 8) & 255, cb = rgb & 255;
+        vc.vertex(m2, -hw, 9, 0).color(cr, cg, cb, 230).endVertex();
+        vc.vertex(m2, -hw, 10, 0).color(cr, cg, cb, 230).endVertex();
+        vc.vertex(m2, hw, 10, 0).color(cr, cg, cb, 230).endVertex();
+        vc.vertex(m2, hw, 9, 0).color(cr, cg, cb, 230).endVertex();
+        ps.popPose();
+    }
+}

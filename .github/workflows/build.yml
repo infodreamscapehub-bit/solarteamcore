@@ -29,6 +29,30 @@ jobs:
           name: FlowCityCore-mod
           path: mod/build/libs/FlowCityCore-1.20.1-*.jar
 
+  mod116:
+    name: FlowCityCore (Forge 1.16.5)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '8'
+      - name: Stamp build
+        run: |
+          mkdir -p mod116/src/main/resources
+          printf 'build=%s\nsha=%s\ntime=%s\n' "${{ github.run_number }}" "${{ github.sha }}" "$(date +%s)" > mod116/src/main/resources/build.properties
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '7.6.4'
+      - name: Build
+        working-directory: mod116
+        run: gradle build --no-daemon --stacktrace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FlowCityCore-mod-1.16.5
+          path: mod116/build/libs/FlowCityCore-1.16.5-*.jar
+
   plugin:
     name: FlowCityBridge (Mohist/Arclight)
     runs-on: ubuntu-latest
@@ -55,8 +79,9 @@ jobs:
 
   release:
     name: Publish jars (release "latest")
-    needs: [mod, plugin]
-    if: github.ref == 'refs/heads/main'
+    needs: [mod, mod116, plugin]
+    # publicam si daca versiunea 1.16.5 nu s-a compilat (atunci lipseste doar jar-ul ei)
+    if: always() && github.ref == 'refs/heads/main' && needs.mod.result == 'success' && needs.plugin.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
