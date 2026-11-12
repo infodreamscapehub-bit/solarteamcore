@@ -17,11 +17,11 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 public final class GpsEvents {
     @SubscribeEvent
     public void onBreak(BlockEvent.BreakEvent e) {
-        if (e.getLevel().isClientSide() || !GpsWrench.isGps(e.getState())) return;
+        if (e.getWorld().isClientSide() || !GpsWrench.isGps(e.getState())) return;
         PlayerEntity p = e.getPlayer();
         if (p == null) return;
         boolean wrench = p.getMainHandItem().getItem() instanceof GpsWrench || p.getOffhandItem().getItem() instanceof GpsWrench;
-        if (!wrench || !(p.hasPermissions(2) || p.getAbilities().instabuild)) {
+        if (!wrench || !(p.hasPermissions(2) || p.abilities.instabuild)) {
             e.setCanceled(true);
             if (p.hasPermissions(2)) p.displayClientMessage(new StringTextComponent("\u00a7cTine Cheia GPS in mana ca sa spargi un bloc GPS."), true);
         }

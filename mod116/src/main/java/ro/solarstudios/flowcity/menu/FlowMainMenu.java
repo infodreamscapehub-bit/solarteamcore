@@ -169,7 +169,7 @@ public final class FlowMainMenu extends Screen {
     private void drawBackground(GuiGraphics ms, double t, float ease) {
         RenderSystem.enableBlend();
         RenderSystem.color4f(1f, 1f, 1f, 1f);
-        RenderSystem.bindTexture(0, BG);
+        Minecraft.getInstance().getTextureManager().bind(BG);
         float cover = Math.max(width / (float) BG_W, height / (float) BG_H);
         float scale = cover * (1.12f + 0.02f * (float) Math.sin(t * 0.07));
         float dx = (float) Math.sin(t * 0.045) * width * 0.03f;
@@ -201,7 +201,7 @@ public final class FlowMainMenu extends Screen {
         int slide = Math.round((1f - ease) * -30f);
         int logoS = 64;
         RenderSystem.enableBlend();
-        RenderSystem.bindTexture(0, LOGO);
+        Minecraft.getInstance().getTextureManager().bind(LOGO);
         RenderSystem.color4f(1f, 1f, 1f, ease);
         ms.blit(LOGO, x + slide, 22, logoS, logoS, 0f, 0f, 128, 128, 128, 128);
         RenderSystem.color4f(1f, 1f, 1f, 1f);

@@ -194,7 +194,7 @@ public final class CarsServer {
         c.nbt = strip(v.saveWithoutId(new CompoundNBT()));
         c.out = false;
         c.entity = null;
-        v.discard();
+        v.remove();
     }
 
     /** Pune vehiculul pe primul loc de parcare liber (sau langa marker, daca nu sunt locuri setate). */
@@ -333,7 +333,7 @@ public final class CarsServer {
         @SubscribeEvent
         public void onTick(TickEvent.ServerTickEvent e) {
             if (e.phase != TickEvent.Phase.END || ++ticks % 600 != 0) return;
-            syncAll(e.getServer());
+            syncAll(net.minecraftforge.fml.server.ServerLifecycleHooks.getCurrentServer());
         }
 
         @SubscribeEvent
@@ -394,7 +394,7 @@ public final class CarsServer {
                 GarageData data = GarageData.get(c.getSource().getServer());
                 GarageData.Garage g = data.garage(IntegerArgumentType.getInteger(c, "id"));
                 if (g == null) return fail(c, "Garajul nu exista.");
-                g.slots.add(new double[] {p.getX(), p.getY(), p.getZ(), p.getYRot()});
+                g.slots.add(new double[] {p.getX(), p.getY(), p.getZ(), p.yRot});
                 data.setDirty();
                 return ok(c, "Loc de parcare #" + g.slots.size() + " adaugat la " + g.name + " (masina va fi intoarsa cum privesti acum).");
             })))
@@ -507,7 +507,7 @@ public final class CarsServer {
                             if (owner != null) owner.displayClientMessage(new StringTextComponent("Masina ta " + car.name + " (" + car.plate + ") a fost ridicata la pound: " + car.poundReason), false);
                         } else {
                             v.ejectPassengers();
-                            v.discard(); // vehicul fara acte (nu e din garaj): se ridica definitiv
+                            v.remove(); // vehicul fara acte (nu e din garaj): se ridica definitiv
                         }
                         officer.displayClientMessage(new StringTextComponent("Vehicul ridicat la pound."), true);
                         return 1;
@@ -554,7 +554,7 @@ public final class CarsServer {
         e.load(init);
         CompoundNBT nbt = strip(e.saveWithoutId(new CompoundNBT()));
         if (nbt.contains("FuelCapacity")) nbt.putFloat("CurrentFuel", nbt.getFloat("FuelCapacity") * 0.5f);
-        e.discard();
+        e.remove();
         return GarageData.get(server).add(owner, faction, type, name, plate, nbt);
     }
 

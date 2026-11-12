@@ -124,12 +124,12 @@ public final class CityMapScanner {
     private static void scan(ServerWorld w, int cx, int cz) {
         w.getChunk(cx, cz); // incarca (si genereaza daca nu exista)
         byte[] b = new byte[512];
-        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+        BlockPos.Mutable pos = new BlockPos.Mutable();
         for (int z = 0; z < 16; z++) {
             for (int x = 0; x < 16; x++) {
                 int wx = (cx << 4) + x;
                 int wz = (cz << 4) + z;
-                int h = w.getHeight(Heightmap.Types.MOTION_BLOCKING, wx, wz);
+                int h = w.getHeight(Heightmap.Type.MOTION_BLOCKING, wx, wz);
                 int i = (z << 4) | x;
                 if (h <= 0) continue;
                 pos.set(wx, h - 1, wz);

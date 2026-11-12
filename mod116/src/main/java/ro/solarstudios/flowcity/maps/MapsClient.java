@@ -460,7 +460,7 @@ public final class MapsClient extends JsonClientModule {
             int y = MapsState.radarPos == 0 ? mc.getWindow().getGuiScaledHeight() - 14 - MM - 14 : 12;
             int cx = x + MM / 2;
             int cy = y + MM / 2;
-            float rot = 180f - mc.player.getYRot();
+            float rot = 180f - mc.player.yRot;
             double rad = Math.toRadians(rot);
             final float cos = (float) Math.cos(rad);
             final float sin = (float) Math.sin(rad);

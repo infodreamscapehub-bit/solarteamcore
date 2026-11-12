@@ -28,7 +28,7 @@ public final class WorldMarkers {
         double ux = ry * fz - rz * fy, uy = rz * fx - rx * fz, uz = rx * fy - ry * fx;
         int w = mc.getWindow().getGuiScaledWidth();
         int h = mc.getWindow().getGuiScaledHeight();
-        double fov = Math.toRadians(mc.options.fov().get());
+        double fov = Math.toRadians(mc.options.fov);
         double focal = (h / 2.0) / Math.tan(fov / 2.0);
         Proj p = new Proj(c, fx, fy, fz, rx, ry, rz, ux, uy, uz, w, h, focal);
 

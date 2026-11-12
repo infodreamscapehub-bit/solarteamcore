@@ -83,7 +83,7 @@ public final class GaragesClient {
     public static void receive(String kind, String json) {
         JsonObject o;
         try {
-            o = JsonParser.parseString(json).getAsJsonObject();
+            o = new com.google.gson.JsonParser().parse(json).getAsJsonObject();
         } catch (RuntimeException ex) {
             return;
         }
@@ -289,7 +289,7 @@ public final class GaragesClient {
         Matrix4f m = ps.last().pose();
         ITextComponent comp = new StringTextComponent(text);
         float w = -font.width(comp) / 2f;
-        font.drawInBatch(comp, w, 0, 0xFFFFFFFF, false, m, buf, true, 0x90000000, LightTexture.FULL_BRIGHT);
+        font.drawInBatch(comp, w, 0, 0xFFFFFFFF, false, m, buf, true, 0x90000000, 15728880);
         ps.popPose();
         // linie colorata sub text
         IVertexBuilder vc = buf.getBuffer(RenderType.lightning());

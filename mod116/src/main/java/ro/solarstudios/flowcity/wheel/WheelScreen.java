@@ -136,7 +136,7 @@ public final class WheelScreen extends FlowScreen {
 
     private void tickSound(double t) {
         float pitch = 0.9f + (float) (1.0 - t) * 0.5f;
-        Minecraft.getInstance().getSoundManager().play(SimpleSound.forUI(SoundEvents.NOTE_BLOCK_HAT.get(), pitch));
+        Minecraft.getInstance().getSoundManager().play(SimpleSound.forUI(SoundEvents.NOTE_BLOCK_HAT, pitch));
     }
 
     // ------------------------------------------------------------------ desen roata

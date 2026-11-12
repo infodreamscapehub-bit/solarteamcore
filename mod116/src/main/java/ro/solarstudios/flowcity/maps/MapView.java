@@ -32,7 +32,7 @@ public final class MapView {
     public MapView(int size, String name, boolean radar) {
         this.size = size;
         this.radar = radar;
-        NativeImage img = new NativeImage(NativeImage.Format.RGBA, size, size, false);
+        NativeImage img = new NativeImage(NativeImage.PixelFormat.RGBA, size, size, false);
         for (int y = 0; y < size; y++) for (int x = 0; x < size; x++) img.setPixelRGBA(x, y, abgr((radar ? RADAR : ATLAS)[UNKNOWN]));
         this.tex = new DynamicTexture(img);
         this.loc = Minecraft.getInstance().getTextureManager().register(name.toLowerCase(java.util.Locale.ROOT), tex);
@@ -238,7 +238,7 @@ public final class MapView {
         bind();
         ms.pose().pushPose();
         ms.pose().translate(sx, sy, 0);
-        ms.pose().mulPose(com.mojang.math.Axis.ZP.rotationDegrees(rotDeg));
+        ms.pose().mulPose(net.minecraft.util.math.vector.Vector3f.ZP.rotationDegrees(rotDeg));
         ms.pose().translate(-(px - cx) / scale, -(pz - cz) / scale, 0);
         ms.blit(loc, -size / 2, -size / 2, size, size, 0f, 0f, size, size, size, size);
         ms.pose().popPose();

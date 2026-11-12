@@ -35,7 +35,7 @@ public class GpsWrench extends Item {
     }
 
     private static boolean admin(PlayerEntity p) {
-        return p.hasPermissions(2) || p.getAbilities().instabuild;
+        return p.hasPermissions(2) || p.abilities.instabuild;
     }
 
     @Override

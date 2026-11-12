@@ -359,7 +359,7 @@ public final class MapScreen extends FlowScreen {
             Blips.pin(ms, sx, sy + Math.round(bob), 10, 0xFFFFD54A);
         }
         // jucator
-        MapsClient.drawPlayer(ms, gx(mc.player.getX()), gy(mc.player.getZ()), mc.player.getYRot());
+        MapsClient.drawPlayer(ms, gx(mc.player.getX()), gy(mc.player.getZ()), mc.player.yRot);
         Ui.endScissor();
 
         // nord + bara de jos: coordonate sub cursor, scara, scurtaturi
