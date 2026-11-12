@@ -37,6 +37,8 @@ repositories {
 
 dependencies {
     minecraft 'net.minecraftforge:forge:1.20.1-47.3.0'
+    // API PlasmoVoice 2.1.9 (doar la compilare; vocea ruleaza prin PlasmoVoice de pe server)
+    compileOnly files('libs/plasmovoice-api.jar')
 }
 
 tasks.named('jar', Jar).configure {
