@@ -53,7 +53,7 @@ public class GpsDirBlock extends HorizontalBlock {
 
     @Override
     public void onReplaced(BlockState state, World world, BlockPos pos, BlockState now, boolean moving) {
-        if (!state.isIn(now.getBlock()) && !world.isRemote) GpsNetwork.remove(pos);
+        if (state.getBlock() != now.getBlock() && !world.isRemote) GpsNetwork.remove(pos);
         super.onReplaced(state, world, pos, now, moving);
     }
 }
