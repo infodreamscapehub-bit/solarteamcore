@@ -295,7 +295,7 @@ public final class PhoneScreen extends FlowScreen {
             case 5: NotifyClient.requestHistory(false); mc.setScreen(new NotifyScreen()); break;
             case 6: HypeClient.request("jobs_req", new JsonObject()); mc.setScreen(new JobsScreen()); break;
             case 7: WheelClient.requestInfo(); mc.setScreen(new WheelScreen()); break;
-            case 8: ro.solarstudios.flowcity.notify.NotifyToasts.add("INFO", "Harta", "Harta GPS ajunge in urmatoarea versiune."); break;
+            case 8: mc.setScreen(new ro.solarstudios.flowcity.maps.MapScreen()); break;
             default: go(Page.SETTINGS); break;
         }
     }

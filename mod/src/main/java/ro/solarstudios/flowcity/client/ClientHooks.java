@@ -16,4 +16,8 @@ public final class ClientHooks {
     public static void openMdt() {
         ro.solarstudios.flowcity.mdt.MdtClient.requestOpen();
     }
+
+    public static void openMap() {
+        net.minecraft.client.Minecraft.getInstance().setScreen(new ro.solarstudios.flowcity.maps.MapScreen());
+    }
 }
