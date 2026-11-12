@@ -77,6 +77,15 @@ public final class MapsState {
     public static final int[] PALETTE = {-13382401, -52429, -13369515, -4557, -3394561, -30669, -16777046, -16733696, -16733526, -8388608,
         -5635926, -5592406, -11184811, -11184641, -1, -16711809, -38476, -11861886, -16640, -2354116};
     public static final List<Poi> pois = new ArrayList<>();
+    /** Garajele (vin din mod, nu din plugin): apar pe harta langa punctele serverului. Id negativ = nu se editeaza. */
+    public static final List<Poi> garagePois = new ArrayList<>();
+
+    public static List<Poi> allPois() {
+        if (garagePois.isEmpty()) return pois;
+        List<Poi> l = new ArrayList<>(pois);
+        l.addAll(garagePois);
+        return l;
+    }
     public static final Set<String> hidden = new HashSet<>();
 
     /** Are permisiunea de editor (flowcity.maps.admin). */

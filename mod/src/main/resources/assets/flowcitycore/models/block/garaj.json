@@ -1,8 +1,0 @@
-{
- "parent": "minecraft:block/orientable",
- "textures": {
-  "front": "flowcitycore:block/garaj_front",
-  "side": "flowcitycore:block/cars_side",
-  "top": "flowcitycore:block/cars_top"
- }
-}

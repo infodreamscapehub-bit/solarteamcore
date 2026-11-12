@@ -296,7 +296,7 @@ public final class MapScreen extends FlowScreen {
         boolean modal = showPopup || showDlg;
         // blips (puncte server)
         MapsState.Poi hover = null;
-        for (MapsState.Poi p : MapsState.pois) {
+        for (MapsState.Poi p : MapsState.allPois()) {
             if (MapsState.hidden.contains(p.type)) continue;
             int sx = Math.round(gx(p.x));
             int sy = Math.round(gy(p.z));
@@ -308,7 +308,7 @@ public final class MapScreen extends FlowScreen {
             final MapsState.Poi pp = p;
             hit(sx - 9, sy - 9, 18, 18, () -> {
                 if (editor && editorTab == 1) return;
-                if (editor) {
+                if (editor && pp.id > 0) {
                     selectPoi(pp);
                     return;
                 }
@@ -466,7 +466,7 @@ public final class MapScreen extends FlowScreen {
     }
 
     private void drawLegend(GuiGraphics ms, int mx, int my) {
-        List<MapsState.Poi> list = new ArrayList<>(MapsState.pois);
+        List<MapsState.Poi> list = new ArrayList<>(MapsState.allPois());
         Collections.sort(list, Comparator.comparing((MapsState.Poi q) -> q.name.toLowerCase(Locale.ROOT)));
         int total = list.size();
         int perPage = Math.max(3, Math.min(15, (height - 90) / 28));
@@ -595,7 +595,7 @@ public final class MapScreen extends FlowScreen {
         String q = searchField.getValue().trim().toLowerCase(Locale.ROOT);
 
         List<Object[]> srv = new ArrayList<>();
-        for (MapsState.Poi p : MapsState.pois) if (q.isEmpty() || p.name.toLowerCase(Locale.ROOT).contains(q)) srv.add(new Object[] {p.name, Theme.ACCENT, p.type, p.x, p.z, p.id, false});
+        for (MapsState.Poi p : MapsState.allPois()) if (q.isEmpty() || p.name.toLowerCase(Locale.ROOT).contains(q)) srv.add(new Object[] {p.name, Theme.ACCENT, p.type, p.x, p.z, p.id, false});
         Collections.sort(srv, Comparator.comparing((Object[] o) -> ((String) o[0]).toLowerCase(Locale.ROOT)));
         List<Object[]> per = new ArrayList<>();
         for (MapsState.Wp w : MapsState.wps) if (q.isEmpty() || w.name.toLowerCase(Locale.ROOT).contains(q)) per.add(new Object[] {w.name, w.color, w.type, w.x, w.z, w.id, true});

@@ -1,80 +1,85 @@
 package ro.solarstudios.flowcity.cars.client;
 
 import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.core.BlockPos;
 import ro.solarstudios.flowcity.cars.CarsNet;
 import ro.solarstudios.flowcity.client.ui.FlowScreen;
 import ro.solarstudios.flowcity.client.ui.Theme;
 import ro.solarstudios.flowcity.client.ui.Ui;
 import ro.solarstudios.flowcity.module.JsonClientModule;
 
-/** Garajul: lista masinilor tale, cu benzina si starea; le scoti, le parchezi sau le recuperezi. */
+/**
+ * Meniul garajului (deschis cu E la marker). Garaj public / de factiune: scoti masinile parcate.
+ * Pound: vezi masinile ridicate sau pierdute si le scoti platind taxa (Vault, prin plugin).
+ */
 public final class GarageScreen extends FlowScreen {
-    private static final int ROW = 34;
-    private final BlockPos pos;
-    private JsonObject data = new JsonObject();
+    private static final int ROW = 36;
+    private JsonObject data;
     private int selected;
     private int scroll;
-    private boolean waiting = true;
+    private boolean waiting;
 
-    private GarageScreen(BlockPos pos) {
-        super("Garaj", 380, 230);
-        this.pos = pos;
-        CarsNet.send(pos, "list", 0);
+    GarageScreen(JsonObject data) {
+        super("Garaj", 400, 236);
+        update(data);
+        if (pound()) CarsClient.request("pound_info", new JsonObject());
     }
 
-    public static void open(BlockPos pos) {
-        Minecraft.getInstance().setScreen(new GarageScreen(pos));
+    void update(JsonObject o) {
+        this.data = o;
+        waiting = false;
+        String msg = JsonClientModule.str(o, "msg", "");
+        if (!msg.isEmpty()) toast(msg, !JsonClientModule.bool(o, "ok", true));
     }
 
-    /** Raspunsul serverului (lista + mesaj dupa actiune). */
-    public static void receive(String json) {
-        Minecraft mc = Minecraft.getInstance();
-        if (!(mc.screen instanceof GarageScreen gs)) return;
-        try {
-            gs.data = JsonParser.parseString(json).getAsJsonObject();
-        } catch (RuntimeException ex) {
-            return;
-        }
-        gs.waiting = false;
-        String msg = JsonClientModule.str(gs.data, "msg", "");
-        if (!msg.isEmpty()) gs.toast(msg, !JsonClientModule.bool(gs.data, "ok", true));
+    void payResult(boolean ok, String msg) {
+        waiting = false;
+        if (!msg.isEmpty()) toast(msg, !ok);
     }
 
-    private void act(String a, int id) {
-        waiting = true;
-        CarsNet.send(pos, a, id);
+    private boolean pound() {
+        return "pound".equals(JsonClientModule.str(data, "type", ""));
+    }
+
+    private int gid() {
+        return JsonClientModule.integer(data, "id", 0);
+    }
+
+    /** La pound apar doar masinile ridicate sau pierdute (scoase, dar care nu mai sunt nicaieri in lume). */
+    private boolean listed(JsonObject c) {
+        if (!pound()) return true;
+        return JsonClientModule.bool(c, "pound", false) || (JsonClientModule.bool(c, "out", false) && !JsonClientModule.bool(c, "loaded", false));
     }
 
     @Override
     protected void draw(GuiGraphics ms, int mx, int my) {
-        header(ms, "Garaj", "", mx, my);
-        JsonArray cars = data.has("cars") ? data.getAsJsonArray("cars") : new JsonArray();
+        String type = JsonClientModule.str(data, "type", "public");
+        String sub = pound() ? "pound" : ("factiune".equals(type) ? "factiune: " + JsonClientModule.str(data, "faction", "") : "");
+        header(ms, JsonClientModule.str(data, "name", "Garaj"), sub, mx, my);
+        JsonArray all = data.has("cars") ? data.getAsJsonArray("cars") : new JsonArray();
+        JsonArray cars = new JsonArray();
+        for (int i = 0; i < all.size(); i++) if (listed(all.get(i).getAsJsonObject())) cars.add(all.get(i));
+
         int x = px + 10;
         int top = py + HEAD + 8;
-        int listW = 170;
-        int listH = py + ph - 34 - top;
-
+        int listW = 180;
+        int listH = py + ph - 10 - top;
         if (cars.size() == 0) {
-            Ui.text(ms, waiting ? "Se incarca..." : "Nu ai nicio masina.", x, top + 4, Theme.MUTED);
-            if (!waiting) Ui.text(ms, "Cumpara una de la dealerul auto.", x, top + 16, Theme.FAINT);
+            Ui.text(ms, pound() ? "Nu ai nicio masina la pound." : "Nu ai nicio masina aici.", x, top + 4, Theme.MUTED);
+            if (!pound()) Ui.text(ms, "Cumpara una de la dealerul auto.", x, top + 16, Theme.FAINT);
+            return;
         }
+        JsonObject sel = null;
+        for (int i = 0; i < cars.size(); i++) if (JsonClientModule.integer(cars.get(i).getAsJsonObject(), "id", 0) == selected) sel = cars.get(i).getAsJsonObject();
+        if (sel == null) {
+            sel = cars.get(0).getAsJsonObject();
+            selected = JsonClientModule.integer(sel, "id", 0);
+        }
+
         // lista
         int visible = Math.max(1, listH / ROW);
         scroll = Math.max(0, Math.min(scroll, Math.max(0, cars.size() - visible)));
-        JsonObject sel = null;
-        for (int i = 0; i < cars.size(); i++) {
-            JsonObject c = cars.get(i).getAsJsonObject();
-            if (selected == 0 || JsonClientModule.integer(c, "id", 0) == selected) {
-                if (sel == null || JsonClientModule.integer(c, "id", 0) == selected) sel = c;
-            }
-        }
-        if (sel != null) selected = JsonClientModule.integer(sel, "id", 0);
         int y = top;
         for (int i = scroll; i < Math.min(cars.size(), scroll + visible); i++) {
             JsonObject c = cars.get(i).getAsJsonObject();
@@ -83,11 +88,22 @@ public final class GarageScreen extends FlowScreen {
             boolean h = Ui.in(mx, my, x, y, listW, ROW - 2);
             if (s || h) Ui.rect(ms, x, y, listW, ROW - 2, s ? Theme.PANEL_3 : 0xFF22252B);
             if (s) Ui.rect(ms, x, y, 2, ROW - 2, Theme.ACCENT);
-            Ui.round(ms, x + 7, y + 8, 14, 14, 0xFF000000 | JsonClientModule.integer(c, "color", 0xFFFFFF));
-            Ui.text(ms, Ui.clip(JsonClientModule.str(c, "name", "?"), listW - 34), x + 27, y + 6, s ? Theme.TEXT : 0xFFD4D2CC);
-            boolean out = JsonClientModule.bool(c, "out", false);
-            Ui.text(ms, JsonClientModule.str(c, "plate", ""), x + 27, y + 18, Theme.FAINT);
-            Ui.textRight(ms, out ? "in oras" : "parcata", x + listW - 6, y + 18, out ? Theme.WARN : Theme.OK);
+            Ui.round(ms, x + 8, y + 9, 14, 14, 0xFF000000 | JsonClientModule.integer(c, "color", 0xFFFFFF));
+            Ui.text(ms, Ui.clip(JsonClientModule.str(c, "name", "?"), listW - 36), x + 28, y + 6, s ? Theme.TEXT : 0xFFD4D2CC);
+            plate(ms, JsonClientModule.str(c, "plate", ""), x + 28, y + 18);
+            String st;
+            int col;
+            if (JsonClientModule.bool(c, "pound", false)) {
+                st = "la pound";
+                col = Theme.BAD;
+            } else if (JsonClientModule.bool(c, "out", false)) {
+                st = JsonClientModule.bool(c, "loaded", false) ? "in oras" : "pierduta";
+                col = Theme.WARN;
+            } else {
+                st = "parcata";
+                col = Theme.OK;
+            }
+            Ui.textRight(ms, st, x + listW - 6, y + 19, col);
             Ui.rect(ms, x + 8, y + ROW - 2, listW - 16, 1, Theme.LINE);
             hit(x, y, listW, ROW - 2, () -> selected = id);
             y += ROW;
@@ -97,48 +113,73 @@ public final class GarageScreen extends FlowScreen {
         int dx = x + listW + 12;
         int dw = px + pw - 10 - dx;
         Ui.rect(ms, dx - 6, top, 1, py + ph - 10 - top, Theme.LINE);
-        if (sel == null) return;
         int dy = top + 2;
         Ui.textShadow(ms, JsonClientModule.str(sel, "name", "?"), dx, dy, Theme.TEXT);
-        dy += 12;
-        Ui.text(ms, "Nr. " + JsonClientModule.str(sel, "plate", "-"), dx, dy, Theme.MUTED);
+        dy += 13;
+        plate(ms, JsonClientModule.str(sel, "plate", "-"), dx, dy);
         dy += 18;
         if (JsonClientModule.bool(sel, "needsFuel", true)) {
             float cap = (float) JsonClientModule.num(sel, "fuelCap", 0);
-            float fuel = (float) JsonClientModule.num(sel, "fuel", 0);
-            float f = cap <= 0 ? 0 : fuel / cap;
-            Ui.text(ms, "Benzina", dx, dy, Theme.MUTED);
-            Ui.textRight(ms, Math.round(f * 100) + "%", dx + dw, dy, f < 0.15f ? Theme.BAD : Theme.TEXT);
-            Ui.bar(ms, dx, dy + 10, dw, 4, f, f < 0.15f ? Theme.BAD : Theme.ACCENT);
+            float f = cap <= 0 ? 0 : (float) JsonClientModule.num(sel, "fuel", 0) / cap;
+            stat(ms, "Benzina", f, dx, dy, dw, f < 0.15f ? Theme.BAD : Theme.ACCENT);
             dy += 22;
         }
         float mh = (float) JsonClientModule.num(sel, "maxHealth", 0);
         float hp = mh <= 0 ? 1 : (float) JsonClientModule.num(sel, "health", 0) / mh;
-        Ui.text(ms, "Stare", dx, dy, Theme.MUTED);
-        Ui.textRight(ms, Math.round(hp * 100) + "%", dx + dw, dy, hp < 0.3f ? Theme.BAD : Theme.TEXT);
-        Ui.bar(ms, dx, dy + 10, dw, 4, hp, hp < 0.3f ? Theme.BAD : Theme.OK);
+        stat(ms, "Caroserie", hp, dx, dy, dw, hp < 0.3f ? Theme.BAD : Theme.OK);
         dy += 26;
 
-        boolean out = JsonClientModule.bool(sel, "out", false);
-        boolean loaded = JsonClientModule.bool(sel, "loaded", false);
         final int id = selected;
         int by = py + ph - 28;
-        if (!out) {
-            Ui.text(ms, "Masina e parcata aici.", dx, dy, Theme.FAINT);
-            button(ms, "Scoate masina", dx, by, dw, 18, mx, my, !waiting, Theme.ACCENT, () -> act("spawn", id));
-        } else if (loaded) {
-            int dist = JsonClientModule.integer(sel, "dist", 0);
-            Ui.text(ms, "In oras, la " + dist + " m de garaj.", dx, dy, Theme.FAINT);
-            Ui.text(ms, "Adu-o pana la 24 m si parcheaz-o.", dx, dy + 11, Theme.FAINT);
-            button(ms, "Parcheaza", dx, by, dw, 18, mx, my, !waiting && dist <= 24, Theme.ACCENT, () -> act("store", 0));
+        boolean out = JsonClientModule.bool(sel, "out", false);
+        if (pound()) {
+            String reason = JsonClientModule.str(sel, "reason", "");
+            Ui.text(ms, JsonClientModule.bool(sel, "pound", false) ? "Ridicata de politie" : "Gasita abandonata in oras", dx, dy, Theme.MUTED);
+            if (!reason.isEmpty()) Ui.text(ms, Ui.clip("Motiv: " + reason, dw), dx, dy + 11, Theme.FAINT);
+            double fee = CarsClient.poundFee;
+            boolean afford = CarsClient.money >= fee;
+            String label = waiting ? "Se proceseaza..." : (afford ? "Plateste " + Ui.money(fee) + " lei" : "Nu ai " + Ui.money(fee) + " lei");
+            button(ms, label, dx, by, dw, 18, mx, my, !waiting && afford, Theme.ACCENT, () -> {
+                waiting = true;
+                JsonObject o = new JsonObject();
+                o.addProperty("car", id);
+                o.addProperty("garage", gid());
+                CarsClient.request("pound_pay", o);
+            });
+        } else if (JsonClientModule.bool(sel, "pound", false)) {
+            Ui.text(ms, "Masina a fost ridicata.", dx, dy, Theme.BAD);
+            Ui.text(ms, "Mergi la pound sa o scoti.", dx, dy + 11, Theme.FAINT);
+        } else if (out) {
+            if (JsonClientModule.bool(sel, "loaded", false)) {
+                Ui.text(ms, "E in oras, la X " + JsonClientModule.integer(sel, "lx", 0) + "  Z " + JsonClientModule.integer(sel, "lz", 0), dx, dy, Theme.MUTED);
+                Ui.text(ms, "Intra cu ea in zona de parcare (P)", dx, dy + 11, Theme.FAINT);
+                Ui.text(ms, "si apasa E ca s-o parchezi.", dx, dy + 22, Theme.FAINT);
+            } else {
+                Ui.text(ms, "Nu mai e in oras.", dx, dy, Theme.WARN);
+                Ui.text(ms, "O gasesti la pound.", dx, dy + 11, Theme.FAINT);
+            }
         } else {
-            Ui.text(ms, "Nu e prin preajma (sau s-a pierdut).", dx, dy, Theme.FAINT);
-            ghost(ms, "Recupereaza in garaj", dx, by, dw, 18, mx, my, () -> act("recover", id));
+            Ui.text(ms, "Parcata aici.", dx, dy, Theme.FAINT);
+            button(ms, waiting ? "Se scoate..." : "Scoate masina", dx, by, dw, 18, mx, my, !waiting, Theme.ACCENT, () -> {
+                waiting = true;
+                CarsNet.send("spawn", gid(), id);
+            });
         }
-        // parcheaza masina in care stai, indiferent de selectie
-        if (Minecraft.getInstance().player.isPassenger()) {
-            ghost(ms, "Parcheaza masina in care esti", x, py + ph - 28, listW, 18, mx, my, () -> act("store", 0));
-        }
+    }
+
+    /** Numar de inmatriculare: placuta alba cu banda albastra in stanga. */
+    private static void plate(GuiGraphics ms, String plate, int x, int y) {
+        if (plate == null || plate.isEmpty()) return;
+        int w = Ui.width(plate) + 12;
+        Ui.round(ms, x, y - 1, w, 10, 0xFFEDEDE8);
+        Ui.rect(ms, x + 1, y, 4, 8, 0xFF2747A0);
+        Ui.text(ms, plate, x + 8, y, 0xFF16181D);
+    }
+
+    private static void stat(GuiGraphics ms, String label, float f, int x, int y, int w, int color) {
+        Ui.text(ms, label, x, y, Theme.MUTED);
+        Ui.textRight(ms, Math.round(Math.max(0, f) * 100) + "%", x + w, y, Theme.TEXT);
+        Ui.bar(ms, x, y + 10, w, 4, f, color);
     }
 
     @Override

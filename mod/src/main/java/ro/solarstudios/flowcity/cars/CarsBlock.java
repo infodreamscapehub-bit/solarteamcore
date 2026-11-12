@@ -18,8 +18,7 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
 
 /**
- * Blocul de dealer auto / garaj. Fata blocului indica unde apar masinile scoase din garaj (3 blocuri in fata).
- * Click dreapta deschide interfata.
+ * Blocul de dealer auto: click dreapta deschide catalogul. (Garajele sunt puncte setate cu /garaj, fara blocuri.)
  */
 public class CarsBlock extends HorizontalDirectionalBlock {
     private final boolean dealer;
@@ -43,10 +42,7 @@ public class CarsBlock extends HorizontalDirectionalBlock {
     @Override
     public InteractionResult use(BlockState state, Level world, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         if (world.isClientSide) {
-            DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
-                if (dealer) ro.solarstudios.flowcity.cars.client.DealerScreen.open(pos);
-                else ro.solarstudios.flowcity.cars.client.GarageScreen.open(pos);
-            });
+            DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> ro.solarstudios.flowcity.cars.client.DealerScreen.open(pos));
         }
         return InteractionResult.sidedSuccess(world.isClientSide);
     }

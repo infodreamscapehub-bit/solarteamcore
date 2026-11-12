@@ -11,11 +11,29 @@ public final class CarsClient extends JsonClientModule {
     private static CarsClient instance;
     public static JsonArray catalog = new JsonArray();
     public static double money;
+    public static double poundFee = 500;
 
     private CarsClient() {
         on("catalog", d -> {
             if (d.has("vehicles") && d.get("vehicles").isJsonArray()) catalog = d.getAsJsonArray("vehicles");
             money = num(d, "money", money);
+        });
+        on("pound_info", d -> {
+            poundFee = num(d, "fee", poundFee);
+            money = num(d, "money", money);
+        });
+        on("pound_result", d -> {
+            money = num(d, "money", money);
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.screen instanceof GarageScreen gs) gs.payResult(bool(d, "ok", false), str(d, "msg", ""));
+        });
+        on("police_result", d -> {
+            Minecraft mc = Minecraft.getInstance();
+            boolean ok = bool(d, "ok", false);
+            if (mc.screen instanceof PoliceVehicleScreen ps) {
+                ps.result(ok, str(d, "msg", ""));
+                if (ok && bool(d, "close", false)) mc.setScreen(null);
+            }
         });
         on("buy_result", d -> {
             money = num(d, "money", money);

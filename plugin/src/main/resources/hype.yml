@@ -367,3 +367,13 @@ dealership:
       engine: "vehicle:iron_small_engine"
       wheels: "-"
       desc: "Rapid pe apa."
+
+# Garaje (in stil FiveM; garajele se creeaza in joc cu /garaj creeaza ...).
+# pound-fee: taxa (Vault) ca sa-ti scoti masina de la pound. max-parking-fine: amenda maxima de parcare data de politie.
+# factions: factiunile cu garaj propriu (in afara de politie, care vine din MDT). Membrii au permisiunea flowcity.faction.<nume>.
+garages:
+  pound-fee: 500
+  max-parking-fine: 5000
+  factions:
+    - medici
+    - primarie

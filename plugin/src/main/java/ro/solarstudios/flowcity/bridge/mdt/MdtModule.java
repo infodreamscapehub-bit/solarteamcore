@@ -818,6 +818,19 @@ public final class MdtModule extends JsonModule implements Listener {
     /** Folosit de dealerul auto: inregistreaza masina cumparata pe numele jucatorului. */
     public static MdtModule instance;
 
+    /** Politist cu acces la MDT (folosit de garaje: ridicari, amenzi de parcare, tag-ul fc_politie). */
+    public boolean isOfficer(Player p) {
+        return access(p);
+    }
+
+    /** Amenda de parcare: proprietarul se afla dupa numar. Intoarce numele lui sau null daca numarul nu e inregistrat. */
+    public String fineByPlate(Player officer, String plate, int amount, String reason) {
+        Citizen ct = plateOwner(normPlate(plate));
+        if (ct == null) return null;
+        fineAdd(officer, ct.uuid, amount, reason + " (" + normPlate(plate) + ")");
+        return ct.name;
+    }
+
     public boolean plateTaken(String plate) {
         return plateOwner(normPlate(plate)) != null;
     }

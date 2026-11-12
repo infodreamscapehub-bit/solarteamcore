@@ -38,5 +38,5 @@
   "key.flowcity.mdt_panic": "MDT: panica cod 99",
   "key.flowcity.waypoint": "Waypoint rapid (harta)",
   "block.flowcitycore.dealer_auto": "Dealer auto",
-  "block.flowcitycore.garaj": "Garaj"
+  "key.flowcity.interact": "Interactiune (garaj / politie)"
 }

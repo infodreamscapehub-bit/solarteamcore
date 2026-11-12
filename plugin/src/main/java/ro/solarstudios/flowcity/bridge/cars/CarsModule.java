@@ -36,6 +36,108 @@ public final class CarsModule extends JsonModule {
         cfg = ModConfig.load(plugin, "hype");
         on("catalog", (p, j) -> send(p, "catalog", catalog(p)));
         on("buy", this::buy);
+        on("pound_info", (p, j) -> {
+            JsonObject o = new JsonObject();
+            o.addProperty("fee", poundFee());
+            o.addProperty("money", plugin.money().balance(p.getUniqueId()));
+            send(p, "pound_info", o);
+        });
+        on("pound_pay", this::poundPay);
+        on("parking_fine", this::parkingFine);
+        on("impound", this::impound);
+        // tag-urile de factiune pentru garaje: politistii din MDT primesc fc_politie, restul dupa permisiuni
+        Bukkit.getScheduler().runTaskTimer(plugin, this::syncFactions, 100L, 400L);
+    }
+
+    private double poundFee() {
+        return Math.max(0, cfg.getDouble("garages.pound-fee", 500));
+    }
+
+    private boolean console(String cmd) {
+        try {
+            return Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd);
+        } catch (RuntimeException ex) {
+            return false;
+        }
+    }
+
+    private void syncFactions() {
+        java.util.List<String> extra = cfg.getStringList("garages.factions");
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            boolean cop = MdtModule.instance != null && MdtModule.instance.isOfficer(p);
+            setTag(p, "politie", cop || p.hasPermission("flowcity.faction.politie"));
+            for (String f : extra) {
+                String fac = f.toLowerCase(java.util.Locale.ROOT);
+                if (!fac.equals("politie")) setTag(p, fac, p.hasPermission("flowcity.faction." + fac));
+            }
+        }
+    }
+
+    private void setTag(Player p, String faction, boolean on) {
+        String tag = "fc_" + faction.replaceAll("[^a-z0-9_]", "");
+        if (on == p.getScoreboardTags().contains(tag)) return;
+        if (on) p.addScoreboardTag(tag);
+        else p.removeScoreboardTag(tag);
+    }
+
+    private void poundPay(Player p, JsonObject j) {
+        long now = System.currentTimeMillis();
+        if (now - lastBuy.getOrDefault(p.getUniqueId(), 0L) < 2000) return;
+        lastBuy.put(p.getUniqueId(), now);
+        int car = (int) num(j, "car", 0);
+        int garage = (int) num(j, "garage", 0);
+        double fee = poundFee();
+        UUID u = p.getUniqueId();
+        JsonObject o = new JsonObject();
+        if (car <= 0 || garage <= 0 || !plugin.money().has(u, fee) || !plugin.money().withdraw(u, fee)) {
+            o.addProperty("ok", false);
+            o.addProperty("msg", "Nu ai destui bani pentru taxa de pound.");
+        } else if (!console("fccars unpound " + p.getName() + " " + car + " " + garage)) {
+            plugin.money().deposit(u, fee);
+            o.addProperty("ok", false);
+            o.addProperty("msg", "Pound-ul nu functioneaza acum. Banii au fost returnati.");
+        } else {
+            o.addProperty("ok", true);
+            o.addProperty("msg", "Ai platit " + fee + " lei. Masina e in parcare.");
+        }
+        o.addProperty("money", plugin.money().balance(u));
+        send(p, "pound_result", o);
+    }
+
+    private void police(Player p, boolean ok, String msg, boolean close) {
+        JsonObject o = new JsonObject();
+        o.addProperty("ok", ok);
+        o.addProperty("msg", msg);
+        o.addProperty("close", close);
+        send(p, "police_result", o);
+    }
+
+    private void parkingFine(Player p, JsonObject j) {
+        if (MdtModule.instance == null || !MdtModule.instance.isOfficer(p)) {
+            police(p, false, "Doar politia poate da amenzi.", false);
+            return;
+        }
+        int amount = (int) num(j, "amount", 0);
+        String reason = str(j, "reason", "Parcare neregulamentara");
+        if (amount <= 0 || amount > cfg.getInt("garages.max-parking-fine", 5000)) {
+            police(p, false, "Suma nu e permisa.", false);
+            return;
+        }
+        String owner = MdtModule.instance.fineByPlate(p, str(j, "plate", ""), amount, reason);
+        if (owner == null) police(p, false, "Numarul nu e inregistrat in MDT.", false);
+        else police(p, true, "Amenda de " + amount + " lei a fost trecuta pe numele lui " + owner + ".", false);
+    }
+
+    private void impound(Player p, JsonObject j) {
+        if (MdtModule.instance == null || !MdtModule.instance.isOfficer(p)) {
+            police(p, false, "Doar politia poate ridica vehicule.", false);
+            return;
+        }
+        String entity = str(j, "entity", "");
+        if (!entity.matches("[0-9a-fA-F-]{36}")) return;
+        String reason = str(j, "reason", "Parcare neregulamentara").replaceAll("[\\r\\n\"]", "");
+        boolean ok = console("fccars impound " + p.getName() + " " + entity + " " + reason);
+        police(p, ok, ok ? "Vehiculul a fost ridicat la pound." : "Nu am putut ridica vehiculul.", ok);
     }
 
     private ConfigurationSection vehicles() {

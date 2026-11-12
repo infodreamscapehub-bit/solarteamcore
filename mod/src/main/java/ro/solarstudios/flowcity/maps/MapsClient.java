@@ -476,7 +476,7 @@ public final class MapsClient extends JsonClientModule {
             drawRouteRotated(ms, px, pz, scale, cx, cy, cos, sin, x, y);
 
             // puncte de interes
-            for (MapsState.Poi p : MapsState.pois) {
+            for (MapsState.Poi p : MapsState.allPois()) {
                 if (MapsState.hidden.contains(p.type)) continue;
                 float[] r = rel(p.x, p.z, px, pz, scale, cos, sin);
                 boolean out = Math.abs(r[0]) > MM / 2f - 6 || Math.abs(r[1]) > MM / 2f - 6;

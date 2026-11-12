@@ -34,8 +34,6 @@ public final class ModContent {
     public static final RegistryObject<Block> GPS_TWOWAY = BLOCKS.register("gps_twoway", () -> new GpsDirBlock(GpsNetwork.TWOWAY));
     public static final RegistryObject<Block> DEALER = BLOCKS.register("dealer_auto", () -> new ro.solarstudios.flowcity.cars.CarsBlock(true));
     public static final RegistryObject<Item> DEALER_ITEM = ITEMS.register("dealer_auto", () -> new BlockItem(DEALER.get(), new Item.Properties()));
-    public static final RegistryObject<Block> GARAGE = BLOCKS.register("garaj", () -> new ro.solarstudios.flowcity.cars.CarsBlock(false));
-    public static final RegistryObject<Item> GARAGE_ITEM = ITEMS.register("garaj", () -> new BlockItem(GARAGE.get(), new Item.Properties()));
     public static final RegistryObject<Item> PHONE = ITEMS.register("phone", PhoneItem::new);
 
     public static final RegistryObject<CreativeModeTab> TAB = TABS.register("flowcity", () -> CreativeModeTab.builder()
