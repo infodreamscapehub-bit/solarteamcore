@@ -21,6 +21,9 @@ public final class MapsState {
     public static final List<Poi> pois = new ArrayList<>();
     public static final Set<String> hidden = new HashSet<>();
 
+    /** Are permisiunea de editor (flowcity.maps.admin). */
+    public static boolean admin;
+
     public static boolean hasTarget;
     public static String targetName = "";
     /** Tipul iconitei tintei (null = waypoint personal). */

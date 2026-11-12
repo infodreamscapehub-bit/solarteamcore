@@ -36,6 +36,7 @@ public final class MapsClient extends JsonClientModule {
 
     private MapsClient() {
         on("pois", d -> {
+            MapsState.admin = bool(d, "admin", false);
             MapsState.pois.clear();
             if (d.has("list")) {
                 for (JsonElement e : d.getAsJsonArray("list")) {
@@ -71,7 +72,7 @@ public final class MapsClient extends JsonClientModule {
             MapsState.route = r;
             MapsState.routeNetwork = !r.isEmpty();
         });
-        on("open", d -> Minecraft.getInstance().displayGuiScreen(new MapScreen()));
+        on("open", d -> Minecraft.getInstance().displayGuiScreen(new MapScreen(bool(d, "editor", false))));
     }
 
     @Override
@@ -113,6 +114,34 @@ public final class MapsClient extends JsonClientModule {
         MapsState.setTarget(name, type, x, z);
         FlowSounds.play("notify", 0.5F);
         NotifyToasts.add("INFO", "Waypoint setat", name + " - ruta pe strazi se calculeaza.");
+    }
+
+    // ------------------------------------------------------------------ editor (admin)
+
+    public static void savePoi(int id, String name, String type, double x, double y, double z) {
+        if (instance == null) return;
+        JsonObject o = new JsonObject();
+        o.addProperty("id", id);
+        o.addProperty("name", name);
+        o.addProperty("type", type);
+        o.addProperty("x", x);
+        o.addProperty("y", y);
+        o.addProperty("z", z);
+        instance.send("poi_save", o);
+    }
+
+    public static void deletePoi(int id) {
+        if (instance == null) return;
+        JsonObject o = new JsonObject();
+        o.addProperty("id", id);
+        instance.send("poi_del", o);
+    }
+
+    public static void give(String item) {
+        if (instance == null) return;
+        JsonObject o = new JsonObject();
+        o.addProperty("item", item);
+        instance.send("give", o);
     }
 
     private static void requestRoute(double tx, double tz) {

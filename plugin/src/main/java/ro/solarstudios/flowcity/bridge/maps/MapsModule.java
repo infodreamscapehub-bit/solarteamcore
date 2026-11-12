@@ -60,6 +60,75 @@ public final class MapsModule extends JsonModule {
         reload(false);
 
         on("pois", (p, j) -> sendPois(p));
+        on("poi_save", (p, j) -> {
+            if (!p.hasPermission("flowcity.maps.admin")) {
+                plugin.channel().toast(p, "Nu ai permisiunea.", true);
+                return;
+            }
+            final int id = integer(j, "id", 0);
+            String nm = str(j, "name", "").trim();
+            final String type = str(j, "type", "altele").toLowerCase(Locale.ROOT);
+            if (nm.isEmpty() || nm.length() > 40 || !TYPES.contains(type)) {
+                plugin.channel().toast(p, "Nume sau tip invalid.", true);
+                return;
+            }
+            final String name = nm;
+            final double x = num(j, "x", p.getLocation().getX());
+            final double y = num(j, "y", p.getLocation().getY());
+            final double z = num(j, "z", p.getLocation().getZ());
+            final String world = p.getWorld().getName();
+            plugin.db().async(c -> {
+                if (id > 0) {
+                    try (PreparedStatement ps = c.prepareStatement("UPDATE core_pois SET name=?, type=?, x=?, y=?, z=? WHERE id=?")) {
+                        ps.setString(1, name);
+                        ps.setString(2, type);
+                        ps.setDouble(3, x);
+                        ps.setDouble(4, y);
+                        ps.setDouble(5, z);
+                        ps.setInt(6, id);
+                        ps.executeUpdate();
+                    }
+                } else {
+                    try (PreparedStatement ps = c.prepareStatement("INSERT INTO core_pois(name, type, world, x, y, z) VALUES (?,?,?,?,?,?)")) {
+                        ps.setString(1, name);
+                        ps.setString(2, type);
+                        ps.setString(3, world);
+                        ps.setDouble(4, x);
+                        ps.setDouble(5, y);
+                        ps.setDouble(6, z);
+                        ps.executeUpdate();
+                    }
+                }
+                return null;
+            }).thenRun(() -> Bukkit.getScheduler().runTask(plugin, () -> {
+                reload(true);
+                plugin.channel().toast(p, id > 0 ? "Punct actualizat." : "Punct adaugat.", false);
+            }));
+        });
+        on("poi_del", (p, j) -> {
+            if (!p.hasPermission("flowcity.maps.admin")) {
+                plugin.channel().toast(p, "Nu ai permisiunea.", true);
+                return;
+            }
+            final int id = integer(j, "id", 0);
+            plugin.db().async(c -> {
+                try (PreparedStatement ps = c.prepareStatement("DELETE FROM core_pois WHERE id = ?")) {
+                    ps.setInt(1, id);
+                    ps.executeUpdate();
+                }
+                return null;
+            }).thenRun(() -> Bukkit.getScheduler().runTask(plugin, () -> {
+                reload(true);
+                plugin.channel().toast(p, "Punct sters.", false);
+            }));
+        });
+        on("give", (p, j) -> {
+            if (!p.hasPermission("flowcity.maps.admin")) return;
+            String item = str(j, "item", "");
+            if (!Arrays.asList("gps_wrench", "gps_path", "gps_oneway", "gps_twoway", "gps_intersection").contains(item)) return;
+            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "give " + p.getName() + " flowcitycore:" + item + (item.equals("gps_wrench") ? "" : " 16"));
+            plugin.channel().toast(p, "Primit: " + item, false);
+        });
         on("route", (p, j) -> {
             double tx = num(j, "tx", 0);
             double tz = num(j, "tz", 0);
@@ -106,12 +175,16 @@ public final class MapsModule extends JsonModule {
                 }
                 return true;
             }
-            if (plugin.channel().hasMod(p)) send(p, "open", new JsonObject());
+            if (plugin.channel().hasMod(p)) {
+                JsonObject o = new JsonObject();
+                o.addProperty("editor", a.length >= 1 && a[0].equalsIgnoreCase("editor") && p.hasPermission("flowcity.maps.admin"));
+                send(p, "open", o);
+            }
             else p.sendMessage("§cHarta necesita modul FlowCity pe client.");
             return true;
         }, (s, c, l, a) -> {
             List<String> out = new ArrayList<>();
-            if (a.length == 1) out.addAll(Arrays.asList("poi", "gps"));
+            if (a.length == 1) out.addAll(Arrays.asList("poi", "gps", "editor"));
             else if (a.length == 2) out.addAll(Arrays.asList("add", "del", "list"));
             else if (a.length == 3 && a[1].equalsIgnoreCase("add")) out.addAll(TYPES);
             out.removeIf(x -> !x.startsWith(a[a.length - 1].toLowerCase(Locale.ROOT)));
@@ -278,6 +351,7 @@ public final class MapsModule extends JsonModule {
         }
         JsonObject d = new JsonObject();
         d.add("list", arr);
+        d.addProperty("admin", p.hasPermission("flowcity.maps.admin"));
         send(p, "pois", d);
     }
 

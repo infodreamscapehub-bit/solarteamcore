@@ -117,4 +117,46 @@ public final class Ui {
     public static void endScissor() {
         com.mojang.blaze3d.systems.RenderSystem.disableScissor();
     }
+
+    private static final float SC = 0.78f;
+
+    /** Text in small caps: prima litera din fiecare cuvant normala, restul majuscule mai mici. */
+    public static void smallCaps(MatrixStack ms, String text, int x, int y, int color) {
+        float cx = x;
+        boolean word = true;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c == ' ') {
+                cx += width(" ");
+                word = true;
+                continue;
+            }
+            boolean small = !word && Character.isLowerCase(c);
+            String ch = String.valueOf(word || small ? Character.toUpperCase(c) : c);
+            ms.push();
+            ms.translate(cx, small ? y + 1.5f : y, 0);
+            if (small) ms.scale(SC, SC, 1f);
+            text(ms, ch, 0, 0, color);
+            ms.pop();
+            cx += width(ch) * (small ? SC : 1f);
+            word = false;
+        }
+    }
+
+    public static int smallCapsWidth(String text) {
+        float w = 0;
+        boolean word = true;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c == ' ') {
+                w += width(" ");
+                word = true;
+                continue;
+            }
+            boolean small = !word && Character.isLowerCase(c);
+            w += width(String.valueOf(Character.toUpperCase(c))) * (small ? SC : 1f);
+            word = false;
+        }
+        return Math.round(w);
+    }
 }
