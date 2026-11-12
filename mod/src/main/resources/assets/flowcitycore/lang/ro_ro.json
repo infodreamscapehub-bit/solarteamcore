@@ -29,5 +29,6 @@
   "block.flowcitycore.gps_oneway": "Gps Sens Unic",
   "block.flowcitycore.gps_twoway": "Gps Dublu Sens",
   "block.flowcitycore.gps_path": "Gps Curba/Segment",
-  "item.flowcitycore.gps_wrench": "Cheie GPS"
+  "item.flowcitycore.gps_wrench": "Cheie GPS",
+  "item.flowcitycore.harta": "Harta GPS"
 }

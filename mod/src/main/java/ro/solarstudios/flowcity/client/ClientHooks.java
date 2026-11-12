@@ -15,6 +15,10 @@ public final class ClientHooks {
         Minecraft.getInstance().displayGuiScreen(new AtmScreen());
     }
 
+    public static void openMap() {
+        Minecraft.getInstance().displayGuiScreen(new ro.solarstudios.flowcity.maps.MapScreen());
+    }
+
     public static void openPhone() {
         Minecraft.getInstance().displayGuiScreen(new PhoneScreen());
     }

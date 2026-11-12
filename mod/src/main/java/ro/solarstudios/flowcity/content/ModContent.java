@@ -40,6 +40,7 @@ public final class ModContent {
             ITEMS.register(n, () -> new net.minecraft.item.BlockItem(ForgeRegistries.BLOCKS.getValue(new net.minecraft.util.ResourceLocation(FlowCity.MODID, n)), new Item.Properties().group(TAB)));
         }
         ITEMS.register("gps_wrench", GpsWrench::new);
+        ITEMS.register("harta", MapItem::new);
         for (int i = 1; i <= 5; i++) ITEMS.register("phone" + i, PhoneItem::new);
         ITEMS.register("sim_card", () -> new Item(new Item.Properties().group(TAB).maxStackSize(16)));
         for (int i = 1; i <= 5; i++) ITEMS.register("cardbancar" + i, () -> new Item(new Item.Properties().group(TAB).maxStackSize(1)));
