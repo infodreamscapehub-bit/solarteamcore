@@ -35,5 +35,7 @@
   "key.flowcity.mdt_bk1": "MDT: backup 1 (urgent)",
   "key.flowcity.mdt_bk2": "MDT: backup 2 (transport)",
   "key.flowcity.mdt_bk3": "MDT: backup 3 (urmarire)",
-  "key.flowcity.mdt_panic": "MDT: panica cod 99"
+  "key.flowcity.mdt_panic": "MDT: panica cod 99",
+  "item.flowcitycore.car_spawn": "FlowCity Car",
+  "entity.flowcitycore.car": "FlowCity Car"
 }
