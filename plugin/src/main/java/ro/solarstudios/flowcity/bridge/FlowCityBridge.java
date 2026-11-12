@@ -69,6 +69,7 @@ public final class FlowCityBridge extends JavaPlugin {
         Modules.register(this, new MapsModule());
         Modules.register(this, new ro.solarstudios.flowcity.bridge.mdt.MdtModule());
         Modules.register(this, new PhoneModule());
+        Modules.register(this, new ro.solarstudios.flowcity.bridge.cars.CarsModule());
         service.purgeOld(getConfig().getInt("eadmin.log-retention-days", 45));
         getLogger().info(service.serverName() + " bridge pornit.");
         // dupa ce toate pluginurile s-au incarcat, aratam ce economie folosim

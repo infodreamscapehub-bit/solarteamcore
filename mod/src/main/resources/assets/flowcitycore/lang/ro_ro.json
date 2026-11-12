@@ -36,5 +36,7 @@
   "key.flowcity.mdt_bk2": "MDT: backup 2 (transport)",
   "key.flowcity.mdt_bk3": "MDT: backup 3 (urmarire)",
   "key.flowcity.mdt_panic": "MDT: panica cod 99",
-  "key.flowcity.waypoint": "Waypoint rapid (harta)"
+  "key.flowcity.waypoint": "Waypoint rapid (harta)",
+  "block.flowcitycore.dealer_auto": "Dealer auto",
+  "block.flowcitycore.garaj": "Garaj"
 }

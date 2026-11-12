@@ -248,3 +248,122 @@ clearlag:
   exempt-materials: [DIAMOND, NETHERITE_INGOT, ELYTRA, SHULKER_BOX, TOTEM_OF_UNDYING, PAPER]
   worlds: []                 # gol = toate lumile
 
+
+# Dealer auto (vehiculele din modul MrCrayfish's Vehicle). Plata se face prin Vault.
+# entity = id-ul vehiculului din mod; engine / wheels = itemele cu care vine masina noua ("-" = fara).
+# Poti adauga orice vehicul (si din alte addon-uri), doar sa existe pe server.
+dealership:
+  radius: 8
+  vehicles:
+    moped:
+      name: "Scuter"
+      entity: "vehicle:moped"
+      category: "Doua roti"
+      price: 4500
+      engine: "vehicle:iron_small_engine"
+      wheels: "vehicle:standard_wheel"
+      desc: "Ieftin si economic, perfect prin oras."
+    mini_bike:
+      name: "Mini Bike"
+      entity: "vehicle:mini_bike"
+      category: "Doua roti"
+      price: 6000
+      engine: "vehicle:iron_small_engine"
+      wheels: "vehicle:standard_wheel"
+      desc: "Mic si agil."
+    dirt_bike:
+      name: "Motocross"
+      entity: "vehicle:dirt_bike"
+      category: "Doua roti"
+      price: 12000
+      engine: "vehicle:iron_small_engine"
+      wheels: "vehicle:off_road_wheel"
+      desc: "Pentru teren accidentat."
+    smart_car:
+      name: "Mini City"
+      entity: "vehicle:smart_car"
+      category: "Masini"
+      price: 18000
+      engine: "vehicle:iron_electric_engine"
+      wheels: "vehicle:standard_wheel"
+      desc: "Electrica, doua locuri, parcare oriunde."
+    golf_cart:
+      name: "Golf Cart"
+      entity: "vehicle:golf_cart"
+      category: "Masini"
+      price: 9000
+      engine: "vehicle:iron_electric_engine"
+      wheels: "vehicle:standard_wheel"
+      desc: "Electric, patru locuri, lent."
+    go_kart:
+      name: "Kart"
+      entity: "vehicle:go_kart"
+      category: "Sport"
+      price: 15000
+      engine: "vehicle:iron_small_engine"
+      wheels: "vehicle:racing_wheel"
+      desc: "Jos si rapid."
+    dune_buggy:
+      name: "Buggy"
+      entity: "vehicle:dune_buggy"
+      category: "Off-road"
+      price: 14000
+      engine: "vehicle:iron_small_engine"
+      wheels: "vehicle:off_road_wheel"
+      desc: "Trei roti, mult distractie."
+    atv:
+      name: "ATV"
+      entity: "vehicle:atv"
+      category: "Off-road"
+      price: 16000
+      engine: "vehicle:iron_small_engine"
+      wheels: "vehicle:all_terrain_wheel"
+      desc: "Merge pe orice teren."
+    quad_bike:
+      name: "Quad"
+      entity: "vehicle:quad_bike"
+      category: "Off-road"
+      price: 17000
+      engine: "vehicle:iron_small_engine"
+      wheels: "vehicle:all_terrain_wheel"
+      desc: "ATV mare, stabil."
+    off_roader:
+      name: "Off Roader"
+      entity: "vehicle:off_roader"
+      category: "Off-road"
+      price: 32000
+      engine: "vehicle:iron_large_engine"
+      wheels: "vehicle:off_road_wheel"
+      desc: "Patru locuri, tractiune puternica."
+    mini_bus:
+      name: "Microbuz"
+      entity: "vehicle:mini_bus"
+      category: "Utilitare"
+      price: 38000
+      engine: "vehicle:iron_large_engine"
+      wheels: "vehicle:standard_wheel"
+      desc: "Sase locuri, poate trage remorca."
+    tractor:
+      name: "Tractor"
+      entity: "vehicle:tractor"
+      category: "Utilitare"
+      price: 26000
+      engine: "vehicle:iron_large_engine"
+      wheels: "vehicle:off_road_wheel"
+      desc: "Pentru ferma, trage remorci agricole."
+    speed_boat:
+      name: "Barca rapida"
+      entity: "vehicle:speed_boat"
+      category: "Apa"
+      price: 30000
+      engine: "vehicle:iron_large_engine"
+      wheels: "-"
+      desc: "Pentru lac si mare."
+    jet_ski:
+      name: "Jet Ski"
+      entity: "vehicle:jet_ski"
+      category: "Apa"
+      price: 20000
+      engine: "vehicle:iron_small_engine"
+      wheels: "-"
+      desc: "Rapid pe apa."

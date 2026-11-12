@@ -146,6 +146,7 @@ public final class MdtModule extends JsonModule implements Listener {
 
     @Override
     protected void onEnable() {
+        instance = this;
         try {
             plugin.db().async(c -> {
                 try (Statement st = c.createStatement()) {
@@ -812,6 +813,28 @@ public final class MdtModule extends JsonModule implements Listener {
     private Citizen plateOwner(String plate) {
         for (Citizen ct : citizens.values()) for (Veh v : ct.vehicles) if (v.plate.equalsIgnoreCase(plate)) return ct;
         return null;
+    }
+
+    /** Folosit de dealerul auto: inregistreaza masina cumparata pe numele jucatorului. */
+    public static MdtModule instance;
+
+    public boolean plateTaken(String plate) {
+        return plateOwner(normPlate(plate)) != null;
+    }
+
+    public void registerVehicle(Player p, String modelIn, String plateIn) {
+        if (citizens.get(p.getUniqueId()) == null) register(p);
+        Citizen ct = citizens.get(p.getUniqueId());
+        String plate = normPlate(plateIn);
+        if (ct == null || plateOwner(plate) != null) return;
+        Veh v = new Veh();
+        v.id = ids.getAndIncrement();
+        v.model = clean(modelIn, 32);
+        v.plate = plate;
+        v.status = "Clean";
+        ct.vehicles.add(v);
+        sql("INSERT INTO mdt_vehicle(id,uuid,model,plate,status) VALUES (?,?,?,?,?)", v.id, ct.uuid.toString(), v.model, plate, v.status);
+        pushAll();
     }
 
     private void vehAdd(Player p, UUID u, String modelIn, String plateIn) {

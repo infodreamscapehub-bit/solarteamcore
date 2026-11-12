@@ -1,0 +1,40 @@
+package ro.solarstudios.flowcity.cars.client;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import net.minecraft.client.Minecraft;
+import ro.solarstudios.flowcity.module.ClientModules;
+import ro.solarstudios.flowcity.module.JsonClientModule;
+
+/** Modulul client "cars" (prin bridge): catalogul dealerului si cumpararea (plata prin Vault, pe plugin). */
+public final class CarsClient extends JsonClientModule {
+    private static CarsClient instance;
+    public static JsonArray catalog = new JsonArray();
+    public static double money;
+
+    private CarsClient() {
+        on("catalog", d -> {
+            if (d.has("vehicles") && d.get("vehicles").isJsonArray()) catalog = d.getAsJsonArray("vehicles");
+            money = num(d, "money", money);
+        });
+        on("buy_result", d -> {
+            money = num(d, "money", money);
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.screen instanceof DealerScreen ds) ds.result(bool(d, "ok", false), str(d, "msg", ""));
+        });
+    }
+
+    @Override
+    public String id() {
+        return "cars";
+    }
+
+    public static void register() {
+        instance = new CarsClient();
+        ClientModules.register(instance);
+    }
+
+    public static void request(String action, JsonObject data) {
+        if (instance != null) instance.send(action, data);
+    }
+}

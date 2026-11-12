@@ -33,12 +33,20 @@ minecraft {
 
 repositories {
     mavenCentral()
+    // portul MrCrayfish's Vehicle (Forge 1.20.1) si Framework, doar pentru compilare (bordul masinilor)
+    maven {
+        url = 'https://cursemaven.com'
+        content { includeGroup 'curse.maven' }
+    }
 }
 
 dependencies {
     minecraft 'net.minecraftforge:forge:1.20.1-47.3.0'
     // API PlasmoVoice 2.1.9 (doar la compilare; vocea ruleaza prin PlasmoVoice de pe server)
     compileOnly files('libs/plasmovoice-api.jar')
+    // vehiculele MrCrayfish (port neoficial 1.20.1) - optionale la rulare: codul care le foloseste porneste doar daca modul "vehicle" e instalat
+    compileOnly fg.deobf('curse.maven:mrcrayfishs-vehicle-unofficial-1511699:7921233')
+    compileOnly fg.deobf('curse.maven:framework-549225:6531428')
 }
 
 tasks.named('jar', Jar).configure {

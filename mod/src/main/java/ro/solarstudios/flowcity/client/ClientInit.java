@@ -36,6 +36,8 @@ public final class ClientInit {
         ro.solarstudios.flowcity.hype.HypeClient.register();
         ro.solarstudios.flowcity.phone.PhoneClient.register();
         ro.solarstudios.flowcity.maps.MapsClient.register();
+        ro.solarstudios.flowcity.cars.client.CarsClient.register();
+        if (ro.solarstudios.flowcity.cars.CarsCompat.loaded()) ro.solarstudios.flowcity.cars.client.CarHud.register();
     }
 
     private static void setup(FMLClientSetupEvent event) {
