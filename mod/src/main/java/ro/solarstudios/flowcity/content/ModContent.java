@@ -20,7 +20,8 @@ public final class ModContent {
     public static final ItemGroup TAB = new ItemGroup("flowcity") {
         @Override
         public ItemStack createIcon() {
-            return new ItemStack(PHONE.get());
+            // daca serverul nu are modul, registry-ul clientului pierde itemele FlowCity: nu crapam, folosim o iconita de rezerva
+            return PHONE.isPresent() ? new ItemStack(PHONE.get()) : new ItemStack(net.minecraft.item.Items.COMPASS);
         }
     };
 
