@@ -14,6 +14,7 @@ import org.bukkit.entity.Player;
 import ro.solarstudios.flowcity.bridge.core.Commands;
 import ro.solarstudios.flowcity.bridge.core.ModConfig;
 import ro.solarstudios.flowcity.bridge.mdt.MdtModule;
+import ro.solarstudios.flowcity.bridge.pay.PayModule;
 import ro.solarstudios.flowcity.bridge.module.JsonModule;
 
 /**
@@ -179,28 +180,29 @@ public final class CarsModule extends JsonModule {
         int car = (int) num(j, "car", 0);
         int garage = (int) num(j, "garage", 0);
         double fee = poundFee();
-        UUID u = p.getUniqueId();
-        JsonObject o = new JsonObject();
-        if (car <= 0 || garage <= 0 || !plugin.money().has(u, fee) || !plugin.money().withdraw(u, fee)) {
+        if (car <= 0 || garage <= 0) return;
+        PayModule.instance.request(p, "Taxa pound", fee, () -> {
+            JsonObject o = new JsonObject();
+            boolean done = console("fccars unpound " + p.getName() + " " + car + " " + garage);
+            o.addProperty("ok", done);
+            o.addProperty("msg", done ? "Ai platit " + fee + " lei. Masina e in parcare." : "Pound-ul nu functioneaza acum. Banii au fost returnati.");
+            o.addProperty("money", plugin.money().balance(p.getUniqueId()));
+            send(p, "pound_result", o);
+            return done;
+        }, msg -> {
+            JsonObject o = new JsonObject();
             o.addProperty("ok", false);
-            o.addProperty("msg", "Nu ai destui bani pentru taxa de pound.");
-        } else if (!console("fccars unpound " + p.getName() + " " + car + " " + garage)) {
-            plugin.money().deposit(u, fee);
-            o.addProperty("ok", false);
-            o.addProperty("msg", "Pound-ul nu functioneaza acum. Banii au fost returnati.");
-        } else {
-            o.addProperty("ok", true);
-            o.addProperty("msg", "Ai platit " + fee + " lei. Masina e in parcare.");
-        }
-        o.addProperty("money", plugin.money().balance(u));
-        send(p, "pound_result", o);
+            o.addProperty("msg", msg);
+            o.addProperty("money", plugin.money().balance(p.getUniqueId()));
+            send(p, "pound_result", o);
+        });
     }
 
     private double fuelPrice() {
         return Math.max(0, cfg.getDouble("fuel.price-per-liter", 8));
     }
 
-    /** Benzinarie: platesti litrii prin Vault, apoi modul pune benzina in masina (fccars fuel). */
+    /** Benzinarie: platesti litrii (cash sau card), apoi modul pune benzina in masina (fccars fuel). */
     private void fuelBuy(Player p, JsonObject j) {
         long now = System.currentTimeMillis();
         if (now - lastBuy.getOrDefault(p.getUniqueId(), 0L) < 1500) return;
@@ -210,25 +212,28 @@ public final class CarsModule extends JsonModule {
         double liters = Math.max(0, Math.min(200, num(j, "liters", 0)));
         liters = Math.round(liters * 10) / 10.0;
         double cost = Math.round(liters * fuelPrice() * 100) / 100.0;
-        UUID u = p.getUniqueId();
-        JsonObject o = new JsonObject();
         if (station <= 0 || liters <= 0) {
-            o.addProperty("ok", false);
-            o.addProperty("msg", "Alege cati litri vrei.");
-        } else if (!plugin.money().has(u, cost) || !plugin.money().withdraw(u, cost)) {
-            o.addProperty("ok", false);
-            o.addProperty("msg", "Nu ai destui bani (" + cost + " lei).");
-        } else if (!console("fccars fuel " + p.getName() + " " + station + " " + entity + " " + (int) Math.round(liters * 1000))) {
-            plugin.money().deposit(u, cost);
-            o.addProperty("ok", false);
-            o.addProperty("msg", "Pompa nu merge acum. Banii au fost returnati.");
-        } else {
-            o.addProperty("ok", true);
+            fuelReply(p, false, "Alege cati litri vrei.", 0, 0);
+            return;
+        }
+        final double fl = liters;
+        PayModule.instance.request(p, "Benzina " + fl + " L", cost, () -> {
+            boolean done = console("fccars fuel " + p.getName() + " " + station + " " + entity + " " + (int) Math.round(fl * 1000));
+            if (done) fuelReply(p, true, "Ai alimentat " + fl + " L pentru " + cost + " lei.", fl, cost);
+            else fuelReply(p, false, "Pompa nu merge acum. Banii au fost returnati.", 0, 0);
+            return done;
+        }, msg -> fuelReply(p, false, msg, 0, 0));
+    }
+
+    private void fuelReply(Player p, boolean ok, String msg, double liters, double cost) {
+        JsonObject o = new JsonObject();
+        o.addProperty("ok", ok);
+        o.addProperty("msg", msg);
+        if (ok) {
             o.addProperty("liters", liters);
             o.addProperty("cost", cost);
-            o.addProperty("msg", "Ai alimentat " + liters + " L pentru " + cost + " lei.");
         }
-        o.addProperty("money", plugin.money().balance(u));
+        o.addProperty("money", plugin.money().balance(p.getUniqueId()));
         send(p, "fuel_result", o);
     }
 
@@ -494,19 +499,17 @@ public final class CarsModule extends JsonModule {
             tuneReply(p, false, "Nu ai schimbat nimic.");
             return;
         }
-        UUID u = p.getUniqueId();
-        if (!plugin.money().has(u, cost) || (cost > 0 && !plugin.money().withdraw(u, cost))) {
-            tuneReply(p, false, "Nu ai destui bani (" + Math.round(cost) + " lei).");
-            return;
-        }
-        String cmd = "fccars tune " + p.getName() + " " + car + " " + mode + " \"" + fromEngine + "\" \"" + fromWheels + "\" " + fromColor + " " + color
+        final double fcost = cost;
+        final String cmd = "fccars tune " + p.getName() + " " + car + " " + mode + " \"" + fromEngine + "\" \"" + fromWheels + "\" " + fromColor + " " + color
             + " \"" + engine + "\" \"" + wheels + "\"";
-        if (!console(cmd)) {
-            if (cost > 0) plugin.money().deposit(u, cost);
-            tuneReply(p, false, "Tuning-ul nu s-a putut face (masina trebuie sa fie parcata in garaj). Banii au fost returnati.");
-            return;
-        }
-        tuneReply(p, true, "Masina a fost tunata" + (cost > 0 ? " (" + Math.round(cost) + " lei)." : "."));
+        PayModule.instance.request(p, "Tuning", fcost, () -> {
+            if (!console(cmd)) {
+                tuneReply(p, false, "Tuning-ul nu s-a putut face (masina trebuie sa fie parcata in garaj). Banii au fost returnati.");
+                return false;
+            }
+            tuneReply(p, true, "Masina a fost tunata" + (fcost > 0 ? " (" + Math.round(fcost) + " lei)." : "."));
+            return true;
+        }, msg -> tuneReply(p, false, msg));
     }
 
     private static String clean(String s) {
@@ -607,36 +610,37 @@ public final class CarsModule extends JsonModule {
             return;
         }
         price += ce + cw;
-        UUID u = p.getUniqueId();
-        if (!plugin.money().has(u, price) || !plugin.money().withdraw(u, price)) {
-            reply(p, false, "Nu ai destui bani.");
-            return;
-        }
-        if (stock > 0) {
-            stockCfg.set(vKey, stock - 1);
-            saveStock();
-        }
-        String name = v.getString("name", id).replaceAll("[^A-Za-z0-9 ._-]", "");
-        String plate = newPlate();
-        String cmd = "fccars give " + p.getName() + " \"" + id + "\" " + color + " \"" + engine + "\" \""
-            + wheels + "\" \"" + plate + "\" " + name;
-        boolean done;
-        try {
-            done = Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd);
-        } catch (RuntimeException ex) {
-            done = false;
-        }
-        if (!done) {
-            plugin.money().deposit(u, price);
-            if (stock > 0) {
-                stockCfg.set(vKey, stock);
+        final String name = v.getString("name", id).replaceAll("[^A-Za-z0-9 ._-]", "");
+        final String fKey = vKey;
+        final int fStock = stock;
+        final String fEngine = engine;
+        final String fWheels = wheels;
+        PayModule.instance.request(p, name, price, () -> {
+            if (fStock > 0) {
+                stockCfg.set(fKey, fStock - 1);
                 saveStock();
             }
-            reply(p, false, "Dealerul nu functioneaza acum (mod lipsa pe server). Banii au fost returnati.");
-            return;
-        }
-        if (MdtModule.instance != null) MdtModule.instance.registerVehicle(p, name, plate);
-        reply(p, true, "Felicitari! " + name + " (" + plate + ") te asteapta la garaj.");
-        send(p, "catalog", catalog(p));
+            String plate = newPlate();
+            String cmd = "fccars give " + p.getName() + " \"" + id + "\" " + color + " \"" + fEngine + "\" \""
+                + fWheels + "\" \"" + plate + "\" " + name;
+            boolean done;
+            try {
+                done = Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd);
+            } catch (RuntimeException ex) {
+                done = false;
+            }
+            if (!done) {
+                if (fStock > 0) {
+                    stockCfg.set(fKey, fStock);
+                    saveStock();
+                }
+                reply(p, false, "Dealerul nu functioneaza acum (mod lipsa pe server). Banii au fost returnati.");
+                return false;
+            }
+            if (MdtModule.instance != null) MdtModule.instance.registerVehicle(p, name, plate);
+            reply(p, true, "Felicitari! " + name + " (" + plate + ") te asteapta la garaj.");
+            send(p, "catalog", catalog(p));
+            return true;
+        }, msg -> reply(p, false, msg));
     }
 }

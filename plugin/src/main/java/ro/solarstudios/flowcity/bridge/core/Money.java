@@ -51,7 +51,7 @@ public final class Money {
         return Bukkit.getOfflinePlayer(u);
     }
 
-    public double balance(UUID u) {
+    private double baseBalance(UUID u) {
         if (vault.available()) {
             double b = vault.balance(off(u));
             return b < 0 ? 0 : b;
@@ -59,14 +59,7 @@ public final class Money {
         return ledgerGet(u);
     }
 
-    public boolean has(UUID u, double amount) {
-        return amount <= 0 || balance(u) + 1e-9 >= round(amount);
-    }
-
-    /** Scoate bani. Fals daca nu are destui sau suma e invalida. */
-    public boolean withdraw(UUID u, double amount) {
-        amount = round(amount);
-        if (amount <= 0) return false;
+    private boolean baseWithdraw(UUID u, double amount) {
         if (vault.available()) return vault.withdraw(off(u), amount);
         double b = ledgerGet(u);
         if (b + 1e-9 < amount) return false;
@@ -74,11 +67,70 @@ public final class Money {
         return true;
     }
 
+    private boolean baseDeposit(UUID u, double amount) {
+        if (vault.available()) return vault.deposit(off(u), amount);
+        ledgerSet(u, round(ledgerGet(u) + amount));
+        return true;
+    }
+
+    /** Jucatorul online (doar pe thread-ul principal: inventarul nu se atinge din alt thread). */
+    private org.bukkit.entity.Player online(UUID u) {
+        if (!Bills.available() || !Bukkit.isPrimaryThread()) return null;
+        return Bukkit.getPlayer(u);
+    }
+
+    /** Cash total = bancnotele din inventar + banii din economie (salarii etc.). */
+    public double balance(UUID u) {
+        double base = baseBalance(u);
+        org.bukkit.entity.Player p = online(u);
+        return p == null ? base : round(base + Bills.value(p));
+    }
+
+    public boolean has(UUID u, double amount) {
+        return amount <= 0 || balance(u) + 1e-9 >= round(amount);
+    }
+
+    /** Scoate bani: intai din bancnote (cu rest in bancnote), apoi din economie. Fals daca nu are destui. */
+    public boolean withdraw(UUID u, double amount) {
+        amount = round(amount);
+        if (amount <= 0) return false;
+        org.bukkit.entity.Player p = online(u);
+        if (p == null) return baseWithdraw(u, amount);
+        long bills = Bills.value(p);
+        if (bills <= 0) return baseWithdraw(u, amount);
+        if (round(baseBalance(u) + bills) + 1e-9 < amount) return false;
+        long whole = (long) Math.ceil(amount - 1e-9);
+        if (bills >= whole) {
+            if (!Bills.take(p, whole)) return baseWithdraw(u, amount);
+            double refund = round(whole - amount); // bani in plus pentru ca bancnotele sunt in lei intregi
+            if (refund > 0) baseDeposit(u, refund);
+            return true;
+        }
+        // bancnotele nu ajung: le dam pe toate si completam din economie
+        long all = Bills.takeAll(p);
+        if (!baseWithdraw(u, round(amount - all))) {
+            Bills.give(p, all);
+            return false;
+        }
+        return true;
+    }
+
+    /** Depune in economie (salarii, rambursari). */
     public boolean deposit(UUID u, double amount) {
         amount = round(amount);
         if (amount <= 0) return false;
-        if (vault.available()) return vault.deposit(off(u), amount);
-        ledgerSet(u, round(ledgerGet(u) + amount));
+        return baseDeposit(u, amount);
+    }
+
+    /** Da banii ca bancnote in inventar (retragere de la ATM); restul sub 1 leu merge in economie. */
+    public boolean depositBills(org.bukkit.entity.Player p, double amount) {
+        amount = round(amount);
+        if (amount <= 0) return false;
+        if (!Bills.available() || !Bukkit.isPrimaryThread()) return baseDeposit(p.getUniqueId(), amount);
+        long whole = (long) Math.floor(amount + 1e-9);
+        double cents = round(amount - whole);
+        Bills.give(p, whole);
+        if (cents > 0) baseDeposit(p.getUniqueId(), cents);
         return true;
     }
 

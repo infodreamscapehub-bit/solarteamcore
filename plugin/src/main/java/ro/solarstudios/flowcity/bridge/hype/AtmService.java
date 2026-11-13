@@ -74,7 +74,7 @@ public final class AtmService {
 
     public static final String NO_CARD = "Introdu cardul bancar! Ai nevoie de un card in inventar.";
 
-    private static boolean isCard(org.bukkit.inventory.ItemStack it) {
+    public static boolean isCard(org.bukkit.inventory.ItemStack it) {
         if (it == null || it.getType() == org.bukkit.Material.AIR) return false;
         String n = it.getType().name().toLowerCase(java.util.Locale.ROOT);
         String key = "";
@@ -210,14 +210,14 @@ public final class AtmService {
         UUID u = p.getUniqueId();
         if (!plugin.bank().has(u, a)) return new Result(false, "Nu ai destui bani in banca.");
         if (!plugin.bank().withdraw(u, a)) return new Result(false, "Tranzactie esuata.");
-        if (!plugin.money().deposit(u, a)) {
+        if (!plugin.money().depositBills(p, a)) {
             plugin.bank().deposit(u, a); // rambursare: economia cash a refuzat
             return new Result(false, "Tranzactie esuata.");
         }
         d.withdrawnToday += a;
         record(d, u, "WITHDRAW", a, 0, "");
         plugin.service().logTransaction(u, "ATM_WITHDRAW", a, "ATM", where(p));
-        return new Result(true, "Ai retras $" + Fmt.money(a) + ".");
+        return new Result(true, "Ai retras $" + Fmt.money(a) + ". Bancnotele sunt in inventar.");
     }
 
     public Result transfer(Player p, PlayerData d, String toName, double raw, PlayerData receiverData) {
