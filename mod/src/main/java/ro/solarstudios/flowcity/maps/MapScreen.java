@@ -36,7 +36,6 @@ public final class MapScreen extends FlowScreen {
 
     // editor
     private boolean editor;
-    private boolean sidebar;
     private final EditBox wpField;
     private final EditBox searchField;
     private boolean showPopup;
@@ -56,12 +55,6 @@ public final class MapScreen extends FlowScreen {
     private int selWp;
     private long lastClickAt;
     private String lastClickKey = "";
-    private int srvScroll;
-    private int perScroll;
-    private int srvY0;
-    private int srvY1;
-    private int perY0;
-    private int perY1;
     private int editorTab; // 0 = puncte, 1 = zone
     private int zoneScroll;
     private int zTool; // 0 alege, 1 dreptunghi, 2 poligon
@@ -74,10 +67,21 @@ public final class MapScreen extends FlowScreen {
     private boolean zPressing;
     private double zPressX;
     private double zPressY;
-    private int legendStart;
     private String gpsToastName;
     private long gpsToastAt;
     private final EditBox nameField;
+    // interfata noua
+    private static final String[] CATS = {"Toate", "Servicii", "Joburi", "Stat", "Ale mele"};
+    private static int cat;
+    private static int page;
+    private static final java.util.Set<Integer> hiddenZones = new java.util.HashSet<>();
+    private Entry sel;
+    private boolean showSettings;
+    private int[] setBox = new int[4];
+    private int[] gearBox = new int[4];
+    private int[] placesBox = new int[4];
+    private List<int[]> uiRects = new ArrayList<>();
+    private List<int[]> uiBuild = new ArrayList<>();
     private int draftId;
     private String draftType = "altele";
     private boolean draftSet;
@@ -117,7 +121,7 @@ public final class MapScreen extends FlowScreen {
         super("eMaps", 100, 100);
         this.nameField = field("Nume punct", 40, null);
         this.wpField = field("Nume punct...", 24, null);
-        this.searchField = field("Cauta...", 16, null);
+        this.searchField = field("Cauta un loc...", 24, s -> page = 0);
         this.editor = openEditor && MapsState.admin;
         if (openEditor) newDraftHere();
         Minecraft mc = Minecraft.getInstance();
@@ -134,7 +138,7 @@ public final class MapScreen extends FlowScreen {
         if (showDlg) l.add(wpField);
         else {
             if (editor) l.add(nameField);
-            if (sidebar) l.add(searchField);
+            l.add(searchField);
         }
         return l;
     }
@@ -247,8 +251,11 @@ public final class MapScreen extends FlowScreen {
                 draftX = wx(mx0);
                 draftZ = wz(my0);
                 draftSet = true;
+            } else if (!editor) {
+                sel = null;
             }
         });
+        uiBuild = new ArrayList<>();
         Ui.scissor(ax, ay, aw, ah);
 
         MapsClient.Proj pr = new MapsClient.Proj() {
@@ -269,7 +276,7 @@ public final class MapScreen extends FlowScreen {
             double hzw = wz(my);
             if (canHover) {
                 for (int i = MapsState.zones.size() - 1; i >= 0; i--) {
-                    if (MapsState.zones.get(i).contains(hxw, hzw)) {
+                    if (MapsState.zones.get(i).contains(hxw, hzw) && (editor || !hiddenZones.contains(MapsState.zones.get(i).type))) {
                         hoverZone = MapsState.zones.get(i);
                         break;
                     }
@@ -277,6 +284,7 @@ public final class MapScreen extends FlowScreen {
             }
             for (MapsState.Zone z : MapsState.zones) {
                 if (editor && editorTab == 1 && z.id == zId && !zPts.isEmpty()) continue; // se deseneaza ciorna
+                if (!editor && hiddenZones.contains(z.type)) continue;
                 int rgb = MapsState.zoneRgb(z.type);
                 int op = (Integer) MapsState.zoneType(z.type)[4];
                 int al = Math.min(255, op * 255 / 100 + (z == hoverZone ? 40 : 0));
@@ -302,7 +310,11 @@ public final class MapScreen extends FlowScreen {
             int sy = Math.round(gy(p.z));
             if (sx < ax - 8 || sy < ay - 8 || sx > ax + aw + 8 || sy > ay + ah + 8) continue;
             boolean h = !modal && Ui.in(mx, my, sx - 9, sy - 9, 18, 18) && inMap(mx, my) && !overUi(mx, my);
-            Blips.draw(ms, p.type, sx, sy, h ? 20 : 16, h);
+            boolean isSel = sel != null && sel.wp == null && sel.is(p.name, p.x, p.z);
+            int bs = h || isSel ? 18 : 15;
+            if (isSel) disc(ms, sx, sy, 15, 0x50E9A23B);
+            Ui.round(ms, sx - bs / 2 + 1, sy - bs / 2 + 2, bs, bs, 0x66000000);
+            tile(ms, sx - bs / 2, sy - bs / 2, bs, p.type, catColor(p.type), isSel);
             if (h) hover = p;
             if (modal) continue;
             final MapsState.Poi pp = p;
@@ -312,7 +324,7 @@ public final class MapScreen extends FlowScreen {
                     selectPoi(pp);
                     return;
                 }
-                setGps(pp.name, pp.type, pp.x, pp.z);
+                pickEntry(new Entry(pp));
             });
         }
         // waypoint-uri personale
@@ -323,7 +335,7 @@ public final class MapScreen extends FlowScreen {
             if (sx < ax - 8 || sy < ay - 24 || sx > ax + aw + 8 || sy > ay + ah + 8) continue;
             boolean h = !modal && Ui.in(mx, my, sx - 8, sy - 18, 16, 20) && inMap(mx, my) && !overUi(mx, my);
             int size = h ? 15 : 13;
-            if (w.id == selWp) Ui.rect(ms, sx - 9, sy - size - 3, 19, size + 6, 0x66FFFFFF);
+            if (w.id == selWp || (sel != null && sel.wp == w)) disc(ms, sx, sy - size / 2, 13, 0x50E9A23B);
             Blips.pin(ms, sx, sy, size, w.color);
             if (!w.type.isEmpty()) Blips.sprite(ms, Blips.icon(w.type), sx - 5, sy - size / 2 - 5, 10);
             String nm = Ui.clip(w.name, 70);
@@ -359,6 +371,7 @@ public final class MapScreen extends FlowScreen {
             Blips.pin(ms, sx, sy + Math.round(bob), 10, 0xFFFFD54A);
         }
         // jucator
+        disc(ms, Math.round(gx(mc.player.getX())), Math.round(gy(mc.player.getZ())), 11, 0x30E9A23B);
         MapsClient.drawPlayer(ms, gx(mc.player.getX()), gy(mc.player.getZ()), mc.player.getYRot());
         Ui.endScissor();
 
@@ -695,6 +708,7 @@ public final class MapScreen extends FlowScreen {
         long now = System.currentTimeMillis();
         String k = "w" + w.id;
         selWp = w.id;
+        if (!editor) sel = new Entry(w);
         if (k.equals(lastClickKey) && now - lastClickAt < 450) setGps(w.name, w.type.isEmpty() ? null : w.type, w.x, w.z);
         lastClickKey = k;
         lastClickAt = now;
