@@ -64,6 +64,9 @@ public final class CarsServer {
             case "inspect":
                 inspect(p, data, a);
                 break;
+            case "plate":
+                plate(p, data, a);
+                break;
             default:
                 break;
         }
@@ -218,6 +221,17 @@ public final class CarsServer {
             return e;
         }
         return null;
+    }
+
+    /** Bordul cere numarul masinii in care sta jucatorul. */
+    private static void plate(ServerPlayerEntity p, GarageData data, int entityId) {
+        Entity e = p.level.getEntity(entityId);
+        if (e == null || e.distanceTo(p) > 8) return;
+        GarageData.Car c = e.getPersistentData().contains(TAG) ? data.get(e.getPersistentData().getInt(TAG)) : null;
+        JsonObject o = new JsonObject();
+        o.addProperty("id", entityId);
+        o.addProperty("plate", c == null || c.plate == null ? "" : c.plate);
+        CarsNet.reply(p, "plate", o.toString());
     }
 
     /** Politia se uita la un vehicul: numar, model, proprietar, stare. */

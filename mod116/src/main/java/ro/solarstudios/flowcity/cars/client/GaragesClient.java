@@ -130,6 +130,9 @@ public final class GaragesClient {
                 if (mc.screen instanceof GarageScreen) ((GarageScreen) mc.screen).update(o);
                 else mc.setScreen(new GarageScreen(o));
                 break;
+            case "plate":
+                CarHud.setPlate(o.has("id") ? o.get("id").getAsInt() : -1, o.has("plate") ? o.get("plate").getAsString() : "");
+                break;
             case "inspect":
                 if (mc.screen instanceof PoliceVehicleScreen) ((PoliceVehicleScreen) mc.screen).update(o);
                 else mc.setScreen(new PoliceVehicleScreen(o));
