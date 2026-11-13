@@ -36,6 +36,7 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraft.util.math.vector.Matrix4f;
 import org.lwjgl.glfw.GLFW;
 import ro.solarstudios.flowcity.cars.CarsNet;
+import ro.solarstudios.flowcity.client.ui.Gfx;
 import ro.solarstudios.flowcity.client.ui.Theme;
 import ro.solarstudios.flowcity.client.ui.Ui;
 import ro.solarstudios.flowcity.module.JsonClientModule;
@@ -77,6 +78,8 @@ public final class GaragesClient {
     public static KeyBinding interact;
 
     private static String prompt;
+    private static String lastPrompt = "";
+    private static long promptSince;
     private static Runnable action;
 
     public static void register() {
@@ -263,14 +266,27 @@ public final class GaragesClient {
             if (prompt == null || mc.screen != null || mc.options.hideGui) return;
             GuiGraphics g = new GuiGraphics(e.getMatrixStack());
             String key = interact == null ? "E" : interact.getTranslatedKeyMessage().getString().toUpperCase();
-            int kw = Ui.width(key) + 8;
-            int w = kw + 8 + Ui.width(prompt) + 12;
-            int x = mc.getWindow().getGuiScaledWidth() / 2 - w / 2;
-            int y = mc.getWindow().getGuiScaledHeight() - 92;
-            Ui.round(g, x, y, w, 18, 0xD016181D);
-            Ui.round(g, x + 4, y + 3, kw, 12, Theme.ACCENT);
-            Ui.textCenter(g, key, x + 4 + kw / 2, y + 5, 0xFF1A1A1A);
-            Ui.text(g, prompt, x + kw + 12, y + 5, Theme.TEXT);
+            long now = System.currentTimeMillis();
+            if (!prompt.equals(lastPrompt)) {
+                lastPrompt = prompt;
+                promptSince = now;
+            }
+            float a = Math.min(1f, (now - promptSince) / 220f);
+            a = 1f - (1f - a) * (1f - a) * (1f - a);
+            float size = 8.6f;
+            float kw = Math.max(16f, Gfx.width(key, 9f, true) + 12f);
+            float tw = Gfx.width(prompt, size, false);
+            float w = kw + tw + 32f;
+            float h = 24f;
+            float x = mc.getWindow().getGuiScaledWidth() / 2f - w / 2f;
+            float y = mc.getWindow().getGuiScaledHeight() - 92f + (1f - a) * 8f;
+            float pulse = 0.5f + 0.5f * (float) Math.sin(now / 350.0);
+            Gfx.rrect(g, x - 1, y + 2, w + 2, h + 2, 13, Gfx.fade(0x55000000, a));
+            Gfx.rrect(g, x, y, w, h, 12, Gfx.fade(0xEE22252C, a), Gfx.fade(0xEE14161A, a));
+            Gfx.rrect(g, x - 1 - pulse, y + 4 - pulse, kw + 2 + 2 * pulse, h - 8 + 2 * pulse + 0f, 9, Gfx.fade(0x33F6C15A, a * (1f - pulse * 0.5f)));
+            Gfx.rrect(g, x + 6, y + 4, kw, h - 8, 7, Gfx.fade(0xFFF6C15A, a), Gfx.fade(0xFFD98E2B, a));
+            Gfx.text(g, key, x + 6 + kw / 2f, y + h / 2f + 3.4f, 9f, Gfx.fade(0xFF2A1A06, a), 1, true, 0f);
+            Gfx.text(g, prompt, x + kw + 16f, y + h / 2f + 3.1f, size, Gfx.fade(0xFFF4F1EA, a), 0);
         }
 
         @SubscribeEvent
