@@ -1,6 +1,6 @@
 # E-shop FlowCity. Se deschide de la un NPC (ZNPCs):
 #   /znpcs action add <idNpc> CONSOLE shop open %player% <magazin>
-# Exemplu: /znpcs action add 1 CONSOLE shop open %player% arme
+# Exemple (cate un NPC pentru fiecare): ... shop open %player% arme | magazine | backpackuri
 #
 # Fiecare articol:
 #   name:    numele afisat
@@ -27,14 +27,25 @@ shops:
         items:
           - {name: "Munitie 9mm", item: "tac:pistol_ammo", price: 5, amount: 30, desc: "30 buc"}
           - {name: "Munitie 5.56", item: "tac:rifle_ammo", price: 8, amount: 30, desc: "30 buc"}
-  general:
+  magazine:
     title: "MAGAZIN"
     categories:
       - name: "Mancare"
         items:
           - {name: "Paine", item: "minecraft:bread", price: 10, amount: 4}
           - {name: "Friptura", item: "minecraft:cooked_beef", price: 25, amount: 4}
+      - name: "Bauturi"
+        items:
+          - {name: "Apa", item: "minecraft:potion", price: 5}
       - name: "Unelte"
         items:
           - {name: "Sabie de fier", item: "minecraft:iron_sword", price: 150}
           - {name: "Tarnacop de fier", item: "minecraft:iron_pickaxe", price: 150}
+  # Ids de backpack: pune-le pe cele din modul tau de rucsacuri (verifica cu /give tab-complete)
+  backpackuri:
+    title: "RUCSACURI"
+    categories:
+      - name: "Rucsacuri"
+        items:
+          - {name: "Rucsac mic", item: "minecraft:leather", price: 500, desc: "Inlocuieste cu itemul real"}
+          - {name: "Rucsac mare", item: "minecraft:leather", price: 1500, desc: "Inlocuieste cu itemul real"}
