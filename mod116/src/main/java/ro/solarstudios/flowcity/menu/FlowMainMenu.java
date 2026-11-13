@@ -66,7 +66,7 @@ public final class FlowMainMenu extends Screen {
     protected void init() {
         buttons.clear();
         buttons.add(new Btn("INTRA PE SERVER", "conectare directa la " + cfg.serverName, true, this::joinServer));
-        buttons.add(new Btn("MODURI", ModList.get().size() + " instalate", false, () -> minecraft.setScreen(new ModListScreen(this))));
+        buttons.add(new Btn("MODURI", ModList.get().size() + " instalate", false, () -> minecraft.setScreen(new FlowModsScreen(this))));
         buttons.add(new Btn("SETARI JOC", "video, sunet, controale", false, () -> minecraft.setScreen(new OptionsScreen(this, minecraft.options))));
         buttons.add(new Btn("REGULAMENT", Rules.accepted() ? "acceptat" : "de acceptat", false, () -> minecraft.setScreen(new RulesScreen(this, null))));
         buttons.add(new Btn("IESIRE DIN JOC", "inchide jocul", false, () -> minecraft.stop()));
