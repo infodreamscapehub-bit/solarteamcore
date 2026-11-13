@@ -1,38 +1,49 @@
 package ro.solarstudios.flowcity.cars.client;
 
-import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import net.minecraft.client.renderer.RenderHelper;
 import com.mojang.blaze3d.systems.RenderSystem;
-import net.minecraft.util.math.vector.Vector3f;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import net.minecraft.client.Minecraft;
-import ro.solarstudios.flowcity.compat.GuiGraphics;
+import net.minecraft.client.renderer.RenderHelper;
 import net.minecraft.client.renderer.entity.EntityRendererManager;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.nbt.CompoundNBT;
-import net.minecraft.nbt.IntArrayNBT;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.IntArrayNBT;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.vector.Vector3f;
 import ro.solarstudios.flowcity.client.ui.FlowScreen;
-import ro.solarstudios.flowcity.client.ui.Theme;
+import ro.solarstudios.flowcity.client.ui.Gfx;
 import ro.solarstudios.flowcity.client.ui.Ui;
+import ro.solarstudios.flowcity.compat.GuiGraphics;
 import ro.solarstudios.flowcity.module.JsonClientModule;
+import ro.solarstudios.flowcity.notify.NotifyUi;
 
 /**
- * Dealerul auto: categorii, lista vehiculelor din catalog (configurat pe plugin), previzualizare 3D care se roteste,
- * alegerea culorii si cumpararea. Masina cumparata ajunge in garajul tau.
+ * Dealerul auto (showroom): categorii, catalogul din plugin ca niste carduri, masina in 3D pe un podium luminat in
+ * culoarea aleasa (se roteste, o poti trage cu mouse-ul), vopsea cu cercuri, pretul mare si butonul de cumparare.
+ * Masina cumparata ajunge in garajul tau.
  */
 public final class DealerScreen extends FlowScreen {
     private static final int[] COLORS = {0xF2F2F0, 0x1B1F2A, 0x8E959E, 0xC8283C, 0x2F6FDB, 0x2E9D5B, 0xF2C230, 0xE9A23B, 0x6B4A2E, 0x5B3E8A};
-    private static final int LIST_W = 150;
+    private static final String[] COLOR_NAMES = {"Alb", "Negru", "Gri", "Roșu", "Albastru", "Verde", "Galben", "Portocaliu", "Maro", "Mov"};
+    private static final int W = 500;
+    private static final int H = 290;
+    private static final int ROW = 46;
+    private static final int GOLD = 0xFFF6C15A;
+    private static final int GOLD2 = 0xFFD98E2B;
+    private static final int WHITE = 0xFFF4F1EA;
+    private static final int MUTED = 0xFF8E8C86;
+    private static final int FAINT = 0xFF6F6D68;
+
     private final BlockPos pos;
     private String category = "";
     private String selected = "";
+    private String lastSelected = "";
     private int color = COLORS[0];
     private int scroll;
     private boolean waiting;
@@ -41,15 +52,28 @@ public final class DealerScreen extends FlowScreen {
     private int previewColor = -1;
     private float spin = 200f;
     private boolean dragging;
+    private final long born = System.currentTimeMillis();
+    private long switchAt = System.currentTimeMillis();
+    private long lastNs = System.nanoTime();
+    private float bh;
+
+    private float offX;
+    private float offY;
+    private float scale = 1f;
 
     private DealerScreen(BlockPos pos) {
-        super("Dealer auto", 460, 270);
+        super("Dealer auto", W, H);
         this.pos = pos;
         CarsClient.request("catalog", new JsonObject());
     }
 
     public static void open(BlockPos pos) {
         Minecraft.getInstance().setScreen(new DealerScreen(pos));
+    }
+
+    @Override
+    protected boolean framed() {
+        return false;
     }
 
     void result(boolean ok, String msg) {
@@ -61,102 +85,242 @@ public final class DealerScreen extends FlowScreen {
         return EntityType.byString(id).isPresent();
     }
 
+    private static float easeOut(float t) {
+        t = Math.max(0f, Math.min(1f, t));
+        float u = 1f - t;
+        return 1f - u * u * u;
+    }
+
+    private static boolean inside(float mx, float my, float x, float y, float w, float h) {
+        return mx >= x && mx < x + w && my >= y && my < y + h;
+    }
+
+    private void hitL(float x, float y, float w, float h, Runnable r) {
+        hit(Math.round(offX + x * scale), Math.round(offY + y * scale), Math.max(1, Math.round(w * scale)), Math.max(1, Math.round(h * scale)), r);
+    }
+
+    private static String clipG(String s, float size, boolean xl, float maxW) {
+        if (s == null) return "";
+        if (Gfx.width(s, size, xl) <= maxW) return s;
+        String t = s;
+        while (t.length() > 1 && Gfx.width(t + "...", size, xl) > maxW) t = t.substring(0, t.length() - 1);
+        return t + "...";
+    }
+
+    /** 12345 -> "12 345" (cu spatiu, ca in preturile de la dealer). */
+    private static String price(double v) {
+        String s = String.valueOf(Math.round(v));
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < s.length(); i++) {
+            if (i > 0 && (s.length() - i) % 3 == 0) b.append(' ');
+            b.append(s.charAt(i));
+        }
+        return b.toString();
+    }
+
+    // ------------------------------------------------------------------ desen
+
     @Override
     protected void draw(GuiGraphics ms, int mx, int my) {
-        header(ms, "Dealer auto", "", mx, my);
-        Ui.textRight(ms, Ui.money(CarsClient.money) + " lei", px + pw - 28, py + 8, Theme.OK);
+        long now = System.currentTimeMillis();
+        long ns = System.nanoTime();
+        float dt = Math.min(0.1f, (ns - lastNs) / 1e9f);
+        lastNs = ns;
+        float open = easeOut((now - born) / 300f);
+        scale = Math.min(1f, Math.min((width - 12f) / W, (height - 12f) / H)) * (0.94f + 0.06f * open);
+        offX = width / 2f - W / 2f * scale;
+        offY = height / 2f - H / 2f * scale;
+        float lmx = (mx - offX) / scale;
+        float lmy = (my - offY) / scale;
+
+        Gfx.rrect(ms, 0, 0, width, height, 0, Gfx.fade(0xC0050608, open));
+        ms.pose().pushPose();
+        ms.pose().translate(offX, offY, 0);
+        ms.pose().scale(scale, scale, scale);
+
+        Gfx.rrect(ms, -6, 2, W + 12, H + 10, 22, 0x55000000);
+        Gfx.rrect(ms, 0, 0, W, H, 18, 0xFF1D2026, 0xFF121418);
+        Gfx.rrect(ms, 0.5f, 0.5f, W - 1, 1, 0, 0x14FFFFFF);
+        Gfx.rrect(ms, 10, 10, 216, H - 20, 14, 0xFF101216);
+
+        // antet
+        Gfx.text(ms, "DEALER AUTO", 24, 36, 12, WHITE, 0, true, 0.8f);
+        Gfx.text(ms, "ALEGE-ȚI MAȘINA", 24, 49, 6.5f, GOLD, 0, false, 1f);
+
+        // sold + inchidere
+        String bal = price(CarsClient.money) + " lei";
+        float bw = Gfx.width(bal, 8.5f, true) + 22;
+        Gfx.rrect(ms, W - 40 - bw, 12, bw, 18, 9, Gfx.fade(0xFF5FDC8F, 0.16f));
+        Gfx.disc(ms, W - 40 - bw + 9, 21, 2.6f, 0xFF5FDC8F);
+        Gfx.text(ms, bal, W - 40 - 8, 24.2f, 8.5f, 0xFF7BE3A0, 2, true, 0f);
+        boolean hx = inside(lmx, lmy, W - 30, 12, 18, 18);
+        if (hx) Gfx.disc(ms, W - 21, 21, 9, 0x22FFFFFF);
+        int xc = hx ? 0xFFE2453F : 0xFF8E8C86;
+        Gfx.line(ms, W - 25, 17, W - 17, 25, 1.6f, xc);
+        Gfx.line(ms, W - 17, 17, W - 25, 25, 1.6f, xc);
+        hitL(W - 30, 12, 18, 18, this::onClose);
+
         List<JsonObject> all = new ArrayList<>();
         for (JsonElement e : CarsClient.catalog) {
             if (!e.isJsonObject()) continue;
             JsonObject o = e.getAsJsonObject();
             if (exists(JsonClientModule.str(o, "id", ""))) all.add(o);
         }
-        int x = px + 10;
-        int top = py + HEAD + 6;
         if (all.isEmpty()) {
-            Ui.text(ms, CarsClient.catalog.size() == 0 ? "Se incarca catalogul..." : "Modul de vehicule nu e instalat.", x, top + 6, Theme.MUTED);
+            boolean loading = CarsClient.catalog.size() == 0;
+            int dots = (int) ((now / 400) % 4);
+            Gfx.text(ms, loading ? "Se încarcă catalogul" + "...".substring(0, dots) : "Modul de vehicule nu e instalat.", W / 2f, H / 2f, 10, MUTED, 1);
+            ms.pose().popPose();
             return;
         }
+
+        // ---- categorii
         Set<String> cats = new LinkedHashSet<>();
         for (JsonObject o : all) cats.add(JsonClientModule.str(o, "category", "Diverse"));
-        int cx = x;
-        cx += chip(ms, "Toate", cx, top, Ui.width("Toate") + 10, 14, mx, my, category.isEmpty(), Theme.ACCENT, () -> {
+        float cx = 22f;
+        cx += chip(ms, "Toate", cx, 58, category.isEmpty(), lmx, lmy, () -> {
             category = "";
             scroll = 0;
-        }) + 2;
+        }) + 5;
         for (String c : cats) {
-            int w = Ui.width(c) + 10;
-            if (cx + w > px + pw - 10) break;
+            float w = Gfx.width(c, 7.2f, false) + 16;
+            if (cx + w > 218) break;
             final String cat = c;
-            cx += chip(ms, c, cx, top, w, 14, mx, my, c.equals(category), Theme.ACCENT, () -> {
+            cx += chip(ms, c, cx, 58, c.equals(category), lmx, lmy, () -> {
                 category = cat;
                 scroll = 0;
-            }) + 2;
+            }) + 5;
         }
         List<JsonObject> rows = new ArrayList<>();
         for (JsonObject o : all) if (category.isEmpty() || category.equals(JsonClientModule.str(o, "category", "Diverse"))) rows.add(o);
         if (rows.stream().noneMatch(r -> selected.equals(JsonClientModule.str(r, "id", "")))) selected = rows.isEmpty() ? "" : JsonClientModule.str(rows.get(0), "id", "");
+        if (!selected.equals(lastSelected)) {
+            lastSelected = selected;
+            switchAt = now;
+        }
 
-        // lista
-        int lt = top + 20;
-        int lh = py + ph - 10 - lt;
-        int rowH = 24;
-        int visible = Math.max(1, lh / rowH);
+        // ---- lista
+        float top = 84f;
+        float bottom = H - 18f;
+        int visible = Math.max(1, (int) ((bottom - top) / ROW));
         scroll = Math.max(0, Math.min(scroll, Math.max(0, rows.size() - visible)));
-        Ui.round(ms, x, lt, LIST_W, lh, Theme.PANEL_2);
         JsonObject sel = null;
-        int y = lt + 2;
+        float y = top;
         for (int i = 0; i < rows.size(); i++) {
             JsonObject o = rows.get(i);
             String id = JsonClientModule.str(o, "id", "");
             if (id.equals(selected)) sel = o;
             if (i < scroll || i >= scroll + visible) continue;
             boolean s = id.equals(selected);
-            boolean h = Ui.in(mx, my, x + 2, y, LIST_W - 4, rowH - 2);
-            if (s || h) Ui.rect(ms, x + 2, y, LIST_W - 4, rowH - 2, s ? Theme.PANEL_3 : 0xFF22252B);
-            if (s) Ui.rect(ms, x + 2, y, 2, rowH - 2, Theme.ACCENT);
-            Ui.text(ms, Ui.clip(JsonClientModule.str(o, "name", id), LIST_W - 70), x + 9, y + 7, s ? Theme.TEXT : 0xFFD4D2CC);
-            Ui.textRight(ms, Ui.money(JsonClientModule.num(o, "price", 0)), x + LIST_W - 8, y + 7, Theme.MUTED);
-            hit(x + 2, y, LIST_W - 4, rowH - 2, () -> selected = id);
-            y += rowH;
+            boolean h = inside(lmx, lmy, 18, y, 196, ROW - 4);
+            if (s) Gfx.rrect(ms, 18, y, 196, ROW - 4, 11, Gfx.mixArgb(GOLD, 0xFF000000, 0.15f), GOLD2);
+            Gfx.rrect(ms, s ? 19 : 18, s ? y + 1 : y, s ? 194 : 196, s ? ROW - 6 : ROW - 4, s ? 10 : 11, s ? 0xFF262A32 : (h ? 0xFF22262D : 0xFF1A1D23), s ? 0xFF1E2127 : (h ? 0xFF1C1F25 : 0xFF16181D));
+            Gfx.text(ms, clipG(JsonClientModule.str(o, "name", id), 9f, false, 196 - 24 - 72), 30, y + 17, 9f, s ? WHITE : 0xFFD4D2CC, 0);
+            Gfx.text(ms, clipG(JsonClientModule.str(o, "category", ""), 6.6f, false, 90), 30, y + 29, 6.6f, FAINT, 0);
+            double p = JsonClientModule.num(o, "price", 0);
+            boolean can = CarsClient.money >= p;
+            Gfx.text(ms, price(p), 204, y + 20, 9f, can ? GOLD : 0xFFF08A82, 2, true, 0f);
+            Gfx.text(ms, "lei", 204, y + 30, 6.2f, FAINT, 2);
+            hitL(18, y, 196, ROW - 4, () -> selected = id);
+            y += ROW;
         }
-        if (sel == null) return;
+        if (rows.size() > visible) {
+            float trackH = bottom - top;
+            float th = Math.max(16f, trackH * visible / rows.size());
+            float ty = top + (trackH - th) * scroll / Math.max(1, rows.size() - visible);
+            Gfx.rrect(ms, 220, top, 2, trackH, 1, 0xFF262A31);
+            Gfx.rrect(ms, 220, ty, 2, th, 1, GOLD);
+        }
+        if (sel == null) {
+            ms.pose().popPose();
+            return;
+        }
 
-        // previzualizare
-        int vx = x + LIST_W + 10;
-        int vw = px + pw - 10 - vx;
-        int vh = 130;
-        Ui.round(ms, vx, lt, vw, vh, 0xFF1A1D22);
-        Ui.rect(ms, vx + 10, lt + vh - 26, vw - 20, 1, 0xFF2A2E35);
-        renderPreview(ms, JsonClientModule.str(sel, "id", ""), vx + vw / 2, lt + vh - 30, vw, vh);
-        Ui.textCenter(ms, "trage cu mouse-ul ca s-o rotesti", vx + vw / 2, lt + vh - 12, Theme.FAINT);
-        hit(vx, lt, vw, vh, () -> dragging = true);
+        // ---- showroom (dreapta)
+        float rx = 242f;
+        float rw = W - rx - 16f;
+        float py0 = 42f;
+        float ph0 = 150f;
+        Gfx.rrect(ms, rx, py0, rw, ph0, 14, 0xFF0E1013, 0xFF15181D);
+        int paint = 0xFF000000 | color;
+        float flash = Math.max(0f, 1f - (now - switchAt) / 500f);
+        Gfx.scrim(ms, rx + rw / 2f, py0 + 70, 120, 64, Gfx.fade(paint, 0.16f + 0.14f * flash));
+        // podium: elipse luminoasa sub masina
+        Gfx.scrim(ms, rx + rw / 2f, py0 + ph0 - 28, 104, 12, 0x55F6C15A);
+        Gfx.scrim(ms, rx + rw / 2f, py0 + ph0 - 28, 70, 7, 0x66FFFFFF);
+        renderPreview(ms, JsonClientModule.str(sel, "id", ""), rx + rw / 2f, py0 + ph0 - 30, rw, ph0, dt, easeOut((now - switchAt) / 380f));
+        Gfx.text(ms, clipG(JsonClientModule.str(sel, "name", ""), 15, true, rw - 28), rx + 14, py0 + 26, 15, WHITE, 0, true, 0.3f);
+        String cat = JsonClientModule.str(sel, "category", "").toUpperCase();
+        if (!cat.isEmpty()) {
+            float cw = Gfx.width(cat, 6.2f, false) + 16;
+            Gfx.rrect(ms, rx + 14, py0 + 33, cw, 12, 6, Gfx.fade(GOLD, 0.16f));
+            Gfx.text(ms, cat, rx + 14 + cw / 2f, py0 + 41.4f, 6.2f, GOLD, 1, false, 0.7f);
+        }
+        Gfx.text(ms, "trage pentru a roti", rx + rw - 12, py0 + ph0 - 8, 5.8f, 0xFF4A4E58, 2);
+        hitL(rx, py0, rw, ph0, () -> dragging = true);
 
-        int dy = lt + vh + 8;
-        Ui.textShadow(ms, JsonClientModule.str(sel, "name", ""), vx, dy, Theme.TEXT);
-        double price = JsonClientModule.num(sel, "price", 0);
-        Ui.textRight(ms, Ui.money(price) + " lei", vx + vw, dy, Theme.ACCENT);
-        dy += 12;
+        // descriere
         String desc = JsonClientModule.str(sel, "desc", "");
-        if (!desc.isEmpty()) Ui.text(ms, Ui.clip(desc, vw), vx, dy, Theme.MUTED);
-        dy += 16;
-        // culori
-        Ui.text(ms, "Culoare", vx, dy + 3, Theme.MUTED);
-        int sx = vx + 50;
+        List<String> dl = NotifyUi.wrap(desc, 7.8f, rw, 2);
+        float dy = py0 + ph0 + 16;
+        for (String l : dl) {
+            Gfx.text(ms, l, rx, dy, 7.8f, 0xFFA19F98, 0);
+            dy += 10;
+        }
+
+        // vopsea
+        float cy = 232f;
+        Gfx.text(ms, "VOPSEA", rx, cy - 8, 6.2f, FAINT, 0, false, 0.9f);
+        String cname = "";
+        for (int i = 0; i < COLORS.length; i++) if (COLORS[i] == color) cname = COLOR_NAMES[i];
+        Gfx.text(ms, cname, rx + rw, cy - 8, 6.6f, MUTED, 2);
+        float sx = rx + 8f;
+        float pulse = 0.5f + 0.5f * (float) Math.sin(now / 300.0);
         for (int c : COLORS) {
             boolean s = c == color;
-            if (s) Ui.round(ms, sx - 2, dy - 1, 16, 16, 0xFFFFFFFF);
-            else if (Ui.in(mx, my, sx, dy + 1, 12, 12)) Ui.round(ms, sx - 1, dy, 14, 14, 0x88FFFFFF);
-            Ui.round(ms, sx, dy + 1, 12, 12, 0xFF000000 | c);
+            boolean h = inside(lmx, lmy, sx - 9, cy - 2, 18, 18);
+            int col = 0xFF000000 | c;
+            if (s) Gfx.ring(ms, sx, cy + 7, 8.6f, 10.2f + pulse * 0.6f, GOLD, GOLD2);
+            Gfx.disc(ms, sx, cy + 7, h || s ? 7.6f : 7f, Gfx.mixArgb(col, 0xFFFFFFFF, 0.3f), Gfx.mixArgb(col, 0xFF000000, 0.15f), -2, -2.4f);
             final int cc = c;
-            hit(sx, dy + 1, 12, 12, () -> color = cc);
-            sx += 16;
+            hitL(sx - 9, cy - 2, 18, 18, () -> color = cc);
+            sx += 23.8f;
         }
-        boolean afford = CarsClient.money >= price;
-        String label = waiting ? "Se proceseaza..." : (afford ? "Cumpara" : "Nu ai destui bani");
+
+        // pret + cumparare
+        double pr = JsonClientModule.num(sel, "price", 0);
+        boolean afford = CarsClient.money >= pr;
+        Gfx.text(ms, "PREȚ", rx, 260, 6.2f, FAINT, 0, false, 0.9f);
+        Gfx.text(ms, price(pr) + " lei", rx, 276, 15, afford ? GOLD : 0xFFF08A82, 0, true, 0.2f);
         final JsonObject chosen = sel;
-        button(ms, label, px + pw - 10 - 110, py + ph - 28, 110, 18, mx, my, !waiting && afford, Theme.ACCENT, () -> buy(chosen));
-        Ui.text(ms, "Masina ajunge in garajul tau.", vx, py + ph - 23, Theme.FAINT);
+        String label = waiting ? "Se procesează..." : (afford ? "CUMPĂRĂ" : "NU AI DESTUI BANI");
+        button(ms, label, rx + rw - 140, 254, 140, 28, !waiting && afford, lmx, lmy, dt, () -> buy(chosen));
+        ms.pose().popPose();
+    }
+
+    private float chip(GuiGraphics ms, String label, float x, float y, boolean selected, float lmx, float lmy, Runnable r) {
+        float w = Gfx.width(label, 7.2f, false) + 16;
+        boolean h = inside(lmx, lmy, x, y, w, 15);
+        if (selected) Gfx.rrect(ms, x, y, w, 15, 7.5f, GOLD, GOLD2);
+        else Gfx.rrect(ms, x, y, w, 15, 7.5f, h ? 0xFF2A2E36 : 0xFF1C1F25);
+        Gfx.text(ms, label, x + w / 2f, y + 10.4f, 7.2f, selected ? 0xFF2A1A06 : (h ? WHITE : 0xFFA19F98), 1);
+        hitL(x, y, w, 15, r);
+        return w;
+    }
+
+    private void button(GuiGraphics ms, String label, float x, float y, float w, float h, boolean enabled, float lmx, float lmy, float dt, Runnable r) {
+        boolean hov = enabled && inside(lmx, lmy, x, y, w, h);
+        bh += ((hov ? 1f : 0f) - bh) * Math.min(1f, dt * 14f);
+        if (enabled) {
+            float p = 0.5f + 0.5f * (float) Math.sin(System.currentTimeMillis() / 500.0);
+            Gfx.rrect(ms, x - 2 - p * 1.5f, y - 2 - p * 1.5f, w + 4 + p * 3, h + 4 + p * 3, 13, Gfx.fade(0x2EF6C15A, 1f - p * 0.6f));
+        }
+        int t1 = enabled ? Gfx.mixArgb(GOLD, 0xFFFFFFFF, bh * 0.18f) : 0xFF24272D;
+        int t2 = enabled ? Gfx.mixArgb(GOLD2, 0xFFFFFFFF, bh * 0.10f) : 0xFF1E2126;
+        Gfx.rrect(ms, x, y, w, h, 12, t1, t2);
+        if (enabled) Gfx.rrect(ms, x + 6, y + 1, w - 12, 1.5f, 0.75f, 0x66FFFFFF);
+        Gfx.text(ms, label, x + w / 2f, y + h / 2f + 3.8f, 9.5f, enabled ? 0xFF2A1A06 : FAINT, 1, true, 0.6f);
+        if (enabled) hitL(x, y, w, h, r);
     }
 
     private void buy(JsonObject sel) {
@@ -168,7 +332,7 @@ public final class DealerScreen extends FlowScreen {
     }
 
     /** Vehiculul se deseneaza cu renderer-ul lui normal, intr-o entitate locala care nu exista in lume. */
-    private void renderPreview(GuiGraphics g, String id, int cx, int groundY, int w, int h) {
+    private void renderPreview(GuiGraphics g, String id, float cx, float groundY, float w, float h, float dt, float pop) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) return;
         if (!id.equals(previewType) || color != previewColor || preview == null) {
@@ -186,13 +350,13 @@ public final class DealerScreen extends FlowScreen {
             }
         }
         if (preview == null) return;
-        if (!dragging) spin += 0.4f;
+        if (!dragging) spin += 26f * dt;
         float size = Math.max(preview.getBbWidth(), preview.getBbHeight());
-        float scale = Math.min(w * 0.28f, (h - 40) * 0.9f) / Math.max(1f, size);
+        float sc = Math.min(w * 0.30f, (h - 56) * 0.95f) / Math.max(1f, size) * (0.82f + 0.18f * pop);
         g.pose().pushPose();
         g.pose().translate(cx, groundY, 120);
-        g.pose().scale(scale, -scale, scale);
-        g.pose().mulPose(Vector3f.XP.rotationDegrees(-18f));
+        g.pose().scale(sc, -sc, sc);
+        g.pose().mulPose(Vector3f.XP.rotationDegrees(-16f));
         g.pose().mulPose(Vector3f.YP.rotationDegrees(spin));
         RenderHelper.setupFor3DItems();
         EntityRendererManager d = mc.getEntityRenderDispatcher();
