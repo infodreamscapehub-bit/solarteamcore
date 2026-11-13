@@ -177,6 +177,33 @@ public final class CarsServer {
         CarsNet.reply(p, "tune_cars", o.toString());
     }
 
+    private static final org.apache.logging.log4j.Logger LOG = org.apache.logging.log4j.LogManager.getLogger("FlowCity");
+
+    private static boolean itemExists(String id) {
+        try {
+            return ForgeRegistries.ITEMS.containsKey(new ResourceLocation(id));
+        } catch (RuntimeException ex) {
+            return false;
+        }
+    }
+
+    /** Daca itemul de motor nu exista in modul de vehicule, cauta cel mai apropiat motor al aceleiasi familii (altfel masina ar iesi fara motor). */
+    private static String resolveEngine(String id) {
+        if (id == null || id.isEmpty() || id.equals("-") || itemExists(id)) return id;
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("^vehicle:(?:[a-z]+_)?(small|large|electric)_engine$").matcher(id);
+        if (m.matches()) {
+            for (String t : new String[] {"iron_", "gold_", "diamond_", "stone_", "wood_", "netherite_", ""}) {
+                String cand = "vehicle:" + t + m.group(1) + "_engine";
+                if (itemExists(cand)) {
+                    LOG.warn("Motorul {} nu exista in modul de vehicule; folosesc {}", id, cand);
+                    return cand;
+                }
+            }
+        }
+        LOG.error("Motorul {} nu exista in modul de vehicule si nu am gasit inlocuitor: masina va iesi fara motor", id);
+        return id;
+    }
+
     private static final java.util.regex.Pattern TIER = java.util.regex.Pattern.compile("^vehicle:(wood_|stone_|iron_|gold_|diamond_)?(small|large|electric)_engine$");
     private static final java.util.Set<String> WHEELS = new java.util.HashSet<>(java.util.Arrays.asList(
         "vehicle:plastic_wheel", "vehicle:standard_wheel", "vehicle:sports_wheel", "vehicle:racing_wheel",
@@ -211,6 +238,7 @@ public final class CarsServer {
         String engine = StringArgumentType.getString(c, "engine");
         String wheels = StringArgumentType.getString(c, "wheels");
         if (!engine.equals(curEngine)) {
+            if (!itemExists(engine)) return fail(c, "Motorul " + engine + " nu exista in modul de vehicule.");
             if (curEngine.equals("-") || !TIER.matcher(engine).matches() || !family(engine).equals(family(curEngine))) return fail(c, "Motor invalid pentru aceasta masina.");
         }
         if (!wheels.equals(curWheels)) {
@@ -912,6 +940,7 @@ public final class CarsServer {
     static GarageData.Car give(MinecraftServer server, UUID owner, String faction, String type, int rgb, String engine, String wheels, String plate, String name) {
         EntityType<?> t = EntityType.byString(type).orElse(null);
         if (t == null) return null;
+        engine = resolveEngine(engine);
         Entity e = t.create(server.overworld());
         if (e == null) return null;
         CompoundNBT init = e.saveWithoutId(new CompoundNBT());
@@ -920,6 +949,11 @@ public final class CarsServer {
         if (!wheels.isEmpty() && !wheels.equals("-")) init.put("WheelStack", stack(wheels));
         e.load(init);
         CompoundNBT nbt = strip(e.saveWithoutId(new CompoundNBT()));
+        if (!engine.equals("-") && !nbt.contains("EngineStack")) {
+            LOG.warn("give {}: motorul {} nu a fost preluat de vehicul; il pun direct in date", type, engine);
+            nbt.put("EngineStack", stack(engine));
+        }
+        if (!wheels.equals("-") && !nbt.contains("WheelStack")) nbt.put("WheelStack", stack(wheels));
         if (nbt.contains("FuelCapacity")) nbt.putFloat("CurrentFuel", nbt.getFloat("FuelCapacity") * 0.5f);
         e.remove();
         return GarageData.get(server).add(owner, faction, type, name, plate, nbt);

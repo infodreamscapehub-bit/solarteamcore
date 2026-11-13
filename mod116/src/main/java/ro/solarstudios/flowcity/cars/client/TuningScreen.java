@@ -490,8 +490,12 @@ public final class TuningScreen extends FlowScreen {
         int cur = tierOf(fromEngine);
         int chosen = tierOf(engine);
         Gfx.text(ms, "NIVEL MOTOR · viteză maximă și accelerație", x + 14, y + 18, 6.4f, FAINT, 0, false, 0.6f);
+        int row = 0;
         for (int i = 0; i < TIERS.length; i++) {
-            float ry = y + 28 + i * 34;
+            // doar nivelurile care exista cu adevarat in modul de vehicule (altfel motorul ar aparea lipsa)
+            if (!net.minecraftforge.registries.ForgeRegistries.ITEMS.containsKey(new net.minecraft.util.ResourceLocation(engineId(i)))) continue;
+            float ry = y + 28 + row * 34;
+            row++;
             boolean s = chosen == i;
             boolean h = inside(lmx, lmy, x + 10, ry, w - 20, 30);
             if (s) Gfx.rrect(ms, x + 10, ry, w - 20, 30, 10, GOLD, GOLD2);
