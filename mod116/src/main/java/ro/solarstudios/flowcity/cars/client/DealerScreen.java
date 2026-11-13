@@ -56,6 +56,11 @@ public final class DealerScreen extends FlowScreen {
     private long switchAt = System.currentTimeMillis();
     private long lastNs = System.nanoTime();
     private float bh;
+    private String engine = "-";
+    private String wheels = "-";
+    private double extra;
+    private boolean resetOpts = true;
+    private String previewOpts = "";
 
     private float offX;
     private float offY;
@@ -197,6 +202,7 @@ public final class DealerScreen extends FlowScreen {
         if (!selected.equals(lastSelected)) {
             lastSelected = selected;
             switchAt = now;
+            resetOpts = true;
         }
 
         // ---- lista
@@ -234,6 +240,13 @@ public final class DealerScreen extends FlowScreen {
         if (sel == null) {
             ms.pose().popPose();
             return;
+        }
+
+        if (sel != null && resetOpts) {
+            resetOpts = false;
+            engine = JsonClientModule.str(sel, "engine", "-");
+            wheels = JsonClientModule.str(sel, "wheels", "-");
+            extra = 0;
         }
 
         // ---- showroom (dreapta)
@@ -287,14 +300,24 @@ public final class DealerScreen extends FlowScreen {
             sx += 23.8f;
         }
 
-        // pret + cumparare
-        double pr = JsonClientModule.num(sel, "price", 0);
+        // pret + tuning + cumparare
+        double pr = JsonClientModule.num(sel, "price", 0) + extra;
         boolean afford = CarsClient.money >= pr;
-        Gfx.text(ms, "PREȚ", rx, 260, 6.2f, FAINT, 0, false, 0.9f);
-        Gfx.text(ms, price(pr) + " lei", rx, 276, 15, afford ? GOLD : 0xFFF08A82, 0, true, 0.2f);
+        Gfx.text(ms, extra > 0 ? "PREȚ CU TUNING" : "PREȚ", rx, 256, 6.2f, FAINT, 0, false, 0.9f);
+        Gfx.text(ms, price(pr) + " lei", rx, 272, 12.5f, afford ? GOLD : 0xFFF08A82, 0, true, 0.1f);
+        if (extra > 0) Gfx.text(ms, "+" + price(extra) + " tuning", rx, 282, 6.2f, MUTED, 0);
         final JsonObject chosen = sel;
-        String label = waiting ? "Se procesează..." : (afford ? "CUMPĂRĂ" : "NU AI DESTUI BANI");
-        button(ms, label, rx + rw - 140, 254, 140, 28, !waiting && afford, lmx, lmy, dt, () -> buy(chosen));
+        boolean th = inside(lmx, lmy, rx + 100, 254, 56, 28);
+        Gfx.rrect(ms, rx + 100, 254, 56, 28, 12, th ? 0xFF2E333C : 0xFF23272E, th ? 0xFF252931 : 0xFF1B1E24);
+        Gfx.text(ms, "TUNING", rx + 128, 272.2f, 8, th ? GOLD : 0xFFD4D2CC, 1, true, 0.5f);
+        hitL(rx + 100, 254, 56, 28, () -> TuningScreen.forDealer(this, chosen, color, engine, wheels, (c, e, w, ex) -> {
+            color = c;
+            engine = e;
+            wheels = w;
+            extra = ex;
+        }));
+        String label = waiting ? "Se cumpără..." : (afford ? "CUMPĂRĂ" : "FĂRĂ BANI");
+        button(ms, label, rx + 162, 254, rw - 162, 28, !waiting && afford, lmx, lmy, dt, () -> buy(chosen));
         ms.pose().popPose();
     }
 
@@ -323,10 +346,19 @@ public final class DealerScreen extends FlowScreen {
         if (enabled) hitL(x, y, w, h, r);
     }
 
+    private static CompoundNBT stk(String id) {
+        CompoundNBT s = new CompoundNBT();
+        s.putString("id", id);
+        s.putByte("Count", (byte) 1);
+        return s;
+    }
+
     private void buy(JsonObject sel) {
         JsonObject o = new JsonObject();
         o.addProperty("id", JsonClientModule.str(sel, "id", ""));
         o.addProperty("color", color);
+        o.addProperty("engine", engine);
+        o.addProperty("wheels", wheels);
         waiting = true;
         CarsClient.request("buy", o);
     }
@@ -335,14 +367,18 @@ public final class DealerScreen extends FlowScreen {
     private void renderPreview(GuiGraphics g, String id, float cx, float groundY, float w, float h, float dt, float pop) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) return;
-        if (!id.equals(previewType) || color != previewColor || preview == null) {
+        String opts = engine + "|" + wheels;
+        if (!id.equals(previewType) || color != previewColor || preview == null || !opts.equals(previewOpts)) {
             previewType = id;
             previewColor = color;
+            previewOpts = opts;
             preview = EntityType.byString(id).map(t -> t.create(mc.level)).orElse(null);
             if (preview != null) {
                 try {
                     CompoundNBT t = preview.saveWithoutId(new CompoundNBT());
                     t.put("Color", new IntArrayNBT(new int[] {(color >> 16) & 255, (color >> 8) & 255, color & 255}));
+                    if (!"-".equals(engine)) t.put("EngineStack", stk(engine));
+                    if (!"-".equals(wheels)) t.put("WheelStack", stk(wheels));
                     preview.load(t);
                 } catch (RuntimeException ignored) {
                     // unele vehicule nu accepta culoare

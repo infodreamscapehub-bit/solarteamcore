@@ -71,6 +71,9 @@ public final class CarsServer {
             case "lock":
                 toggleLock(p, data);
                 break;
+            case "tunelist":
+                tuneList(p, data);
+                break;
             default:
                 break;
         }
@@ -141,10 +144,85 @@ public final class CarsServer {
             j.addProperty("health", nbt.getFloat("Health"));
             j.addProperty("maxHealth", nbt.getFloat("MaxHealth"));
             j.addProperty("color", color(nbt));
+            j.addProperty("engine", stackId(nbt, "EngineStack"));
+            j.addProperty("wheels", stackId(nbt, "WheelStack"));
             arr.add(j);
         }
         o.add("cars", arr);
         CarsNet.reply(p, "garage", o.toString());
+    }
+
+    private static String stackId(CompoundNBT nbt, String key) {
+        String id = nbt.contains(key, 10) ? nbt.getCompound(key).getString("id") : "";
+        return id.isEmpty() ? "-" : id;
+    }
+
+    /** Masinile personale parcate in garaj (nu in oras, nu la pound): cele care pot fi tunate. */
+    private static void tuneList(ServerPlayerEntity p, GarageData data) {
+        JsonObject o = new JsonObject();
+        JsonArray arr = new JsonArray();
+        for (GarageData.Car c : data.of(p.getUUID())) {
+            if (c.out || c.pound) continue;
+            JsonObject j = new JsonObject();
+            j.addProperty("id", c.id);
+            j.addProperty("type", c.type);
+            j.addProperty("name", c.name);
+            j.addProperty("plate", c.plate);
+            j.addProperty("color", color(c.nbt));
+            j.addProperty("engine", stackId(c.nbt, "EngineStack"));
+            j.addProperty("wheels", stackId(c.nbt, "WheelStack"));
+            arr.add(j);
+        }
+        o.add("cars", arr);
+        CarsNet.reply(p, "tune_cars", o.toString());
+    }
+
+    private static final java.util.regex.Pattern TIER = java.util.regex.Pattern.compile("^vehicle:(wood_|stone_|iron_|gold_|diamond_)?(small|large|electric)_engine$");
+    private static final java.util.Set<String> WHEELS = new java.util.HashSet<>(java.util.Arrays.asList(
+        "vehicle:plastic_wheel", "vehicle:standard_wheel", "vehicle:sports_wheel", "vehicle:racing_wheel",
+        "vehicle:off_road_wheel", "vehicle:all_terrain_wheel", "vehicle:snow_wheel"));
+
+    private static String family(String engineId) {
+        return engineId.replaceFirst("^vehicle:(wood_|stone_|iron_|gold_|diamond_)", "vehicle:");
+    }
+
+    /**
+     * Tuning (dupa ce pluginul a luat banii): culoare, tier de motor si roti. fromEngine/fromWheels trebuie sa fie
+     * starea reala a masinii (altfel cineva ar putea minti despre ce are deja si ar plati mai putin). mode "garage" cere sa fii
+     * langa un garaj; "npc" e deschis de plugin (mecanicul).
+     */
+    private static int tune(CommandContext<CommandSource> c) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        ServerPlayerEntity p = EntityArgument.getPlayer(c, "player");
+        GarageData data = GarageData.get(c.getSource().getServer());
+        GarageData.Car car = data.get(IntegerArgumentType.getInteger(c, "car"));
+        if (car == null || car.owner == null || !car.owner.equals(p.getUUID())) return fail(c, "Masina nu e a ta.");
+        if (car.out || car.pound) return fail(c, "Parcheaza masina in garaj ca sa o tunezi.");
+        if ("garage".equals(StringArgumentType.getString(c, "mode"))) {
+            boolean near = false;
+            for (GarageData.Garage g : data.garages()) near |= nearMenu(p, g);
+            if (!near) return fail(c, "Tuning-ul se face la garaj sau la mecanic.");
+        }
+        String curEngine = stackId(car.nbt, "EngineStack");
+        String curWheels = stackId(car.nbt, "WheelStack");
+        if (!curEngine.equals(StringArgumentType.getString(c, "fromEngine")) || !curWheels.equals(StringArgumentType.getString(c, "fromWheels"))
+            || color(car.nbt) != IntegerArgumentType.getInteger(c, "fromColor")) {
+            return fail(c, "Masina s-a schimbat. Redeschide meniul de tuning.");
+        }
+        String engine = StringArgumentType.getString(c, "engine");
+        String wheels = StringArgumentType.getString(c, "wheels");
+        if (!engine.equals(curEngine)) {
+            if (curEngine.equals("-") || !TIER.matcher(engine).matches() || !family(engine).equals(family(curEngine))) return fail(c, "Motor invalid pentru aceasta masina.");
+        }
+        if (!wheels.equals(curWheels)) {
+            if (curWheels.equals("-") || !WHEELS.contains(wheels)) return fail(c, "Roti invalide pentru aceasta masina.");
+        }
+        int rgb = IntegerArgumentType.getInteger(c, "color");
+        car.nbt.put("Color", new IntArrayNBT(new int[] {(rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255}));
+        if (!engine.equals(curEngine)) car.nbt.put("EngineStack", stack(engine));
+        if (!wheels.equals(curWheels)) car.nbt.put("WheelStack", stack(wheels));
+        data.setDirty();
+        p.displayClientMessage(new StringTextComponent(car.name + " (" + car.plate + ") a fost tunata."), false);
+        return 1;
     }
 
     private static void spawnFrom(ServerPlayerEntity p, GarageData data, GarageData.Garage g, GarageData.Car c) {
@@ -713,6 +791,15 @@ public final class CarsServer {
                                         p.displayClientMessage(new StringTextComponent(car.name + " (" + car.plate + ") te asteapta in orice garaj. Ai primit cheia."), false);
                                         return 1;
                                     })))))))))
+            .then(Commands.literal("tune").then(Commands.argument("player", EntityArgument.player())
+                .then(Commands.argument("car", IntegerArgumentType.integer(1))
+                    .then(Commands.argument("mode", StringArgumentType.word())
+                        .then(Commands.argument("fromEngine", StringArgumentType.string())
+                            .then(Commands.argument("fromWheels", StringArgumentType.string())
+                                .then(Commands.argument("fromColor", IntegerArgumentType.integer(0, 0xFFFFFF))
+                                .then(Commands.argument("color", IntegerArgumentType.integer(0, 0xFFFFFF))
+                                    .then(Commands.argument("engine", StringArgumentType.string())
+                                        .then(Commands.argument("wheels", StringArgumentType.string()).executes(CarsServer::tune)))))))))))
             .then(Commands.literal("givefaction").then(Commands.argument("faction", StringArgumentType.word())
                 .then(Commands.argument("type", StringArgumentType.string())
                     .then(Commands.argument("color", IntegerArgumentType.integer(0, 0xFFFFFF))

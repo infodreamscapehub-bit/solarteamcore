@@ -12,11 +12,24 @@ public final class CarsClient extends JsonClientModule {
     public static JsonArray catalog = new JsonArray();
     public static double money;
     public static double poundFee = 500;
+    /** Preturi de tuning (paint, engines, wheels) trimise de plugin odata cu catalogul. */
+    public static JsonObject tuning = new JsonObject();
 
     private CarsClient() {
         on("catalog", d -> {
             if (d.has("vehicles") && d.get("vehicles").isJsonArray()) catalog = d.getAsJsonArray("vehicles");
+            if (d.has("tuning") && d.get("tuning").isJsonObject()) tuning = d.getAsJsonObject("tuning");
             money = num(d, "money", money);
+        });
+        on("tuning_open", d -> {
+            tuning = d;
+            money = num(d, "money", money);
+            if (!(Minecraft.getInstance().screen instanceof TuningScreen)) TuningScreen.requestOpen("npc");
+        });
+        on("tune_result", d -> {
+            money = num(d, "money", money);
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.screen instanceof TuningScreen) ((TuningScreen) mc.screen).result(bool(d, "ok", false), str(d, "msg", ""));
         });
         on("pound_info", d -> {
             poundFee = num(d, "fee", poundFee);

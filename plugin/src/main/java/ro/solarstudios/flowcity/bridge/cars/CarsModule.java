@@ -73,6 +73,24 @@ public final class CarsModule extends JsonModule {
             s.sendMessage("\u00a77Folosire: /dealer open <jucator>  (actiune NPC in ZNPCs: CONSOLE dealer open %player%)");
             return true;
         }, null, "dealership");
+        on("tune", this::tune);
+        Commands.register(plugin, "tuning", "flowcity.dealer.admin", (s, c, l, a) -> {
+            if (a.length >= 2 && "open".equalsIgnoreCase(a[0])) {
+                Player t = Bukkit.getPlayerExact(a[1]);
+                if (t == null) {
+                    s.sendMessage("\u00a7cJucator offline.");
+                    return true;
+                }
+                openTuning(t);
+                return true;
+            }
+            if (a.length == 0 && s instanceof Player) {
+                openTuning((Player) s);
+                return true;
+            }
+            s.sendMessage("\u00a77Folosire: /tuning open <jucator>  (actiune NPC in ZNPCs: CONSOLE tuning open %player%)");
+            return true;
+        }, null);
         on("pound_info", (p, j) -> {
             JsonObject o = new JsonObject();
             o.addProperty("fee", poundFee());
@@ -239,12 +257,179 @@ public final class CarsModule extends JsonModule {
                 j.addProperty("category", v.getString("category", "Diverse"));
                 j.addProperty("price", v.getDouble("price", 0));
                 j.addProperty("desc", v.getString("desc", ""));
+                j.addProperty("engine", v.getString("engine", "-"));
+                j.addProperty("wheels", v.getString("wheels", "-"));
                 arr.add(j);
             }
         }
         o.add("vehicles", arr);
+        o.add("tuning", tuningTable());
         o.addProperty("money", plugin.money().balance(p.getUniqueId()));
         return o;
+    }
+
+    // ------------------------------------------------------------------ tuning
+
+    private static final java.util.regex.Pattern ENGINE = java.util.regex.Pattern.compile("^vehicle:(wood_|stone_|iron_|gold_|diamond_)?(small|large|electric)_engine$");
+    private static final String[] TIERS = {"wood", "stone", "iron", "gold", "diamond"};
+    private static final double[] TIER_PRICE = {0, 3000, 6000, 12000, 25000};
+
+    /** Tier-ul motorului (0..4) sau -1 pentru motorul simplu fara tier; -2 daca nu e un motor valid. */
+    private static int tierOf(String engine) {
+        java.util.regex.Matcher m = ENGINE.matcher(engine == null ? "" : engine);
+        if (!m.matches()) return -2;
+        if (m.group(1) == null) return -1;
+        String t = m.group(1).replace("_", "");
+        for (int i = 0; i < TIERS.length; i++) if (TIERS[i].equals(t)) return i;
+        return -2;
+    }
+
+    private static String family(String engine) {
+        return engine.replaceFirst("^vehicle:(wood_|stone_|iron_|gold_|diamond_)", "vehicle:");
+    }
+
+    private double tierPrice(int tier) {
+        if (tier < 0) return 0;
+        return Math.max(0, cfg.getDouble("tuning.engines." + TIERS[tier] + ".price", TIER_PRICE[tier]));
+    }
+
+    private double paintPrice() {
+        return Math.max(0, cfg.getDouble("tuning.paint-price", 1500));
+    }
+
+    private JsonObject tuningTable() {
+        JsonObject t = new JsonObject();
+        t.addProperty("paint", paintPrice());
+        JsonArray engines = new JsonArray();
+        for (int i = 0; i < TIERS.length; i++) {
+            JsonObject e = new JsonObject();
+            e.addProperty("tier", TIERS[i]);
+            e.addProperty("price", tierPrice(i));
+            e.addProperty("power", cfg.getInt("tuning.engines." + TIERS[i] + ".power", i + 1));
+            engines.add(e);
+        }
+        t.add("engines", engines);
+        JsonArray wheels = new JsonArray();
+        ConfigurationSection ws = cfg.getConfigurationSection("tuning.wheels");
+        if (ws != null) {
+            for (String k : ws.getKeys(false)) {
+                ConfigurationSection w = ws.getConfigurationSection(k);
+                if (w == null || w.getString("id", "").isEmpty()) continue;
+                JsonObject j = new JsonObject();
+                j.addProperty("id", w.getString("id"));
+                j.addProperty("name", w.getString("name", k));
+                j.addProperty("price", w.getDouble("price", 0));
+                j.addProperty("grip", w.getInt("grip", 3));
+                j.addProperty("speed", w.getInt("speed", 3));
+                j.addProperty("terrain", w.getInt("terrain", 3));
+                wheels.add(j);
+            }
+        }
+        t.add("wheels", wheels);
+        return t;
+    }
+
+    /** Pretul rotilor (-1 = roti care nu exista in config). */
+    private double wheelPrice(String id) {
+        ConfigurationSection ws = cfg.getConfigurationSection("tuning.wheels");
+        if (ws == null) return -1;
+        for (String k : ws.getKeys(false)) {
+            ConfigurationSection w = ws.getConfigurationSection(k);
+            if (w != null && id.equals(w.getString("id", ""))) return Math.max(0, w.getDouble("price", 0));
+        }
+        return -1;
+    }
+
+    /** Costul trecerii de la un motor la altul: la urcare diferenta de pret, la coborare 0. -1 = schimbare invalida. */
+    private double engineCost(String from, String to) {
+        if (to.equals(from)) return 0;
+        if ("-".equals(from) || "-".equals(to)) return -1;
+        int a = tierOf(from);
+        int b = tierOf(to);
+        if (a == -2 || b == -2 || !family(from).equals(family(to))) return -1;
+        return Math.max(0, tierPrice(b) - tierPrice(a));
+    }
+
+    private double wheelsCost(String from, String to) {
+        if (to.equals(from)) return 0;
+        if ("-".equals(from) || "-".equals(to)) return -1;
+        return wheelPrice(to);
+    }
+
+    private final Map<UUID, Session> tuneSessions = new HashMap<>();
+
+    private void openTuning(Player p) {
+        if (!plugin.channel().hasMod(p)) {
+            p.sendMessage("\u00a7cTuning-ul necesita modul FlowCity pe client.");
+            return;
+        }
+        tuneSessions.put(p.getUniqueId(), new Session(p.getLocation().clone(), System.currentTimeMillis()));
+        JsonObject o = tuningTable();
+        o.addProperty("money", plugin.money().balance(p.getUniqueId()));
+        send(p, "tuning_open", o);
+    }
+
+    private boolean nearTuning(Player p) {
+        Session s = tuneSessions.get(p.getUniqueId());
+        double r = Math.max(3, cfg.getDouble("tuning.npc-radius", 12));
+        return s != null && System.currentTimeMillis() - s.at < 15 * 60_000L && s.loc.getWorld() != null
+            && s.loc.getWorld().equals(p.getWorld()) && s.loc.distanceSquared(p.getLocation()) <= r * r;
+    }
+
+    private void tuneReply(Player p, boolean ok, String msg) {
+        JsonObject o = new JsonObject();
+        o.addProperty("ok", ok);
+        o.addProperty("msg", msg);
+        o.addProperty("money", plugin.money().balance(p.getUniqueId()));
+        send(p, "tune_result", o);
+    }
+
+    /** Cerere de tuning pentru o masina parcata. mode = "garage" (mod verifica garajul) sau "npc" (sesiune de la mecanic). */
+    private void tune(Player p, JsonObject j) {
+        long now = System.currentTimeMillis();
+        if (now - lastBuy.getOrDefault(p.getUniqueId(), 0L) < 1500) return;
+        lastBuy.put(p.getUniqueId(), now);
+        int car = (int) num(j, "car", 0);
+        String mode = "npc".equals(str(j, "mode", "")) ? "npc" : "garage";
+        String fromEngine = clean(str(j, "fromEngine", "-"));
+        String fromWheels = clean(str(j, "fromWheels", "-"));
+        String engine = clean(str(j, "engine", "-"));
+        String wheels = clean(str(j, "wheels", "-"));
+        int fromColor = (int) num(j, "fromColor", 0) & 0xFFFFFF;
+        int color = (int) num(j, "color", 0) & 0xFFFFFF;
+        if (car <= 0) return;
+        if ("npc".equals(mode) && !nearTuning(p)) {
+            tuneReply(p, false, "Ai plecat de la mecanic. Vorbeste din nou cu el.");
+            return;
+        }
+        double ce = engineCost(fromEngine, engine);
+        double cw = wheelsCost(fromWheels, wheels);
+        if (ce < 0 || cw < 0) {
+            tuneReply(p, false, "Alegere invalida.");
+            return;
+        }
+        double cost = ce + cw + (color != fromColor ? paintPrice() : 0);
+        if (engine.equals(fromEngine) && wheels.equals(fromWheels) && color == fromColor) {
+            tuneReply(p, false, "Nu ai schimbat nimic.");
+            return;
+        }
+        UUID u = p.getUniqueId();
+        if (!plugin.money().has(u, cost) || (cost > 0 && !plugin.money().withdraw(u, cost))) {
+            tuneReply(p, false, "Nu ai destui bani (" + Math.round(cost) + " lei).");
+            return;
+        }
+        String cmd = "fccars tune " + p.getName() + " " + car + " " + mode + " \"" + fromEngine + "\" \"" + fromWheels + "\" " + fromColor + " " + color
+            + " \"" + engine + "\" \"" + wheels + "\"";
+        if (!console(cmd)) {
+            if (cost > 0) plugin.money().deposit(u, cost);
+            tuneReply(p, false, "Tuning-ul nu s-a putut face (masina trebuie sa fie parcata in garaj). Banii au fost returnati.");
+            return;
+        }
+        tuneReply(p, true, "Masina a fost tunata" + (cost > 0 ? " (" + Math.round(cost) + " lei)." : "."));
+    }
+
+    private static String clean(String s) {
+        return s.matches("[a-z0-9_:\\-]{1,64}") ? s : "-";
     }
 
     private void openDealer(Player p) {
@@ -320,6 +505,17 @@ public final class CarsModule extends JsonModule {
             return;
         }
         double price = v.getDouble("price", 0);
+        String baseEngine = v.getString("engine", "-");
+        String baseWheels = v.getString("wheels", "-");
+        String engine = clean(str(j, "engine", baseEngine));
+        String wheels = clean(str(j, "wheels", baseWheels));
+        double ce = engineCost(baseEngine, engine);
+        double cw = wheelsCost(baseWheels, wheels);
+        if (ce < 0 || cw < 0) {
+            reply(p, false, "Optiuni de tuning invalide.");
+            return;
+        }
+        price += ce + cw;
         UUID u = p.getUniqueId();
         if (!plugin.money().has(u, price) || !plugin.money().withdraw(u, price)) {
             reply(p, false, "Nu ai destui bani.");
@@ -327,8 +523,8 @@ public final class CarsModule extends JsonModule {
         }
         String name = v.getString("name", id).replaceAll("[^A-Za-z0-9 ._-]", "");
         String plate = newPlate();
-        String cmd = "fccars give " + p.getName() + " \"" + id + "\" " + color + " \"" + v.getString("engine", "-") + "\" \""
-            + v.getString("wheels", "-") + "\" \"" + plate + "\" " + name;
+        String cmd = "fccars give " + p.getName() + " \"" + id + "\" " + color + " \"" + engine + "\" \""
+            + wheels + "\" \"" + plate + "\" " + name;
         boolean done;
         try {
             done = Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd);

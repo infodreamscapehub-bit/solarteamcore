@@ -250,6 +250,28 @@ clearlag:
   worlds: []                 # gol = toate lumile
 
 
+# Tuning (dealer si garaj/mecanic). Motorul urca pe niveluri (wood < stone < iron < gold < diamond), la urcare platesti
+# diferenta de pret; rotile se platesc la pretul lor; vopseaua libera (RGB) costa paint-price. La dealer vopseaua e gratis.
+# Mecanicul NPC: ZNPCs  /znpcs action add <id> CONSOLE tuning open %player%  (Citizens: /npc command add tuning open <p> -c)
+tuning:
+  npc-radius: 12
+  paint-price: 1500
+  engines:
+    wood: {price: 0, power: 1}
+    stone: {price: 3000, power: 2}
+    iron: {price: 6000, power: 3}
+    gold: {price: 12000, power: 4}
+    diamond: {price: 25000, power: 5}
+  # grip / speed / terrain = note de la 1 la 5 afisate in meniu (orientative)
+  wheels:
+    plastic: {id: "vehicle:plastic_wheel", name: "Plastic", price: 0, grip: 1, speed: 1, terrain: 1}
+    standard: {id: "vehicle:standard_wheel", name: "Standard", price: 500, grip: 3, speed: 3, terrain: 2}
+    sports: {id: "vehicle:sports_wheel", name: "Sport", price: 4000, grip: 4, speed: 4, terrain: 1}
+    racing: {id: "vehicle:racing_wheel", name: "Curse", price: 9000, grip: 5, speed: 5, terrain: 1}
+    off_road: {id: "vehicle:off_road_wheel", name: "Off-road", price: 3500, grip: 3, speed: 3, terrain: 5}
+    all_terrain: {id: "vehicle:all_terrain_wheel", name: "All-terrain", price: 4500, grip: 4, speed: 3, terrain: 4}
+    snow: {id: "vehicle:snow_wheel", name: "Iarna", price: 3000, grip: 4, speed: 2, terrain: 3}
+
 # Dealer auto (vehiculele din modul MrCrayfish's Vehicle). Plata se face prin Vault.
 # entity = id-ul vehiculului din mod; engine / wheels = itemele cu care vine masina noua ("-" = fara).
 # Poti adauga orice vehicul (si din alte addon-uri), doar sa existe pe server.

@@ -306,10 +306,19 @@ public final class GarageScreen extends FlowScreen {
                 Gfx.text(ms, "O găsești la pound.", rx, ay + 21, 7.5f, FAINT, 0);
             }
         } else {
-            button(ms, waiting ? "Se scoate..." : "SCOATE MAȘINA", rx, ay + 14, rw, 30, !waiting, lmx, lmy, dt, () -> {
+            boolean personal = !"factiune".equals(JsonClientModule.str(data, "type", ""));
+            float bw = personal ? rw - 74 : rw;
+            button(ms, waiting ? "Se scoate..." : "SCOATE MAȘINA", rx, ay + 14, bw, 30, !waiting, lmx, lmy, dt, () -> {
                 waiting = true;
                 CarsNet.send("spawn", gid(), id);
             });
+            if (personal) {
+                float tx = rx + bw + 6;
+                boolean th = inside(lmx, lmy, tx, ay + 14, 68, 30);
+                Gfx.rrect(ms, tx, ay + 14, 68, 30, 12, th ? 0xFF2E333C : 0xFF23272E, th ? 0xFF252931 : 0xFF1B1E24);
+                Gfx.text(ms, "TUNING", tx + 34, ay + 33, 8.5f, th ? GOLD : 0xFFD4D2CC, 1, true, 0.6f);
+                hitL(tx, ay + 14, 68, 30, () -> TuningScreen.requestOpen("garage"));
+            }
         }
         ms.pose().popPose();
     }
