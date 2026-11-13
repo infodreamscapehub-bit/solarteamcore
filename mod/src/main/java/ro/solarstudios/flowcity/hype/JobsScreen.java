@@ -161,12 +161,13 @@ public final class JobsScreen extends FlowScreen {
         int bw = (dw - 20 - 8) / 2;
         boolean hasLoc = JsonClientModule.bool(j, "hasLoc", false);
         final JsonObject jj = j;
-        if (hasLoc) {
+        if (hasLoc && ro.solarstudios.flowcity.maps.MapsState.GPS_ENABLED) {
             ghost(ms, "Arata pe harta", bx, by + 28, bw, 16, mx, my, () -> MapsClient.gpsTo(
                 JsonClientModule.str(jj, "locName", JsonClientModule.str(jj, "name", "Job")), "job",
                 JsonClientModule.num(jj, "lx", 0), JsonClientModule.num(jj, "lz", 0)));
         } else {
-            Ui.text(ms, "Fara locatie setata", bx + 4, by + 32, Theme.FAINT);
+            if (hasLoc) Ui.text(ms, Ui.clip("Locatie: " + JsonClientModule.str(jj, "locName", "pe harta"), bw), bx + 4, by + 32, Theme.MUTED);
+            else Ui.text(ms, "Fara locatie setata", bx + 4, by + 32, Theme.FAINT);
         }
         int rx = bx + bw + 8;
         if (active) {

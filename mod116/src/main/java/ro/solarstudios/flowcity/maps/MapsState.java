@@ -147,7 +147,14 @@ public final class MapsState {
         }
     }
 
+    /** GPS-ul (traseu pe strazi, panou de viraje, "Seteaza GPS") e dezactivat. Pune true ca sa-l pornesti la loc. */
+    public static final boolean GPS_ENABLED = false;
+
     public static void setTarget(String name, String type, double x, double z) {
+        if (!GPS_ENABLED) {
+            hasTarget = false;
+            return;
+        }
         hasTarget = true;
         targetName = name;
         targetType = type;

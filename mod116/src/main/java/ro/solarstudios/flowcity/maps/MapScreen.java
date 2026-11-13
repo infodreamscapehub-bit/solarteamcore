@@ -460,6 +460,7 @@ public final class MapScreen extends FlowScreen {
     }
 
     private void setGps(String name, String type, double x, double z) {
+        if (!MapsState.GPS_ENABLED) return;
         MapsClient.gpsTo(name, type, x, z);
         gpsToastName = name;
         gpsToastAt = System.currentTimeMillis();
@@ -723,7 +724,7 @@ public final class MapScreen extends FlowScreen {
 
     private void drawPopup(GuiGraphics ms, int mx, int my) {
         List<String[]> items = new ArrayList<>();
-        items.add(new String[] {"Seteaza GPS aici", "gps", "ok"});
+        if (MapsState.GPS_ENABLED) items.add(new String[] {"Seteaza GPS aici", "gps", "ok"});
         if (popWp != null) {
             items.add(new String[] {"Editeaza waypoint", "edit", ""});
             items.add(new String[] {"Sterge waypoint", "del", "bad"});

@@ -220,6 +220,7 @@ public final class MapsClient extends JsonClientModule {
 
     /** Pune waypoint / porneste GPS. type = tipul iconitei (null = waypoint personal). */
     public static void gpsTo(String name, String type, double x, double z) {
+        if (!MapsState.GPS_ENABLED) return;
         MapsState.setTarget(name, type, x, z);
         FlowSounds.play("notify", 0.5F);
         NotifyToasts.add("INFO", "Waypoint setat", name + " - ruta pe strazi se calculeaza.");
