@@ -279,6 +279,11 @@ dealership:
   # Dealerul se deschide de la un NPC (ZNPCs / Citizens). In ZNPCs: /znpcs action add <id> CONSOLE dealer open %player%
   # (in Citizens: /npc command add dealer open <p> -c). Cumparatul merge cat esti la cel mult npc-radius blocuri de NPC.
   npc-radius: 12
+  # Stoc: cate masini de fiecare fel are dealerul. Cand se termina nu se mai poate cumpara pana la reaprovizionare.
+  # Poti pune "stock: N" la un vehicul (0 = nelimitat). Admin: /dealer stock  si  /dealer stock <vehicul> <numar>
+  default-stock: 5
+  restock-minutes: 30       # la cat timp se reaproviziona dealerul
+  restock-amount: 1         # cate bucati se adauga la fiecare vehicul (pana la stocul maxim)
   allow-block: false        # true = merge si blocul dealer_auto din mod (cum era inainte)
   radius: 8                 # raza pentru blocul dealer_auto (doar cu allow-block: true)
   vehicles:

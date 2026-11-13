@@ -48,6 +48,9 @@ public final class CarsModule extends JsonModule {
     @Override
     protected void onEnable() {
         cfg = ModConfig.load(plugin, "hype");
+        loadStock();
+        long every = 20L * 60 * Math.max(1, cfg.getInt("dealership.restock-minutes", 30));
+        Bukkit.getScheduler().runTaskTimer(plugin, this::restock, every, every);
         on("catalog", (p, j) -> send(p, "catalog", catalog(p)));
         on("buy", this::buy);
         // blocul de dealer din mod: mergem la plugin, care decide (implicit dealerul merge doar prin NPC)
@@ -66,11 +69,38 @@ public final class CarsModule extends JsonModule {
                 openDealer(t);
                 return true;
             }
+            if (a.length >= 1 && "stock".equalsIgnoreCase(a[0])) {
+                ConfigurationSection vs = vehicles();
+                if (vs == null) return true;
+                if (a.length == 1) {
+                    for (String key : vs.getKeys(false)) {
+                        ConfigurationSection v = vs.getConfigurationSection(key);
+                        if (v == null) continue;
+                        int st = stockOf(key, v);
+                        s.sendMessage("\u00a77" + key + ": \u00a7f" + (st < 0 ? "nelimitat" : st + "/" + maxStock(v)));
+                    }
+                    return true;
+                }
+                ConfigurationSection v = vs.getConfigurationSection(a[1]);
+                if (v == null || a.length < 3) {
+                    s.sendMessage("\u00a77Folosire: /dealer stock [<vehicul> <numar>]");
+                    return true;
+                }
+                try {
+                    int n = Math.max(0, Integer.parseInt(a[2]));
+                    stockCfg.set(a[1], n);
+                    saveStock();
+                    s.sendMessage("\u00a7aStoc " + a[1] + " = " + n);
+                } catch (NumberFormatException ex) {
+                    s.sendMessage("\u00a7cNumar invalid.");
+                }
+                return true;
+            }
             if (a.length == 0 && s instanceof Player) {
                 openDealer((Player) s);
                 return true;
             }
-            s.sendMessage("\u00a77Folosire: /dealer open <jucator>  (actiune NPC in ZNPCs: CONSOLE dealer open %player%)");
+            s.sendMessage("\u00a77Folosire: /dealer open <jucator> | /dealer stock [<vehicul> <numar>]  (actiune NPC in ZNPCs: CONSOLE dealer open %player%)");
             return true;
         }, null, "dealership");
         on("tune", this::tune);
@@ -259,6 +289,8 @@ public final class CarsModule extends JsonModule {
                 j.addProperty("desc", v.getString("desc", ""));
                 j.addProperty("engine", v.getString("engine", "-"));
                 j.addProperty("wheels", v.getString("wheels", "-"));
+                j.addProperty("stock", stockOf(key, v));
+                j.addProperty("maxStock", Math.max(0, maxStock(v)));
                 arr.add(j);
             }
         }
@@ -357,6 +389,55 @@ public final class CarsModule extends JsonModule {
     }
 
     private final Map<UUID, Session> tuneSessions = new HashMap<>();
+
+    // ------------------------------------------------------------------ stoc dealer
+
+    private YamlConfiguration stockCfg;
+    private java.io.File stockFile;
+
+    private void loadStock() {
+        stockFile = new java.io.File(plugin.getDataFolder(), "dealer-stock.yml");
+        stockCfg = YamlConfiguration.loadConfiguration(stockFile);
+    }
+
+    private void saveStock() {
+        try {
+            stockCfg.save(stockFile);
+        } catch (java.io.IOException ex) {
+            plugin.getLogger().warning("Nu pot salva dealer-stock.yml: " + ex);
+        }
+    }
+
+    /** Stocul maxim al unui vehicul (0 sau mai putin = nelimitat). */
+    private int maxStock(ConfigurationSection v) {
+        return v.getInt("stock", cfg.getInt("dealership.default-stock", 5));
+    }
+
+    /** Stocul curent; -1 = nelimitat. */
+    private int stockOf(String key, ConfigurationSection v) {
+        int max = maxStock(v);
+        if (max <= 0) return -1;
+        return Math.max(0, Math.min(max, stockCfg.getInt(key, max)));
+    }
+
+    private void restock() {
+        int amount = Math.max(0, cfg.getInt("dealership.restock-amount", 1));
+        ConfigurationSection s = vehicles();
+        if (amount == 0 || s == null) return;
+        boolean changed = false;
+        for (String key : s.getKeys(false)) {
+            ConfigurationSection v = s.getConfigurationSection(key);
+            if (v == null) continue;
+            int max = maxStock(v);
+            if (max <= 0) continue;
+            int cur = stockOf(key, v);
+            if (cur < max) {
+                stockCfg.set(key, Math.min(max, cur + amount));
+                changed = true;
+            }
+        }
+        if (changed) saveStock();
+    }
 
     private void openTuning(Player p) {
         if (!plugin.channel().hasMod(p)) {
@@ -490,10 +571,14 @@ public final class CarsModule extends JsonModule {
         int color = (int) num(j, "color", 0xF2F2F0) & 0xFFFFFF;
         ConfigurationSection s = vehicles();
         ConfigurationSection v = null;
+        String vKey = "";
         if (s != null) {
             for (String key : s.getKeys(false)) {
                 ConfigurationSection c = s.getConfigurationSection(key);
-                if (c != null && c.getString("entity", "vehicle:" + key).equals(id)) v = c;
+                if (c != null && c.getString("entity", "vehicle:" + key).equals(id)) {
+                    v = c;
+                    vKey = key;
+                }
             }
         }
         if (v == null) {
@@ -502,6 +587,12 @@ public final class CarsModule extends JsonModule {
         }
         if (!nearDealer(p)) {
             reply(p, false, "Ai plecat de la dealer. Vorbeste din nou cu vanzatorul.");
+            return;
+        }
+        int stock = stockOf(vKey, v);
+        if (stock == 0) {
+            reply(p, false, "Stoc epuizat. Revino mai tarziu, dealerul se reaproviziona.");
+            send(p, "catalog", catalog(p));
             return;
         }
         double price = v.getDouble("price", 0);
@@ -521,6 +612,10 @@ public final class CarsModule extends JsonModule {
             reply(p, false, "Nu ai destui bani.");
             return;
         }
+        if (stock > 0) {
+            stockCfg.set(vKey, stock - 1);
+            saveStock();
+        }
         String name = v.getString("name", id).replaceAll("[^A-Za-z0-9 ._-]", "");
         String plate = newPlate();
         String cmd = "fccars give " + p.getName() + " \"" + id + "\" " + color + " \"" + engine + "\" \""
@@ -533,10 +628,15 @@ public final class CarsModule extends JsonModule {
         }
         if (!done) {
             plugin.money().deposit(u, price);
+            if (stock > 0) {
+                stockCfg.set(vKey, stock);
+                saveStock();
+            }
             reply(p, false, "Dealerul nu functioneaza acum (mod lipsa pe server). Banii au fost returnati.");
             return;
         }
         if (MdtModule.instance != null) MdtModule.instance.registerVehicle(p, name, plate);
         reply(p, true, "Felicitari! " + name + " (" + plate + ") te asteapta la garaj.");
+        send(p, "catalog", catalog(p));
     }
 }

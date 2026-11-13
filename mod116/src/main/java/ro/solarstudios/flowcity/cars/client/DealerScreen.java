@@ -222,7 +222,13 @@ public final class DealerScreen extends FlowScreen {
             if (s) Gfx.rrect(ms, 18, y, 196, ROW - 4, 11, Gfx.mixArgb(GOLD, 0xFF000000, 0.15f), GOLD2);
             Gfx.rrect(ms, s ? 19 : 18, s ? y + 1 : y, s ? 194 : 196, s ? ROW - 6 : ROW - 4, s ? 10 : 11, s ? 0xFF262A32 : (h ? 0xFF22262D : 0xFF1A1D23), s ? 0xFF1E2127 : (h ? 0xFF1C1F25 : 0xFF16181D));
             Gfx.text(ms, clipG(JsonClientModule.str(o, "name", id), 9f, false, 196 - 24 - 72), 30, y + 17, 9f, s ? WHITE : 0xFFD4D2CC, 0);
-            Gfx.text(ms, clipG(JsonClientModule.str(o, "category", ""), 6.6f, false, 90), 30, y + 29, 6.6f, FAINT, 0);
+            String catTxt = clipG(JsonClientModule.str(o, "category", ""), 6.6f, false, 70);
+            Gfx.text(ms, catTxt, 30, y + 29, 6.6f, FAINT, 0);
+            int stk = JsonClientModule.integer(o, "stock", -1);
+            if (stk >= 0) {
+                String st = stk == 0 ? "EPUIZAT" : "Stoc " + stk;
+                Gfx.text(ms, st, 30 + Gfx.width(catTxt, 6.6f, false) + 8, y + 29, 6.6f, stk == 0 ? 0xFFE2453F : (stk <= 2 ? 0xFFE9A23B : 0xFF7BE3A0), 0);
+            }
             double p = JsonClientModule.num(o, "price", 0);
             boolean can = CarsClient.money >= p;
             Gfx.text(ms, price(p), 204, y + 20, 9f, can ? GOLD : 0xFFF08A82, 2, true, 0f);
@@ -268,6 +274,14 @@ public final class DealerScreen extends FlowScreen {
             float cw = Gfx.width(cat, 6.2f, false) + 16;
             Gfx.rrect(ms, rx + 14, py0 + 33, cw, 12, 6, Gfx.fade(GOLD, 0.16f));
             Gfx.text(ms, cat, rx + 14 + cw / 2f, py0 + 41.4f, 6.2f, GOLD, 1, false, 0.7f);
+        }
+        int selStock = JsonClientModule.integer(sel, "stock", -1);
+        if (selStock >= 0) {
+            String stl = selStock == 0 ? "STOC EPUIZAT" : "STOC: " + selStock;
+            int stc = selStock == 0 ? 0xFFE2453F : (selStock <= 2 ? 0xFFE9A23B : 0xFF7BE3A0);
+            float sw = Gfx.width(stl, 6.2f, false) + 16;
+            Gfx.rrect(ms, rx + rw - 14 - sw, py0 + 14, sw, 12, 6, Gfx.fade(stc, 0.16f));
+            Gfx.text(ms, stl, rx + rw - 14 - sw / 2f, py0 + 22.4f, 6.2f, stc, 1, false, 0.7f);
         }
         Gfx.text(ms, "trage pentru a roti", rx + rw - 12, py0 + ph0 - 8, 5.8f, 0xFF4A4E58, 2);
         hitL(rx, py0, rw, ph0, () -> dragging = true);
@@ -316,8 +330,9 @@ public final class DealerScreen extends FlowScreen {
             wheels = w;
             extra = ex;
         }));
-        String label = waiting ? "Se cumpără..." : (afford ? "CUMPĂRĂ" : "FĂRĂ BANI");
-        button(ms, label, rx + 162, 254, rw - 162, 28, !waiting && afford, lmx, lmy, dt, () -> buy(chosen));
+        boolean inStock = selStock != 0;
+        String label = waiting ? "Se cumpără..." : (!inStock ? "EPUIZAT" : (afford ? "CUMPĂRĂ" : "FĂRĂ BANI"));
+        button(ms, label, rx + 162, 254, rw - 162, 28, !waiting && afford && inStock, lmx, lmy, dt, () -> buy(chosen));
         ms.pose().popPose();
     }
 
