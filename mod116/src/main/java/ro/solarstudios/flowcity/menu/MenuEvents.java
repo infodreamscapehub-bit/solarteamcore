@@ -9,6 +9,17 @@ public final class MenuEvents {
     @SubscribeEvent
     public void onOpen(GuiOpenEvent e) {
         if (e.getGui() instanceof MainMenuScreen) e.setGui(new FlowMainMenu());
+        else if (e.getGui() != null && e.getGui().getClass() == net.minecraft.client.gui.screen.inventory.InventoryScreen.class) {
+            // inventarul vanilla -> inventarul FlowCity (aceleasi sloturi, alt desen)
+            net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+            if (mc.player != null && !mc.player.isCreative()) {
+                try {
+                    e.setGui(new ro.solarstudios.flowcity.inventory.FlowInventoryScreen(mc.player));
+                } catch (RuntimeException | LinkageError ignored) {
+                    // ramane inventarul jocului
+                }
+            }
+        }
         else if (e.getGui() != null && "com.tac.guns.client.screen.AttachmentScreen".equals(e.getGui().getClass().getName())) {
             // meniul de atasamente TaC -> meniul FlowCity (acelasi container, alt desen)
             try {
