@@ -19,6 +19,7 @@ public final class ClientInit {
     private ClientInit() {}
 
     public static KeyBinding openAdmin;
+    public static KeyBinding hudEdit;
     private static int helloTicks = -1;
     private static int helloTries;
 
@@ -49,6 +50,8 @@ public final class ClientInit {
     private static void keys(RegisterKeyMappingsEvent event) {
         openAdmin = new KeyBinding("key.flowcity.admin", GLFW.GLFW_KEY_F9, "key.categories.flowcity");
         event.register(openAdmin);
+        hudEdit = new KeyBinding("key.flowcity.hudedit", GLFW.GLFW_KEY_F8, "key.categories.flowcity");
+        event.register(hudEdit);
         ro.solarstudios.flowcity.mdt.MdtClient.registerKeys(event);
         ro.solarstudios.flowcity.phone.PhoneClient.registerKeys(event);
         ro.solarstudios.flowcity.cars.client.GaragesClient.registerKeys(event);
@@ -85,6 +88,11 @@ public final class ClientInit {
                         mc.player.displayClientMessage(new StringTextComponent(
                             "§e[FlowCity] §7Serverul nu raspunde: lipseste pluginul FlowCityBridge sau are alta versiune."), false);
                     }
+                }
+            }
+            if (hudEdit != null) {
+                while (hudEdit.consumeClick()) {
+                    if (mc.screen == null) mc.setScreen(new ro.solarstudios.flowcity.client.ui.HudEditorScreen());
                 }
             }
             if (openAdmin != null) {

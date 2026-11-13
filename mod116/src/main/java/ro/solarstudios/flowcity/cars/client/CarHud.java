@@ -159,6 +159,7 @@ public final class CarHud {
         // asezare: cadranul de 236 scalat la ~24% din inaltimea ecranului, dreapta jos
         float d = Math.max(90f, Math.min(128f, h * 0.24f));
         float k = d / 236f;
+        if (!ro.solarstudios.flowcity.client.ui.HudLayout.begin(g, "speedo", w - 17 - d, h - 13 - d, d, d)) return;
         g.pose().pushPose();
         g.pose().translate(w - 17 - d, h - 13 - d, 0);
         g.pose().scale(k, k, 1f);
@@ -250,6 +251,7 @@ public final class CarHud {
             Gfx.text(g, pl, px + 6, ty + 17.5f, 11, 0xFF14161A, 0, false, 0.66f);
         }
         g.pose().popPose();
+        ro.solarstudios.flowcity.client.ui.HudLayout.end(g);
 
         if (fuel && f <= 0f) Gfx.text(g, "Rezervorul e gol", w / 2f, h - 64, 10, Theme.BAD, 1);
     }

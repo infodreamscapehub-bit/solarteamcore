@@ -111,26 +111,37 @@ public final class HypeHud {
 
         animateMoney(JsonClientModule.num(s, "cash", 0), dt, now);
 
-        // fundal discret pentru lizibilitate
-        if (HypeState.hudBg > 0) Ui.round(ms, x - 4, y - 3, W + 8, bottom(s) + 6, Theme.alpha(0xFF050912, HypeState.hudBg));
-
-        drawClock(ms, mc, x, y, t);
-        Ui.rect(ms, x + 84, y + 1, 1, 28, Theme.alpha(Theme.LINE, 0xAA));
-        drawTitle(ms, x + 92, y + 1, t, now);
-        drawEmblem(ms, x + W - 34, y - 1, t);
-        if (Xmas.enabled) {
-            Xmas.garland(ms, x - 4, y - 6, W + 8, t, 3, 22);
-            Xmas.hat(ms, x + W - 30, y - 8, 14);
-            Xmas.snow(ms, x - 4, y - 6, W + 8, bottom(s) + 10, t, 14, 190);
+        if (!ro.solarstudios.flowcity.client.ui.HudLayout.begin(ms, "hud", x - 4, y - 3, W + 8, bottom(s) + 6)) {
+            occupiedBottom = 0;
+            return;
         }
-        drawBell(ms, x + W - 6, y - 3, t);
-        Ui.rect(ms, x, y + 33, W, 1, Theme.alpha(Theme.LINE, 0xAA));
-        drawIdentity(ms, mc, s, x, y + 39, t);
-        drawMoney(ms, s, x, y + 60, now);
-        int cy = y + 78;
-        cy = drawJob(ms, s, x, cy, dt, t, now);
-        drawThirst(ms, s, x, cy, dt, t);
-        drawPopups(ms, x, y + bottom(s) + 6, now);
+        try {
+            // notificarile se aseaza sub panou doar daca panoul e in coltul lor (dreapta sus)
+            float[] hr = ro.solarstudios.flowcity.client.ui.HudLayout.rect("hud");
+            occupiedBottom = slide > 0.5f && hr[0] + hr[2] > sw - 230 ? Math.round(hr[1] + hr[3]) + 5 : 0;
+            // fundal discret pentru lizibilitate
+            if (HypeState.hudBg > 0) Ui.round(ms, x - 4, y - 3, W + 8, bottom(s) + 6, Theme.alpha(0xFF050912, HypeState.hudBg));
+
+            drawClock(ms, mc, x, y, t);
+            Ui.rect(ms, x + 84, y + 1, 1, 28, Theme.alpha(Theme.LINE, 0xAA));
+            drawTitle(ms, x + 92, y + 1, t, now);
+            drawEmblem(ms, x + W - 34, y - 1, t);
+            if (Xmas.enabled) {
+                Xmas.garland(ms, x - 4, y - 6, W + 8, t, 3, 22);
+                Xmas.hat(ms, x + W - 30, y - 8, 14);
+                Xmas.snow(ms, x - 4, y - 6, W + 8, bottom(s) + 10, t, 14, 190);
+            }
+            drawBell(ms, x + W - 6, y - 3, t);
+            Ui.rect(ms, x, y + 33, W, 1, Theme.alpha(Theme.LINE, 0xAA));
+            drawIdentity(ms, mc, s, x, y + 39, t);
+            drawMoney(ms, s, x, y + 60, now);
+            int cy = y + 78;
+            cy = drawJob(ms, s, x, cy, dt, t, now);
+            drawThirst(ms, s, x, cy, dt, t);
+            drawPopups(ms, x, y + bottom(s) + 6, now);
+        } finally {
+            ro.solarstudios.flowcity.client.ui.HudLayout.end(ms);
+        }
     }
 
     private static int bottom(JsonObject s) {

@@ -101,6 +101,7 @@ public final class NotifyToasts {
         float dt = Math.min(0.1f, (ns - lastNs) / 1e9f);
         lastNs = ns;
         float slotY = Math.max(8, ro.solarstudios.flowcity.hype.HypeHud.occupiedBottom);
+        boolean vis = ro.solarstudios.flowcity.client.ui.HudLayout.begin(g, "toasts", sw - 10f - W, slotY, W, 64f);
         Iterator<Toast> it = TOASTS.iterator();
         while (it.hasNext()) {
             Toast t = it.next();
@@ -112,8 +113,9 @@ public final class NotifyToasts {
             if (Float.isNaN(t.y)) t.y = slotY;
             else t.y += (slotY - t.y) * Math.min(1f, dt * 12f);
             slotY += t.h + 6f;
-            draw(g, t, age, sw);
+            if (vis) draw(g, t, age, sw);
         }
+        if (vis) ro.solarstudios.flowcity.client.ui.HudLayout.end(g);
     }
 
     private void draw(GuiGraphics g, Toast t, long age, int sw) {

@@ -32,5 +32,6 @@
   "block.flowcitycore.dealer_auto": "Dealer auto",
   "key.flowcity.interact": "Interactiune (garaj / politie)",
   "item.flowcitycore.cheie_masina": "Cheie masina",
-  "key.flowcity.carlock": "Incuie / descuie masina"
+  "key.flowcity.carlock": "Incuie / descuie masina",
+  "key.flowcity.hudedit": "Editor HUD (muta elementele)"
 }

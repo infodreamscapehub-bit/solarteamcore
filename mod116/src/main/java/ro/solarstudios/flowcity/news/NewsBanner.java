@@ -87,6 +87,7 @@ public final class NewsBanner {
         float pulse = 0.5f + 0.5f * (float) Math.sin(t * (breaking ? 7.0 : 2.5));
         float a = 1f - outT;
 
+        if (!ro.solarstudios.flowcity.client.ui.HudLayout.begin(g, "news", x, 6f, w, h)) return;
         // umbra, cadru colorat, fundal
         Gfx.rrect(g, x - 1, y + 3, w + 2, h + 2, 15, Gfx.fade(0x66000000, a));
         Gfx.rrect(g, x, y, w, h, 14, Gfx.fade(Gfx.mixArgb(0xFF2A2E36, c, breaking ? 0.35f + 0.3f * pulse : 0.4f), a));
@@ -121,5 +122,6 @@ public final class NewsBanner {
         // bara de timp
         float left = age < IN ? 1f : Math.max(0f, 1f - (age - IN) / (float) en.dur);
         Gfx.bar(g, x + tw + 18, y + h - 7, w - tw - 30, 2f, left, Gfx.fade(0x22FFFFFF, a), Gfx.fade(c, a * 0.9f));
+        ro.solarstudios.flowcity.client.ui.HudLayout.end(g);
     }
 }
