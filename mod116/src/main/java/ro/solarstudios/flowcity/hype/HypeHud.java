@@ -152,14 +152,14 @@ public final class HypeHud {
         // ora: "06" ":" "00", doua puncte care pulseaza
         String hh = String.format("%02d", hour);
         String mm = String.format("%02d", min);
-        float size = 30;
+        float size = 34;
         float x0 = 21;
-        Gfx.textS(g, hh, x0, 31, size, Gfx.fade(0xFFF4F1EA, a), 0, true, -0.5f);
+        Gfx.textS(g, hh, x0, 33, size, Gfx.fade(0xFFF4F1EA, a), 0, true, -0.5f);
         float wh = Gfx.width(hh, size, true) - 0.5f;
         float colon = 0.35f + 0.65f * (float) Math.max(0, Math.cos(t * Math.PI));
-        Gfx.textS(g, ":", x0 + wh + 3, 29, size * 0.9f, Gfx.fade(0xFFF4F1EA, a * colon), 0, true, 0);
-        Gfx.textS(g, mm, x0 + wh + 3 + Gfx.width(":", size * 0.9f, true) + 3, 31, size, Gfx.fade(0xFFF4F1EA, a), 0, true, -0.5f);
-        Gfx.textS(g, dateStr, 22, 50, 12, Gfx.fade(0xFFD9D6CF, a), 0, false, 0.5f);
+        Gfx.textS(g, ":", x0 + wh + 3, 31, size * 0.9f, Gfx.fade(0xFFF4F1EA, a * colon), 0, true, 0);
+        Gfx.textS(g, mm, x0 + wh + 3 + Gfx.width(":", size * 0.9f, true) + 3, 33, size, Gfx.fade(0xFFF4F1EA, a), 0, true, -0.5f);
+        Gfx.textS(g, dateStr, 22, 52, 12, Gfx.fade(0xFFD9D6CF, a), 0, false, 0.5f);
     }
 
     /** "FLOW CITY": o unda de gheata trece peste litere, care plutesc usor. Auriu la avansare in nivel. */
@@ -254,10 +254,11 @@ public final class HypeHud {
     }
 
     private static float chip(GuiGraphics g, String text, float x, float base, int color, float a) {
-        float w = Gfx.width(text, 11, false) + 14;
-        Gfx.rrect(g, x, base - 14, w, 19, 6, Gfx.fade(Theme.alpha(color, 0x8C), a));
-        Gfx.rrect(g, x + 1, base - 13, w - 2, 17, 5, Gfx.fade(Gfx.mixArgb(0xFF10141C, color, 0.22f), a * 0.92f));
-        Gfx.text(g, text, x + 7, base - 0.5f, 11, Gfx.fade(color, a), 0);
+        // cifrele mari, centrate in pastila
+        float w = Math.max(30, Gfx.width(text, 14, true) + 18);
+        Gfx.rrect(g, x, base - 17, w, 23, 7, Gfx.fade(Theme.alpha(color, 0x8C), a));
+        Gfx.rrect(g, x + 1, base - 16, w - 2, 21, 6, Gfx.fade(Gfx.mixArgb(0xFF10141C, color, 0.22f), a * 0.92f));
+        Gfx.text(g, text, x + w / 2f, base, 14, Gfx.fade(color, a), 1, true, 0);
         return x + w;
     }
 
@@ -276,12 +277,12 @@ public final class HypeHud {
             moneyStr = germanMoney(shownMoney);
         }
         // moneda verde
-        float cx = 318;
-        float cy = 98;
-        Gfx.disc(g, cx + 11, cy + 11, 18, Gfx.fade(0x444CC878, a), 0x004CC878, 0, 0);
-        Gfx.rrect(g, cx, cy, 22, 22, 6, Gfx.fade(0xFF5FE39A, a), Gfx.fade(0xFF148A4B, a));
-        Gfx.text(g, "$", cx + 11, cy + 16, 13, Gfx.fade(0xFF053B2A, a), 1, true, 0);
-        Gfx.textS(g, moneyStr, 310, 120 - bump, 25, Gfx.fade(color, a), 2, true, -0.3f);
+        float cx = 314;
+        float cy = 96;
+        Gfx.disc(g, cx + 13, cy + 13, 21, Gfx.fade(0x444CC878, a), 0x004CC878, 0, 0);
+        Gfx.rrect(g, cx, cy, 26, 26, 7, Gfx.fade(0xFF5FE39A, a), Gfx.fade(0xFF148A4B, a));
+        Gfx.text(g, "$", cx + 13, cy + 19, 15, Gfx.fade(0xFF053B2A, a), 1, true, 0);
+        Gfx.textS(g, moneyStr, 304, 122 - bump, 32, Gfx.fade(color, a), 2, true, -0.3f);
         // banca
         Gfx.textS(g, "BANCA", 0, 104, 11, Gfx.fade(0xFFB5B3AC, a), 0, false, 0.66f);
         double bank = JsonClientModule.num(s, "bank", 0);
@@ -385,8 +386,8 @@ public final class HypeHud {
         float cx = 205;
         for (int k = 0; k < 9; k++) {
             float sx = cx - 58 + k * 14.5f;
-            float r = 3.2f + (k * 7 % 3);
-            Gfx.disc(g, sx, 9.5f, r, Gfx.fade(0xF2F7FBFF, a), Gfx.fade(0xE6E8F2FA, a), 0, -r * 0.4f);
+            float r = 2.2f + (k * 7 % 3) * 0.6f;
+            Gfx.disc(g, sx, 3.5f - r * 0.3f, r, Gfx.fade(0xF2F7FBFF, a), Gfx.fade(0xE6E8F2FA, a), 0, -r * 0.4f);
         }
         // caciula de mos pe logo (usor inclinata, ciucurele se leagana)
         float hx = 316;
