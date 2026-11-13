@@ -6,6 +6,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import ro.solarstudios.flowcity.client.ui.FlowScreen;
 import ro.solarstudios.flowcity.client.ui.FlowSounds;
+import ro.solarstudios.flowcity.client.ui.Gfx;
 import ro.solarstudios.flowcity.client.ui.Theme;
 import ro.solarstudios.flowcity.client.ui.Ui;
 import ro.solarstudios.flowcity.client.ui.Wrap;
@@ -334,7 +335,7 @@ public final class PhoneScreen extends FlowScreen {
         Ui.textCenter(ms, title, x + w / 2, y + 20, Theme.TEXT);
     }
 
-    private static int avatarColor(String name) {
+    static int avatarColor(String name) {
         return AVATAR[Math.floorMod(name == null ? 0 : name.hashCode(), AVATAR.length)];
     }
 
@@ -462,51 +463,218 @@ public final class PhoneScreen extends FlowScreen {
 
     // ------------------------------------------------------------------ Apeluri
 
+    private static final int GREEN = 0xFF4CC878;
+    private boolean dialTab;
+    private final StringBuilder dial = new StringBuilder();
+
+    private static String clock(long seconds) {
+        long s = Math.max(0, seconds);
+        return String.format("%02d:%02d", s / 60, s % 60);
+    }
+
+    private static String shortTime(long ts) {
+        java.util.Calendar a = java.util.Calendar.getInstance();
+        java.util.Calendar b = java.util.Calendar.getInstance();
+        b.setTimeInMillis(ts);
+        boolean today = a.get(java.util.Calendar.YEAR) == b.get(java.util.Calendar.YEAR)
+            && a.get(java.util.Calendar.DAY_OF_YEAR) == b.get(java.util.Calendar.DAY_OF_YEAR);
+        return today ? String.format("%02d:%02d", b.get(java.util.Calendar.HOUR_OF_DAY), b.get(java.util.Calendar.MINUTE))
+            : String.format("%02d.%02d", b.get(java.util.Calendar.DAY_OF_MONTH), b.get(java.util.Calendar.MONTH) + 1);
+    }
+
+    private static String clipG(String s, float size, boolean xl, float maxW) {
+        if (s == null) return "";
+        if (Gfx.width(s, size, xl) <= maxW) return s;
+        String t = s;
+        while (t.length() > 1 && Gfx.width(t + "...", size, xl) > maxW) t = t.substring(0, t.length() - 1);
+        return t + "...";
+    }
+
+    /** Receptor de telefon desenat din cod: arc gros cu doua capete. down = pozitia "inchis". */
+    private static void handset(GuiGraphics g, float cx, float cy, float s, int color, boolean down) {
+        float k = s / 12f;
+        float r = 8f * k;
+        float oy = down ? -4.5f * k : 4.5f * k;
+        float d0 = down ? 35 : 215;
+        float d1 = down ? 145 : 325;
+        Gfx.arc(g, cx, cy + oy, r, 3.4f * k, d0, d1, (qx, qy) -> color, 1f);
+        float[] ds = {d0, d1};
+        for (float d : ds) {
+            double a = Math.toRadians(d);
+            Gfx.disc(g, cx + (float) Math.cos(a) * r, cy + oy + (float) Math.sin(a) * r, 3.3f * k, color);
+        }
+    }
+
+    /** Sageata mica de apel: out = efectuat (sus-dreapta), altfel primit (jos-stanga). */
+    private static void callArrow(GuiGraphics g, float cx, float cy, boolean out, int color) {
+        if (out) {
+            Gfx.line(g, cx - 2.5f, cy + 2.5f, cx + 2.5f, cy - 2.5f, 1.3f, color);
+            Gfx.line(g, cx + 2.5f, cy - 2.5f, cx - 0.5f, cy - 2.5f, 1.3f, color);
+            Gfx.line(g, cx + 2.5f, cy - 2.5f, cx + 2.5f, cy + 0.5f, 1.3f, color);
+        } else {
+            Gfx.line(g, cx + 2.5f, cy - 2.5f, cx - 2.5f, cy + 2.5f, 1.3f, color);
+            Gfx.line(g, cx - 2.5f, cy + 2.5f, cx + 0.5f, cy + 2.5f, 1.3f, color);
+            Gfx.line(g, cx - 2.5f, cy + 2.5f, cx - 2.5f, cy - 0.5f, 1.3f, color);
+        }
+    }
+
     private void calls(GuiGraphics ms, int x, int y, int w, int h, int mx, int my) {
-        appHeader(ms, x, y, w, "Apeluri", mx, my, true);
         PhoneState.missed = 0;
-        int top = y + 40;
-        int bottom = y + h - 14;
-        if (PhoneState.calls.isEmpty()) Ui.textCenter(ms, "Niciun apel.", x + w / 2, top + 20, Theme.MUTED);
-        int rowH = 26;
+        // antet: inapoi + titlu
+        boolean hb = Ui.in(mx, my, x, y + 14, 44, 28);
+        int cc = hb ? 0xFFFFFFFF : 0xFFA9E7C1;
+        Gfx.line(ms, x + 17, y + 22, x + 11, y + 28, 1.9f, cc);
+        Gfx.line(ms, x + 11, y + 28, x + 17, y + 34, 1.9f, cc);
+        hit(x, y + 14, 44, 28, () -> go(Page.HOME));
+        Gfx.text(ms, "Apeluri", x + w / 2f, y + 33, 11, 0xFFF4F1EA, 1, true, 0.3f);
+
+        // taburi: Recente | Tastatura
+        float ty = y + 46;
+        float tw = w - 24;
+        float half = tw / 2f;
+        Gfx.rrect(ms, x + 12, ty, tw, 22, 11, 0x66000000);
+        Gfx.rrect(ms, x + 12 + (dialTab ? half : 0) + 2, ty + 2, half - 4, 18, 9, GREEN, 0xFF2F9E5E);
+        Gfx.text(ms, "Recente", x + 12 + half / 2f, ty + 14.5f, 8, dialTab ? 0xFFA19F98 : 0xFF0E2A18, 1);
+        Gfx.text(ms, "Tastatură", x + 12 + half + half / 2f, ty + 14.5f, 8, dialTab ? 0xFF0E2A18 : 0xFFA19F98, 1);
+        hit(x + 12, (int) ty, (int) half, 22, () -> {
+            dialTab = false;
+            scroll = 0;
+        });
+        hit(x + 12 + (int) half, (int) ty, (int) half, 22, () -> dialTab = true);
+
+        if (dialTab) keypad(ms, x, y, w, h, mx, my);
+        else recents(ms, x, y + 80, w, h - 80, mx, my);
+    }
+
+    private void recents(GuiGraphics ms, int x, int y, int w, int h, int mx, int my) {
+        int top = y;
+        int bottom = y + h - 16;
+        int rowH = 36;
+        if (PhoneState.calls.isEmpty()) {
+            Gfx.text(ms, "Niciun apel.", x + w / 2f, top + 40, 9, 0xFFA19F98, 1);
+            Gfx.text(ms, "Folosește tastatura pentru a suna.", x + w / 2f, top + 54, 7, 0xFF6F6D68, 1);
+        }
         scrollMax = Math.max(0, PhoneState.calls.size() * rowH - (bottom - top));
         scroll = Math.max(0, Math.min(scroll, scrollMax));
         int yy = top - scroll;
         for (PhoneState.CallLog c : PhoneState.calls) {
             if (yy >= top - 2 && yy + rowH <= bottom + 2) {
                 boolean missed = "MISSED".equals(c.status) || "DECLINED".equals(c.status);
-                Ui.rect(ms, x + 34, yy + rowH - 1, w - 34, 1, 0x22FFFFFF);
-                Ui.text(ms, Ui.clip(c.name, w - 80), x + 12, yy + 4, missed && !c.out ? Theme.BAD : Theme.TEXT);
-                String st = (c.out ? "Efectuat" : "Primit") + (missed ? " - " + ("MISSED".equals(c.status) ? "pierdut" : "respins") : " - " + Ui.duration(c.dur));
-                Ui.text(ms, Ui.clip(st, w - 70), x + 12, yy + 14, Theme.MUTED);
-                Ui.textRight(ms, Ui.time(c.ts), x + w - 12, yy + 4, Theme.FAINT);
+                boolean hov = !c.uuid.isEmpty() && Ui.in(mx, my, x + 8, yy, w - 16, rowH - 4);
+                if (hov) Gfx.rrect(ms, x + 8, yy, w - 16, rowH - 4, 10, 0x33FFFFFF);
+                float cy = yy + (rowH - 4) / 2f;
+                int ac = avatarColor(c.name);
+                Gfx.disc(ms, x + 24, cy, 12, Gfx.mixArgb(ac, 0xFFFFFFFF, 0.18f), Gfx.mixArgb(ac, 0xFF000000, 0.25f), -2, -3);
+                String ini = c.name == null || c.name.isEmpty() ? "?" : c.name.substring(0, 1).toUpperCase();
+                Gfx.text(ms, ini, x + 24, cy + 4.2f, 11, 0xFFF4F1EA, 1, true, 0f);
+                boolean bad = missed && !c.out;
+                Gfx.text(ms, clipG(c.name, 8.8f, false, w - 42 - 52), x + 42, yy + 13, 8.8f, bad ? 0xFFF08A82 : 0xFFF4F1EA, 0);
+                int sc = missed ? 0xFFF08A82 : (c.out ? 0xFF7BE3A0 : 0xFF8FB8E8);
+                callArrow(ms, x + 45, yy + 21.5f, c.out, sc);
+                String st = missed ? ("MISSED".equals(c.status) ? "pierdut" : "respins") : clock(c.dur);
+                Gfx.text(ms, st, x + 52, yy + 24, 7, 0xFF8E8C86, 0);
+                Gfx.text(ms, shortTime(c.ts), x + w - 14, yy + 13, 6.8f, 0xFF6F6D68, 2);
                 if (!c.uuid.isEmpty() && my >= top && my < bottom) {
                     final String u = c.uuid;
-                    hit(x + 6, yy, w - 12, rowH - 2, () -> PhoneClient.call(u));
+                    hit(x + 8, yy, w - 16, rowH - 4, () -> PhoneClient.call(u));
                 }
             }
             yy += rowH;
         }
     }
 
-    private void callScreen(GuiGraphics ms, int x, int y, int w, int h, int mx, int my, PhoneState.Call c, long now) {
-        Ui.rect(ms, x, y, w, h, 0xCC000000);
-        float pulse = 0.5f + 0.5f * (float) Math.sin(now / 220.0);
-        int ring = c.active ? 0 : (int) (pulse * 6);
-        Ui.round(ms, x + w / 2 - 26 - ring, y + 60 - ring, 52 + ring * 2, 52 + ring * 2, Theme.alpha(Theme.OK, c.active ? 60 : 90));
-        avatar(ms, c.with.name, x + w / 2 - 24, y + 62, 48);
-        Ui.textCenter(ms, Ui.clip(c.with.name, w - 20), x + w / 2, y + 124, Theme.TEXT);
-        String status;
-        if (c.active) status = Ui.duration((now - c.since) / 1000);
-        else if (c.incoming) status = "Apel primit...";
-        else status = "Suna...";
-        Ui.textCenter(ms, status, x + w / 2, y + 138, Theme.MUTED);
-        if (c.incoming && !c.active) {
-            button(ms, "Respinge", x + 14, y + h - 70, 70, 22, mx, my, true, Theme.BAD, PhoneClient::decline);
-            button(ms, "Raspunde", x + w - 84, y + h - 70, 70, 22, mx, my, true, Theme.OK, PhoneClient::answer);
-        } else {
-            button(ms, "Inchide", x + w / 2 - 40, y + h - 70, 80, 22, mx, my, true, Theme.BAD, PhoneClient::hangup);
+    private void keypad(GuiGraphics ms, int x, int y, int w, int h, int mx, int my) {
+        // numarul format
+        String shown = dial.length() == 0 ? "" : "#" + dial;
+        if (shown.isEmpty()) Gfx.text(ms, "Introdu ID-ul jucatorului", x + w / 2f, y + 101, 8, 0xFF6F6D68, 1);
+        else Gfx.text(ms, shown, x + w / 2f, y + 103, 19, 0xFFF4F1EA, 1, true, 0.5f);
+        Gfx.rrect(ms, x + w / 2f - 46, y + 110, 92, 1, 0.5f, 0x33FFFFFF);
+        String who = "";
+        if (dial.length() > 0) {
+            for (PhoneState.Person p : PhoneState.contacts) if (String.valueOf(p.id).equals(dial.toString())) who = p.name;
         }
+        if (!who.isEmpty()) Gfx.text(ms, clipG(who, 8, false, w - 30), x + w / 2f, y + 124, 8, 0xFF7BE3A0, 1);
+
+        String[] keys = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "<", "0", "call"};
+        for (int i = 0; i < keys.length; i++) {
+            float cx = x + w / 2f + (i % 3 - 1) * 50f;
+            float cy = y + 156 + (i / 3) * 44f;
+            String k = keys[i];
+            boolean hov = Ui.in(mx, my, (int) cx - 17, (int) cy - 17, 34, 34);
+            if (k.equals("call")) {
+                boolean can = dial.length() > 0;
+                int c0 = can ? (hov ? 0xFF6BE09A : GREEN) : 0xFF2A2E36;
+                int c1 = can ? 0xFF2F9E5E : 0xFF1E2126;
+                Gfx.disc(ms, cx, cy, 17, c0, c1, -3, -4);
+                handset(ms, cx, cy, 13, can ? 0xFF0E2A18 : 0xFF5C606A, false);
+                if (can) hit((int) cx - 17, (int) cy - 17, 34, 34, () -> PhoneClient.callQuery(dial.toString()));
+            } else if (k.equals("<")) {
+                Gfx.disc(ms, cx, cy, 17, hov ? 0xFF3A3F49 : 0xFF2A2E36, 0xFF1E2126, -3, -4);
+                int ic = dial.length() > 0 ? 0xFFC9C7C0 : 0xFF5C606A;
+                Gfx.poly(ms, new float[] {cx - 8, cy, cx - 2.5f, cy - 5.5f, cx + 7, cy - 5.5f, cx + 7, cy + 5.5f, cx - 2.5f, cy + 5.5f}, ic);
+                Gfx.line(ms, cx - 1.5f, cy - 2.5f, cx + 3.5f, cy + 2.5f, 1.3f, 0xFF1E2126);
+                Gfx.line(ms, cx + 3.5f, cy - 2.5f, cx - 1.5f, cy + 2.5f, 1.3f, 0xFF1E2126);
+                hit((int) cx - 17, (int) cy - 17, 34, 34, () -> {
+                    if (dial.length() > 0) dial.setLength(dial.length() - 1);
+                });
+            } else {
+                Gfx.disc(ms, cx, cy, 17, hov ? 0xFF3A3F49 : 0xFF2A2E36, 0xFF1E2126, -3, -4);
+                Gfx.text(ms, k, cx, cy + 5.5f, 15, 0xFFF4F1EA, 1, true, 0f);
+                hit((int) cx - 17, (int) cy - 17, 34, 34, () -> {
+                    if (dial.length() < 8) dial.append(k);
+                });
+            }
+        }
+    }
+
+    private void callScreen(GuiGraphics ms, int x, int y, int w, int h, int mx, int my, PhoneState.Call c, long now) {
+        int ac = avatarColor(c.with.name);
+        Gfx.rrect(ms, x, y, w, h, 0, Gfx.fade(Gfx.mixArgb(ac, 0xFF000000, 0.6f), 0.98f), 0xFA0E1013);
+        float cx = x + w / 2f;
+        float cy = y + 112f;
+        if (!c.active) {
+            for (int k = 0; k < 3; k++) {
+                float p = (float) (((now / 1700.0) + k / 3.0) % 1.0);
+                Gfx.ring(ms, cx, cy, 34 + p * 44, 35.5f + p * 44, Gfx.fade(GREEN, (1f - p) * 0.35f), Gfx.fade(GREEN, 0f));
+            }
+        } else {
+            Gfx.disc(ms, cx, cy, 62, Gfx.fade(GREEN, 0.16f), Gfx.fade(GREEN, 0f), 0, 0);
+        }
+        Gfx.disc(ms, cx, cy, 34, Gfx.mixArgb(ac, 0xFFFFFFFF, 0.2f), Gfx.mixArgb(ac, 0xFF000000, 0.25f), -7, -9);
+        String ini = c.with.name == null || c.with.name.isEmpty() ? "?" : c.with.name.substring(0, 1).toUpperCase();
+        Gfx.text(ms, ini, cx, cy + 10, 30, 0xFFF4F1EA, 1, true, 0f);
+
+        Gfx.text(ms, clipG(c.with.name, 14, true, w - 24), cx, y + 178, 14, 0xFFF4F1EA, 1, true, 0.2f);
+        if (c.with.id > 0) Gfx.text(ms, "#" + c.with.id, cx, y + 192, 7.5f, 0xFF8E8C86, 1);
+        if (c.active) {
+            Gfx.text(ms, clock((now - c.since) / 1000), cx, y + 212, 10, 0xFF7BE3A0, 1, true, 0.5f);
+            for (int i = 0; i < 11; i++) {
+                float bh = 3f + 9f * (float) Math.abs(Math.sin(now / 220.0 + i * 0.7));
+                Gfx.rrect(ms, cx - 33 + i * 6.4f, y + 232 - bh / 2f, 3, bh, 1.5f, Gfx.fade(GREEN, 0.85f));
+            }
+        } else {
+            int dots = (int) ((now / 400) % 4);
+            String base = c.incoming ? "Apel primit" : "Se sună";
+            Gfx.text(ms, base + "...".substring(0, dots), cx, y + 212, 9, 0xFFA19F98, 1);
+        }
+
+        float by = y + h - 76f;
+        if (c.incoming && !c.active) {
+            float pulse = 0.5f + 0.5f * (float) Math.sin(now / 200.0);
+            callButton(ms, cx - 46, by, 0xFFE2453F, true, "Respinge", mx, my, PhoneClient::decline, 0f);
+            callButton(ms, cx + 46, by, GREEN, false, "Răspunde", mx, my, PhoneClient::answer, pulse);
+        } else {
+            callButton(ms, cx, by, 0xFFE2453F, true, "Închide", mx, my, PhoneClient::hangup, 0f);
+        }
+    }
+
+    private void callButton(GuiGraphics ms, float bx, float by, int color, boolean down, String label, int mx, int my, Runnable r, float pulse) {
+        boolean hov = Ui.in(mx, my, (int) bx - 25, (int) by - 25, 50, 50);
+        if (pulse > 0f) Gfx.disc(ms, bx, by, 25 + pulse * 6, Gfx.fade(color, 0.3f * (1f - pulse * 0.5f)), Gfx.fade(color, 0f), 0, 0);
+        Gfx.disc(ms, bx, by, 25, Gfx.mixArgb(color, 0xFFFFFFFF, hov ? 0.35f : 0.2f), Gfx.mixArgb(color, 0xFF000000, 0.25f), -5, -6);
+        handset(ms, bx, by, 19, 0xFFFFFFFF, down);
+        Gfx.text(ms, label, bx, by + 40, 7, 0xFFA19F98, 1);
+        hit((int) bx - 25, (int) by - 25, 50, 50, r);
     }
 
     // ------------------------------------------------------------------ Banca
@@ -588,6 +756,15 @@ public final class PhoneScreen extends FlowScreen {
     }
 
     @Override
+    public boolean charTyped(char ch, int mods) {
+        if (page == Page.CALLS && dialTab && PhoneState.call == null && ch >= '0' && ch <= '9') {
+            if (dial.length() < 8) dial.append(ch);
+            return true;
+        }
+        return super.charTyped(ch, mods);
+    }
+
+    @Override
     public boolean keyPressed(int key, int scan, int mods) {
         boolean typing = (page == Page.THREAD && msgField.isFocused()) || (page == Page.CONTACTS && contactField.isFocused());
         if (!typing && PhoneClient.openKey != null && PhoneClient.openKey.matches(key, scan)) {
@@ -595,6 +772,16 @@ public final class PhoneScreen extends FlowScreen {
             return true;
         }
         PhoneState.Call c = PhoneState.call;
+        if (!typing && c == null && page == Page.CALLS && dialTab) {
+            if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_BACKSPACE) {
+                if (dial.length() > 0) dial.setLength(dial.length() - 1);
+                return true;
+            }
+            if ((key == org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER || key == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER) && dial.length() > 0) {
+                PhoneClient.callQuery(dial.toString());
+                return true;
+            }
+        }
         if (!typing && c != null && c.incoming && !c.active) {
             if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_Y) {
                 PhoneClient.answer();

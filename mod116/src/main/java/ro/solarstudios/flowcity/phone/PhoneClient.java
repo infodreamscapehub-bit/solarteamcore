@@ -13,6 +13,7 @@ import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import org.lwjgl.glfw.GLFW;
 import ro.solarstudios.flowcity.client.ui.FlowSounds;
+import ro.solarstudios.flowcity.client.ui.Gfx;
 import ro.solarstudios.flowcity.client.ui.Theme;
 import ro.solarstudios.flowcity.client.ui.Ui;
 import ro.solarstudios.flowcity.module.ClientModules;
@@ -215,6 +216,11 @@ public final class PhoneClient extends JsonClientModule {
         req("call", with("uuid", uuid));
     }
 
+    /** Suna dupa ID (cifre) sau nume, de pe tastatura. */
+    public static void callQuery(String q) {
+        req("call", with("q", q));
+    }
+
     public static void answer() {
         req("call_answer", null);
     }
@@ -264,17 +270,43 @@ public final class PhoneClient extends JsonClientModule {
             Minecraft mc = Minecraft.getInstance();
             if (c == null || !c.incoming || c.active || mc.player == null || mc.screen instanceof PhoneScreen) return;
             try {
-                GuiGraphics ms = new GuiGraphics(e.getMatrixStack());
+                GuiGraphics g = new GuiGraphics(e.getMatrixStack());
                 long now = System.currentTimeMillis();
-                int w = 230;
-                int x = (mc.getWindow().getGuiScaledWidth() - w) / 2;
-                float in = Math.min(1f, (now - c.ringStart) / 300f);
-                int y = 8 - Math.round((1f - in) * 50f);
-                float pulse = 0.5f + 0.5f * (float) Math.sin(now / 180.0);
-                Ui.frame(ms, x, y, w, 34, Theme.alpha(0xFF0A1220, 235), Theme.mix(Theme.LINE, Theme.OK, 0.5f + 0.4f * pulse));
-                Ui.rect(ms, x + 8, y + 12, 10, 10, Theme.alpha(Theme.OK, (int) (150 + 100 * pulse)));
-                Ui.textShadow(ms, "Apel de la " + c.with.name, x + 26, y + 7, Theme.TEXT);
-                Ui.text(ms, "[Y] Raspunde    [N] Respinge", x + 26, y + 19, Theme.MUTED);
+                float w = 244f;
+                float h = 54f;
+                float x = (mc.getWindow().getGuiScaledWidth() - w) / 2f;
+                float t0 = Math.min(1f, (now - c.ringStart) / 420f);
+                float u = t0 - 1f;
+                float back = Math.max(0f, 1f + 2.70158f * u * u * u + 1.70158f * u * u);
+                float y = -h - 6f + back * (h + 16f);
+                float pulse = 0.5f + 0.5f * (float) Math.sin(now / 200.0);
+                int green = 0xFF4CC878;
+                Gfx.rrect(g, x - 1, y + 3, w + 2, h + 2, 15, 0x66000000);
+                Gfx.rrect(g, x, y, w, h, 14, Gfx.mixArgb(0xFF2A2E36, green, 0.35f + 0.35f * pulse));
+                Gfx.rrect(g, x + 1, y + 1, w - 2, h - 2, 13, 0xFF1F2228, 0xFF121418);
+                float ax = x + 28f;
+                float ay = y + h / 2f;
+                for (int k = 0; k < 2; k++) {
+                    float p = (float) (((now / 1400.0) + k * 0.5) % 1.0);
+                    Gfx.ring(g, ax, ay, 15 + p * 12, 16.5f + p * 12, Gfx.fade(green, (1f - p) * 0.4f), Gfx.fade(green, 0f));
+                }
+                int ac = PhoneScreen.avatarColor(c.with.name);
+                Gfx.disc(g, ax, ay, 15, Gfx.mixArgb(ac, 0xFFFFFFFF, 0.2f), Gfx.mixArgb(ac, 0xFF000000, 0.25f), -3, -4);
+                String ini = c.with.name == null || c.with.name.isEmpty() ? "?" : c.with.name.substring(0, 1).toUpperCase();
+                Gfx.text(g, ini, ax, ay + 5, 14, 0xFFF4F1EA, 1, true, 0f);
+                float tx = x + 52f;
+                Gfx.text(g, "APEL PRIMIT", tx, y + 17, 6.5f, green, 0, false, 1f);
+                String nm = c.with.name == null ? "?" : c.with.name;
+                while (nm.length() > 1 && Gfx.width(nm, 10.5f, false) > w - 52 - 70) nm = nm.substring(0, nm.length() - 1);
+                Gfx.text(g, nm, tx, y + 31, 10.5f, 0xFFF4F1EA, 0);
+                // taste Y / N
+                float kx = x + w - 56f;
+                Gfx.rrect(g, kx, y + 14, 22, 26, 8, 0xFF1F4D31, 0xFF16382A);
+                Gfx.text(g, "Y", kx + 11, y + 31, 10, 0xFF7BE3A0, 1, true, 0f);
+                Gfx.rrect(g, kx + 26, y + 14, 22, 26, 8, 0xFF5A2522, 0xFF3F1A18);
+                Gfx.text(g, "N", kx + 37, y + 31, 10, 0xFFF08A82, 1, true, 0f);
+                Gfx.text(g, "r\u0103spunde", kx + 11, y + h - 5, 5.2f, 0xFF6F6D68, 1);
+                Gfx.text(g, "respinge", kx + 37, y + h - 5, 5.2f, 0xFF6F6D68, 1);
             } catch (RuntimeException ex) {
                 PhoneState.call = null;
             }

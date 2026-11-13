@@ -88,7 +88,15 @@ public final class PhoneModule extends JsonModule {
         on("call", (p, j) -> {
             if (!needPhone(p)) return;
             UUID t = uuid(j, "uuid");
-            Player tp = t == null ? null : Bukkit.getPlayer(t);
+            if (t == null) {
+                String q = str(j, "q", "").trim();
+                if (!q.isEmpty() && q.length() <= 20) t = plugin.ids().resolveAny(q);
+                if (t == null) {
+                    plugin.channel().toast(p, "Nu exista niciun jucator cu acest ID.", true);
+                    return;
+                }
+            }
+            Player tp = Bukkit.getPlayer(t);
             if (tp != null && !hasPhone(tp)) {
                 plugin.channel().toast(p, "Numarul nu este disponibil (nu are telefon).", true);
                 return;
