@@ -1,0 +1,40 @@
+# E-shop FlowCity. Se deschide de la un NPC (ZNPCs):
+#   /znpcs action add <idNpc> CONSOLE shop open %player% <magazin>
+# Exemplu: /znpcs action add 1 CONSOLE shop open %player% arme
+#
+# Fiecare articol:
+#   name:    numele afisat
+#   item:    id-ul itemului (minecraft:iron_sword sau modid:item) - folosit pentru iconita si, daca nu ai "commands", pentru give
+#   price:   pretul per bucata
+#   amount:  cate bucati primesti la o cumparare (implicit 1)
+#   desc:    descriere scurta (optional)
+#   commands: (optional) comenzi rulate din consola in loc de give; %player% = cumparatorul, %amount% = amount
+# Atentie: id-urile armelor depind de modul de arme instalat (verifica cu /give <nume> tab-complete).
+radius: 12          # cat de departe de NPC poti cumpara dupa ce deschizi magazinul
+shops:
+  arme:
+    title: "ARMURIE"
+    categories:
+      - name: "Pistoale"
+        items:
+          - {name: "M1911", item: "tac:m1911", price: 2500, desc: "Pistol clasic"}
+          - {name: "Glock 17", item: "tac:glock_17", price: 3000, desc: "Pistol 9mm"}
+      - name: "Pusti"
+        items:
+          - {name: "AK-47", item: "tac:ak47", price: 9000, desc: "Pusca de asalt"}
+          - {name: "M4A1", item: "tac:m4a1", price: 10000, desc: "Pusca de asalt"}
+      - name: "Munitie"
+        items:
+          - {name: "Munitie 9mm", item: "tac:pistol_ammo", price: 5, amount: 30, desc: "30 buc"}
+          - {name: "Munitie 5.56", item: "tac:rifle_ammo", price: 8, amount: 30, desc: "30 buc"}
+  general:
+    title: "MAGAZIN"
+    categories:
+      - name: "Mancare"
+        items:
+          - {name: "Paine", item: "minecraft:bread", price: 10, amount: 4}
+          - {name: "Friptura", item: "minecraft:cooked_beef", price: 25, amount: 4}
+      - name: "Unelte"
+        items:
+          - {name: "Sabie de fier", item: "minecraft:iron_sword", price: 150}
+          - {name: "Tarnacop de fier", item: "minecraft:iron_pickaxe", price: 150}

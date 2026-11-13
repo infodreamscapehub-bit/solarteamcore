@@ -39,6 +39,7 @@ public final class ClientInit {
         ro.solarstudios.flowcity.phone.PhoneClient.register();
         ro.solarstudios.flowcity.cars.client.CarsClient.register();
         ro.solarstudios.flowcity.pay.PayClient.register();
+        ro.solarstudios.flowcity.shop.ShopClient.register();
         ro.solarstudios.flowcity.cars.client.GaragesClient.register();
         if (ro.solarstudios.flowcity.cars.CarsCompat.loaded()) ro.solarstudios.flowcity.cars.client.CarHud.register();
     }
