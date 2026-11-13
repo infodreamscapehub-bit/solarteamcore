@@ -6,14 +6,13 @@ import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import ro.solarstudios.flowcity.client.ui.Theme;
-import ro.solarstudios.flowcity.client.ui.Ui;
+import ro.solarstudios.flowcity.client.ui.Gfx;
+import ro.solarstudios.flowcity.notify.NotifyUi;
 
 /** Banner CNN sus, la mijloc: coboara animat, eticheta pulseaza (breaking), luciu care trece, bara de timp. Stirile vin pe rand. */
 public final class NewsBanner {
     private static final long IN = 450;
     private static final long OUT = 400;
-    private static final int H = 34;
 
     private static final class Entry {
         final NewsState.Item item;
@@ -71,44 +70,56 @@ public final class NewsBanner {
             QUEUE.remove(0);
             return;
         }
-        float slide;
-        if (age < IN) {
-            float k = 1f - age / (float) IN;
-            slide = 1f - k * k * k;
-        } else if (age > IN + en.dur) {
-            float k = (age - IN - en.dur) / (float) OUT;
-            slide = 1f - k * k;
-        } else {
-            slide = 1f;
-        }
-        GuiGraphics ms = new GuiGraphics(e.getMatrixStack());
+        float inT = Math.min(1f, age / (float) IN);
+        float outT = age > IN + en.dur ? (age - IN - en.dur) / (float) OUT : 0f;
+        float u = inT - 1f;
+        float back = 1f + 2.70158f * u * u * u + 1.70158f * u * u; // revenire usoara la intrare
+        float slide = Math.max(0f, back) * (1f - outT * outT);
+        GuiGraphics g = new GuiGraphics(e.getMatrixStack());
         int sw = mc.getWindow().getGuiScaledWidth();
-        int w = Math.min(330, sw - 20);
-        int x = (sw - w) / 2;
-        int y = -H + Math.round(slide * (H + 8));
-        int c = NewsState.color(en.item.cat);
+        float w = Math.min(372f, sw - 20f);
+        float h = 54f;
+        float x = (sw - w) / 2f;
+        float y = -h - 6f + slide * (h + 16f);
+        int c = NewsState.color(en.item.cat) | 0xFF000000;
         double t = now / 1000.0;
+        boolean breaking = "breaking".equals(en.item.cat);
+        float pulse = 0.5f + 0.5f * (float) Math.sin(t * (breaking ? 7.0 : 2.5));
+        float a = 1f - outT;
 
-        Ui.round(ms, x, y, w, H, Theme.alpha(0xFF0A1020, 0xF0));
-        Ui.frame(ms, x, y, w, H, Theme.alpha(0xFF0A1020, 0xF0), Theme.mix(Theme.LINE, c, 0.6f));
-        // eticheta categoriei (breaking clipeste)
-        int tag = 70;
-        float blink = "breaking".equals(en.item.cat) ? 0.65f + 0.35f * (float) Math.sin(t * 7.0) : 1f;
-        Ui.rect(ms, x + 1, y + 1, tag, H - 2, Theme.mix(Theme.PANEL, c, 0.55f * blink));
-        Ui.textCenter(ms, "CNN", x + 1 + tag / 2, y + 6, Theme.alpha(0xFFFFFFFF, 0xC0));
-        Ui.textCenter(ms, NewsState.label(en.item.cat), x + 1 + tag / 2, y + 18, 0xFFFFFFFF);
-        // titlu + autor
-        int tx = x + tag + 10;
-        Ui.textShadow(ms, Ui.clip(en.item.title, w - tag - 18), tx, y + 7, Theme.TEXT);
-        Ui.text(ms, Ui.clip("de " + en.item.author, w - tag - 18), tx, y + 19, Theme.MUTED);
+        // umbra, cadru colorat, fundal
+        Gfx.rrect(g, x - 1, y + 3, w + 2, h + 2, 15, Gfx.fade(0x66000000, a));
+        Gfx.rrect(g, x, y, w, h, 14, Gfx.fade(Gfx.mixArgb(0xFF2A2E36, c, breaking ? 0.35f + 0.3f * pulse : 0.4f), a));
+        Gfx.rrect(g, x + 1, y + 1, w - 2, h - 2, 13, Gfx.fade(0xFF1F2228, a), Gfx.fade(0xFF121418, a));
+
+        // eticheta categoriei (breaking pulseaza)
+        float tw = 74f;
+        int tagTop = Gfx.mixArgb(c, 0xFFFFFFFF, 0.12f + (breaking ? 0.14f * pulse : 0f));
+        int tagBot = Gfx.mixArgb(c, 0xFF000000, 0.35f);
+        if (breaking) Gfx.rrect(g, x + 4 - 2 * pulse, y + 4 - 2 * pulse, tw + 4 * pulse, h - 8 + 4 * pulse, 12, Gfx.fade(Gfx.fade(c, 0.3f), a));
+        Gfx.rrect(g, x + 5, y + 5, tw, h - 10, 10, Gfx.fade(tagTop, a), Gfx.fade(tagBot, a));
+        Gfx.rrect(g, x + 11, y + 6, tw - 12, 1.4f, 0.7f, Gfx.fade(0x55FFFFFF, a));
+        Gfx.disc(g, x + 5 + 13, y + 18, 2.6f, Gfx.fade(0xFFFFFFFF, a * (breaking ? 0.5f + 0.5f * pulse : 1f)));
+        Gfx.text(g, "CNN", x + 5 + 20, y + 21, 8.5f, Gfx.fade(0xFFFFFFFF, a), 0, true, 1.2f);
+        Gfx.text(g, NotifyUi.clip(NewsState.label(en.item.cat).toUpperCase(), 7.2f, tw - 10), x + 5 + tw / 2f, y + h - 15, 7.2f, Gfx.fade(0xE6FFFFFF, a), 1, false, 0.8f);
+
+        // titlu, rezumat, autor
+        float tx = x + tw + 18f;
+        float mw = w - tw - 30f;
+        Gfx.text(g, NotifyUi.clip(en.item.title, 10f, mw), tx, y + 20, 10f, Gfx.fade(0xFFF4F1EA, a), 0);
+        java.util.List<String> body = NotifyUi.wrap(en.item.body, 7.8f, mw, 1);
+        if (!body.isEmpty()) Gfx.text(g, body.get(0), tx, y + 32, 7.8f, Gfx.fade(0xFFA19F98, a), 0);
+        Gfx.text(g, NotifyUi.clip("de " + en.item.author, 6.8f, mw), tx, y + (body.isEmpty() ? 32 : 43), 6.8f, Gfx.fade(0xFF6F6D68, a), 0);
+
         // luciu care trece peste banner
-        int shineW = 22;
-        int sx = x + 1 + (int) (((t * 0.45) % 1.0) * (w - 2 + shineW)) - shineW;
-        int from = Math.max(x + 1, sx);
-        int to = Math.min(x + w - 1, sx + shineW);
-        if (to > from) Ui.rect(ms, from, y + 1, to - from, H - 2, Theme.alpha(0xFFFFFFFF, 0x14));
+        float p = (float) ((t * 0.45) % 1.0);
+        float sx = x + 8 + p * (w - 16);
+        float x0 = Math.max(x + 8, sx - 6);
+        float x1 = Math.min(x + w - 8, sx + 10);
+        if (x1 > x0) Gfx.poly(g, new float[] {x1, y + 6, Math.min(x + w - 8, x1 + 8), y + 6, x1, y + h - 6, x0, y + h - 6}, Gfx.fade(0x12FFFFFF, a));
+
         // bara de timp
         float left = age < IN ? 1f : Math.max(0f, 1f - (age - IN) / (float) en.dur);
-        Ui.rect(ms, x + 3, y + H - 3, Math.round((w - 6) * left), 1, c);
+        Gfx.bar(g, x + tw + 18, y + h - 7, w - tw - 30, 2f, left, Gfx.fade(0x22FFFFFF, a), Gfx.fade(c, a * 0.9f));
     }
 }
