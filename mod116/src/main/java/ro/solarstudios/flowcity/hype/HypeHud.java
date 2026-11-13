@@ -10,6 +10,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import ro.solarstudios.flowcity.client.ui.HudLayout;
 import ro.solarstudios.flowcity.client.ui.Theme;
 import ro.solarstudios.flowcity.client.ui.Ui;
 import ro.solarstudios.flowcity.client.ui.Xmas;
@@ -122,22 +123,24 @@ public final class HypeHud {
             // fundal discret pentru lizibilitate
             if (HypeState.hudBg > 0) Ui.round(ms, x - 4, y - 3, W + 8, bottom(s) + 6, Theme.alpha(0xFF050912, HypeState.hudBg));
 
-            drawClock(ms, mc, x, y, t);
-            Ui.rect(ms, x + 84, y + 1, 1, 28, Theme.alpha(Theme.LINE, 0xAA));
-            drawTitle(ms, x + 92, y + 1, t, now);
-            drawEmblem(ms, x + W - 34, y - 1, t);
+            if (HudLayout.part("hud", "clock")) drawClock(ms, mc, x, y, t);
+            if (HudLayout.part("hud", "clock") || HudLayout.part("hud", "title")) Ui.rect(ms, x + 84, y + 1, 1, 28, Theme.alpha(Theme.LINE, 0xAA));
+            if (HudLayout.part("hud", "title")) {
+                drawTitle(ms, x + 92, y + 1, t, now);
+                drawEmblem(ms, x + W - 34, y - 1, t);
+            }
             if (Xmas.enabled) {
                 Xmas.garland(ms, x - 4, y - 6, W + 8, t, 3, 22);
                 Xmas.hat(ms, x + W - 30, y - 8, 14);
                 Xmas.snow(ms, x - 4, y - 6, W + 8, bottom(s) + 10, t, 14, 190);
             }
-            drawBell(ms, x + W - 6, y - 3, t);
+            if (HudLayout.part("hud", "title")) drawBell(ms, x + W - 6, y - 3, t);
             Ui.rect(ms, x, y + 33, W, 1, Theme.alpha(Theme.LINE, 0xAA));
-            drawIdentity(ms, mc, s, x, y + 39, t);
-            drawMoney(ms, s, x, y + 60, now);
+            if (HudLayout.part("hud", "identity")) drawIdentity(ms, mc, s, x, y + 39, t);
+            if (HudLayout.part("hud", "money")) drawMoney(ms, s, x, y + 60, now);
             int cy = y + 78;
-            cy = drawJob(ms, s, x, cy, dt, t, now);
-            drawThirst(ms, s, x, cy, dt, t);
+            if (HudLayout.part("hud", "job")) cy = drawJob(ms, s, x, cy, dt, t, now);
+            if (HudLayout.part("hud", "thirst")) drawThirst(ms, s, x, cy, dt, t);
             drawPopups(ms, x, y + bottom(s) + 6, now);
         } finally {
             ro.solarstudios.flowcity.client.ui.HudLayout.end(ms);
@@ -193,7 +196,7 @@ public final class HypeHud {
     private void drawTitle(GuiGraphics ms, int x, int y, double t, long now) {
         if (!titleReady) initTitle();
         boolean lvl = now - HypeState.levelUpAt < 2500;
-        int base = lvl ? Theme.WARN : BLUE;
+        int base = lvl ? Theme.WARN : ro.solarstudios.flowcity.client.ui.HudLayout.accent("hud", BLUE);
         for (int i = 0; i < TITLE_CH.length; i++) {
             double wave = Math.sin(t * 2.2 - i * 0.55);
             double w2 = Math.max(0, wave);

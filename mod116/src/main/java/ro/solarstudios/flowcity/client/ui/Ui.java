@@ -15,8 +15,12 @@ public final class Ui {
         return Minecraft.getInstance().font;
     }
 
+    private static int a(int c) {
+        return Gfx.alpha >= 0.999f ? c : Gfx.fade(c, Gfx.alpha);
+    }
+
     public static void rect(GuiGraphics g, int x, int y, int w, int h, int color) {
-        g.fill(x, y, x + w, y + h, color);
+        g.fill(x, y, x + w, y + h, a(color));
     }
 
     /** Dreptunghi cu colturi usor rotunjite (1px). */
@@ -37,7 +41,7 @@ public final class Ui {
 
     /** Gradient vertical (de sus in jos). */
     public static void gradient(GuiGraphics g, int x, int y, int w, int h, int top, int bottom) {
-        g.fillGradient(x, y, x + w, y + h, top, bottom);
+        g.fillGradient(x, y, x + w, y + h, a(top), a(bottom));
     }
 
     public static int width(String s) {
@@ -45,11 +49,11 @@ public final class Ui {
     }
 
     public static void text(GuiGraphics g, String s, int x, int y, int color) {
-        g.drawString(font(), s, x, y, color, false);
+        g.drawString(font(), s, x, y, a(color), false);
     }
 
     public static void textShadow(GuiGraphics g, String s, int x, int y, int color) {
-        g.drawString(font(), s, x, y, color, true);
+        g.drawString(font(), s, x, y, a(color), true);
     }
 
     public static void textRight(GuiGraphics g, String s, int xRight, int y, int color) {

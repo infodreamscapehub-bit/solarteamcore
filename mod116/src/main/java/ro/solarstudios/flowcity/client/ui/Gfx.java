@@ -55,8 +55,11 @@ public final class Gfx {
         RenderSystem.enableTexture();
     }
 
+    /** Transparenta globala a elementului de HUD desenat acum (o seteaza editorul de HUD prin HudLayout.begin/end). */
+    public static float alpha = 1f;
+
     private static void v(BufferBuilder b, Matrix4f m, float x, float y, int argb) {
-        b.vertex(m, x, y, 0f).color((argb >> 16) & 255, (argb >> 8) & 255, argb & 255, (argb >>> 24) & 255).endVertex();
+        b.vertex(m, x, y, 0f).color((argb >> 16) & 255, (argb >> 8) & 255, argb & 255, Math.round(((argb >>> 24) & 255) * alpha)).endVertex();
     }
 
     // ------------------------------------------------------------------ forme
@@ -228,6 +231,7 @@ public final class Gfx {
      */
     public static void text(GuiGraphics g, String s, float x, float y, float size, int color, int align, boolean xl, float spacing) {
         if (s == null || s.isEmpty()) return;
+        if (alpha < 0.999f) color = fade(color, alpha);
         FontRenderer f = Minecraft.getInstance().font;
         float k = size / (xl ? BASE_XL : BASE);
         float w = width(s, size, xl) + spacing * (s.length() - 1);

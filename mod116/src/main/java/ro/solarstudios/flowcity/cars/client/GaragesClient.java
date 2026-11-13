@@ -295,8 +295,10 @@ public final class GaragesClient {
             if (!ro.solarstudios.flowcity.client.ui.HudLayout.begin(g, "prompt", x, y, w, h)) return;
             Gfx.rrect(g, x - 1, y + 2, w + 2, h + 2, 13, Gfx.fade(0x55000000, a));
             Gfx.rrect(g, x, y, w, h, 12, Gfx.fade(0xEE22252C, a), Gfx.fade(0xEE14161A, a));
-            Gfx.rrect(g, x - 1 - pulse, y + 4 - pulse, kw + 2 + 2 * pulse, h - 8 + 2 * pulse + 0f, 9, Gfx.fade(0x33F6C15A, a * (1f - pulse * 0.5f)));
-            Gfx.rrect(g, x + 6, y + 4, kw, h - 8, 7, Gfx.fade(0xFFF6C15A, a), Gfx.fade(0xFFD98E2B, a));
+            int acc1 = ro.solarstudios.flowcity.client.ui.HudLayout.accent("prompt", 0xFFF6C15A);
+            int acc2 = ro.solarstudios.flowcity.client.ui.HudLayout.accent("prompt", 0xFFD98E2B);
+            Gfx.rrect(g, x - 1 - pulse, y + 4 - pulse, kw + 2 + 2 * pulse, h - 8 + 2 * pulse + 0f, 9, Gfx.fade(Gfx.fade(acc1, 0.2f), a * (1f - pulse * 0.5f)));
+            Gfx.rrect(g, x + 6, y + 4, kw, h - 8, 7, Gfx.fade(acc1, a), Gfx.fade(acc2, a));
             Gfx.text(g, key, x + 6 + kw / 2f, y + h / 2f + 3.4f, 9f, Gfx.fade(0xFF2A1A06, a), 1, true, 0f);
             Gfx.text(g, prompt, x + kw + 16f, y + h / 2f + 3.1f, size, Gfx.fade(0xFFF4F1EA, a), 0);
             ro.solarstudios.flowcity.client.ui.HudLayout.end(g);

@@ -13,8 +13,11 @@ public final class HudEditorScreen extends FlowScreen {
     private static final int GOLD2 = 0xFFD98E2B;
     private static final int WHITE = 0xFFF4F1EA;
     private static final int MUTED = 0xFF8E8C86;
-    private static final int PW = 420;
-    private static final int PH = 62;
+    private static final int PH = 150;
+    private static final int[] PALETTE = {0xF6C15A, 0x2F8CFF, 0x5FDC8F, 0xE2453F, 0x9B6BFF, 0xFF6BB5, 0x2FD5D0, 0xFF8A3C, 0xF4F1EA};
+    /** Slider-ul tras acum: 0 = marime, 1 = opacitate, -1 = niciunul. */
+    private int slider = -1;
+    private final float[][] sliderBox = new float[2][3];
 
     private HudLayout.El sel;
     private HudLayout.El drag;
@@ -44,7 +47,22 @@ public final class HudEditorScreen extends FlowScreen {
         return HudLayout.rect(e, d[0], d[1], d[2], d[3]);
     }
 
+    private int pw() {
+        return Math.min(540, width - 12);
+    }
+
+    private static String shortLabel(HudLayout.El e) {
+        switch (e.id) {
+            case "hud": return "Panou";
+            case "speedo": return "Bord mașină";
+            case "toasts": return "Notificări";
+            case "news": return "Știri";
+            default: return "Mesaj";
+        }
+    }
+
     private boolean inPanel(double mx, double my) {
+        int PW = pw();
         int px0 = (width - PW) / 2;
         int py0 = height - PH - 10;
         return mx >= px0 && mx < px0 + PW && my >= py0 && my < py0 + PH;
@@ -94,36 +112,128 @@ public final class HudEditorScreen extends FlowScreen {
     }
 
     private void panel(GuiGraphics ms, int mx, int my, float open) {
+        final int PW = pw();
         int x = (width - PW) / 2;
-        int y = height - PH - 10 + Math.round((1f - open) * 20);
-        Gfx.rrect(ms, x - 3, y + 2, PW + 6, PH + 6, 18, 0x55000000);
-        Gfx.rrect(ms, x, y, PW, PH, 15, 0xF01D2026, 0xF0121418);
+        int y = height - PH - 10 + Math.round((1f - open) * 24);
+        Gfx.rrect(ms, x - 3, y + 2, PW + 6, PH + 6, 20, 0x55000000);
+        Gfx.rrect(ms, x, y, PW, PH, 16, 0xF21D2026, 0xF2121418);
         Gfx.rrect(ms, x + 0.5f, y + 0.5f, PW - 1, 1, 0, 0x14FFFFFF);
 
-        if (sel == null) {
-            Gfx.text(ms, "EDITOR HUD", x + 18, y + 24, 11, WHITE, 0, true, 0.8f);
-            Gfx.text(ms, "Apasă pe un element ca să-l muți. Rotița schimbă mărimea.", x + 18, y + 40, 7.6f, MUTED, 0);
-            Gfx.text(ms, "Se salvează automat.", x + 18, y + 51, 6.8f, 0xFF6F6D68, 0);
-        } else {
-            Gfx.text(ms, sel.label.toUpperCase(), x + 18, y + 22, 9.5f, GOLD, 0, true, 0.6f);
-            // vizibil
-            toggle(ms, x + 18, y + 33, sel.visible, mx, my);
-            Gfx.text(ms, "Vizibil", x + 50, y + 44, 7.8f, sel.visible ? WHITE : MUTED, 0);
-            // marime
-            Gfx.text(ms, "MĂRIME", x + 108, y + 22, 6.2f, 0xFF6F6D68, 0, false, 0.9f);
-            small(ms, "-", x + 108, y + 29, 22, mx, my, () -> scaleBy(sel, -0.05f));
-            Gfx.text(ms, Math.round(sel.scale * 100) + "%", x + 108 + 22 + 20, y + 45, 9, WHITE, 1, true, 0f);
-            small(ms, "+", x + 108 + 22 + 40, y + 29, 22, mx, my, () -> scaleBy(sel, 0.05f));
-            small2(ms, "Resetează", x + 224, y + 29, 74, mx, my, () -> {
-                sel.reset();
-                HudLayout.save();
-            });
+        // elementele (chip-uri), ca sa poti alege si unul ascuns
+        float cx = x + 16;
+        for (HudLayout.El e : HudLayout.ELS.values()) {
+            String lab = shortLabel(e);
+            float w = Gfx.width(lab, 7.6f, false) + 18;
+            boolean s = e == sel;
+            boolean h = mx >= cx && mx < cx + w && my >= y + 12 && my < y + 30;
+            if (s) Gfx.rrect(ms, cx, y + 12, w, 18, 9, GOLD, GOLD2);
+            else Gfx.rrect(ms, cx, y + 12, w, 18, 9, h ? 0xFF2A2E36 : 0xFF1C1F25);
+            Gfx.text(ms, lab, cx + w / 2f, y + 24.2f, 7.6f, s ? 0xFF2A1A06 : (e.visible ? (h ? WHITE : 0xFFA19F98) : 0xFFE2453F), 1);
+            final HudLayout.El fe = e;
+            hit(Math.round(cx), y + 12, Math.round(w), 18, () -> sel = fe);
+            cx += w + 5;
         }
-        small2(ms, "Resetează tot", x + PW - 18 - 74 - 6 - 74, y + 29 - (sel == null ? 0 : 0), 74, mx, my, () -> {
+        small2(ms, "Resetează tot", x + PW - 16 - 62 - 6 - 76, y + 10, 76, mx, my, () -> {
             for (HudLayout.El e : HudLayout.ELS.values()) e.reset();
             HudLayout.save();
         });
-        gold(ms, "GATA", x + PW - 18 - 74, y + 29, 74, mx, my, this::onClose);
+        gold(ms, "GATA", x + PW - 16 - 62, y + 10, 62, mx, my, this::onClose);
+        Gfx.rrect(ms, x + 14, y + 38, PW - 28, 0.8f, 0, 0x18FFFFFF);
+
+        if (sel == null) {
+            Gfx.text(ms, "EDITOR HUD", x + 18, y + 66, 11, WHITE, 0, true, 0.8f);
+            Gfx.text(ms, "Apasă pe un element (sau alege-l sus) ca să-l muți, să-i schimbi mărimea,", x + 18, y + 84, 7.6f, MUTED, 0);
+            Gfx.text(ms, "transparența, culoarea sau părțile afișate. Trage cu mouse-ul, rotița = mărime.", x + 18, y + 96, 7.6f, MUTED, 0);
+            Gfx.text(ms, "Se salvează automat.", x + 18, y + 112, 6.8f, 0xFF6F6D68, 0);
+            return;
+        }
+
+        // slidere: marime + opacitate
+        slider(ms, 0, "MĂRIME", x + 18, y + 54, 168, (sel.scale - 0.5f) / 1.5f, Math.round(sel.scale * 100) + "%", mx, my);
+        slider(ms, 1, "OPACITATE", x + 212, y + 54, 168, (sel.alpha - 0.2f) / 0.8f, Math.round(sel.alpha * 100) + "%", mx, my);
+
+        // vizibil + reset element
+        toggle(ms, x + PW - 18 - 26 - 70, y + 48, sel.visible, mx, my);
+        Gfx.text(ms, "Vizibil", x + PW - 18 - 70 + 6, y + 60, 7.8f, sel.visible ? WHITE : MUTED, 0);
+        small2(ms, "Resetează", x + PW - 18 - 88, y + 70, 88, mx, my, () -> {
+            sel.reset();
+            HudLayout.save();
+        });
+
+        // culoare
+        Gfx.text(ms, "CULOARE", x + 18, y + 96, 6.2f, 0xFF6F6D68, 0, false, 0.9f);
+        float sx = x + 18 + 9;
+        boolean none = sel.color == 0;
+        boolean hn = mx >= sx - 10 && mx < sx + 10 && my >= y + 102 && my < y + 122;
+        Gfx.disc(ms, sx, y + 112, 7.4f, 0xFF2A2D34);
+        Gfx.line(ms, sx - 4.5f, y + 116.5f, sx + 4.5f, y + 107.5f, 1.4f, none ? GOLD : 0xFF8E8C86);
+        if (none) Gfx.ring(ms, sx, y + 112, 8.6f, 10f, GOLD, GOLD2);
+        hit(Math.round(sx - 10), y + 102, 20, 20, () -> {
+            sel.color = 0;
+            HudLayout.save();
+        });
+        sx += 21;
+        for (int c : PALETTE) {
+            boolean s = sel.color == c;
+            boolean h = mx >= sx - 10 && mx < sx + 10 && my >= y + 102 && my < y + 122;
+            int col = 0xFF000000 | c;
+            if (s) Gfx.ring(ms, sx, y + 112, 8.6f, 10f, GOLD, GOLD2);
+            Gfx.disc(ms, sx, y + 112, h || s ? 7.6f : 7f, Gfx.mixArgb(col, 0xFFFFFFFF, 0.3f), Gfx.mixArgb(col, 0xFF000000, 0.15f), -2, -2.4f);
+            final int cc = c;
+            hit(Math.round(sx - 10), y + 102, 20, 20, () -> {
+                sel.color = cc;
+                HudLayout.save();
+            });
+            sx += 21;
+        }
+
+        // parti ale elementului (comutatoare)
+        String[][] parts = HudLayout.PARTS.get(sel.id);
+        if (parts != null) {
+            float px1 = x + 18 + 21 * (PALETTE.length + 1) + 22;
+            Gfx.text(ms, "PĂRȚI AFIȘATE", px1, y + 96, 6.2f, 0xFF6F6D68, 0, false, 0.9f);
+            float cx2 = px1;
+            float cy2 = y + 104;
+            for (String[] p : parts) {
+                float w = Gfx.width(p[1], 7f, false) + 16;
+                if (cx2 + w > x + PW - 14) {
+                    cx2 = px1;
+                    cy2 += 19;
+                }
+                boolean on = !sel.off.contains(p[0]);
+                boolean h = mx >= cx2 && mx < cx2 + w && my >= cy2 && my < cy2 + 16;
+                if (on) Gfx.rrect(ms, cx2, cy2, w, 16, 8, Gfx.mixArgb(0xFF2E9D5B, 0xFFFFFFFF, h ? 0.12f : 0f), 0xFF277F4B);
+                else Gfx.rrect(ms, cx2, cy2, w, 16, 8, h ? 0xFF2A2E36 : 0xFF1C1F25);
+                Gfx.text(ms, p[1], cx2 + w / 2f, cy2 + 11f, 7f, on ? 0xFFFFFFFF : 0xFF8E8C86, 1);
+                final String key = p[0];
+                hit(Math.round(cx2), Math.round(cy2), Math.round(w), 16, () -> {
+                    if (!sel.off.remove(key)) sel.off.add(key);
+                    HudLayout.save();
+                });
+                cx2 += w + 4;
+            }
+        }
+    }
+
+    private void slider(GuiGraphics ms, int idx, String label, float x, float y, float w, float frac, String val, int mx, int my) {
+        frac = Math.max(0f, Math.min(1f, frac));
+        Gfx.text(ms, label, x, y + 4, 6.2f, 0xFF6F6D68, 0, false, 0.9f);
+        Gfx.text(ms, val, x + w, y + 4, 8.4f, WHITE, 2, true, 0f);
+        float ty = y + 14;
+        sliderBox[idx][0] = x;
+        sliderBox[idx][1] = ty;
+        sliderBox[idx][2] = w;
+        Gfx.rrect(ms, x, ty, w, 5, 2.5f, 0xFF23262D);
+        Gfx.rrect(ms, x, ty, Math.max(5, w * frac), 5, 2.5f, Gfx.mixArgb(GOLD, 0xFFFFFFFF, 0.1f), GOLD2);
+        boolean hot = slider == idx || (mx >= x + w * frac - 9 && mx < x + w * frac + 9 && my >= ty - 6 && my < ty + 12);
+        Gfx.disc(ms, x + w * frac, ty + 2.5f, hot ? 6.6f : 5.6f, 0xFFFFFFFF, 0xFFD9D6CE, -1, -1.2f);
+    }
+
+    private void sliderTo(int idx, double mx) {
+        if (sel == null) return;
+        float f = (float) Math.max(0, Math.min(1, (mx - sliderBox[idx][0]) / sliderBox[idx][2]));
+        if (idx == 0) sel.scale = Math.round((0.5f + f * 1.5f) * 100f) / 100f;
+        else sel.alpha = Math.round((0.2f + f * 0.8f) * 100f) / 100f;
     }
 
     private void scaleBy(HudLayout.El e, float d) {
@@ -166,6 +276,16 @@ public final class HudEditorScreen extends FlowScreen {
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
+        if (button == 0 && sel != null && inPanel(mx, my)) {
+            for (int i = 0; i < 2; i++) {
+                float[] b = sliderBox[i];
+                if (b[2] > 0 && mx >= b[0] - 8 && mx <= b[0] + b[2] + 8 && my >= b[1] - 8 && my <= b[1] + 14) {
+                    slider = i;
+                    sliderTo(i, mx);
+                    return true;
+                }
+            }
+        }
         if (button == 0 && !inPanel(mx, my)) {
             HudLayout.El pick = null;
             for (HudLayout.El e : HudLayout.ELS.values()) {
@@ -185,6 +305,10 @@ public final class HudEditorScreen extends FlowScreen {
 
     @Override
     public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
+        if (slider >= 0) {
+            sliderTo(slider, mx);
+            return true;
+        }
         if (drag == null) return super.mouseDragged(mx, my, button, dx, dy);
         rawX += (float) dx;
         rawY += (float) dy;
@@ -227,7 +351,8 @@ public final class HudEditorScreen extends FlowScreen {
 
     @Override
     public boolean mouseReleased(double mx, double my, int button) {
-        if (drag != null) HudLayout.save();
+        if (drag != null || slider >= 0) HudLayout.save();
+        slider = -1;
         drag = null;
         guideX = Float.NaN;
         guideY = Float.NaN;

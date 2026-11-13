@@ -26,6 +26,11 @@ public final class HudLayout {
         public float dy;
         public float scale = 1f;
         public boolean visible = true;
+        /** Transparenta (0.2 .. 1) si culoarea de accent (0 = implicita). */
+        public float alpha = 1f;
+        public int color;
+        /** Partile oprite ale elementului (cheile din PARTS). */
+        public final java.util.Set<String> off = new java.util.HashSet<>();
         /** Ultimul dreptunghi desenat (inainte de transformare) si cand a fost vazut. */
         public float rx;
         public float ry;
@@ -39,7 +44,7 @@ public final class HudLayout {
         }
 
         public boolean isDefault() {
-            return dx == 0f && dy == 0f && scale == 1f && visible;
+            return dx == 0f && dy == 0f && scale == 1f && visible && alpha >= 0.999f;
         }
 
         public void reset() {
@@ -47,10 +52,32 @@ public final class HudLayout {
             dy = 0f;
             scale = 1f;
             visible = true;
+            alpha = 1f;
+            color = 0;
+            off.clear();
         }
     }
 
     public static final Map<String, El> ELS = new LinkedHashMap<>();
+
+    /** Partile care se pot opri pentru un element: {cheie, eticheta}. */
+    public static final Map<String, String[][]> PARTS = new LinkedHashMap<>();
+
+    static {
+        PARTS.put("hud", new String[][] {{"clock", "Ceas"}, {"title", "Titlu + logo"}, {"identity", "Nume"}, {"money", "Bani"}, {"job", "Job"}, {"thirst", "Sete"}});
+    }
+
+    /** Culoarea de accent aleasa pentru element, sau def daca nu a ales una. */
+    public static int accent(String id, int def) {
+        El e = ELS.get(id);
+        return e == null || e.color == 0 ? def : (e.color | 0xFF000000);
+    }
+
+    /** Partea e vizibila? (implicit da) */
+    public static boolean part(String id, String key) {
+        El e = ELS.get(id);
+        return e == null || !e.off.contains(key);
+    }
 
     static {
         add("hud", "Panou principal");
@@ -87,6 +114,10 @@ public final class HudLayout {
                 e.dy = o.has("dy") ? o.get("dy").getAsFloat() : 0f;
                 e.scale = Math.max(0.5f, Math.min(2f, o.has("scale") ? o.get("scale").getAsFloat() : 1f));
                 e.visible = !o.has("visible") || o.get("visible").getAsBoolean();
+                e.alpha = Math.max(0.2f, Math.min(1f, o.has("alpha") ? o.get("alpha").getAsFloat() : 1f));
+                e.color = o.has("color") ? o.get("color").getAsInt() & 0xFFFFFF : 0;
+                e.off.clear();
+                if (o.has("off") && o.get("off").isJsonArray()) for (JsonElement x : o.getAsJsonArray("off")) e.off.add(x.getAsString());
             }
         } catch (IOException | RuntimeException ignored) {
             // fisier lipsa sau stricat: raman pozitiile implicite
@@ -102,6 +133,11 @@ public final class HudLayout {
                 o.addProperty("dy", Math.round(e.dy * 10f) / 10f);
                 o.addProperty("scale", Math.round(e.scale * 100f) / 100f);
                 o.addProperty("visible", e.visible);
+                o.addProperty("alpha", Math.round(e.alpha * 100f) / 100f);
+                o.addProperty("color", e.color);
+                com.google.gson.JsonArray off = new com.google.gson.JsonArray();
+                for (String k : e.off) off.add(k);
+                o.add("off", off);
                 root.add(e.id, o);
             }
             Files.write(file(), new Gson().toJson(root).getBytes(StandardCharsets.UTF_8));
@@ -124,6 +160,7 @@ public final class HudLayout {
         e.seen = System.currentTimeMillis();
         if (!e.visible) return false;
         g.pose().pushPose();
+        Gfx.alpha = e.alpha;
         if (!e.isDefault()) {
             float cx = x + w / 2f;
             float cy = y + h / 2f;
@@ -135,6 +172,7 @@ public final class HudLayout {
     }
 
     public static void end(GuiGraphics g) {
+        Gfx.alpha = 1f;
         g.pose().popPose();
     }
 

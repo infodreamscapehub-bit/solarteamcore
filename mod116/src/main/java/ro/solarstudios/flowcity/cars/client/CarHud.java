@@ -195,7 +195,8 @@ public final class CarHud {
         // arcul de viteza: sina + stralucire + umplere cu gradient
         Gfx.arc(g, cx, cy, r, 10, 135, 405, (x, y) -> 0xFF262A31, 1f);
         float end = 135 + 270 * shownFrac;
-        Gfx.Paint paint = (x, y) -> Gfx.stops((x - (cx - r)) / (2 * r), STOP_POS, STOP_COL);
+        final int acc = ro.solarstudios.flowcity.client.ui.HudLayout.accent("speedo", 0);
+        Gfx.Paint paint = acc == 0 ? (x, y) -> Gfx.stops((x - (cx - r)) / (2 * r), STOP_POS, STOP_COL) : (x, y) -> acc;
         if (shownFrac > 0.004f) {
             Gfx.arc(g, cx, cy, r, 24, 135, end, paint, 0.10f);
             Gfx.arc(g, cx, cy, r, 17, 135, end, paint, 0.18f);
