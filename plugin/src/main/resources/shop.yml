@@ -41,11 +41,18 @@ shops:
         items:
           - {name: "Sabie de fier", item: "minecraft:iron_sword", price: 150}
           - {name: "Tarnacop de fier", item: "minecraft:iron_pickaxe", price: 150}
-  # Ids de backpack: pune-le pe cele din modul tau de rucsacuri (verifica cu /give tab-complete)
+  # Useful Backpacks (usefulbackpacks)
   backpackuri:
     title: "RUCSACURI"
     categories:
       - name: "Rucsacuri"
         items:
-          - {name: "Rucsac mic", item: "minecraft:leather", price: 500, desc: "Inlocuieste cu itemul real"}
-          - {name: "Rucsac mare", item: "minecraft:leather", price: 1500, desc: "Inlocuieste cu itemul real"}
+          - {name: "Rucsac mic", item: "usefulbackpacks:backpack_small", price: 500, desc: "Spatiu mic"}
+          - {name: "Rucsac mediu", item: "usefulbackpacks:backpack_medium", price: 1500, desc: "Spatiu mediu"}
+          - {name: "Rucsac mare", item: "usefulbackpacks:backpack_large", price: 4000, desc: "Spatiu mare"}
+          - {name: "Rucsac Ender", item: "usefulbackpacks:backpack_enderchest", price: 8000, desc: "Legat de Ender Chest"}
+      - name: "Accesorii"
+        items:
+          - {name: "Filtru ridicare (item)", item: "usefulbackpacks:filter_item", price: 150, desc: "Ridica automat un item"}
+          - {name: "Filtru ridicare (tag)", item: "usefulbackpacks:filter_tag", price: 150, desc: "Ridica automat dupa tag"}
+          - {name: "Configurator filtre", item: "usefulbackpacks:filter_configurator", price: 300, desc: "Bloc pentru filtre"}
