@@ -93,6 +93,21 @@ public final class Gfx {
         end();
     }
 
+    /** Segment de inel (felie de roata) intre r0 si r1 si unghiurile d0..d1, cu culoare pe interior si pe exterior. */
+    public static void sector(GuiGraphics g, float cx, float cy, float r0, float r1, float d0, float d1, int in, int out) {
+        Matrix4f m = g.pose().last().pose();
+        BufferBuilder b = begin(GL11.GL_TRIANGLE_STRIP);
+        int n = Math.max(2, (int) Math.ceil(Math.abs(d1 - d0) / 3f));
+        for (int i = 0; i <= n; i++) {
+            double a = Math.toRadians(d0 + (d1 - d0) * i / n);
+            float c = (float) Math.cos(a);
+            float s = (float) Math.sin(a);
+            v(b, m, cx + c * r0, cy + s * r0, in);
+            v(b, m, cx + c * r1, cy + s * r1, out);
+        }
+        end();
+    }
+
     /** Arc gros cu capete rotunde, intre unghiurile d0 si d1 (grade, 0 = dreapta, sensul acelor de ceasornic). */
     public static void arc(GuiGraphics g, float cx, float cy, float r, float th, float d0, float d1, Paint p, float alpha) {
         if (d1 - d0 < 0.01f) return;
