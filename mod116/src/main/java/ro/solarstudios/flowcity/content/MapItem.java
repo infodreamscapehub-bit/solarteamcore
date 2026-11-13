@@ -10,7 +10,7 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
 import ro.solarstudios.flowcity.client.ClientHooks;
 
-/** Harta GPS: click dreapta deschide harta mare (fara comenzi). */
+/** Harta: click dreapta deschide harta mare (fara comenzi). */
 public class MapItem extends Item {
     public MapItem() {
         super(ro.solarstudios.flowcity.content.ModContent.props().stacksTo(1));

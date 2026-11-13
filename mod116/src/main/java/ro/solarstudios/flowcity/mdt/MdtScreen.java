@@ -851,7 +851,6 @@ public final class MdtScreen extends FlowScreen {
             final double bxp = JsonClientModule.num(bk, "x", 0);
             final double bzp = JsonClientModule.num(bk, "z", 0);
             button(ms, "OK", bx + bw - 24, y + 8, 22, 14, mx, my, true, 0xFF1F4D38, () -> MdtClient.act("backup_resolve", "id", id));
-            button(ms, "GPS", bx + bw - 54, y + 8, 28, 14, mx, my, true, 0xFF24467A, () -> MdtClient.gps(nm, bxp, bzp));
         }
     }
 

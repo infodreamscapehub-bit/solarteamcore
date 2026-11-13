@@ -75,8 +75,6 @@ public final class MapScreen extends FlowScreen {
     private double zPressX;
     private double zPressY;
     private int legendStart;
-    private String gpsToastName;
-    private long gpsToastAt;
     private final TextFieldWidget nameField;
     private int draftId;
     private String draftType = "altele";
@@ -251,17 +249,6 @@ public final class MapScreen extends FlowScreen {
         });
         Ui.scissor(ax, ay, aw, ah);
 
-        MapsClient.Proj pr = new MapsClient.Proj() {
-            @Override
-            public float x(double w) {
-                return gx(w);
-            }
-
-            @Override
-            public float y(double w) {
-                return gy(w);
-            }
-        };
         MapsState.Zone hoverZone = null;
         if (MapsState.zonesVisible || (editor && editorTab == 1)) {
             boolean canHover = inMap(mx, my) && !overUi(mx, my) && !(editor && editorTab == 1 && zTool != 0);
@@ -291,8 +278,6 @@ public final class MapScreen extends FlowScreen {
             for (double[] pt : zPts) Ui.rect(ms, Math.round(gx(pt[0])) - 2, Math.round(gy(pt[1])) - 2, 5, 5, 0xFFFFFFFF);
         }
 
-        MapsClient.drawRoute(ms, pr, 4, ax, ay, ax + aw, ay + ah);
-
         boolean modal = showPopup || showDlg;
         // blips (puncte server)
         MapsState.Poi hover = null;
@@ -312,7 +297,7 @@ public final class MapScreen extends FlowScreen {
                     selectPoi(pp);
                     return;
                 }
-                setGps(pp.name, pp.type, pp.x, pp.z);
+                focusOn(pp.x, pp.z);
             });
         }
         // waypoint-uri personale
@@ -334,19 +319,6 @@ public final class MapScreen extends FlowScreen {
             if (modal) continue;
             final MapsState.Wp ww = w;
             hit(sx - 8, sy - size - 2, 16, size + 4, () -> clickWp(ww));
-        }
-        // waypoint
-        if (MapsState.hasTarget) {
-            int sx = Math.round(gx(MapsState.tx));
-            int sy = Math.round(gy(MapsState.tz));
-            float bob = (float) Math.sin(now / 250.0) * 1.5f;
-            if (MapsState.targetType != null) Blips.draw(ms, MapsState.targetType, sx, sy - 22 + Math.round(bob), 16, true);
-            Blips.pin(ms, sx, sy + Math.round(bob), 12, MapsClient.ROUTE_COLOR);
-            double d = Math.hypot(MapsState.tx - mc.player.getX(), MapsState.tz - mc.player.getZ());
-            String lab = MapsState.targetName + "  " + MapsClient.meters(d);
-            int lw = Ui.smallCapsWidth(lab) + 10;
-            Ui.rect(ms, sx - lw / 2, sy + 4, lw, 12, 0xDD0A0F18);
-            Ui.smallCaps(ms, lab, sx - lw / 2 + 5, sy + 6, Theme.TEXT);
         }
         // punctul in editare
         if (editor && draftSet) {
@@ -370,7 +342,7 @@ public final class MapScreen extends FlowScreen {
         // tooltip blip (card)
         if (hover != null) {
             String nm = hover.name;
-            String l2 = "Click: seteaza GPS";
+            String l2 = "Click: centreaza harta";
             int w = Math.max(Ui.smallCapsWidth(nm), Ui.width(l2)) + 18;
             int tx = Math.min(width - w - 4, mx + 12);
             int ty = Math.max(4, my - 16);
@@ -381,7 +353,7 @@ public final class MapScreen extends FlowScreen {
         }
 
         if (!modal && hover == null && hoverWp != null) {
-            String l2 = "Dublu click: GPS   DEL: sterge";
+            String l2 = "Click dreapta: optiuni   DEL: sterge";
             int w = Math.max(Ui.smallCapsWidth(hoverWp.name), Ui.width(l2)) + 18;
             int tx = Math.min(width - w - 4, mx + 12);
             int ty = Math.max(4, my - 16);
@@ -423,34 +395,6 @@ public final class MapScreen extends FlowScreen {
         if (showPopup) drawPopup(ms, mx, my);
         if (showDlg) drawDialog(ms, mx, my);
 
-        // ---- toast GPS setat
-        long since = now - gpsToastAt;
-        if (since < 3200 && gpsToastName != null) {
-            float a = since < 200 ? since / 200f : (since > 2800 ? (3200 - since) / 400f : 1f);
-            int al = (int) (a * 255) << 24;
-            int tw = Math.max(200, Ui.smallCapsWidth("Destinatie: " + gpsToastName) + 60);
-            int tx = width / 2 - tw / 2;
-            int ty = 24 + (int) ((1f - a) * -10);
-            Ui.round(ms, tx, ty, tw, 32, (int) (a * 0xF0) << 24 | 0x16181D);
-            Ui.rect(ms, tx, ty + 1, 2, 30, al | 0xE9A23B);
-            Ui.smallCaps(ms, "GPS setat", tx + 12, ty + 6, al | 0xFFFFFF);
-            Ui.text(ms, "Destinatie: " + gpsToastName, tx + 12, ty + 18, al | 0xA19F98);
-        }
-
-        // ---- anulare GPS (jos-stanga)
-        if (MapsState.hasTarget) {
-            int bw = Ui.smallCapsWidth("Anulare GPS") + 34;
-            boolean ch = Ui.in(mx, my, 10, height - 46, bw, 20);
-            int gy0 = height - 46;
-            Ui.round(ms, 10, gy0, bw, 20, ch ? 0xF0262A32 : 0xE016181D);
-            Ui.rect(ms, 10, gy0 + 1, 2, 18, Theme.BAD);
-            Ui.text(ms, "x", 20, gy0 + 6, Theme.BAD);
-            Ui.smallCaps(ms, "Anulare GPS", 32, gy0 + 6, Theme.TEXT);
-            hit(10, gy0, bw, 20, () -> {
-                MapsState.clearTarget();
-                toast("GPS anulat", false);
-            });
-        }
     }
 
     private boolean overUi(int mx, int my) {
@@ -459,11 +403,11 @@ public final class MapScreen extends FlowScreen {
         return mx < 36 && my < 36;
     }
 
-    private void setGps(String name, String type, double x, double z) {
-        if (!MapsState.GPS_ENABLED) return;
-        MapsClient.gpsTo(name, type, x, z);
-        gpsToastName = name;
-        gpsToastAt = System.currentTimeMillis();
+    /** Centreaza harta pe un loc. */
+    private void focusOn(double x, double z) {
+        vx = x;
+        vz = z;
+        follow = false;
     }
 
     private void drawLegend(GuiGraphics ms, int mx, int my) {
@@ -490,7 +434,7 @@ public final class MapScreen extends FlowScreen {
                     vx = p.x;
                     vz = p.z;
                     follow = false;
-                    setGps(p.name, p.type, p.x, p.z);
+                    focusOn(p.x, p.z);
                 });
             }
             y += 28;
@@ -556,7 +500,6 @@ public final class MapScreen extends FlowScreen {
         // scurtaturi (doar pe ecrane late)
         if (width > 520 && !editor) {
             int kx = 44;
-            if (MapsState.hasTarget) return;
             kx = key(ms, kx, by + 3, "B", "waypoint") + 10;
             kx = key(ms, kx, by + 3, "Spatiu", "centreaza") + 10;
             key(ms, kx, by + 3, "T", "stil");
@@ -670,7 +613,7 @@ public final class MapScreen extends FlowScreen {
                     long now = System.currentTimeMillis();
                     if ((Boolean) it[6]) selWp = (Integer) it[5];
                     if (k.equals(lastClickKey) && now - lastClickAt < 450) {
-                        setGps((String) it[0], t == null || t.isEmpty() ? null : t, (Double) it[3], (Double) it[4]);
+                        focusOn((Double) it[3], (Double) it[4]);
                     }
                     lastClickKey = k;
                     lastClickAt = now;
@@ -695,7 +638,7 @@ public final class MapScreen extends FlowScreen {
         long now = System.currentTimeMillis();
         String k = "w" + w.id;
         selWp = w.id;
-        if (k.equals(lastClickKey) && now - lastClickAt < 450) setGps(w.name, w.type.isEmpty() ? null : w.type, w.x, w.z);
+        if (k.equals(lastClickKey) && now - lastClickAt < 450) focusOn(w.x, w.z);
         lastClickKey = k;
         lastClickAt = now;
     }
@@ -724,7 +667,6 @@ public final class MapScreen extends FlowScreen {
 
     private void drawPopup(GuiGraphics ms, int mx, int my) {
         List<String[]> items = new ArrayList<>();
-        if (MapsState.GPS_ENABLED) items.add(new String[] {"Seteaza GPS aici", "gps", "ok"});
         if (popWp != null) {
             items.add(new String[] {"Editeaza waypoint", "edit", ""});
             items.add(new String[] {"Sterge waypoint", "del", "bad"});
@@ -757,10 +699,6 @@ public final class MapScreen extends FlowScreen {
     private void popupAction(String id) {
         showPopup = false;
         switch (id) {
-            case "gps":
-                if (popWp != null) setGps(popWp.name, popWp.type.isEmpty() ? null : popWp.type, popWp.x, popWp.z);
-                else setGps("Waypoint", null, popWx, popWz);
-                break;
             case "add":
                 openDialog(null, popWx, popWz);
                 break;
@@ -1119,16 +1057,6 @@ public final class MapScreen extends FlowScreen {
         });
         yy += 24;
 
-        Ui.smallCaps(ms, "Retea GPS", rx, yy, Theme.MUTED);
-        yy += 12;
-        String[][] items = {{"Cheie GPS", "gps_wrench"}, {"Segment", "gps_path"}, {"Sens unic", "gps_oneway"}, {"Dublu sens", "gps_twoway"}, {"Intersectie", "gps_intersection"}};
-        for (int i = 0; i < items.length; i++) {
-            final String it = items[i][1];
-            int bx = rx + (i % 2) * (hw + 6);
-            int by2 = yy + (i / 2) * 19;
-            button(ms, items[i][0], bx, by2, hw, 16, mx, my, true, Theme.PANEL_3, () -> MapsClient.give(it));
-        }
-        yy += 3 * 19 + 8;
         Ui.smallCaps(ms, "Harta orasului", rx, yy, Theme.MUTED);
         yy += 12;
         int tw3 = (rw - 8) / 3;
@@ -1201,12 +1129,6 @@ public final class MapScreen extends FlowScreen {
                 if (zTool == 2 && !zPts.isEmpty()) zPts.remove(zPts.size() - 1);
                 return true;
             }
-        }
-        if (button == 1 && inMap(mx, my) && view != null && !overUi((int) mx, (int) my)) {
-            double x = wx(mx);
-            double z = wz(my);
-            setGps("Waypoint", null, x, z);
-            return true;
         }
         return super.mouseClicked(mx, my, button);
     }

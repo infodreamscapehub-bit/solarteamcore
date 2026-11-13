@@ -39,7 +39,7 @@ jobs:
       difficulty: "Mediu"
       tasks:
         - "Mergi la depozitul de colete"
-        - "Primesti automat o adresa pe harta (GPS)"
+        - "Primesti automat adresa de livrare (coordonate)"
         - "Du coletul la destinatie si primesti plata"
       delivery: {item: "coletul", radius: 4, base-pay: 12, per-100m: 5, xp: 6}
     pizzachef:
@@ -50,7 +50,7 @@ jobs:
       difficulty: "Usor"
       tasks:
         - "Intra in pizzerie, la punctul de ridicare"
-        - "Urmeaza GPS-ul pana la client"
+        - "Mergi pana la adresa clientului"
         - "Livreaza cat mai repede"
       delivery: {item: "pizza", radius: 4, base-pay: 8, per-100m: 4, xp: 5}
     trucker:

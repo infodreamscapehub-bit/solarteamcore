@@ -22,7 +22,7 @@ import org.bukkit.permissions.PermissionDefault;
 import ro.solarstudios.flowcity.bridge.core.Commands;
 import ro.solarstudios.flowcity.bridge.module.JsonModule;
 
-/** eMaps (server): puncte de interes (primarie, banca, ATM...) si GPS. Harta/minimap/ruta se calculeaza pe client. */
+/** eMaps (server): puncte de interes (primarie, banca, ATM...) si zone. Harta/minimap se deseneaza pe client. */
 public final class MapsModule extends JsonModule {
     private static final List<String> TYPES = Arrays.asList("banca", "atm", "garaj", "casa", "benzinarie", "restaurant", "primarie", "spital", "politie", "dealer", "magazin", "supermarket", "mecanic", "job", "special", "biserica", "autobuz", "armurier", "casino", "camion", "aeroport", "pescuit", "colete", "electric", "fermier", "gunoi", "lemnar", "pizza", "santier", "altele");
 
@@ -60,7 +60,7 @@ public final class MapsModule extends JsonModule {
 
     @Override
     protected void onEnable() {
-        Commands.permission("flowcity.maps", "Foloseste harta si GPS", PermissionDefault.TRUE);
+        Commands.permission("flowcity.maps", "Foloseste harta", PermissionDefault.TRUE);
         Commands.permission("flowcity.maps.admin", "Administreaza punctele de interes", PermissionDefault.OP);
         try {
             plugin.db().async(c -> {
@@ -319,32 +319,6 @@ public final class MapsModule extends JsonModule {
                 plugin.channel().toast(p, "Punct sters.", false);
             }));
         });
-        on("give", (p, j) -> {
-            if (!p.hasPermission("flowcity.maps.admin")) return;
-            String item = str(j, "item", "");
-            if (!Arrays.asList("gps_wrench", "gps_path", "gps_oneway", "gps_twoway", "gps_intersection").contains(item)) return;
-            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "give " + p.getName() + " flowcitycore:" + item + (item.equals("gps_wrench") ? "" : " 16"));
-            plugin.channel().toast(p, "Primit: " + item, false);
-        });
-        on("route", (p, j) -> {
-            double tx = num(j, "tx", 0);
-            double tz = num(j, "tz", 0);
-            JsonObject o = new JsonObject();
-            double[][] r = gpsRoute(p, tx, tz);
-            o.addProperty("ok", r != null);
-            if (r != null) {
-                JsonArray arr = new JsonArray();
-                for (double[] pt : r) {
-                    JsonArray a = new JsonArray();
-                    a.add(pt[0]);
-                    a.add(pt[1]);
-                    arr.add(a);
-                }
-                o.add("list", arr);
-            }
-            send(p, "route", o);
-        });
-
         Bukkit.getPluginManager().registerEvents(new Listener() {
             @EventHandler
             public void onWorld(PlayerChangedWorldEvent e) {
@@ -364,22 +338,6 @@ public final class MapsModule extends JsonModule {
                 p.sendMessage(z == null ? "\u00a77Esti in afara zonelor marcate." : "\u00a7aZona: \u00a7f" + z[0] + " \u00a77(" + z[1] + " - " + z[2] + ")");
                 return true;
             }
-            if (a.length >= 1 && a[0].equalsIgnoreCase("gps")) {
-                if (!p.hasPermission("flowcity.maps.admin")) {
-                    p.sendMessage("\u00a7cNu ai permisiunea.");
-                    return true;
-                }
-                try {
-                    Class<?> g = Class.forName("ro.solarstudios.flowcity.content.GpsNetwork");
-                    Object n = g.getMethod("count").invoke(null);
-                    Object cn = g.getMethod("connections").invoke(null);
-                    p.sendMessage("\u00a7aReteaua GPS: \u00a7f" + n + "\u00a7a noduri, \u00a7f" + cn + "\u00a7a legaturi.");
-                    p.sendMessage("\u00a77Pune blocuri gps_* pe strazi, apoi cu Cheia GPS: click pe nod A, click pe nod B = legatura. Click in aer = sens unic/dublu. Shift+click = sterge legaturile. Sparge blocuri doar cu cheia in mana.");
-                } catch (ReflectiveOperationException | RuntimeException e) {
-                    p.sendMessage("\u00a7cModul FlowCityCore nu e vizibil pe server.");
-                }
-                return true;
-            }
             if (plugin.channel().hasMod(p)) {
                 JsonObject o = new JsonObject();
                 o.addProperty("editor", a.length >= 1 && a[0].equalsIgnoreCase("editor") && p.hasPermission("flowcity.maps.admin"));
@@ -389,71 +347,12 @@ public final class MapsModule extends JsonModule {
             return true;
         }, (s, c, l, a) -> {
             List<String> out = new ArrayList<>();
-            if (a.length == 1) out.addAll(Arrays.asList("poi", "gps", "editor", "zona"));
+            if (a.length == 1) out.addAll(Arrays.asList("poi", "editor", "zona"));
             else if (a.length == 2) out.addAll(Arrays.asList("add", "del", "list"));
             else if (a.length == 3 && a[1].equalsIgnoreCase("add")) out.addAll(TYPES);
             out.removeIf(x -> !x.startsWith(a[a.length - 1].toLowerCase(Locale.ROOT)));
             return out;
         }, "map", "emaps");
-
-        Commands.register(plugin, "gps", "flowcity.maps", (s, c, l, a) -> {
-            if (!(s instanceof Player)) return true;
-            Player p = (Player) s;
-            if (!plugin.channel().hasMod(p)) {
-                p.sendMessage("§cGPS necesita modul FlowCity pe client.");
-                return true;
-            }
-            JsonObject o = new JsonObject();
-            if (a.length == 0 || a[0].equalsIgnoreCase("stop")) {
-                o.addProperty("stop", true);
-                send(p, "gps", o);
-                p.sendMessage("§7GPS oprit.");
-                return true;
-            }
-            String q = String.join(" ", a).toLowerCase(Locale.ROOT);
-            Poi best = null;
-            double bestD = Double.MAX_VALUE;
-            for (Poi poi : pois) {
-                if (!poi.world.equals(p.getWorld().getName())) continue;
-                if (!(poi.name.toLowerCase(Locale.ROOT).contains(q) || poi.type.equals(q))) continue;
-                double d = p.getLocation().distanceSquared(new Location(p.getWorld(), poi.x, poi.y, poi.z));
-                if (d < bestD) {
-                    bestD = d;
-                    best = poi;
-                }
-            }
-            if (best == null) {
-                p.sendMessage("§cNiciun punct gasit pentru \"" + q + "\". Tipuri: " + String.join(", ", TYPES));
-                return true;
-            }
-            o.addProperty("name", best.name);
-            o.addProperty("type", best.type);
-            o.addProperty("x", best.x);
-            o.addProperty("y", best.y);
-            o.addProperty("z", best.z);
-            send(p, "gps", o);
-            p.sendMessage("§aGPS pornit spre §f" + best.name + "§a.");
-            return true;
-        }, (s, c, l, a) -> {
-            List<String> out = new ArrayList<>(TYPES);
-            out.add("stop");
-            for (Poi poi : pois) out.add(poi.name.toLowerCase(Locale.ROOT).replace(' ', '_'));
-            out.removeIf(x -> !x.startsWith(a[a.length - 1].toLowerCase(Locale.ROOT)));
-            return out;
-        });
-    }
-
-    /** Ruta pe reteaua GPS din mod (prin reflexie, ca pluginul sa nu depinda de el). null = fara ruta. */
-    private double[][] gpsRoute(Player p, double tx, double tz) {
-        if (p.getWorld().getEnvironment() != org.bukkit.World.Environment.NORMAL) return null;
-        try {
-            Object r = Class.forName("ro.solarstudios.flowcity.content.GpsNetwork")
-                .getMethod("route", double.class, double.class, double.class, double.class)
-                .invoke(null, p.getLocation().getX(), p.getLocation().getZ(), tx, tz);
-            return (double[][]) r;
-        } catch (ReflectiveOperationException | RuntimeException e) {
-            return null;
-        }
     }
 
     private void poiCommand(Player p, String[] a) {

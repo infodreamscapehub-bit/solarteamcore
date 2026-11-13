@@ -843,18 +843,6 @@ public final class HypeModule extends JsonModule implements Listener {
 
     // ------------------------------------------------------------------ livrari (curier, pizzaiolo, camionist)
 
-    private void sendMaps(Player p, JsonObject o) {
-        if (p == null || !p.isOnline() || !plugin.channel().hasMod(p)) return;
-        byte[] bytes = o.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        plugin.channel().sendModule(p, "maps", "gps", new ro.solarstudios.flowcity.bridge.net.Wire.Out().u8(0).byteArray(bytes));
-    }
-
-    private void gpsStop(Player p) {
-        JsonObject o = new JsonObject();
-        o.addProperty("stop", true);
-        sendMaps(p, o);
-    }
-
     private static boolean near(Player p, Point pt, double radius) {
         if (!p.getWorld().getName().equals(pt.world)) return false;
         double dx = p.getLocation().getX() - pt.x;
@@ -871,7 +859,6 @@ public final class HypeModule extends JsonModule implements Listener {
             Trip t = trips.get(p.getUniqueId());
             if (t != null && (jd == null || jd != t.job)) {
                 trips.remove(p.getUniqueId());
-                gpsStop(p);
                 t = null;
             }
             if (jd == null || jd.delivery == null || creative(p)) continue;
@@ -883,18 +870,11 @@ public final class HypeModule extends JsonModule implements Listener {
                     if (to == null) break;
                     trips.put(p.getUniqueId(), new Trip(jd, from, to));
                     plugin.notifications().send(p, ro.solarstudios.flowcity.bridge.notify.NotifyModule.Type.JOB,
-                        "Livrare noua", "Du " + dv.item + " la " + to.name + ".");
-                    JsonObject o = new JsonObject();
-                    o.addProperty("name", to.name);
-                    o.addProperty("type", "job");
-                    o.addProperty("x", to.x);
-                    o.addProperty("z", to.z);
-                    sendMaps(p, o);
+                        "Livrare noua", "Du " + dv.item + " la " + to.name + " (X " + (int) to.x + ", Z " + (int) to.z + ").");
                     break;
                 }
             } else if (near(p, t.to, dv.radius)) {
                 trips.remove(p.getUniqueId());
-                gpsStop(p);
                 double dist = t.from.dist(t.to);
                 long minMs = (long) (dist / 30.0 * 1000);   // sub ~108 km/h: nu platim teleportarile
                 if (System.currentTimeMillis() - t.startedAt < minMs) {
@@ -1014,7 +994,7 @@ public final class HypeModule extends JsonModule implements Listener {
             }
             ModConfig.save(cfg, plugin, "hype");
             loadJobs();
-            p.sendMessage("§aLocatia jobului " + jd.name + " a fost actualizata (butonul GPS din ecranul de joburi).");
+            p.sendMessage("§aLocatia jobului " + jd.name + " a fost actualizata.");
             return;
         }
         s.sendMessage("§7/hype atm <set|remove|list> | /hype jobloc <job> [nume|clear] | /hype reload");

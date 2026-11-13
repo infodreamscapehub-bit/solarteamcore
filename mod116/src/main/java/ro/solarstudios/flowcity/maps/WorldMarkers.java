@@ -35,12 +35,6 @@ public final class WorldMarkers {
         for (MapsState.Wp wp : MapsState.wps) {
             marker(ms, p, wp.name, wp.type, wp.color, wp.x, wp.y + 1.2, wp.z, 0);
         }
-        if (MapsState.hasTarget) {
-            double ty = mc.player.getY() + 1.2;
-            int hh = MapCache.height((int) Math.floor(MapsState.tx), (int) Math.floor(MapsState.tz));
-            if (hh > 0) ty = hh + 1.5;
-            marker(ms, p, MapsState.targetName, MapsState.targetType, MapsClient.ROUTE_COLOR, MapsState.tx, ty, MapsState.tz, 1);
-        }
     }
 
     private static final class Proj {
@@ -65,7 +59,7 @@ public final class WorldMarkers {
         }
     }
 
-    /** kind 0 = waypoint, 1 = destinatie GPS (ramane lipita de marginea ecranului cand e in spate). */
+    /** kind 0 = waypoint (1 = marcaj lipit de marginea ecranului cand e in spate). */
     private static void marker(GuiGraphics ms, Proj p, String name, String type, int color, double x, double y, double z, int kind) {
         double dx = x - p.c.x, dy = y - p.c.y, dz = z - p.c.z;
         double dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
