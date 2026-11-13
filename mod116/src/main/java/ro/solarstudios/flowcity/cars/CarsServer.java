@@ -481,6 +481,10 @@ public final class CarsServer {
 
     /** Lista garajelor (pentru markere / harta) + factiunile jucatorului. */
     static void syncTo(ServerPlayerEntity p) {
+        syncTo(p, true);
+    }
+
+    static void syncTo(ServerPlayerEntity p, boolean force) {
         JsonObject o = new JsonObject();
         JsonArray arr = new JsonArray();
         for (GarageData.Garage g : GarageData.get(p.server).garages()) {
@@ -519,11 +523,17 @@ public final class CarsServer {
             sts.add(j);
         }
         o.add("stations", sts);
-        CarsNet.reply(p, "garages", o.toString());
+        String json = o.toString();
+        // nu retrimitem aceeasi lista (periodic, la 30 s) daca nu s-a schimbat nimic pentru acest jucator
+        if (!force && json.equals(LAST_SYNC.get(p.getUUID()))) return;
+        LAST_SYNC.put(p.getUUID(), json);
+        CarsNet.reply(p, "garages", json);
     }
 
+    private static final java.util.Map<UUID, String> LAST_SYNC = new java.util.HashMap<>();
+
     static void syncAll(MinecraftServer server) {
-        for (ServerPlayerEntity p : server.getPlayerList().getPlayers()) syncTo(p);
+        for (ServerPlayerEntity p : server.getPlayerList().getPlayers()) syncTo(p, true);
     }
 
     // ------------------------------------------------------------------ evenimente + comenzi
@@ -606,7 +616,10 @@ public final class CarsServer {
                     }
                 }
             }
-            if (ticks % 600 == 0) syncAll(server);
+            if (ticks % 600 == 0) {
+                for (ServerPlayerEntity p : server.getPlayerList().getPlayers()) syncTo(p, false);
+                LAST_SYNC.keySet().removeIf(id -> server.getPlayerList().getPlayer(id) == null);
+            }
         }
 
         @SubscribeEvent

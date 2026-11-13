@@ -185,13 +185,41 @@ public final class Gfx {
 
     // ------------------------------------------------------------------ text (Inter)
 
+    /** Componenta de text + latimea ei, tinute minte: acelasi text se deseneaza in fiecare cadru si nu trebuie refacut. */
+    private static final class Cached {
+        final IFormattableTextComponent c;
+        float w = -1f;
+
+        Cached(IFormattableTextComponent c) {
+            this.c = c;
+        }
+    }
+
+    private static final java.util.HashMap<String, Cached> CACHE = new java.util.HashMap<>();
+
+    private static Cached cached(String s, boolean xl) {
+        String key = (xl ? "X" : "N") + s;
+        Cached c = CACHE.get(key);
+        if (c == null) {
+            if (CACHE.size() > 1500) CACHE.clear();
+            c = new Cached(new StringTextComponent(s).setStyle(Style.EMPTY.withFont(xl ? FONT_XL : FONT)));
+            CACHE.put(key, c);
+        }
+        return c;
+    }
+
     private static IFormattableTextComponent comp(String s, boolean xl) {
-        return new StringTextComponent(s).setStyle(Style.EMPTY.withFont(xl ? FONT_XL : FONT));
+        return cached(s, xl).c;
+    }
+
+    private static float rawWidth(String s, boolean xl) {
+        Cached c = cached(s, xl);
+        if (c.w < 0f) c.w = Minecraft.getInstance().font.width(c.c);
+        return c.w;
     }
 
     public static float width(String s, float size, boolean xl) {
-        FontRenderer f = Minecraft.getInstance().font;
-        return f.width(comp(s, xl)) * size / (xl ? BASE_XL : BASE);
+        return rawWidth(s, xl) * size / (xl ? BASE_XL : BASE);
     }
 
     /**
@@ -214,7 +242,7 @@ public final class Gfx {
             for (int i = 0; i < s.length(); i++) {
                 String ch = s.substring(i, i + 1);
                 f.draw(g.pose(), comp(ch, xl), cx, 0, color);
-                cx += f.width(comp(ch, xl)) + spacing / k;
+                cx += rawWidth(ch, xl) + spacing / k;
             }
         }
         g.pose().popPose();

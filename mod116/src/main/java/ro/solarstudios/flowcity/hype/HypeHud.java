@@ -25,8 +25,17 @@ public final class HypeHud {
     private static final ResourceLocation LOGO = new ResourceLocation("flowcitycore", "textures/gui/logo.png");
     private static final int BLUE = 0xFF2F8CFF;      // albastru FlowCity (ca pe logo)
     private static final int ICE = 0xFFC8EBFF;       // sclipirea de gheata
+    private long lastHour = -1;
+    private long lastMin = -1;
+    private String hhStr = "00";
+    private String mmStr = "00";
     private static final SimpleDateFormat DATE = new SimpleDateFormat("dd.MM.yyyy");
     private static final String TITLE = "FLOW CITY";
+    private static final String[] TITLE_CHARS = new String[TITLE.length()];
+
+    static {
+        for (int i = 0; i < TITLE.length(); i++) TITLE_CHARS[i] = TITLE.substring(i, i + 1);
+    }
     /** Latimea HUD-ului in unitatile machetei; se scaleaza cu K la ecran. */
     private static final float MW = 340f;
     private static final float K = W / MW;
@@ -150,8 +159,14 @@ public final class HypeHud {
         Gfx.rrect(g, 4.5f, 8, 5, 5, 1.5f, amber);
         Gfx.line(g, 7, 15, 7, 19.5f, 1.4f, Gfx.fade(0xFF3B2A06, a));
         // ora: "06" ":" "00", doua puncte care pulseaza
-        String hh = String.format("%02d", hour);
-        String mm = String.format("%02d", min);
+        if (hour != lastHour || min != lastMin) {
+            lastHour = hour;
+            lastMin = min;
+            hhStr = (hour < 10 ? "0" : "") + hour;
+            mmStr = (min < 10 ? "0" : "") + min;
+        }
+        String hh = hhStr;
+        String mm = mmStr;
         float size = 34;
         float x0 = 21;
         Gfx.textS(g, hh, x0, 33, size, Gfx.fade(0xFFF4F1EA, a), 0, true, -0.5f);
@@ -175,7 +190,7 @@ public final class HypeHud {
         Gfx.scrim(g, cx, 20, tw * 0.62f, 13, Gfx.fade(Theme.alpha(base, 0x2A), a));
         double sweep = (t * 0.45) % 1.6 - 0.3; // pozitia undei 0..1 peste titlu, apoi pauza
         for (int i = 0; i < TITLE.length(); i++) {
-            String ch = TITLE.substring(i, i + 1);
+            String ch = TITLE_CHARS[i];
             float cw = Gfx.width(ch, size, false);
             float u = (x - (cx - tw / 2) + cw / 2) / tw;
             float k = (float) Math.max(0, 1 - Math.abs(u - sweep) / 0.14);

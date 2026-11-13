@@ -176,8 +176,16 @@ public final class GaragesClient {
         return 0xE9A23B;
     }
 
+    private static Object dimLevel;
+    private static String dimName = "";
+
+    /** Numele dimensiunii: se calculeaza o singura data pe lume, nu in fiecare tick/cadru. */
     private static String dim(Minecraft mc) {
-        return mc.level.dimension().location().toString();
+        if (mc.level != dimLevel) {
+            dimLevel = mc.level;
+            dimName = mc.level.dimension().location().toString();
+        }
+        return dimName;
     }
 
     /** Ce se poate face acum (cel mai apropiat lucru): garaj, parcare sau control de politie. */
@@ -192,8 +200,8 @@ public final class GaragesClient {
         for (G g : garages) {
             if (!g.dim.equals(d) || !g.access) continue;
             if (inVehicle && !"pound".equals(g.type)) {
-                Vector3d z = g.store ? new Vector3d(g.sx, g.sy, g.sz) : new Vector3d(g.mx, g.my, g.mz);
-                double dist = root.position().distanceTo(z);
+                Vector3d rp = root.position();
+                double dist = g.store ? rp.distanceTo(new Vector3d(g.sx, g.sy, g.sz)) : rp.distanceTo(new Vector3d(g.mx, g.my, g.mz));
                 if (dist <= (g.store ? g.r : 6) && dist < best) {
                     best = dist;
                     final int id = g.id;
