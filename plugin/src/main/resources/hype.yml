@@ -254,7 +254,11 @@ clearlag:
 # entity = id-ul vehiculului din mod; engine / wheels = itemele cu care vine masina noua ("-" = fara).
 # Poti adauga orice vehicul (si din alte addon-uri), doar sa existe pe server.
 dealership:
-  radius: 8
+  # Dealerul se deschide de la un NPC (ZNPCs / Citizens). In ZNPCs: /znpcs action add <id> CONSOLE dealer open %player%
+  # (in Citizens: /npc command add dealer open <p> -c). Cumparatul merge cat esti la cel mult npc-radius blocuri de NPC.
+  npc-radius: 12
+  allow-block: false        # true = merge si blocul dealer_auto din mod (cum era inainte)
+  radius: 8                 # raza pentru blocul dealer_auto (doar cu allow-block: true)
   vehicles:
     moped:
       name: "Scuter"

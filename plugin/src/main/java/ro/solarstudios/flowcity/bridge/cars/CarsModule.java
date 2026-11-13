@@ -11,6 +11,7 @@ import org.bukkit.Location;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import ro.solarstudios.flowcity.bridge.core.Commands;
 import ro.solarstudios.flowcity.bridge.core.ModConfig;
 import ro.solarstudios.flowcity.bridge.mdt.MdtModule;
 import ro.solarstudios.flowcity.bridge.module.JsonModule;
@@ -26,6 +27,19 @@ public final class CarsModule extends JsonModule {
     private YamlConfiguration cfg;
     private final Map<UUID, Long> lastBuy = new HashMap<>();
 
+    /** Sesiune de dealer: deschisa de un NPC (ZNPCs/Citizens) cu comanda "dealer open <jucator>". Cumparatul merge doar langa NPC. */
+    private static final class Session {
+        final Location loc;
+        final long at;
+
+        Session(Location loc, long at) {
+            this.loc = loc;
+            this.at = at;
+        }
+    }
+
+    private final Map<UUID, Session> sessions = new HashMap<>();
+
     @Override
     public String id() {
         return "cars";
@@ -36,6 +50,29 @@ public final class CarsModule extends JsonModule {
         cfg = ModConfig.load(plugin, "hype");
         on("catalog", (p, j) -> send(p, "catalog", catalog(p)));
         on("buy", this::buy);
+        // blocul de dealer din mod: mergem la plugin, care decide (implicit dealerul merge doar prin NPC)
+        on("dealer_block", (p, j) -> {
+            if (cfg.getBoolean("dealership.allow-block", false) && blockNear(p)) openDealer(p);
+            else plugin.channel().toast(p, "Dealerul functioneaza prin vanzator: vorbeste cu NPC-ul.", true);
+        });
+        // actiunea NPC-ului (ZNPCs: CONSOLE "dealer open %player%"; Citizens: /npc command add dealer open <p> -c)
+        Commands.register(plugin, "dealer", "flowcity.dealer.admin", (s, c, l, a) -> {
+            if (a.length >= 2 && "open".equalsIgnoreCase(a[0])) {
+                Player t = Bukkit.getPlayerExact(a[1]);
+                if (t == null) {
+                    s.sendMessage("\u00a7cJucator offline.");
+                    return true;
+                }
+                openDealer(t);
+                return true;
+            }
+            if (a.length == 0 && s instanceof Player) {
+                openDealer((Player) s);
+                return true;
+            }
+            s.sendMessage("\u00a77Folosire: /dealer open <jucator>  (actiune NPC in ZNPCs: CONSOLE dealer open %player%)");
+            return true;
+        }, null, "dealership");
         on("pound_info", (p, j) -> {
             JsonObject o = new JsonObject();
             o.addProperty("fee", poundFee());
@@ -210,7 +247,25 @@ public final class CarsModule extends JsonModule {
         return o;
     }
 
+    private void openDealer(Player p) {
+        if (!plugin.channel().hasMod(p)) {
+            p.sendMessage("\u00a7cDealerul necesita modul FlowCity pe client.");
+            return;
+        }
+        sessions.put(p.getUniqueId(), new Session(p.getLocation().clone(), System.currentTimeMillis()));
+        send(p, "dealer_open", new JsonObject());
+    }
+
+    /** Are voie sa cumpere: a deschis dealerul de la un NPC si e inca langa el (sau, daca e permis, langa blocul de dealer). */
     private boolean nearDealer(Player p) {
+        Session s = sessions.get(p.getUniqueId());
+        double r = Math.max(3, cfg.getDouble("dealership.npc-radius", 12));
+        if (s != null && System.currentTimeMillis() - s.at < 15 * 60_000L && s.loc.getWorld() != null
+            && s.loc.getWorld().equals(p.getWorld()) && s.loc.distanceSquared(p.getLocation()) <= r * r) return true;
+        return cfg.getBoolean("dealership.allow-block", false) && blockNear(p);
+    }
+
+    private boolean blockNear(Player p) {
         int r = Math.max(2, Math.min(12, cfg.getInt("dealership.radius", 8)));
         Location l = p.getLocation();
         for (int x = -r; x <= r; x++) {
@@ -261,7 +316,7 @@ public final class CarsModule extends JsonModule {
             return;
         }
         if (!nearDealer(p)) {
-            reply(p, false, "Trebuie sa fii la dealer.");
+            reply(p, false, "Ai plecat de la dealer. Vorbeste din nou cu vanzatorul.");
             return;
         }
         double price = v.getDouble("price", 0);

@@ -42,7 +42,7 @@ public class CarsBlock extends HorizontalBlock {
     @Override
     public ActionResultType use(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockRayTraceResult hit) {
         if (world.isClientSide) {
-            DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> ro.solarstudios.flowcity.cars.client.DealerScreen.open(pos));
+            DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> ro.solarstudios.flowcity.cars.client.CarsClient.request("dealer_block", new com.google.gson.JsonObject()));
         }
         return ActionResultType.sidedSuccess(world.isClientSide);
     }

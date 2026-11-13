@@ -44,6 +44,10 @@ public final class CarsClient extends JsonClientModule {
             Minecraft mc = Minecraft.getInstance();
             if (mc.screen instanceof FuelScreen) ((FuelScreen) mc.screen).result(bool(d, "ok", false), str(d, "msg", ""), num(d, "liters", 0));
         });
+        on("dealer_open", d -> {
+            Minecraft mc = Minecraft.getInstance();
+            if (!(mc.screen instanceof DealerScreen)) DealerScreen.open(null);
+        });
         on("buy_result", d -> {
             money = num(d, "money", money);
             Minecraft mc = Minecraft.getInstance();
