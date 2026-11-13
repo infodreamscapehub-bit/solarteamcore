@@ -20,6 +20,7 @@ atm:
   daily-transfer-limit: 0
   command-anywhere: true    # /atm functioneaza oriunde; false = doar langa un ATM fizic
   max-distance: 6           # distanta maxima fata de ATM cand command-anywhere=false
+  require-card: true        # ATM-ul cere un card bancar (item cardbancar1-5); la click pe ATM il tii in mana. Permisiune de ocolire: flowcity.hype.atm.nocard
 
 jobs:
   change-cooldown-minutes: 60

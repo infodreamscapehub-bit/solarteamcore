@@ -72,6 +72,39 @@ public final class AtmService {
         return atmBlocks.size();
     }
 
+    public static final String NO_CARD = "Introdu cardul bancar! Ai nevoie de un card in inventar.";
+
+    private static boolean isCard(org.bukkit.inventory.ItemStack it) {
+        if (it == null || it.getType() == org.bukkit.Material.AIR) return false;
+        String n = it.getType().name().toLowerCase(java.util.Locale.ROOT);
+        String key = "";
+        try {
+            key = it.getType().getKey().toString().toLowerCase(java.util.Locale.ROOT);
+        } catch (RuntimeException | LinkageError ignored) {
+            // materialele modate pot lipsi din registru
+        }
+        return key.startsWith("flowcitycore:cardbancar") || n.contains("flowcitycore") && n.contains("cardbancar");
+    }
+
+    /** Cardul bancar e obligatoriu (atm.require-card, implicit da); staff-ul cu flowcity.hype.atm.nocard il ocoleste. */
+    public boolean cardRequired(Player p) {
+        return cfg.getBoolean("atm.require-card", true) && !p.hasPermission("flowcity.hype.atm.nocard");
+    }
+
+    /** Card in orice loc din inventar (pentru operatiile din ATM deja deschis si pentru ATM-ul din telefon). */
+    public boolean cardOk(Player p) {
+        if (!cardRequired(p)) return true;
+        if (isCard(p.getInventory().getItemInOffHand())) return true;
+        for (org.bukkit.inventory.ItemStack it : p.getInventory().getContents()) if (isCard(it)) return true;
+        return false;
+    }
+
+    /** Card tinut in mana (cand dai click pe un ATM fizic: "introduci" cardul). */
+    public boolean cardInHand(Player p) {
+        if (!cardRequired(p)) return true;
+        return isCard(p.getInventory().getItemInMainHand()) || isCard(p.getInventory().getItemInOffHand());
+    }
+
     /** Poate jucatorul sa foloseasca ATM-ul acum (oriunde sau langa un ATM fizic)? */
     public boolean canUse(Player p) {
         if (cfg.getBoolean("atm.command-anywhere", true)) return true;
@@ -149,6 +182,7 @@ public final class AtmService {
 
     public Result deposit(Player p, PlayerData d, double raw) {
         if (!canUse(p)) return new Result(false, "Trebuie sa fii langa un ATM.");
+        if (!cardOk(p)) return new Result(false, NO_CARD);
         double a = HypeMath.cleanAmount(raw, max());
         if (a < 0 || a < min()) return new Result(false, "Suma invalida (minim " + HypeMath.round2(min()) + ").");
         UUID u = p.getUniqueId();
@@ -165,6 +199,7 @@ public final class AtmService {
 
     public Result withdraw(Player p, PlayerData d, double raw) {
         if (!canUse(p)) return new Result(false, "Trebuie sa fii langa un ATM.");
+        if (!cardOk(p)) return new Result(false, NO_CARD);
         double a = HypeMath.cleanAmount(raw, max());
         if (a < 0 || a < min()) return new Result(false, "Suma invalida (minim " + HypeMath.round2(min()) + ").");
         rollDay(d);
@@ -187,6 +222,7 @@ public final class AtmService {
 
     public Result transfer(Player p, PlayerData d, String toName, double raw, PlayerData receiverData) {
         if (!canUse(p)) return new Result(false, "Trebuie sa fii langa un ATM.");
+        if (!cardOk(p)) return new Result(false, NO_CARD);
         double a = HypeMath.cleanAmount(raw, max());
         if (a < 0 || a < min()) return new Result(false, "Suma invalida (minim " + HypeMath.round2(min()) + ").");
         if (toName == null || toName.trim().isEmpty() || toName.length() > 16) return new Result(false, "Nume de jucator invalid.");

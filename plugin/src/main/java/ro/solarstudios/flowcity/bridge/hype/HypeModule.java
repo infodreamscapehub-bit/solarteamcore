@@ -146,7 +146,13 @@ public final class HypeModule extends JsonModule implements Listener {
         loadJobs();
 
         on("state_req", (p, j) -> pushState(p, true));
-        on("atm_req", (p, j) -> sendAtm(p, null, true));
+        on("atm_req", (p, j) -> {
+            if (!atm.cardOk(p)) {
+                noCard(p);
+                return;
+            }
+            sendAtm(p, null, true);
+        });
         on("atm_deposit", (p, j) -> atmOp(p, "deposit", j));
         on("atm_withdraw", (p, j) -> atmOp(p, "withdraw", j));
         on("atm_transfer", (p, j) -> atmOp(p, "transfer", j));
@@ -387,6 +393,17 @@ public final class HypeModule extends JsonModule implements Listener {
         }
     }
 
+    /** Fara card: mesaj in chat + notificare pe client + sunet. */
+    private void noCard(Player p) {
+        p.sendMessage("\u00a7c" + AtmService.NO_CARD);
+        if (plugin.channel().hasMod(p)) plugin.channel().toast(p, AtmService.NO_CARD, true);
+        try {
+            p.playSound(p.getLocation(), org.bukkit.Sound.ENTITY_VILLAGER_NO, 0.8f, 1f);
+        } catch (RuntimeException | LinkageError ignored) {
+            // fara sunet
+        }
+    }
+
     private boolean throttled(Player p) {
         long now = System.currentTimeMillis();
         Long last = lastAction.get(p.getUniqueId());
@@ -438,6 +455,10 @@ public final class HypeModule extends JsonModule implements Listener {
                     p.sendMessage("§cTrebuie sa fii langa un ATM.");
                     return;
                 }
+                if (!atm.cardOk(p)) {
+                    noCard(p);
+                    return;
+                }
                 sendAtm(p, null, true);
             } else {
                 p.sendMessage("§bCash: §f$" + Fmt.money(plugin.money().balance(p.getUniqueId()))
@@ -476,6 +497,10 @@ public final class HypeModule extends JsonModule implements Listener {
             e.setCancelled(true);
             if (!p.hasPermission("flowcity.hype.atm")) {
                 p.sendMessage("§cNu ai acces la ATM.");
+                return;
+            }
+            if (!atm.cardInHand(p)) {
+                noCard(p);
                 return;
             }
             atmCommand(p, new String[0]);
