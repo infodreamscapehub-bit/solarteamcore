@@ -38,7 +38,7 @@ public final class TuningScreen extends FlowScreen {
     private static final String[] TIERS = {"wood", "stone", "iron", "gold", "diamond"};
     private static final String[] TIER_NAMES = {"Lemn", "Piatră", "Fier", "Aur", "Diamant"};
     private static final Pattern ENGINE = Pattern.compile("^vehicle:(wood_|stone_|iron_|gold_|diamond_)?(small|large|electric)_engine$");
-    private static final int W = 500;
+    private static final int W = 520;
     private static final int H = 290;
     private static final int GOLD = 0xFFF6C15A;
     private static final int GOLD2 = 0xFFD98E2B;
@@ -276,6 +276,28 @@ public final class TuningScreen extends FlowScreen {
         return String.format("#%06X", c & 0xFFFFFF);
     }
 
+    // ------------------------------------------------------------------ date pentru statistici (folosit si de dealer)
+
+    /** Puterea motorului 0..5 (0 = fara motor). */
+    static int enginePower(String e) {
+        if (e == null || "-".equals(e) || e.isEmpty()) return 0;
+        int t = tierOf(e);
+        if (t == -2) return 3;
+        return t < 0 ? 1 : Math.max(1, Math.min(5, tierPower(t)));
+    }
+
+    /** {aderenta, viteza, teren} 0..5 pentru roata data (0 = fara roti). */
+    static int[] wheelStats(String id) {
+        if (id == null || "-".equals(id) || id.isEmpty()) return new int[] {0, 0, 0};
+        for (JsonElement e : wheelList()) {
+            if (e.isJsonObject() && id.equals(JsonClientModule.str(e.getAsJsonObject(), "id", ""))) {
+                JsonObject o = e.getAsJsonObject();
+                return new int[] {JsonClientModule.integer(o, "grip", 3), JsonClientModule.integer(o, "speed", 3), JsonClientModule.integer(o, "terrain", 3)};
+            }
+        }
+        return new int[] {3, 3, 3};
+    }
+
     // ------------------------------------------------------------------ desen
 
     @Override
@@ -285,122 +307,122 @@ public final class TuningScreen extends FlowScreen {
         float dt = Math.min(0.1f, (ns - lastNs) / 1e9f);
         lastNs = ns;
         float open = easeOut((now - born) / 300f);
-        scale = Math.min(1f, Math.min((width - 12f) / W, (height - 12f) / H)) * (0.94f + 0.06f * open);
+        scale = Math.min(1f, Math.min((width - 8f) / W, (height - 8f) / H));
         offX = width / 2f - W / 2f * scale;
         offY = height / 2f - H / 2f * scale;
         float lmx = (mx - offX) / scale;
         float lmy = (my - offY) / scale;
-
-        Gfx.rrect(ms, 0, 0, width, height, 0, Gfx.fade(0xC0050608, open));
         ms.pose().pushPose();
         ms.pose().translate(offX, offY, 0);
         ms.pose().scale(scale, scale, scale);
+        Sk.background(ms, -offX / scale, -offY / scale, (width - offX) / scale, (height - offY) / scale, open);
+        Gfx.alpha = open;
+        try {
+            content(ms, lmx, lmy, now, dt);
+        } finally {
+            Gfx.alpha = 1f;
+            ms.pose().popPose();
+        }
+    }
 
-        Gfx.rrect(ms, -6, 2, W + 12, H + 10, 22, 0x55000000);
-        Gfx.rrect(ms, 0, 0, W, H, 18, 0xFF1D2026, 0xFF121418);
-        Gfx.rrect(ms, 0.5f, 0.5f, W - 1, 1, 0, 0x14FFFFFF);
-        Gfx.rrect(ms, 10, 10, 226, H - 20, 14, 0xFF101216);
+    private static final float RX = 230f;
+    private static final float RR = 504f;
+    private static final float OY = 162f;
 
-        // antet
-        Gfx.text(ms, "TUNING", 24, 36, 12, WHITE, 0, true, 0.8f);
-        String sub = "dealer".equals(mode) ? "PERSONALIZEAZĂ ÎNAINTE SĂ CUMPERI" : "ATELIER AUTO";
-        Gfx.text(ms, sub, 24, 49, 6.5f, GOLD, 0, false, 1f);
-
-        // inchidere
-        boolean hx = inside(lmx, lmy, W - 30, 12, 18, 18);
-        if (hx) Gfx.disc(ms, W - 21, 21, 9, 0x22FFFFFF);
-        int xc = hx ? 0xFFE2453F : 0xFF8E8C86;
-        Gfx.line(ms, W - 25, 17, W - 17, 25, 1.6f, xc);
-        Gfx.line(ms, W - 17, 17, W - 25, 25, 1.6f, xc);
-        hitL(W - 30, 12, 18, 18, this::onClose);
+    private void content(GuiGraphics ms, float lmx, float lmy, long now, float dt) {
+        Gfx.text(ms, "TUNING", 16, 38, 17, Sk.WHITE, 0, true, 0f);
+        Gfx.text(ms, "dealer".equals(mode) ? "ÎNAINTE SĂ CUMPERI" : "ATELIER AUTO", 17, 50, 6.4f, Sk.MUTED, 0, false, 1.2f);
+        Sk.close(ms, W - 34, 14, lmx, lmy);
+        hitL(W - 34, 14, 20, 20, this::onClose);
 
         boolean noCars = !"dealer".equals(mode) && (cars.size() == 0 || carId < 0);
         if (noCars) {
-            String t1 = loaded ? "Nu ai nicio mașină parcată în garaj." : "Se încarcă...";
-            Gfx.text(ms, t1, W / 2f, H / 2f - 4, 10, WHITE, 1);
-            if (loaded) Gfx.text(ms, "Parchează-ți mașina la un garaj și revino.", W / 2f, H / 2f + 12, 7.8f, MUTED, 1);
-            ms.pose().popPose();
+            Gfx.text(ms, loaded ? "Nu ai nicio mașină parcată în garaj." : "Se încarcă...", W / 2f, H / 2f - 4, 10, Sk.WHITE, 1);
+            if (loaded) Gfx.text(ms, "Parchează-ți mașina la un garaj și revino.", W / 2f, H / 2f + 12, 7.8f, Sk.MUTED, 1);
             return;
         }
         if (CarsClient.tuning.size() == 0) {
-            Gfx.text(ms, "Se încarcă prețurile...", W / 2f, H / 2f, 9, MUTED, 1);
-            ms.pose().popPose();
+            Gfx.text(ms, "Se încarcă prețurile...", W / 2f, H / 2f, 9, Sk.MUTED, 1);
             return;
         }
 
-        // ---- stanga: previzualizare
-        float px0 = 18f;
-        float pw0 = 210f;
-        Gfx.rrect(ms, px0, 60, pw0, 118, 14, 0xFF0E1013, 0xFF15181D);
-        Gfx.scrim(ms, px0 + pw0 / 2f, 112, 90, 46, Gfx.fade(0xFF000000 | color, 0.26f));
-        Gfx.scrim(ms, px0 + pw0 / 2f, 150, 78, 9, 0x55F6C15A);
-        renderPreview(ms, px0 + pw0 / 2f, 148f, pw0, 118f, dt);
-        hitL(px0, 60, pw0, 118, () -> dragging = true);
-        Gfx.text(ms, "trage pentru a roti", px0 + pw0 - 8, 172, 5.8f, 0xFF4A4E58, 2);
-
-        // numele masinii (+ sageti daca sunt mai multe masini)
-        float ny = 196f;
-        boolean multi = !"dealer".equals(mode) && cars.size() > 1;
-        float nx = multi ? 36f : 24f;
-        Gfx.text(ms, clipG(carName, 11, true, multi ? 160 : 196), nx, ny, 11, WHITE, 0, true, 0.2f);
-        if (!carPlate.isEmpty()) Gfx.text(ms, carPlate, nx, ny + 11, 7, GOLD, 0, false, 0.8f);
-        if (multi) {
-            arrow(ms, 22, ny - 4, true, lmx, lmy);
-            arrow(ms, 214, ny - 4, false, lmx, lmy);
-        }
-
-        // rezumat modificari
-        float sy = 220f;
-        sy = line(ms, "Vopsea", hex(color), paintCost(), color != fromColor, sy);
-        sy = line(ms, "Motor", engineLabel(engine), engineCost(), !engine.equals(fromEngine), sy);
-        sy = line(ms, "Roți", wheelLabel(wheels), wheelsCost(), !wheels.equals(fromWheels), sy);
-        Gfx.rrect(ms, 24, 262, 196, 0.8f, 0, 0x22FFFFFF);
-        double tot = total();
-        Gfx.text(ms, "TOTAL", 24, 277, 7, FAINT, 0, false, 1f);
-        Gfx.text(ms, tot <= 0 ? "gratis" : price(tot) + " lei", 220, 277, 11, tot <= 0 ? MUTED : (afford(tot) ? GOLD : 0xFFF08A82), 2, true, 0.2f);
-
-        // ---- dreapta: taburi
-        float rx = 248f;
-        float rw = W - rx - 16f;
-        String[] tabs = {"Vopsea", "Motor", "Roți"};
-        float tx = rx;
-        for (int i = 0; i < tabs.length; i++) {
-            float w = Gfx.width(tabs[i], 8f, false) + 24;
+        // ---- meniu (stanga)
+        String[] tabs = {"VOPSEA", "MOTOR", "ROȚI"};
+        String[] vals = {hex(color), engineLabel(engine), wheelLabel(wheels)};
+        for (int i = 0; i < 3; i++) {
+            float y = 66f + i * 32f;
             boolean s = tab == i;
-            boolean h = inside(lmx, lmy, tx, 14, w, 17);
-            if (s) Gfx.rrect(ms, tx, 14, w, 17, 8.5f, GOLD, GOLD2);
-            else Gfx.rrect(ms, tx, 14, w, 17, 8.5f, h ? 0xFF2A2E36 : 0xFF1C1F25);
-            Gfx.text(ms, tabs[i], tx + w / 2f, 25.6f, 8f, s ? 0xFF2A1A06 : (h ? WHITE : 0xFFA19F98), 1);
+            boolean h = Sk.in(lmx, lmy, 12, y, 196, 28);
+            Sk.slant(ms, s ? 18 : 12, y, 196, 28, 7f, s ? Sk.ACC : (h ? Sk.ROW_HOT : Sk.ROW));
+            Gfx.text(ms, tabs[i], s ? 32 : 26, y + 18, 9.4f, s ? 0xFF1A0B05 : Sk.WHITE, 0, true, 0.4f);
+            if (i == 0) Gfx.rrect(ms, 190, y + 8, 12, 12, 0, 0xFF000000 | color);
+            else Gfx.text(ms, clipG(vals[i], 6.6f, false, 70), 202, y + 17, 6.6f, s ? 0xFF5E2610 : Sk.MUTED, 2);
             final int ti = i;
-            hitL(tx, 14, w, 17, () -> tab = ti);
-            tx += w + 6;
+            hitL(12, y, 196, 28, () -> tab = ti);
         }
-        Gfx.rrect(ms, rx, 40, rw, 206, 14, 0xFF171A1F, 0xFF121418);
-        if (tab == 0) paintTab(ms, rx, 40, rw, lmx, lmy, now);
-        else if (tab == 1) engineTab(ms, rx, 40, rw, lmx, lmy);
-        else wheelsTab(ms, rx, 40, rw, lmx, lmy);
+
+        // ---- statistici ale configuratiei alese
+        int pw = enginePower(engine);
+        int[] ws = wheelStats(wheels);
+        stat(ms, "VITEZĂ MAX", 16, 172, Math.min(10, Math.round(pw * 1.2f + ws[1] * 0.8f)));
+        stat(ms, "ACCELERAȚIE", 16, 187, Math.min(10, pw * 2));
+        stat(ms, "ADERENȚĂ", 16, 202, Math.min(10, ws[0] * 2));
+
+        // ---- rezumat costuri
+        float sy = 228f;
+        sy = line(ms, "Vopsea", color != fromColor, paintCost(), sy);
+        sy = line(ms, "Motor", !engine.equals(fromEngine), engineCost(), sy);
+        sy = line(ms, "Roți", !wheels.equals(fromWheels), wheelsCost(), sy);
 
         // ---- buton
+        double tot = total();
         String label;
         boolean enabled;
         if ("dealer".equals(mode)) {
             label = "CONFIRMĂ";
             enabled = true;
         } else if (waiting) {
-            label = "Se aplică...";
+            label = "SE APLICĂ";
             enabled = false;
         } else if (!changed()) {
             label = "NICIO SCHIMBARE";
             enabled = false;
         } else if (!afford(tot)) {
-            label = "NU AI DESTUI BANI";
+            label = "FĂRĂ BANI";
             enabled = false;
         } else {
-            label = tot <= 0 ? "APLICĂ" : "APLICĂ · " + price(tot) + " LEI";
+            label = tot <= 0 ? "APLICĂ" : "APLICĂ  " + price(tot);
             enabled = true;
         }
-        gold(ms, label, rx, 254, rw, 28, enabled, lmx, lmy, dt, this::apply);
-        ms.pose().popPose();
+        boolean hb = enabled && Sk.in(lmx, lmy, 12, 258, 196, 24);
+        Sk.button(ms, label, 12, 258, 196, 24, enabled, true, hb);
+        if (enabled) hitL(12, 258, 196, 24, this::apply);
+
+        // ---- masina (dreapta)
+        int paint = 0xFF000000 | color;
+        Sk.floor(ms, RX, RR, 96f, 148f, paint);
+        renderPreview(ms, (RX + RR) / 2f, 148f, 300f, 150f, dt);
+        hitL(RX, 90, RR - RX, 70, () -> dragging = true);
+        boolean multi = !"dealer".equals(mode) && cars.size() > 1;
+        if (!carPlate.isEmpty()) Gfx.text(ms, carPlate, RX, 56, 6.8f, Sk.ACC, 0, false, 1.2f);
+        Gfx.text(ms, clipG(carName, 18, true, RR - RX - (multi ? 50 : 0)), RX, 76, 18, Sk.WHITE, 0, true, 0f);
+        if (multi) {
+            arrow(ms, RR - 40, 56, true, lmx, lmy);
+            arrow(ms, RR - 18, 56, false, lmx, lmy);
+        }
+        Gfx.text(ms, "trage pentru a roti", RR, 156, 5.8f, Sk.FAINT, 2);
+
+        // ---- optiuni
+        Gfx.rrect(ms, RX, OY, RR - RX, 120, 0, Sk.PANEL);
+        Gfx.rrect(ms, RX, OY, 40, 2, 0, Sk.ACC);
+        if (tab == 0) paintTab(ms, RX, OY, RR - RX, lmx, lmy);
+        else if (tab == 1) engineTab(ms, RX, OY, RR - RX, lmx, lmy);
+        else wheelsTab(ms, RX, OY, RR - RX, lmx, lmy);
+    }
+
+    private static void stat(GuiGraphics ms, String label, float x, float y, int v) {
+        Gfx.text(ms, label, x, y + 6, 6.4f, Sk.MUTED, 0, false, 0.6f);
+        Sk.segs(ms, x + 66, y, 124, 6, v, 10, Sk.ACC);
     }
 
     private boolean afford(double v) {
@@ -420,23 +442,23 @@ public final class TuningScreen extends FlowScreen {
         return "-".equals(id) ? "fără roți" : id.replace("vehicle:", "");
     }
 
-    private float line(GuiGraphics ms, String name, String value, double cost, boolean ch, float y) {
-        Gfx.text(ms, name, 24, y, 7.2f, FAINT, 0);
-        Gfx.text(ms, value, 76, y, 7.8f, ch ? WHITE : MUTED, 0);
-        if (ch) Gfx.text(ms, cost <= 0 ? "gratis" : "+" + price(cost), 220, y, 7.6f, cost <= 0 ? 0xFF7BE3A0 : GOLD, 2);
-        else Gfx.text(ms, "neschimbat", 220, y, 6.6f, 0xFF4A4E58, 2);
-        return y + 13;
+    private float line(GuiGraphics ms, String name, boolean ch, double cost, float y) {
+        Gfx.text(ms, name, 16, y, 6.8f, ch ? Sk.WHITE : Sk.FAINT, 0);
+        if (ch) Gfx.text(ms, cost <= 0 ? "gratis" : "+" + price(cost) + " lei", 204, y, 6.8f, cost <= 0 ? Sk.GOOD : Sk.ACC, 2);
+        else Gfx.text(ms, "—", 204, y, 6.8f, Sk.FAINT, 2);
+        return y + 10.5f;
     }
 
     private void arrow(GuiGraphics ms, float x, float y, boolean left, float lmx, float lmy) {
-        boolean h = inside(lmx, lmy, x - 6, y - 8, 20, 22);
-        Gfx.rrect(ms, x - 4, y - 2, 14, 16, 8, h ? 0xFF2A2E36 : 0xFF1C1F25);
-        float cx = x + 3f;
-        float cy = y + 6f;
+        boolean h = Sk.in(lmx, lmy, x, y, 18, 18);
+        Gfx.rrect(ms, x, y, 18, 18, 0, h ? Sk.ACC : 0xFF1A1C21);
+        float cx = x + 9f;
+        float cy = y + 9f;
         float d = left ? -1 : 1;
-        Gfx.line(ms, cx + 2 * d, cy - 4, cx - 2 * d, cy, 1.6f, h ? WHITE : MUTED);
-        Gfx.line(ms, cx - 2 * d, cy, cx + 2 * d, cy + 4, 1.6f, h ? WHITE : MUTED);
-        hitL(x - 6, y - 8, 20, 22, () -> {
+        int c = h ? 0xFF160A05 : Sk.MUTED;
+        Gfx.line(ms, cx + 2 * d, cy - 4.5f, cx - 2 * d, cy, 1.7f, c);
+        Gfx.line(ms, cx - 2 * d, cy, cx + 2 * d, cy + 4.5f, 1.7f, c);
+        hitL(x, y, 18, 18, () -> {
             int i = carIndex();
             int n = cars.size();
             if (n > 0) selectCar(((i + (left ? -1 : 1)) % n + n) % n);
@@ -445,139 +467,112 @@ public final class TuningScreen extends FlowScreen {
 
     // ------------------------------------------------------------------ taburi
 
-    private void paintTab(GuiGraphics ms, float x, float y, float w, float lmx, float lmy, long now) {
-        Gfx.text(ms, "CULORI", x + 14, y + 20, 6.4f, FAINT, 0, false, 0.9f);
-        float sx = x + 20f;
-        float pulse = 0.5f + 0.5f * (float) Math.sin(now / 300.0);
-        for (int c : PRESETS) {
-            boolean s = c == color;
-            boolean h = inside(lmx, lmy, sx - 9, y + 28, 18, 18);
-            int col = 0xFF000000 | c;
-            if (s) Gfx.ring(ms, sx, y + 37, 8.6f, 10.2f + pulse * 0.6f, GOLD, GOLD2);
-            Gfx.disc(ms, sx, y + 37, h || s ? 7.6f : 7f, Gfx.mixArgb(col, 0xFFFFFFFF, 0.3f), Gfx.mixArgb(col, 0xFF000000, 0.15f), -2, -2.4f);
-            final int cc = c;
-            hitL(sx - 9, y + 28, 18, 18, () -> color = cc);
-            sx += 22.4f;
+    private void paintTab(GuiGraphics ms, float x, float y, float w, float lmx, float lmy) {
+        Gfx.text(ms, "CULORI", x + 10, y + 16, 6.2f, Sk.FAINT, 0, false, 1f);
+        for (int i = 0; i < PRESETS.length; i++) {
+            int c = PRESETS[i];
+            float sx = x + 10 + i * 26f;
+            boolean sl = c == color;
+            boolean h = Sk.in(lmx, lmy, sx, y + 22, 20, 20);
+            if (sl) Gfx.rrect(ms, sx - 2.5f, y + 19.5f, 25, 25, 0, Sk.ACC);
+            Gfx.rrect(ms, sx, y + 22, 20, 20, 0, Gfx.mixArgb(0xFF000000 | c, 0xFFFFFFFF, h ? 0.18f : 0f));
+            hitL(sx, y + 22, 20, 20, () -> color = c);
         }
-        Gfx.text(ms, "RGB LIBER", x + 14, y + 70, 6.4f, FAINT, 0, false, 0.9f);
+        Gfx.text(ms, "RGB", x + 10, y + 62, 6.2f, Sk.FAINT, 0, false, 1f);
         String[] names = {"R", "G", "B"};
         int[] vals = {(color >> 16) & 255, (color >> 8) & 255, color & 255};
         int[] cols = {0xFFE2453F, 0xFF5FDC8F, 0xFF5BA8FF};
         for (int i = 0; i < 3; i++) {
-            float ty = y + 84 + i * 24;
-            Gfx.text(ms, names[i], x + 16, ty + 5.5f, 8, cols[i], 0, true, 0f);
-            Gfx.rrect(ms, x + 34, ty + 1, w - 90, 6, 3, 0xFF23262D);
-            float fw = (w - 90) * vals[i] / 255f;
-            Gfx.rrect(ms, x + 34, ty + 1, Math.max(4, fw), 6, 3, Gfx.mixArgb(cols[i], 0xFFFFFFFF, 0.2f), cols[i]);
-            boolean hot = slider == i || inside(lmx, lmy, x + 34 + fw - 8, ty - 4, 16, 16);
-            Gfx.disc(ms, x + 34 + fw, ty + 4, hot ? 6.4f : 5.4f, 0xFFFFFFFF, 0xFFD9D6CE, -1, -1.2f);
-            Gfx.text(ms, String.valueOf(vals[i]), x + w - 14, ty + 6, 7.8f, WHITE, 2, true, 0f);
+            float ty = y + 72 + i * 15f;
+            Gfx.text(ms, names[i], x + 10, ty + 5.5f, 7.4f, cols[i], 0, true, 0f);
+            Gfx.rrect(ms, x + 28, ty + 2, 150, 4, 0, 0xFF23252B);
+            float fw = 150 * vals[i] / 255f;
+            Gfx.rrect(ms, x + 28, ty + 2, Math.max(2, fw), 4, 0, cols[i]);
+            boolean hot = slider == i || Sk.in(lmx, lmy, x + 28 + fw - 6, ty - 2, 12, 12);
+            Gfx.rrect(ms, x + 28 + fw - 3, ty - 1, 6, 10, 0, hot ? Sk.ACC : 0xFFFFFFFF);
+            Gfx.text(ms, String.valueOf(vals[i]), x + 198, ty + 6, 7, Sk.WHITE, 2, true, 0f);
         }
-        float hy = y + 164;
-        Gfx.disc(ms, x + 28, hy + 6, 11, Gfx.mixArgb(0xFF000000 | color, 0xFFFFFFFF, 0.28f), 0xFF000000 | color, -3, -3.4f);
-        Gfx.text(ms, hex(color), x + 48, hy + 4, 11, WHITE, 0, true, 0.5f);
+        Gfx.rrect(ms, x + w - 56, y + 70, 44, 30, 0, 0xFF000000 | color);
+        Gfx.text(ms, hex(color), x + w - 34, y + 110, 6.2f, Sk.MUTED, 1);
         double pc = "dealer".equals(mode) ? 0 : (CarsClient.tuning.has("paint") ? CarsClient.tuning.get("paint").getAsDouble() : 0);
-        String note = "dealer".equals(mode) ? "Vopseaua e gratis la cumpărare." : (pc > 0 ? "Vopsea nouă: " + price(pc) + " lei" : "Vopseaua e gratis.");
-        Gfx.text(ms, note, x + 48, hy + 15, 7.2f, MUTED, 0);
+        Gfx.text(ms, "dealer".equals(mode) ? "gratis la cumpărare" : (pc > 0 ? price(pc) + " lei" : "gratis"), x + w - 12, y + 16, 6.4f, pc > 0 ? Sk.ACC : Sk.GOOD, 2);
     }
 
     private void engineTab(GuiGraphics ms, float x, float y, float w, float lmx, float lmy) {
         if ("-".equals(fromEngine) || tierOf(fromEngine) == -2) {
-            Gfx.text(ms, "Acest vehicul nu are motor", x + w / 2f, y + 96, 9, WHITE, 1);
-            Gfx.text(ms, "care poate fi îmbunătățit.", x + w / 2f, y + 110, 9, WHITE, 1);
+            Gfx.text(ms, "Acest vehicul nu are motor care poate fi îmbunătățit.", x + w / 2f, y + 64, 8.4f, Sk.MUTED, 1);
             return;
         }
         int cur = tierOf(fromEngine);
         int chosen = tierOf(engine);
-        Gfx.text(ms, "NIVEL MOTOR · viteză maximă și accelerație", x + 14, y + 18, 6.4f, FAINT, 0, false, 0.6f);
-        int row = 0;
+        Gfx.text(ms, "NIVEL MOTOR", x + 10, y + 16, 6.2f, Sk.FAINT, 0, false, 1f);
+        java.util.List<Integer> avail = new java.util.ArrayList<>();
         for (int i = 0; i < TIERS.length; i++) {
             // doar nivelurile care exista cu adevarat in modul de vehicule (altfel motorul ar aparea lipsa)
-            if (!net.minecraftforge.registries.ForgeRegistries.ITEMS.containsKey(new net.minecraft.util.ResourceLocation(engineId(i)))) continue;
-            float ry = y + 28 + row * 34;
-            row++;
+            if (net.minecraftforge.registries.ForgeRegistries.ITEMS.containsKey(new net.minecraft.util.ResourceLocation(engineId(i)))) avail.add(i);
+        }
+        int n = Math.max(1, avail.size());
+        float gap = 6f;
+        float cw = Math.min(70f, (w - 20 - (n - 1) * gap) / n);
+        for (int k = 0; k < avail.size(); k++) {
+            int i = avail.get(k);
+            float cx = x + 10 + k * (cw + gap);
+            float cy = y + 24;
             boolean s = chosen == i;
-            boolean h = inside(lmx, lmy, x + 10, ry, w - 20, 30);
-            if (s) Gfx.rrect(ms, x + 10, ry, w - 20, 30, 10, GOLD, GOLD2);
-            Gfx.rrect(ms, x + (s ? 11 : 10), ry + (s ? 1 : 0), w - (s ? 22 : 20), s ? 28 : 30, s ? 9 : 10, s ? 0xFF262A32 : (h ? 0xFF22262D : 0xFF1A1D23), s ? 0xFF1E2127 : (h ? 0xFF1C1F25 : 0xFF16181D));
-            Gfx.text(ms, TIER_NAMES[i], x + 24, ry + 19, 9.5f, s ? WHITE : 0xFFD4D2CC, 0, true, 0.2f);
+            boolean h = Sk.in(lmx, lmy, cx, cy, cw, 88);
+            Sk.slant(ms, cx, cy, cw, 88, 6f, s ? Sk.ACC : (h ? Sk.ROW_HOT : Sk.ROW));
+            int fg = s ? 0xFF1A0B05 : Sk.WHITE;
+            Gfx.text(ms, TIER_NAMES[i], cx + cw / 2f + 3, cy + 20, 8.6f, fg, 1, true, 0f);
             int pw = tierPower(i);
-            for (int k = 0; k < 5; k++) {
-                float cx = x + 96 + k * 11;
-                Gfx.disc(ms, cx, ry + 15, 3.6f, k < pw ? (s ? GOLD : 0xFFB08A3C) : 0xFF2A2D34);
-            }
+            for (int q = 0; q < 5; q++) Gfx.rrect(ms, cx + cw / 2f - 14 + 3, cy + 54 - q * 7, 22, 4, 0, q < pw ? (s ? 0xFF1A0B05 : Sk.ACC) : (s ? 0xFFB0431F : 0xFF23252B));
             String lab;
             int lc;
             if (i == cur) {
                 lab = "INSTALAT";
-                lc = 0xFF7BE3A0;
+                lc = s ? 0xFF1A0B05 : Sk.GOOD;
             } else {
                 double d = Math.max(0, tierPrice(i) - tierPrice(cur));
-                lab = d <= 0 ? "gratis" : "+" + price(d) + " lei";
-                lc = d <= 0 ? 0xFF7BE3A0 : (afford(d) ? GOLD : 0xFFF08A82);
+                lab = d <= 0 ? "gratis" : "+" + price(d);
+                lc = s ? 0xFF1A0B05 : (d <= 0 ? Sk.GOOD : (afford(d) ? Sk.WHITE : Sk.BAD));
             }
-            Gfx.text(ms, lab, x + w - 22, ry + 19, 8.4f, lc, 2, true, 0f);
+            Gfx.text(ms, lab, cx + cw / 2f + 3, cy + 80, 6.8f, lc, 1);
             final int ti = i;
-            hitL(x + 10, ry, w - 20, 30, () -> engine = engineId(ti));
+            hitL(cx, cy, cw, 88, () -> engine = engineId(ti));
         }
     }
 
     private void wheelsTab(GuiGraphics ms, float x, float y, float w, float lmx, float lmy) {
         if ("-".equals(fromWheels)) {
-            Gfx.text(ms, "Acest vehicul nu are roți", x + w / 2f, y + 96, 9, WHITE, 1);
-            Gfx.text(ms, "care pot fi schimbate.", x + w / 2f, y + 110, 9, WHITE, 1);
+            Gfx.text(ms, "Acest vehicul nu are roți care pot fi schimbate.", x + w / 2f, y + 64, 8.4f, Sk.MUTED, 1);
             return;
         }
+        Gfx.text(ms, "ROȚI", x + 10, y + 16, 6.2f, Sk.FAINT, 0, false, 1f);
         JsonArray list = wheelList();
-        float gx = x + 100;
-        Gfx.text(ms, "ADERENȚĂ", gx, y + 18, 5.6f, FAINT, 0, false, 0.5f);
-        Gfx.text(ms, "VITEZĂ", gx + 38, y + 18, 5.6f, FAINT, 0, false, 0.5f);
-        Gfx.text(ms, "TEREN", gx + 76, y + 18, 5.6f, FAINT, 0, false, 0.5f);
+        float gap = 6f;
+        float tw = (w - 20 - 3 * gap) / 4f;
         for (int i = 0; i < list.size(); i++) {
             if (!list.get(i).isJsonObject()) continue;
             JsonObject o = list.get(i).getAsJsonObject();
             String id = JsonClientModule.str(o, "id", "");
-            float ry = y + 24 + i * 25;
+            float cx = x + 10 + (i % 4) * (tw + gap);
+            float cy = y + 24 + (i / 4) * 48f;
             boolean s = id.equals(wheels);
-            boolean h = inside(lmx, lmy, x + 10, ry, w - 20, 22);
-            if (s) Gfx.rrect(ms, x + 10, ry, w - 20, 22, 9, GOLD, GOLD2);
-            Gfx.rrect(ms, x + (s ? 11 : 10), ry + (s ? 1 : 0), w - (s ? 22 : 20), s ? 20 : 22, s ? 8 : 9, s ? 0xFF262A32 : (h ? 0xFF22262D : 0xFF1A1D23), s ? 0xFF1E2127 : (h ? 0xFF1C1F25 : 0xFF16181D));
-            Gfx.text(ms, clipG(JsonClientModule.str(o, "name", id), 8.4f, true, 70), x + 22, ry + 14.4f, 8.4f, s ? WHITE : 0xFFD4D2CC, 0, true, 0f);
-            miniBar(ms, gx, ry + 9, JsonClientModule.integer(o, "grip", 3), s);
-            miniBar(ms, gx + 38, ry + 9, JsonClientModule.integer(o, "speed", 3), s);
-            miniBar(ms, gx + 76, ry + 9, JsonClientModule.integer(o, "terrain", 3), s);
+            boolean h = Sk.in(lmx, lmy, cx, cy, tw, 42);
+            Sk.slant(ms, cx, cy, tw, 42, 5f, s ? Sk.ACC : (h ? Sk.ROW_HOT : Sk.ROW));
+            Gfx.text(ms, clipG(JsonClientModule.str(o, "name", id), 7.8f, true, tw - 12), cx + tw / 2f + 2, cy + 17, 7.8f, s ? 0xFF1A0B05 : Sk.WHITE, 1, true, 0f);
             String lab;
             int lc;
             if (id.equals(fromWheels)) {
                 lab = "INSTALATE";
-                lc = 0xFF7BE3A0;
+                lc = s ? 0xFF1A0B05 : Sk.GOOD;
             } else {
                 double p = JsonClientModule.num(o, "price", 0);
                 lab = p <= 0 ? "gratis" : "+" + price(p);
-                lc = p <= 0 ? 0xFF7BE3A0 : (afford(p) ? GOLD : 0xFFF08A82);
+                lc = s ? 0xFF1A0B05 : (p <= 0 ? Sk.GOOD : (afford(p) ? Sk.MUTED : Sk.BAD));
             }
-            Gfx.text(ms, lab, x + w - 20, ry + 14.4f, 7.8f, lc, 2, true, 0f);
-            hitL(x + 10, ry, w - 20, 22, () -> wheels = id);
+            Gfx.text(ms, lab, cx + tw / 2f + 2, cy + 33, 6.6f, lc, 1);
+            hitL(cx, cy, tw, 42, () -> wheels = id);
         }
-    }
-
-    private static void miniBar(GuiGraphics ms, float x, float y, int v, boolean sel) {
-        for (int k = 0; k < 5; k++) Gfx.rrect(ms, x + k * 7, y, 5.4f, 4, 1.5f, k < v ? (sel ? GOLD : 0xFFB08A3C) : 0xFF2A2D34);
-    }
-
-    private void gold(GuiGraphics ms, String label, float x, float y, float w, float h, boolean enabled, float lmx, float lmy, float dt, Runnable r) {
-        boolean hov = enabled && inside(lmx, lmy, x, y, w, h);
-        bh += ((hov ? 1f : 0f) - bh) * Math.min(1f, dt * 14f);
-        if (enabled) {
-            float p = 0.5f + 0.5f * (float) Math.sin(System.currentTimeMillis() / 500.0);
-            Gfx.rrect(ms, x - 2 - p * 1.5f, y - 2 - p * 1.5f, w + 4 + p * 3, h + 4 + p * 3, 13, Gfx.fade(0x2EF6C15A, 1f - p * 0.6f));
-        }
-        int t1 = enabled ? Gfx.mixArgb(GOLD, 0xFFFFFFFF, bh * 0.18f) : 0xFF24272D;
-        int t2 = enabled ? Gfx.mixArgb(GOLD2, 0xFFFFFFFF, bh * 0.10f) : 0xFF1E2126;
-        Gfx.rrect(ms, x, y, w, h, 12, t1, t2);
-        if (enabled) Gfx.rrect(ms, x + 6, y + 1, w - 12, 1.5f, 0.75f, 0x66FFFFFF);
-        Gfx.text(ms, label, x + w / 2f, y + h / 2f + 3.8f, 9.5f, enabled ? 0xFF2A1A06 : FAINT, 1, true, 0.6f);
-        if (enabled) hitL(x, y, w, h, r);
     }
 
     // ------------------------------------------------------------------ actiuni
@@ -668,8 +663,8 @@ public final class TuningScreen extends FlowScreen {
 
     private void sliderTo(double mx) {
         float lmx = (float) ((mx - offX) / scale);
-        float x = 248f + 34f;
-        float w = (W - 248f - 16f) - 90f;
+        float x = RX + 28f;
+        float w = 150f;
         int v = Math.max(0, Math.min(255, Math.round((lmx - x) / w * 255f)));
         int r = (color >> 16) & 255;
         int gg = (color >> 8) & 255;
@@ -686,8 +681,8 @@ public final class TuningScreen extends FlowScreen {
             float lmx = (float) ((mx - offX) / scale);
             float lmy = (float) ((my - offY) / scale);
             for (int i = 0; i < 3; i++) {
-                float ty = 40 + 84 + i * 24;
-                if (inside(lmx, lmy, 248 + 28, ty - 5, (W - 248 - 16) - 78, 18)) {
+                float ty = OY + 72 + i * 15f;
+                if (inside(lmx, lmy, RX + 20, ty - 4, 166, 14)) {
                     slider = i;
                     sliderTo(mx);
                     return true;
