@@ -11,7 +11,6 @@ import ro.solarstudios.flowcity.compat.GuiGraphics;
 import ro.solarstudios.flowcity.client.ui.FlowScreen;
 import ro.solarstudios.flowcity.client.ui.Theme;
 import ro.solarstudios.flowcity.client.ui.Ui;
-import ro.solarstudios.flowcity.maps.MapsClient;
 import ro.solarstudios.flowcity.module.JsonClientModule;
 
 /** Centrul de joburi: lista (filtrata pe categorie) in stanga, detaliile jobului ales in dreapta. */

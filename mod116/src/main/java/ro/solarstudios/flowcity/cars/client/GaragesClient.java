@@ -125,18 +125,6 @@ public final class GaragesClient {
                     g.access = JsonClientModule.bool(j, "access", true);
                     garages.add(g);
                 }
-                ro.solarstudios.flowcity.maps.MapsState.garagePois.clear();
-                for (G g : garages) {
-                    if (!g.access) continue;
-                    ro.solarstudios.flowcity.maps.MapsState.Poi p = new ro.solarstudios.flowcity.maps.MapsState.Poi();
-                    p.id = -g.id;
-                    p.name = g.name;
-                    p.type = "garaj";
-                    p.x = g.mx;
-                    p.y = g.my;
-                    p.z = g.mz;
-                    ro.solarstudios.flowcity.maps.MapsState.garagePois.add(p);
-                }
                 stations.clear();
                 JsonArray sa = o.getAsJsonArray("stations");
                 if (sa != null) {
@@ -151,14 +139,6 @@ public final class GaragesClient {
                         st.z = JsonClientModule.num(j, "z", 0);
                         st.r = (float) JsonClientModule.num(j, "r", 6);
                         stations.add(st);
-                        ro.solarstudios.flowcity.maps.MapsState.Poi p = new ro.solarstudios.flowcity.maps.MapsState.Poi();
-                        p.id = -10000 - st.id;
-                        p.name = st.name;
-                        p.type = "benzinarie";
-                        p.x = st.x;
-                        p.y = st.y;
-                        p.z = st.z;
-                        ro.solarstudios.flowcity.maps.MapsState.garagePois.add(p);
                     }
                 }
                 factions.clear();

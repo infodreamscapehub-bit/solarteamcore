@@ -45,7 +45,6 @@ public final class ModContent {
 
 
     static {
-        ITEMS.register("harta", MapItem::new);
         for (int i = 1; i <= 5; i++) ITEMS.register("phone" + i, PhoneItem::new);
         ITEMS.register("sim_card", () -> new Item(props().stacksTo(16)));
         for (int i = 1; i <= 5; i++) ITEMS.register("cardbancar" + i, () -> new Item(props().stacksTo(1)));

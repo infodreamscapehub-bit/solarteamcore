@@ -7,7 +7,7 @@ modId="flowcitycore"
 version="${file.jarVersion}"
 displayName="FlowCityCore"
 authors="SolarStudios"
-description='''FlowCityCore - modul pentru serverul FlowCity (SolarStudios): telefon, banca, harta, MDT politie.
+description='''FlowCityCore - modul pentru serverul FlowCity (SolarStudios): telefon, banca, MDT politie.
 Se conecteaza la pluginul FlowCityBridge prin canalul flowcity:bridge.'''
 displayTest="IGNORE_SERVER_VERSION"
 

@@ -12,7 +12,6 @@ import ro.solarstudios.flowcity.bridge.eadmin.EAdminListener;
 import ro.solarstudios.flowcity.bridge.eadmin.EAdminService;
 import ro.solarstudios.flowcity.bridge.eadmin.VaultHook;
 import ro.solarstudios.flowcity.bridge.hype.HypeModule;
-import ro.solarstudios.flowcity.bridge.maps.MapsModule;
 import ro.solarstudios.flowcity.bridge.module.Modules;
 import ro.solarstudios.flowcity.bridge.net.BridgeChannel;
 import ro.solarstudios.flowcity.bridge.phone.PhoneModule;
@@ -66,7 +65,6 @@ public final class FlowCityBridge extends JavaPlugin {
         Modules.register(this, new ro.solarstudios.flowcity.bridge.eadmin.DashModule());
         Modules.register(this, new ro.solarstudios.flowcity.bridge.eadmin.AdminPlusModule());
         Modules.register(this, new ro.solarstudios.flowcity.bridge.update.UpdateModule());
-        Modules.register(this, new MapsModule());
         Modules.register(this, new ro.solarstudios.flowcity.bridge.mdt.MdtModule());
         Modules.register(this, new PhoneModule());
         Modules.register(this, new ro.solarstudios.flowcity.bridge.cars.CarsModule());

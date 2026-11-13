@@ -33,7 +33,7 @@ public final class PhoneScreen extends FlowScreen {
     private static final int[] APP_COLORS = {0xFF3E8E5A, 0xFF5B6270, 0xFF3E8E5A, 0xFF2F5D8A, 0xFFB0413B, 0xFFC27C2C, 0xFF6A5A3E, 0xFF8A4F6B, 0xFF2F7A80, 0xFF4A4E57};
     /** Aplicatiile din dock (jos), restul stau in grila. */
     private static final int[] DOCK = {2, 0, 1, 3};
-    private static final int[] GRID = {4, 5, 6, 7, 8, 9};
+    private static final int[] GRID = {4, 5, 6, 7, 9};
     private static final int[] AVATAR = {0xFF8A5A3C, 0xFF3F6E8C, 0xFF5E7A44, 0xFF7C4A62, 0xFF8C7A3A, 0xFF4B5D7A, 0xFF7A4E3A};
     private static final int[][] WALL = {{0xFF1A1C21, 0xFF2B2722}, {0xFF14201F, 0xFF23302B}, {0xFF221A1A, 0xFF33251F}};
     private static final String[] WALL_NAMES = {"Grafit", "Padure", "Caramida"};
@@ -314,7 +314,6 @@ public final class PhoneScreen extends FlowScreen {
             case 5: NotifyClient.requestHistory(false); mc.setScreen(new NotifyScreen()); break;
             case 6: HypeClient.request("jobs_req", new JsonObject()); mc.setScreen(new JobsScreen()); break;
             case 7: WheelClient.requestInfo(); mc.setScreen(new WheelScreen()); break;
-            case 8: mc.setScreen(new ro.solarstudios.flowcity.maps.MapScreen()); break;
             default: go(Page.SETTINGS); break;
         }
     }
