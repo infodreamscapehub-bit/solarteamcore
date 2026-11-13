@@ -59,7 +59,20 @@ public final class GaragesClient {
         public boolean access;
     }
 
+    /** Benzinarie (zona: din masina apesi E si alimentezi). */
+    public static final class S {
+        public int id;
+        public String name;
+        public String dim;
+        public double x, y, z;
+        public float r;
+    }
+
     public static final List<G> garages = new ArrayList<>();
+    public static final List<S> stations = new ArrayList<>();
+    public static KeyBinding lockKey;
+    /** Lumini care clipesc la incuiere: id entitate -> {momentul, incuiat (1/0)}. */
+    private static final java.util.Map<Integer, long[]> flashes = new java.util.HashMap<>();
     public static final Set<String> factions = new HashSet<>();
     public static KeyBinding interact;
 
@@ -73,6 +86,8 @@ public final class GaragesClient {
     public static void registerKeys(RegisterKeyMappingsEvent e) {
         interact = new KeyBinding("key.flowcity.interact", InputMappings.Type.KEYSYM, GLFW.GLFW_KEY_E, "key.categories.flowcity");
         e.register(interact);
+        lockKey = new KeyBinding("key.flowcity.carlock", InputMappings.Type.KEYSYM, GLFW.GLFW_KEY_U, "key.categories.flowcity");
+        e.register(lockKey);
     }
 
     public static boolean police() {
@@ -122,9 +137,36 @@ public final class GaragesClient {
                     p.z = g.mz;
                     ro.solarstudios.flowcity.maps.MapsState.garagePois.add(p);
                 }
+                stations.clear();
+                JsonArray sa = o.getAsJsonArray("stations");
+                if (sa != null) {
+                    for (JsonElement e : sa) {
+                        JsonObject j = e.getAsJsonObject();
+                        S st = new S();
+                        st.id = JsonClientModule.integer(j, "id", 0);
+                        st.name = JsonClientModule.str(j, "name", "Benzinarie");
+                        st.dim = JsonClientModule.str(j, "dim", "");
+                        st.x = JsonClientModule.num(j, "x", 0);
+                        st.y = JsonClientModule.num(j, "y", 0);
+                        st.z = JsonClientModule.num(j, "z", 0);
+                        st.r = (float) JsonClientModule.num(j, "r", 6);
+                        stations.add(st);
+                        ro.solarstudios.flowcity.maps.MapsState.Poi p = new ro.solarstudios.flowcity.maps.MapsState.Poi();
+                        p.id = -10000 - st.id;
+                        p.name = st.name;
+                        p.type = "benzinarie";
+                        p.x = st.x;
+                        p.y = st.y;
+                        p.z = st.z;
+                        ro.solarstudios.flowcity.maps.MapsState.garagePois.add(p);
+                    }
+                }
                 factions.clear();
                 JsonArray f = o.getAsJsonArray("factions");
                 if (f != null) for (JsonElement e : f) factions.add(e.getAsString());
+                break;
+            case "flash":
+                flashes.put(JsonClientModule.integer(o, "id", -1), new long[] {System.currentTimeMillis(), JsonClientModule.bool(o, "locked", false) ? 1 : 0});
                 break;
             case "garage":
                 if (mc.screen instanceof GarageScreen) ((GarageScreen) mc.screen).update(o);
@@ -183,6 +225,19 @@ public final class GaragesClient {
                 }
             }
         }
+        if (inVehicle) {
+            for (S st : stations) {
+                if (!st.dim.equals(d)) continue;
+                double dist = root.position().distanceTo(new Vector3d(st.x, st.y, st.z));
+                if (dist <= st.r && dist < best) {
+                    best = dist;
+                    final S fs = st;
+                    final Entity veh = root;
+                    prompt = "Alimenteaza (" + st.name + ")";
+                    action = () -> Minecraft.getInstance().setScreen(new FuelScreen(fs.id, fs.name, veh));
+                }
+            }
+        }
         if (prompt == null && !inVehicle && police()) {
             RayTraceResult hr = mc.hitResult;
             EntityRayTraceResult eh = hr instanceof EntityRayTraceResult ? (EntityRayTraceResult) hr : null;
@@ -206,6 +261,11 @@ public final class GaragesClient {
             }
             if (mc.screen != null) return;
             findPrompt(mc);
+            if (lockKey != null) {
+                boolean lk = false;
+                while (lockKey.consumeClick()) lk = true;
+                if (lk) CarsNet.send("lock", 0, 0);
+            }
             if (interact == null) return;
             boolean pressed = false;
             while (interact.consumeClick()) pressed = true;
@@ -236,7 +296,7 @@ public final class GaragesClient {
         @SubscribeEvent
         public void onWorld(RenderWorldLastEvent e) {
             Minecraft mc = Minecraft.getInstance();
-            if (mc.player == null || mc.level == null || garages.isEmpty()) return;
+            if (mc.player == null || mc.level == null) return;
             ActiveRenderInfo cam = Minecraft.getInstance().gameRenderer.getMainCamera();
             Vector3d c = cam.getPosition();
             MatrixStack ps = e.getMatrixStack();
@@ -258,7 +318,63 @@ public final class GaragesClient {
                 }
                 label(ps, buf, cam, c, g.mx, g.my + 1.9, g.mz, g.name, col);
             }
+            for (S st : stations) {
+                if (!st.dim.equals(d) || c.distanceToSqr(st.x, st.y, st.z) > 80 * 80) continue;
+                int col = 0x4CC878;
+                ring(ps, buf, c, st.x, st.y, st.z, st.r, 0.2f, col, (int) ((inVehicle ? 210 : 120) * pulse));
+                ring(ps, buf, c, st.x, st.y, st.z, st.r - 0.2f, st.r - 0.2f, col, inVehicle ? 40 : 18);
+                label(ps, buf, cam, c, st.x, st.y + 2.4, st.z, "Benzinarie  " + st.name, col);
+            }
+            long now = System.currentTimeMillis();
+            for (java.util.Iterator<java.util.Map.Entry<Integer, long[]>> it = flashes.entrySet().iterator(); it.hasNext();) {
+                java.util.Map.Entry<Integer, long[]> en = it.next();
+                long age = now - en.getValue()[0];
+                boolean locked = en.getValue()[1] == 1;
+                if (age > 900) {
+                    it.remove();
+                    continue;
+                }
+                Entity v = mc.level.getEntity(en.getKey());
+                if (v == null) continue;
+                // incuiere: doua clipiri; descuiere: una lunga
+                boolean on = locked ? (age < 180 || (age > 320 && age < 500)) : age < 420;
+                if (!on) continue;
+                lights(ps, buf, cam, c, v, e.getPartialTicks());
+            }
             buf.endBatch();
+        }
+    }
+
+    /** Semnalizarile: patru lumini portocalii la colturile vehiculului (spre camera). */
+    private static void lights(MatrixStack ps, IRenderTypeBuffer buf, ActiveRenderInfo cam, Vector3d c, Entity v, float pt) {
+        double vx = v.xo + (v.getX() - v.xo) * pt;
+        double vy = v.yo + (v.getY() - v.yo) * pt;
+        double vz = v.zo + (v.getZ() - v.zo) * pt;
+        double yaw = Math.toRadians(v.yRot);
+        double fx = -Math.sin(yaw), fz = Math.cos(yaw);
+        double rx = Math.cos(yaw), rz = Math.sin(yaw);
+        double hw = v.getBbWidth() * 0.55 + 0.15;
+        double hl = Math.max(hw * 1.4, 1.1);
+        double y = vy + Math.max(0.45, v.getBbHeight() * 0.45);
+        double[][] pts = {{hl, hw}, {hl, -hw}, {-hl, hw}, {-hl, -hw}};
+        IVertexBuilder vc = buf.getBuffer(RenderType.lightning());
+        for (double[] p : pts) {
+            double x = vx + fx * p[0] + rx * p[1];
+            double z = vz + fz * p[0] + rz * p[1];
+            for (int layer = 0; layer < 2; layer++) {
+                float s = layer == 0 ? 0.42f : 0.16f;
+                int a = layer == 0 ? 90 : 255;
+                int cr = 255, cg = layer == 0 ? 150 : 210, cb = layer == 0 ? 30 : 120;
+                ps.pushPose();
+                ps.translate(x - c.x, y - c.y, z - c.z);
+                ps.mulPose(cam.rotation());
+                Matrix4f m = ps.last().pose();
+                vc.vertex(m, -s, -s, 0).color(cr, cg, cb, a).endVertex();
+                vc.vertex(m, -s, s, 0).color(cr, cg, cb, a).endVertex();
+                vc.vertex(m, s, s, 0).color(cr, cg, cb, a).endVertex();
+                vc.vertex(m, s, -s, 0).color(cr, cg, cb, a).endVertex();
+                ps.popPose();
+            }
         }
     }
 

@@ -104,6 +104,10 @@ public final class GarageData extends WorldSavedData {
         /** La pound (ridicata de politie). */
         public boolean pound;
         public String poundReason = "";
+        /** Incuiata (nu se poate urca nimeni). */
+        public boolean locked;
+        /** Generatia cheii: cand se face o cheie noua, cele vechi nu mai merg. */
+        public int keyGen;
 
         CompoundNBT save() {
             CompoundNBT t = new CompoundNBT();
@@ -118,6 +122,8 @@ public final class GarageData extends WorldSavedData {
             if (entity != null) t.putUUID("Entity", entity);
             t.putBoolean("Pound", pound);
             t.putString("PoundReason", poundReason);
+            t.putBoolean("Locked", locked);
+            t.putInt("KeyGen", keyGen);
             return t;
         }
 
@@ -134,10 +140,47 @@ public final class GarageData extends WorldSavedData {
             if (t.hasUUID("Entity")) c.entity = t.getUUID("Entity");
             c.pound = t.getBoolean("Pound");
             c.poundReason = t.getString("PoundReason");
+            c.locked = t.getBoolean("Locked");
+            c.keyGen = t.getInt("KeyGen");
             return c;
         }
     }
 
+    /** Benzinarie: zona in care, din masina, apesi E si alimentezi. */
+    public static final class Station {
+        public int id;
+        public String name = "Benzinarie";
+        public String dim = "minecraft:overworld";
+        public double x, y, z;
+        public float radius = 6f;
+
+        CompoundNBT save() {
+            CompoundNBT t = new CompoundNBT();
+            t.putInt("Id", id);
+            t.putString("Name", name);
+            t.putString("Dim", dim);
+            t.putDouble("X", x);
+            t.putDouble("Y", y);
+            t.putDouble("Z", z);
+            t.putFloat("Radius", radius);
+            return t;
+        }
+
+        static Station load(CompoundNBT t) {
+            Station s = new Station();
+            s.id = t.getInt("Id");
+            s.name = t.getString("Name");
+            s.dim = t.getString("Dim");
+            s.x = t.getDouble("X");
+            s.y = t.getDouble("Y");
+            s.z = t.getDouble("Z");
+            s.radius = t.contains("Radius") ? t.getFloat("Radius") : 6f;
+            return s;
+        }
+    }
+
+    private final Map<Integer, Station> stations = new LinkedHashMap<>();
+    private int nextStation = 1;
     private final Map<Integer, Car> cars = new HashMap<>();
     private final Map<Integer, Garage> garages = new LinkedHashMap<>();
     private int nextId = 1;
@@ -158,6 +201,14 @@ public final class GarageData extends WorldSavedData {
         d.garages.clear();
         d.nextId = Math.max(1, tag.getInt("NextId"));
         d.nextGarage = Math.max(1, tag.getInt("NextGarage"));
+        d.stations.clear();
+        d.nextStation = Math.max(1, tag.getInt("NextStation"));
+        ListNBT sl = tag.getList("Stations", net.minecraftforge.common.util.Constants.NBT.TAG_COMPOUND);
+        for (int i = 0; i < sl.size(); i++) {
+            Station st = Station.load(sl.getCompound(i));
+            d.stations.put(st.id, st);
+            d.nextStation = Math.max(d.nextStation, st.id + 1);
+        }
         ListNBT list = tag.getList("Cars", net.minecraftforge.common.util.Constants.NBT.TAG_COMPOUND);
         for (int i = 0; i < list.size(); i++) {
             Car c = Car.load(list.getCompound(i));
@@ -182,6 +233,10 @@ public final class GarageData extends WorldSavedData {
         ListNBT gl = new ListNBT();
         for (Garage g : garages.values()) gl.add(g.save());
         tag.put("Garages", gl);
+        tag.putInt("NextStation", nextStation);
+        ListNBT sl = new ListNBT();
+        for (Station st : stations.values()) sl.add(st.save());
+        tag.put("Stations", sl);
         return tag;
     }
 
@@ -249,5 +304,28 @@ public final class GarageData extends WorldSavedData {
 
     public List<Garage> garages() {
         return new ArrayList<>(garages.values());
+    }
+
+    // ------------------------------------------------------------------ benzinarii
+
+    public Station addStation() {
+        Station st = new Station();
+        st.id = nextStation++;
+        stations.put(st.id, st);
+        setDirty();
+        return st;
+    }
+
+    public Station station(int id) {
+        return stations.get(id);
+    }
+
+    public void removeStation(int id) {
+        stations.remove(id);
+        setDirty();
+    }
+
+    public List<Station> stations() {
+        return new ArrayList<>(stations.values());
     }
 }

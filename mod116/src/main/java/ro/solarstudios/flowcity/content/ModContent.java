@@ -36,6 +36,7 @@ public final class ModContent {
     }
 
     public static final RegistryObject<Item> MDT_TABLET = ITEMS.register("mdt_tablet", MdtItem::new);
+    public static final RegistryObject<Item> CAR_KEY = ITEMS.register("cheie_masina", ro.solarstudios.flowcity.cars.CarKeyItem::new);
     public static final RegistryObject<Block> BANCOMAT = BLOCKS.register("bancomat", AtmBlock::new);
     public static final RegistryObject<Item> BANCOMAT_ITEM = ITEMS.register("bancomat", () -> new BlockItem(BANCOMAT.get(), props()));
     public static final RegistryObject<Block> DEALER = BLOCKS.register("dealer_auto", () -> new ro.solarstudios.flowcity.cars.CarsBlock(true));

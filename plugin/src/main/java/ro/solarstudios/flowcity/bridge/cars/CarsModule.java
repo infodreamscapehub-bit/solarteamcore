@@ -45,6 +45,13 @@ public final class CarsModule extends JsonModule {
         on("pound_pay", this::poundPay);
         on("parking_fine", this::parkingFine);
         on("impound", this::impound);
+        on("fuel_info", (p, j) -> {
+            JsonObject o = new JsonObject();
+            o.addProperty("price", fuelPrice());
+            o.addProperty("money", plugin.money().balance(p.getUniqueId()));
+            send(p, "fuel_info", o);
+        });
+        on("fuel_buy", this::fuelBuy);
         // tag-urile de factiune pentru garaje: politistii din MDT primesc fc_politie, restul dupa permisiuni
         Bukkit.getScheduler().runTaskTimer(plugin, this::syncFactions, 100L, 400L);
     }
@@ -102,6 +109,42 @@ public final class CarsModule extends JsonModule {
         }
         o.addProperty("money", plugin.money().balance(u));
         send(p, "pound_result", o);
+    }
+
+    private double fuelPrice() {
+        return Math.max(0, cfg.getDouble("fuel.price-per-liter", 8));
+    }
+
+    /** Benzinarie: platesti litrii prin Vault, apoi modul pune benzina in masina (fccars fuel). */
+    private void fuelBuy(Player p, JsonObject j) {
+        long now = System.currentTimeMillis();
+        if (now - lastBuy.getOrDefault(p.getUniqueId(), 0L) < 1500) return;
+        lastBuy.put(p.getUniqueId(), now);
+        int station = (int) num(j, "station", 0);
+        int entity = (int) num(j, "entity", 0);
+        double liters = Math.max(0, Math.min(200, num(j, "liters", 0)));
+        liters = Math.round(liters * 10) / 10.0;
+        double cost = Math.round(liters * fuelPrice() * 100) / 100.0;
+        UUID u = p.getUniqueId();
+        JsonObject o = new JsonObject();
+        if (station <= 0 || liters <= 0) {
+            o.addProperty("ok", false);
+            o.addProperty("msg", "Alege cati litri vrei.");
+        } else if (!plugin.money().has(u, cost) || !plugin.money().withdraw(u, cost)) {
+            o.addProperty("ok", false);
+            o.addProperty("msg", "Nu ai destui bani (" + cost + " lei).");
+        } else if (!console("fccars fuel " + p.getName() + " " + station + " " + entity + " " + (int) Math.round(liters * 1000))) {
+            plugin.money().deposit(u, cost);
+            o.addProperty("ok", false);
+            o.addProperty("msg", "Pompa nu merge acum. Banii au fost returnati.");
+        } else {
+            o.addProperty("ok", true);
+            o.addProperty("liters", liters);
+            o.addProperty("cost", cost);
+            o.addProperty("msg", "Ai alimentat " + liters + " L pentru " + cost + " lei.");
+        }
+        o.addProperty("money", plugin.money().balance(u));
+        send(p, "fuel_result", o);
     }
 
     private void police(Player p, boolean ok, String msg, boolean close) {

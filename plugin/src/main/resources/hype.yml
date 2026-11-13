@@ -377,3 +377,7 @@ garages:
   factions:
     - medici
     - primarie
+
+# Benzinarii (statiile le pune adminul in joc: /benzinarie creeaza <nume>)
+fuel:
+  price-per-liter: 8

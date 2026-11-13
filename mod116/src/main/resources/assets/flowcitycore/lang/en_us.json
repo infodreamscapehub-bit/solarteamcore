@@ -33,5 +33,7 @@
   "key.flowcity.mdt_panic": "MDT: panica cod 99",
   "key.flowcity.waypoint": "Quick waypoint (map)",
   "block.flowcitycore.dealer_auto": "Car dealership",
-  "key.flowcity.interact": "Interact (garage / police)"
+  "key.flowcity.interact": "Interact (garage / police)",
+  "item.flowcitycore.cheie_masina": "Car key",
+  "key.flowcity.carlock": "Lock / unlock car"
 }

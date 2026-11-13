@@ -38,7 +38,8 @@ import net.minecraftforge.registries.ForgeRegistries;
  *
  * <p>Admin (nivel 2): /garaj creeaza public|pound &lt;nume&gt;, /garaj creeaza factiune &lt;factiune&gt; &lt;nume&gt;,
  * /garaj parcare &lt;id&gt; [raza], /garaj loc &lt;id&gt;, /garaj locuri &lt;id&gt; sterge, /garaj muta &lt;id&gt;, /garaj sterge &lt;id&gt;, /garaj lista.
- * Folosite de plugin: /fccars give, givefaction, impound, unpound, remove.
+ * Benzinarii: /benzinarie creeaza &lt;nume&gt;, raza, muta, sterge, lista. Chei: /fccars cheie &lt;jucator&gt; &lt;masina&gt;.
+ * Folosite de plugin: /fccars give, givefaction, impound, unpound, fuel, remove.
  * Membrii unei factiuni au tag-ul de scoreboard "fc_&lt;factiune&gt;" (pluginul il pune automat politistilor din MDT).
  */
 public final class CarsServer {
@@ -66,6 +67,9 @@ public final class CarsServer {
                 break;
             case "plate":
                 plate(p, data, a);
+                break;
+            case "lock":
+                toggleLock(p, data);
                 break;
             default:
                 break;
@@ -159,6 +163,10 @@ public final class CarsServer {
             Entity e = spawn(p.getLevel(), g, c);
             ok = e != null;
             msg = ok ? c.name + " (" + c.plate + ") te asteapta in parcare." : "Toate locurile de parcare sunt ocupate.";
+            if (ok && c.owner != null && !hasKeyItem(p, c)) {
+                giveKey(p, c, true);
+                msg += " Ai primit o cheie noua (cele vechi nu mai merg).";
+            }
             if (ok) data.setDirty();
         }
         openMenu(p, data, g, ok, msg);
@@ -219,6 +227,116 @@ public final class CarsServer {
             c.entity = e.getUUID();
             level.addFreshEntity(e);
             return e;
+        }
+        return null;
+    }
+
+    // ------------------------------------------------------------------ chei + incuiere
+
+    static GarageData.Car carOf(MinecraftServer server, Entity v) {
+        if (v == null || !v.getPersistentData().contains(TAG)) return null;
+        GarageData.Car c = GarageData.get(server).get(v.getPersistentData().getInt(TAG));
+        return c != null && c.out && v.getUUID().equals(c.entity) ? c : null;
+    }
+
+    static boolean hasKeyItem(ServerPlayerEntity p, GarageData.Car c) {
+        for (net.minecraft.item.ItemStack st : p.inventory.items) if (CarKeyItem.opens(st, c)) return true;
+        for (net.minecraft.item.ItemStack st : p.inventory.offhand) if (CarKeyItem.opens(st, c)) return true;
+        return false;
+    }
+
+    /** Cine poate conduce / incuia: cheia (personala) sau factiunea (masini de factiune). Adminii pot oricand. */
+    static boolean hasKey(ServerPlayerEntity p, GarageData.Car c) {
+        if (c == null) return true;
+        if (p.hasPermissions(2)) return true;
+        if (c.owner == null) return member(p, c.faction);
+        return hasKeyItem(p, c);
+    }
+
+    static void giveKey(ServerPlayerEntity p, GarageData.Car c, boolean newGeneration) {
+        if (newGeneration) c.keyGen++;
+        net.minecraft.item.ItemStack st = CarKeyItem.make(c);
+        if (!p.inventory.add(st)) p.drop(st, false);
+        GarageData.get(p.server).setDirty();
+    }
+
+    private static final java.util.List<Object[]> BEEPS = new java.util.ArrayList<>();
+
+    private static void beep(ServerWorld w, Entity v, float pitch) {
+        w.playSound(null, v.getX(), v.getY(), v.getZ(), net.minecraft.util.SoundEvents.NOTE_BLOCK_BIT, net.minecraft.util.SoundCategory.PLAYERS, 0.9f, pitch);
+    }
+
+    /** Tasta U: incuie / descuie cea mai apropiata masina pentru care ai cheie (pana la 12 blocuri). */
+    private static void toggleLock(ServerPlayerEntity p, GarageData data) {
+        Entity best = null;
+        GarageData.Car bestCar = null;
+        double bd = 12 * 12;
+        for (Entity v : p.level.getEntities((Entity) null, p.getBoundingBox().inflate(12), x -> x.getPersistentData().contains(TAG))) {
+            GarageData.Car c = carOf(p.server, v);
+            if (c == null || !hasKey(p, c)) continue;
+            double d = v.distanceToSqr(p);
+            if (d < bd) {
+                bd = d;
+                best = v;
+                bestCar = c;
+            }
+        }
+        if (best == null) {
+            p.displayClientMessage(new StringTextComponent("Nicio masina de-a ta in apropiere (sau nu ai cheia)."), true);
+            return;
+        }
+        bestCar.locked = !bestCar.locked;
+        data.setDirty();
+        ServerWorld w = p.getLevel();
+        beep(w, best, bestCar.locked ? 1.4f : 1.9f);
+        if (bestCar.locked) BEEPS.add(new Object[] {w, best, 4});
+        p.displayClientMessage(new StringTextComponent((bestCar.locked ? "Incuiata: " : "Descuiata: ") + bestCar.name + " (" + bestCar.plate + ")"), true);
+        JsonObject o = new JsonObject();
+        o.addProperty("id", best.getId());
+        o.addProperty("locked", bestCar.locked);
+        for (ServerPlayerEntity other : w.players()) {
+            if (other.distanceToSqr(best) < 64 * 64) CarsNet.reply(other, "flash", o.toString());
+        }
+    }
+
+    // ------------------------------------------------------------------ benzinarii
+
+    private static GarageData.Station stationNear(ServerPlayerEntity p, GarageData data, int id) {
+        GarageData.Station st = data.station(id);
+        if (st == null || !p.level.dimension().location().toString().equals(st.dim)) return null;
+        return p.position().distanceTo(new Vector3d(st.x, st.y, st.z)) <= st.radius + 4 ? st : null;
+    }
+
+    /** Pune benzina in vehicul (MrCrayfish: addFuel sau setCurrentFuel, prin reflexie). */
+    private static boolean addFuel(Entity v, float units) {
+        try {
+            java.lang.reflect.Method m = findMethod(v.getClass(), "addFuel", float.class);
+            if (m != null) {
+                m.invoke(v, units);
+                return true;
+            }
+            java.lang.reflect.Method cur = findMethod(v.getClass(), "getCurrentFuel");
+            java.lang.reflect.Method cap = findMethod(v.getClass(), "getFuelCapacity");
+            java.lang.reflect.Method set = findMethod(v.getClass(), "setCurrentFuel", float.class);
+            if (cur == null || cap == null || set == null) return false;
+            float now = ((Number) cur.invoke(v)).floatValue();
+            float max = ((Number) cap.invoke(v)).floatValue();
+            set.invoke(v, Math.min(max, now + units));
+            return true;
+        } catch (ReflectiveOperationException | RuntimeException ex) {
+            return false;
+        }
+    }
+
+    private static java.lang.reflect.Method findMethod(Class<?> c, String name, Class<?>... args) {
+        while (c != null) {
+            try {
+                java.lang.reflect.Method m = c.getDeclaredMethod(name, args);
+                m.setAccessible(true);
+                return m;
+            } catch (NoSuchMethodException ignored) {
+                c = c.getSuperclass();
+            }
         }
         return null;
     }
@@ -310,6 +428,19 @@ public final class CarsServer {
         for (String t : p.getTags()) if (t.startsWith("fc_")) fac.add(t.substring(3));
         if (p.hasPermissions(2)) fac.add("admin");
         o.add("factions", fac);
+        JsonArray sts = new JsonArray();
+        for (GarageData.Station st : GarageData.get(p.server).stations()) {
+            JsonObject j = new JsonObject();
+            j.addProperty("id", st.id);
+            j.addProperty("name", st.name);
+            j.addProperty("dim", st.dim);
+            j.addProperty("x", st.x);
+            j.addProperty("y", st.y);
+            j.addProperty("z", st.z);
+            j.addProperty("r", st.radius);
+            sts.add(j);
+        }
+        o.add("stations", sts);
         CarsNet.reply(p, "garages", o.toString());
     }
 
@@ -343,17 +474,68 @@ public final class CarsServer {
             if (e.getPlayer() instanceof ServerPlayerEntity) syncTo((ServerPlayerEntity) e.getPlayer());
         }
 
+        /** Masina incuiata: nu se poate urca nimeni (nici prin click, nici altfel). */
+        @SubscribeEvent
+        public void onInteract(net.minecraftforge.event.entity.player.PlayerInteractEvent.EntityInteract e) {
+            if (lockedFor(e.getPlayer(), e.getTarget())) e.setCanceled(true);
+        }
+
+        @SubscribeEvent
+        public void onInteractAt(net.minecraftforge.event.entity.player.PlayerInteractEvent.EntityInteractSpecific e) {
+            if (lockedFor(e.getPlayer(), e.getTarget())) e.setCanceled(true);
+        }
+
+        @SubscribeEvent
+        public void onMount(net.minecraftforge.event.entity.EntityMountEvent e) {
+            if (!e.isMounting() || e.getWorldObj().isClientSide() || !(e.getEntityMounting() instanceof ServerPlayerEntity)) return;
+            if (lockedFor((ServerPlayerEntity) e.getEntityMounting(), e.getEntityBeingMounted())) e.setCanceled(true);
+        }
+
+        private boolean lockedFor(net.minecraft.entity.player.PlayerEntity pl, Entity v) {
+            if (!(pl instanceof ServerPlayerEntity) || v == null || pl.getVehicle() == v) return false;
+            GarageData.Car c = carOf(((ServerPlayerEntity) pl).server, v);
+            if (c == null || !c.locked) return false;
+            pl.displayClientMessage(new StringTextComponent("Masina e incuiata."), true);
+            return true;
+        }
+
         /** Re-trimitem lista la 30 s (factiunile se pot schimba: politist nou in MDT etc.). */
         @SubscribeEvent
         public void onTick(TickEvent.ServerTickEvent e) {
-            if (e.phase != TickEvent.Phase.END || ++ticks % 600 != 0) return;
-            syncAll(net.minecraftforge.fml.server.ServerLifecycleHooks.getCurrentServer());
+            if (e.phase != TickEvent.Phase.END) return;
+            MinecraftServer server = net.minecraftforge.fml.server.ServerLifecycleHooks.getCurrentServer();
+            if (server == null) return;
+            // al doilea bip la incuiere
+            for (java.util.Iterator<Object[]> it = BEEPS.iterator(); it.hasNext();) {
+                Object[] b = it.next();
+                int left = (Integer) b[2] - 1;
+                b[2] = left;
+                if (left <= 0) {
+                    beep((ServerWorld) b[0], (Entity) b[1], 1.4f);
+                    it.remove();
+                }
+            }
+            ++ticks;
+            // soferul fara cheie e dat jos din masina
+            if (ticks % 10 == 0) {
+                for (ServerPlayerEntity p : server.getPlayerList().getPlayers()) {
+                    Entity v = p.getVehicle();
+                    if (v == null || v.getControllingPassenger() != p) continue;
+                    GarageData.Car c = carOf(server, v);
+                    if (c != null && !hasKey(p, c)) {
+                        p.stopRiding();
+                        p.displayClientMessage(new StringTextComponent("Nu ai cheia acestei masini."), true);
+                    }
+                }
+            }
+            if (ticks % 600 == 0) syncAll(server);
         }
 
         @SubscribeEvent
         public void onCommands(RegisterCommandsEvent e) {
             e.getDispatcher().register(garajCommand());
             e.getDispatcher().register(carsCommand());
+            e.getDispatcher().register(stationCommand());
         }
     }
 
@@ -450,6 +632,55 @@ public final class CarsServer {
             }));
     }
 
+    private static LiteralArgumentBuilder<CommandSource> stationCommand() {
+        return Commands.literal("benzinarie").requires(s -> s.hasPermission(2))
+            .then(Commands.literal("creeaza").then(Commands.argument("nume", StringArgumentType.greedyString()).executes(c -> {
+                ServerPlayerEntity p = c.getSource().getPlayerOrException();
+                GarageData data = GarageData.get(c.getSource().getServer());
+                GarageData.Station st = data.addStation();
+                st.name = StringArgumentType.getString(c, "nume");
+                st.dim = p.level.dimension().location().toString();
+                st.x = p.getX();
+                st.y = p.getY();
+                st.z = p.getZ();
+                data.setDirty();
+                return ok(c, "Benzinaria #" + st.id + " (" + st.name + ") e aici, raza " + st.radius + ". Schimba raza: /benzinarie raza " + st.id + " <raza>");
+            })))
+            .then(Commands.literal("raza").then(Commands.argument("id", IntegerArgumentType.integer(1))
+                .then(Commands.argument("raza", FloatArgumentType.floatArg(2, 24)).executes(c -> {
+                    GarageData data = GarageData.get(c.getSource().getServer());
+                    GarageData.Station st = data.station(IntegerArgumentType.getInteger(c, "id"));
+                    if (st == null) return fail(c, "Benzinaria nu exista.");
+                    st.radius = FloatArgumentType.getFloat(c, "raza");
+                    data.setDirty();
+                    return ok(c, "Raza benzinariei " + st.name + ": " + st.radius);
+                }))))
+            .then(Commands.literal("muta").then(Commands.argument("id", IntegerArgumentType.integer(1)).executes(c -> {
+                ServerPlayerEntity p = c.getSource().getPlayerOrException();
+                GarageData data = GarageData.get(c.getSource().getServer());
+                GarageData.Station st = data.station(IntegerArgumentType.getInteger(c, "id"));
+                if (st == null) return fail(c, "Benzinaria nu exista.");
+                st.dim = p.level.dimension().location().toString();
+                st.x = p.getX();
+                st.y = p.getY();
+                st.z = p.getZ();
+                data.setDirty();
+                return ok(c, "Benzinaria " + st.name + " a fost mutata aici.");
+            })))
+            .then(Commands.literal("sterge").then(Commands.argument("id", IntegerArgumentType.integer(1)).executes(c -> {
+                GarageData data = GarageData.get(c.getSource().getServer());
+                if (data.station(IntegerArgumentType.getInteger(c, "id")) == null) return fail(c, "Benzinaria nu exista.");
+                data.removeStation(IntegerArgumentType.getInteger(c, "id"));
+                return ok(c, "Benzinarie stearsa.");
+            })))
+            .then(Commands.literal("lista").executes(c -> {
+                List<GarageData.Station> l = GarageData.get(c.getSource().getServer()).stations();
+                if (l.isEmpty()) return fail(c, "Nu exista benzinarii. Creeaza una: /benzinarie creeaza <nume>");
+                for (GarageData.Station st : l) c.getSource().sendSuccess(new StringTextComponent("#" + st.id + " " + st.name + " " + (int) st.x + " " + (int) st.y + " " + (int) st.z + " raza " + st.radius), false);
+                return 1;
+            }));
+    }
+
     private static int setStore(CommandContext<CommandSource> c, float r) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
         ServerPlayerEntity p = c.getSource().getPlayerOrException();
         GarageData data = GarageData.get(c.getSource().getServer());
@@ -478,7 +709,8 @@ public final class CarsServer {
                                             IntegerArgumentType.getInteger(c, "color"), StringArgumentType.getString(c, "engine"),
                                             StringArgumentType.getString(c, "wheels"), StringArgumentType.getString(c, "plate"), StringArgumentType.getString(c, "name"));
                                         if (car == null) return fail(c, "Vehicul necunoscut.");
-                                        p.displayClientMessage(new StringTextComponent(car.name + " (" + car.plate + ") te asteapta in orice garaj."), false);
+                                        giveKey(p, car, false);
+                                        p.displayClientMessage(new StringTextComponent(car.name + " (" + car.plate + ") te asteapta in orice garaj. Ai primit cheia."), false);
                                         return 1;
                                     })))))))))
             .then(Commands.literal("givefaction").then(Commands.argument("faction", StringArgumentType.word())
@@ -547,6 +779,27 @@ public final class CarsServer {
                     openMenu(p, data, g, true, "");
                     return 1;
                 })))))
+            // benzinarie: pluginul a luat deja banii; daca intoarce 0, pluginul ii returneaza
+            .then(Commands.literal("fuel").then(Commands.argument("player", EntityArgument.player())
+                .then(Commands.argument("station", IntegerArgumentType.integer(1))
+                    .then(Commands.argument("entity", IntegerArgumentType.integer())
+                        .then(Commands.argument("units", IntegerArgumentType.integer(1, 1_000_000)).executes(c -> {
+                            ServerPlayerEntity p = EntityArgument.getPlayer(c, "player");
+                            GarageData data = GarageData.get(c.getSource().getServer());
+                            if (stationNear(p, data, IntegerArgumentType.getInteger(c, "station")) == null) return fail(c, "Jucatorul nu e la benzinarie.");
+                            Entity v = p.level.getEntity(IntegerArgumentType.getInteger(c, "entity"));
+                            if (v == null || v.distanceTo(p) > 10 || !addFuel(v, IntegerArgumentType.getInteger(c, "units"))) return fail(c, "Vehiculul nu poate fi alimentat.");
+                            return 1;
+                        }))))))
+            // cheie noua pentru o masina (cele vechi nu mai merg)
+            .then(Commands.literal("cheie").then(Commands.argument("player", EntityArgument.player())
+                .then(Commands.argument("car", IntegerArgumentType.integer(1)).executes(c -> {
+                    ServerPlayerEntity p = EntityArgument.getPlayer(c, "player");
+                    GarageData.Car car = GarageData.get(c.getSource().getServer()).get(IntegerArgumentType.getInteger(c, "car"));
+                    if (car == null) return fail(c, "Masina nu exista.");
+                    giveKey(p, car, true);
+                    return ok(c, "Cheie noua pentru " + car.name + " (" + car.plate + ") data lui " + p.getName().getString() + ".");
+                }))))
             .then(Commands.literal("remove").then(Commands.argument("id", IntegerArgumentType.integer(1)).executes(c -> {
                 GarageData d = GarageData.get(c.getSource().getServer());
                 if (d.get(IntegerArgumentType.getInteger(c, "id")) == null) return fail(c, "Nu exista.");
