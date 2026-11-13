@@ -139,7 +139,7 @@ public final class UpdateModule extends JsonModule {
                         pName = n;
                         pUrl = a.get("browser_download_url").getAsString();
                         pSize = a.get("size").getAsLong();
-                    } else if (n.startsWith("FlowCityCore")) {
+                    } else if (n.startsWith("FlowCityCore-1.16.5")) {
                         mName = n;
                         mSize = a.get("size").getAsLong();
                     }

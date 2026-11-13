@@ -108,7 +108,7 @@ public final class UpdateChecker {
                 for (JsonElement e : r.getAsJsonArray("assets")) {
                     JsonObject a = e.getAsJsonObject();
                     String n = a.get("name").getAsString();
-                    if (n.startsWith("FlowCityCore") && n.endsWith(".jar")) {
+                    if (n.startsWith("FlowCityCore-1.16.5") && n.endsWith(".jar")) {
                         name = n;
                         size = a.get("size").getAsLong();
                     }
