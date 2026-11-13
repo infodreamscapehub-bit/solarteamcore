@@ -209,6 +209,30 @@ public final class Gfx {
         text(g, s, x, y, size, color, align, false, 0f);
     }
 
+    /** Text cu umbra moale dedesubt (pentru elemente fara panou, peste lume). */
+    public static void textS(GuiGraphics g, String s, float x, float y, float size, int color, int align, boolean xl, float spacing) {
+        float a = ((color >>> 24) & 255) / 255f;
+        text(g, s, x + size * 0.03f, y + Math.max(0.8f, size * 0.06f), size, fade(0xA0000000, a), align, xl, spacing);
+        text(g, s, x, y, size, color, align, xl, spacing);
+    }
+
+    /** Poligon convex plin (puncte x0,y0,x1,y1,...). */
+    public static void poly(GuiGraphics g, float[] pts, int color) {
+        Matrix4f m = g.pose().last().pose();
+        BufferBuilder b = begin(GL11.GL_TRIANGLE_FAN);
+        for (int i = 0; i + 1 < pts.length; i += 2) v(b, m, pts[i], pts[i + 1], color);
+        end();
+    }
+
+    /** Umbra/estompare eliptica (centru opac -> margini transparente), pentru lizibilitate fara panou. */
+    public static void scrim(GuiGraphics g, float cx, float cy, float rx, float ry, int center) {
+        g.pose().pushPose();
+        g.pose().translate(cx, cy, 0);
+        g.pose().scale(1f, ry / rx, 1f);
+        disc(g, 0, 0, rx, center, center & 0x00FFFFFF, 0, 0);
+        g.pose().popPose();
+    }
+
     // ------------------------------------------------------------------ culori
 
     public static int fade(int argb, float alpha) {
