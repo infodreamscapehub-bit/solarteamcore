@@ -244,6 +244,7 @@ wheel:
 documents:
   buletin-valid-years: 10
   permis-valid-years: 10
+  portarma-valid-years: 5
   show-distance: 4
   address-max: 60
 

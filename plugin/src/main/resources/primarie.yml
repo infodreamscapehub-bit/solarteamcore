@@ -1,0 +1,6 @@
+# Primaria FlowCity: taxe pentru buletin (se plateste prin popup cash/card).
+fees:
+  buletin: 150      # prima emitere
+  duplicat: 100     # buletin pierdut/furat (aceeasi valabilitate, serie noua)
+  reinnoire: 100    # buletin expirat (valabilitate noua)
+min-age: 14

@@ -75,6 +75,7 @@ public final class FlowCityBridge extends JavaPlugin {
         Modules.register(this, new ro.solarstudios.flowcity.bridge.mecanic.MecanicModule());
         Modules.register(this, new ro.solarstudios.flowcity.bridge.houses.HousesModule());
         Modules.register(this, new ro.solarstudios.flowcity.bridge.lpsetup.LpSetupModule());
+        Modules.register(this, new ro.solarstudios.flowcity.bridge.docs.DocsModule());
         Modules.register(this, new ro.solarstudios.flowcity.bridge.cars.CarsModule());
         Modules.register(this, new ro.solarstudios.flowcity.bridge.shop.ShopModule());
         service.purgeOld(getConfig().getInt("eadmin.log-retention-days", 45));
