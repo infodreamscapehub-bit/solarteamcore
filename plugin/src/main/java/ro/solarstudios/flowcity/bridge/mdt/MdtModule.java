@@ -842,6 +842,41 @@ public final class MdtModule extends JsonModule implements Listener {
         return new long[] {Math.round(f.amount * (1 + pct / 100.0)), Math.round(pct), late, deadline};
     }
 
+    /** Rezumat cazier pentru ecranul Politie: wanted, reason, records[{text,by,date}], paidCount, paidSum, unpaidCount. */
+    public com.google.gson.JsonObject cazierSummary(UUID u) {
+        com.google.gson.JsonObject o = new com.google.gson.JsonObject();
+        com.google.gson.JsonArray recs = new com.google.gson.JsonArray();
+        Citizen ct = citizen(u);
+        int paid = 0, unpaid = 0;
+        long sum = 0;
+        if (ct != null) {
+            java.text.SimpleDateFormat dd = new java.text.SimpleDateFormat("dd.MM.yyyy");
+            for (Rec r : ct.records) {
+                com.google.gson.JsonObject ro = new com.google.gson.JsonObject();
+                ro.addProperty("text", r.text == null ? "" : r.text);
+                ro.addProperty("by", r.by == null ? "" : r.by);
+                ro.addProperty("date", dd.format(new Date(r.ts)));
+                recs.add(ro);
+            }
+            for (Fine f : ct.fines) {
+                if (f.paid) {
+                    paid++;
+                    sum += f.amount;
+                } else unpaid++;
+            }
+            o.addProperty("wanted", ct.wanted);
+            o.addProperty("reason", ct.reason == null ? "" : ct.reason);
+        } else {
+            o.addProperty("wanted", false);
+            o.addProperty("reason", "");
+        }
+        o.add("records", recs);
+        o.addProperty("paidCount", paid);
+        o.addProperty("paidSum", sum);
+        o.addProperty("unpaidCount", unpaid);
+        return o;
+    }
+
     /** Amenzile neplatite ale unui jucator, pentru ecranul "Amenzile mele" (cu termen si penalizare). */
     public com.google.gson.JsonArray unpaidFines(UUID u) {
         com.google.gson.JsonArray arr = new com.google.gson.JsonArray();

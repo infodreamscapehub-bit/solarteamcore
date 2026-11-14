@@ -1,0 +1,20 @@
+# Politie - hub pentru jucatori (/politie). Taxele se platesc prin PayModule (cash/card).
+fees:
+  permis: 300
+  portarma: 1500
+  cazier: 50
+  duplicat-permis: 100
+conditions:
+  min-age: 18
+  # port-arma: cerinta suplimentara - fara mandat de urmarire si fara inregistrari in cazier
+  portarma-clean-record: true
+# comenzi de consola rulate dupa o plata reusita (%player%, %amount%, %service%) - ex: "eco give politia %amount%"
+payment-commands: []
+# rolurile din "Cerere de angajare"
+angajare:
+  roles:
+    - Agent
+    - Detectiv
+    - Agent rutier
+    - Dispecer
+officer-permission: flowcity.politie.officer
