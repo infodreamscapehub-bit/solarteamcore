@@ -1,0 +1,16 @@
+# PayDay: la fiecare "interval-minutes" minute de joc activ jucatorul primeste salariul.
+# Salariul = cel mai mare dintre permisiunile flowcity.payday.<grup> pe care le are (grupurile de mai jos).
+# Jucatorii AFK (nemiscati) nu acumuleaza timp.
+enabled: true
+interval-minutes: 60
+afk-minutes: 5
+base-salary: 200
+# grup -> salariu (da jucatorului permisiunea flowcity.payday.<grup>)
+groups:
+  politist: 900
+  medic: 800
+  mecanic: 600
+  taximetrist: 500
+  vip: 400
+# impozit retinut din salariu (procent)
+tax-percent: 5
