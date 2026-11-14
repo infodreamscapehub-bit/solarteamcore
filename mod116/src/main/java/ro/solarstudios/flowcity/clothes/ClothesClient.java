@@ -63,6 +63,14 @@ public final class ClothesClient extends JsonClientModule {
                 }
             }
         }));
+        on("catalog", d -> Minecraft.getInstance().execute(() -> {
+            if (!d.has("outfits") || !d.get("outfits").isJsonArray()) return;
+            ClothesCatalog.OUTFITS.clear();
+            for (com.google.gson.JsonElement e : d.getAsJsonArray("outfits")) {
+                JsonObject o = e.getAsJsonObject();
+                ClothesCatalog.OUTFITS.put(str(o, "id", ""), str(o, "name", ""));
+            }
+        }));
         on("tex", d -> Minecraft.getInstance().execute(() -> {
             String id = str(d, "id", "");
             try {
@@ -97,6 +105,15 @@ public final class ClothesClient extends JsonClientModule {
         JsonObject o = new JsonObject();
         o.addProperty("id", id);
         if (instance != null) instance.send(action, o);
+    }
+
+    /** Click dreapta pe un articol de imbracaminte (apelat doar pe client). */
+    public static void useItem(String id, boolean sneak) {
+        if (sneak || id.isEmpty()) {
+            refresh();
+            return;
+        }
+        send("equip", id);
     }
 
     static void refresh() {

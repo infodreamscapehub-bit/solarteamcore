@@ -263,6 +263,16 @@ public final class ClothesModule extends JsonModule implements Listener {
                     slims.addProperty(q.getUniqueId().toString(), outfits.get(w).slim);
                 }
             }
+            JsonObject cat = new JsonObject();
+            JsonArray ca = new JsonArray();
+            for (Outfit f : outfits.values()) {
+                JsonObject c = new JsonObject();
+                c.addProperty("id", f.id);
+                c.addProperty("name", f.name);
+                ca.add(c);
+            }
+            cat.add("outfits", ca);
+            send(p, "catalog", cat);
             JsonObject o = new JsonObject();
             o.add("look", all);
             send(p, "look", o);
