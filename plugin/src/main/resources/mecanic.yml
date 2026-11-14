@@ -1,0 +1,6 @@
+# Mecanic: preturi in lei. NPC: CONSOLE mecanic open %player%  (ZNPCs) / mecanic open <jucator> (Citizens).
+prices:
+  repair: 800      # reparatie completa a caroseriei
+  itp: 500         # ITP, valabil 14 zile
+  rca7: 400        # asigurare RCA 7 zile
+  rca30: 1200      # asigurare RCA 30 zile

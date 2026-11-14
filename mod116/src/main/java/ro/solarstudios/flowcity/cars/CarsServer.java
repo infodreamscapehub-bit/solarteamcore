@@ -471,6 +471,8 @@ public final class CarsServer {
             String owner = c.owner == null ? "Factiune: " + c.faction
                 : nameOf(p.server, c.owner);
             o.addProperty("owner", owner);
+            o.addProperty("itp", c.itpUntil);
+            o.addProperty("ins", c.insUntil);
         } else {
             o.addProperty("plate", "");
             o.addProperty("owner", "fara acte (nu e inregistrat)");
@@ -655,6 +657,77 @@ public final class CarsServer {
             e.getDispatcher().register(carsCommand());
             e.getDispatcher().register(stationCommand());
         }
+    }
+
+    /** Lista masinilor personale ale jucatorului pentru mecanic (ITP, asigurare, caroserie). */
+    static void sendMechList(ServerPlayerEntity p, GarageData data) {
+        JsonObject o = new JsonObject();
+        JsonArray arr = new JsonArray();
+        for (GarageData.Car c : data.of(p.getUUID())) {
+            JsonObject j = new JsonObject();
+            j.addProperty("id", c.id);
+            j.addProperty("type", c.type);
+            j.addProperty("name", c.name);
+            j.addProperty("plate", c.plate);
+            j.addProperty("hp", c.nbt.getFloat("Health"));
+            j.addProperty("maxHp", c.nbt.getFloat("MaxHealth"));
+            j.addProperty("itp", c.itpUntil);
+            j.addProperty("ins", c.insUntil);
+            j.addProperty("out", c.out);
+            j.addProperty("pound", c.pound);
+            arr.add(j);
+        }
+        o.add("cars", arr);
+        CarsNet.reply(p, "mech", o.toString());
+    }
+
+    private static final long DAY_MS = 24L * 60L * 60L * 1000L;
+
+    /** Servicii de mecanic (dupa ce pluginul a luat banii): daca intoarce 0, pluginul returneaza banii. */
+    private static int service(CommandContext<CommandSource> c, ServerPlayerEntity p, int carId, String svc) {
+        GarageData data = GarageData.get(c.getSource().getServer());
+        GarageData.Car car = data.get(carId);
+        if (car == null || car.owner == null || !car.owner.equals(p.getUUID())) return fail(c, "Masina nu e a ta.");
+        long now = System.currentTimeMillis();
+        switch (svc) {
+            case "repair": {
+                float max = car.nbt.getFloat("MaxHealth");
+                if (max <= 0) return fail(c, "Aceasta masina nu are caroserie de reparat.");
+                if (car.out) return fail(c, "Parcheaza masina in garaj ca sa o repari.");
+                if (car.nbt.getFloat("Health") >= max - 0.01f) return fail(c, "Masina nu are nevoie de reparatie.");
+                car.nbt.putFloat("Health", max);
+                p.displayClientMessage(new StringTextComponent(car.name + " (" + car.plate + ") a fost reparata."), false);
+                break;
+            }
+            case "itp":
+                car.itpUntil = Math.max(now, car.itpUntil) + 14 * DAY_MS;
+                p.displayClientMessage(new StringTextComponent("ITP facut pentru " + car.name + " (" + car.plate + ")."), false);
+                break;
+            case "rca7":
+            case "rca30":
+                car.insUntil = Math.max(now, car.insUntil) + ("rca7".equals(svc) ? 7 : 30) * DAY_MS;
+                p.displayClientMessage(new StringTextComponent("Asigurare RCA activa pentru " + car.name + " (" + car.plate + ")."), false);
+                break;
+            default:
+                return fail(c, "Serviciu necunoscut.");
+        }
+        data.setDirty();
+        sendMechList(p, data);
+        return 1;
+    }
+
+    private static LiteralArgumentBuilder<CommandSource> mechCommands() {
+        return Commands.literal("service").then(Commands.argument("player", EntityArgument.player())
+            .then(Commands.argument("car", IntegerArgumentType.integer(1)).then(Commands.argument("svc", StringArgumentType.word()).executes(c ->
+                service(c, EntityArgument.getPlayer(c, "player"), IntegerArgumentType.getInteger(c, "car"), StringArgumentType.getString(c, "svc"))))));
+    }
+
+    private static LiteralArgumentBuilder<CommandSource> mechListCommand() {
+        return Commands.literal("mechlist").then(Commands.argument("player", EntityArgument.player()).executes(c -> {
+            ServerPlayerEntity p = EntityArgument.getPlayer(c, "player");
+            sendMechList(p, GarageData.get(c.getSource().getServer()));
+            return 1;
+        }));
     }
 
     private static int fail(CommandContext<CommandSource> c, String msg) {
@@ -885,6 +958,8 @@ public final class CarsServer {
                         officer.displayClientMessage(new StringTextComponent("Vehicul ridicat la pound."), true);
                         return 1;
                     })))))
+            .then(mechCommands())
+            .then(mechListCommand())
             // scoatere de la pound dupa plata (pluginul ia taxa prin Vault)
             .then(Commands.literal("unpound").then(Commands.argument("player", EntityArgument.player())
                 .then(Commands.argument("car", IntegerArgumentType.integer(1)).then(Commands.argument("garage", IntegerArgumentType.integer(1)).executes(c -> {

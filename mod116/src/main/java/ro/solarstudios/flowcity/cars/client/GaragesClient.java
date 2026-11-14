@@ -158,6 +158,10 @@ public final class GaragesClient {
             case "tune_cars":
                 TuningScreen.cars(o);
                 break;
+            case "mech":
+                if (mc.screen instanceof MecanicScreen) ((MecanicScreen) mc.screen).update(o);
+                else mc.setScreen(new MecanicScreen(o));
+                break;
             case "plate":
                 CarHud.setPlate(o.has("id") ? o.get("id").getAsInt() : -1, o.has("plate") ? o.get("plate").getAsString() : "");
                 break;

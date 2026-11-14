@@ -108,6 +108,10 @@ public final class GarageData extends WorldSavedData {
         public boolean locked;
         /** Generatia cheii: cand se face o cheie noua, cele vechi nu mai merg. */
         public int keyGen;
+        /** Asigurarea RCA valabila pana la (epoch ms; 0 = fara). */
+        public long insUntil;
+        /** ITP valabil pana la (epoch ms; 0 = fara). */
+        public long itpUntil;
 
         CompoundNBT save() {
             CompoundNBT t = new CompoundNBT();
@@ -124,6 +128,8 @@ public final class GarageData extends WorldSavedData {
             t.putString("PoundReason", poundReason);
             t.putBoolean("Locked", locked);
             t.putInt("KeyGen", keyGen);
+            t.putLong("InsUntil", insUntil);
+            t.putLong("ItpUntil", itpUntil);
             return t;
         }
 
@@ -142,6 +148,8 @@ public final class GarageData extends WorldSavedData {
             c.poundReason = t.getString("PoundReason");
             c.locked = t.getBoolean("Locked");
             c.keyGen = t.getInt("KeyGen");
+            c.insUntil = t.getLong("InsUntil");
+            c.itpUntil = t.getLong("ItpUntil");
             return c;
         }
     }

@@ -24,7 +24,7 @@ public final class PoliceVehicleScreen extends FlowScreen {
     private boolean waiting;
 
     PoliceVehicleScreen(JsonObject data) {
-        super("Control vehicul", 330, 214);
+        super("Control vehicul", 330, 228);
         this.custom = field("Alt motiv (optional)", 60, null);
         update(data);
     }
@@ -64,6 +64,16 @@ public final class PoliceVehicleScreen extends FlowScreen {
         }
         y += 13;
         Ui.text(ms, "Proprietar: " + JsonClientModule.str(data, "owner", "-"), x, y, Theme.MUTED);
+        if (data.has("itp")) {
+            long now = System.currentTimeMillis();
+            long itp = JsonClientModule.lng(data, "itp", 0);
+            long ins = JsonClientModule.lng(data, "ins", 0);
+            y += 11;
+            String a = "ITP: " + (itp > now ? "valabil" : "EXPIRAT / LIPSA");
+            String b = "RCA: " + (ins > now ? "valabila" : "EXPIRATA / LIPSA");
+            Ui.text(ms, a, x, y, itp > now ? Theme.OK : Theme.BAD);
+            Ui.text(ms, b, x + Ui.width(a) + 14, y, ins > now ? Theme.OK : Theme.BAD);
+        }
         y += 18;
         Ui.rect(ms, x, y - 4, w, 1, Theme.LINE);
 
