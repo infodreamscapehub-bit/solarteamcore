@@ -324,10 +324,20 @@ public final class HypeModule extends JsonModule implements Listener {
     // ------------------------------------------------------------------ stare / HUD
 
     private String rankOf(Player p) {
+        String raw = rankRaw(p);
+        return raw == null ? rankFallback(p) : RankText.plain(raw);
+    }
+
+    /** Rangul cu coduri de culoare (birdflop, &#RRGGBB, gradient...) din LuckPerms; null daca LuckPerms nu da nimic. */
+    private String rankRaw(Player p) {
         if (cfg.getBoolean("hud.luckperms.enabled", true)) {
-            String lp = LuckPermsRank.of(p.getUniqueId(), cfg.getString("hud.luckperms.mode", "group"));
+            String lp = LuckPermsRank.of(p.getUniqueId(), cfg.getString("hud.luckperms.mode", "group"), cfg.getBoolean("hud.luckperms.colors", true));
             if (lp != null) return lp;
         }
+        return null;
+    }
+
+    private String rankFallback(Player p) {
         for (Map<?, ?> m : cfg.getMapList("hud.ranks")) {
             Object perm = m.get("perm");
             Object name = m.get("name");
@@ -348,6 +358,8 @@ public final class HypeModule extends JsonModule implements Listener {
         o.addProperty("cash", plugin.money().balance(u));
         o.addProperty("bank", plugin.bank().balance(u));
         o.addProperty("rank", rankOf(p));
+        String rawRank = rankRaw(p);
+        if (rawRank != null && cfg.getBoolean("hud.luckperms.colors", true)) o.add("rankSegs", RankText.segments(rawRank));
         o.addProperty("id", plugin.ids().idOf(u));
         o.addProperty("online", Bukkit.getOnlinePlayers().size());
         o.addProperty("playMin", p.getStatistic(Statistic.PLAY_ONE_MINUTE) / 1200);

@@ -253,7 +253,25 @@ public final class HypeHud {
         if (id > 0) cx = chip(ms, "#" + id, cx, y - 1, Theme.ACCENT);
         long min = JsonClientModule.lng(s, "playMin", 0);
         cx = chip(ms, min >= 60 ? (min / 60) + "h" : min + "m", cx + 4, y - 1, Theme.VIOLET);
-        Ui.textRight(ms, JsonClientModule.str(s, "rank", ""), x + W, y + 2, Theme.MUTED);
+        if (s.has("rankSegs") && s.get("rankSegs").isJsonArray() && s.getAsJsonArray("rankSegs").size() > 0) {
+            java.util.List<String> parts = new java.util.ArrayList<>();
+            java.util.List<Integer> cols = new java.util.ArrayList<>();
+            int total = 0;
+            for (com.google.gson.JsonElement e : s.getAsJsonArray("rankSegs")) {
+                JsonObject o = e.getAsJsonObject();
+                String t = (JsonClientModule.bool(o, "b", false) ? "\u00a7l" : "") + JsonClientModule.str(o, "t", "");
+                parts.add(t);
+                cols.add(0xFF000000 | JsonClientModule.integer(o, "c", 0xFFFFFF));
+                total += Ui.width(t);
+            }
+            int rx = x + W - total;
+            for (int i = 0; i < parts.size(); i++) {
+                Ui.text(ms, parts.get(i), rx, y + 2, cols.get(i));
+                rx += Ui.width(parts.get(i));
+            }
+        } else {
+            Ui.textRight(ms, JsonClientModule.str(s, "rank", ""), x + W, y + 2, Theme.MUTED);
+        }
     }
 
     private static int chip(GuiGraphics ms, String text, int x, int y, int color) {

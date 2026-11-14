@@ -37,14 +37,21 @@ final class LuckPermsRank {
         return m.invoke(target, args);
     }
 
+    private static boolean keep;
+
     private static String clean(String s) {
         if (s == null) return null;
+        if (keep) {
+            s = s.trim();
+            return s.isEmpty() ? null : s;
+        }
         s = s.replaceAll("(?i)[&§][0-9a-fk-or]", "").replaceAll("(?i)&#[0-9a-f]{6}", "").replaceAll("(?i)§x(§[0-9a-f]){6}", "").trim();
         return s.isEmpty() ? null : s;
     }
 
     /** mode: group (numele afisat al grupului principal), prefix sau suffix. null daca LuckPerms lipseste / nu are date. */
-    static String of(UUID u, String mode) {
+    static String of(UUID u, String mode, boolean raw) {
+        keep = raw;
         if (!ready()) return null;
         try {
             Object um = call(lp, "net.luckperms.api.LuckPerms", "getUserManager", new Class<?>[0]);

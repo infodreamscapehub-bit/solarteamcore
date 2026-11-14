@@ -9,6 +9,7 @@ hud:
   luckperms:
     enabled: true
     mode: group
+    colors: true   # pastreaza culorile (birdflop: &#RRGGBB, <gradient:..>, &x&r&r..., &l bold) si le deseneaza in HUD
   default-rank: "Jucator"
   ranks:
     - {perm: "flowcity.rank.owner", name: "Owner"}
