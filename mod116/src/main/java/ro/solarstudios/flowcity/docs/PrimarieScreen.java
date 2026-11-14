@@ -19,6 +19,7 @@ public final class PrimarieScreen extends FlowScreen {
     private final TextFieldWidget fSurname = field("Nume (de familie)", 40, null);
     private final TextFieldWidget fName = field("Prenume", 40, null);
     private final TextFieldWidget fBirth = field("Data nașterii zz.ll.aaaa", 10, null);
+    private final TextFieldWidget fPlace = field("Loc naștere (oraș)", 30, null);
     private final TextFieldWidget fAddr = field("Adresa (strada, număr)", 60, null);
     private final long born = System.currentTimeMillis();
     private JsonObject state;
@@ -61,6 +62,7 @@ public final class PrimarieScreen extends FlowScreen {
             l.add(fSurname);
             l.add(fName);
             l.add(fBirth);
+            l.add(fPlace);
             l.add(fAddr);
         }
         return l;
@@ -121,7 +123,7 @@ public final class PrimarieScreen extends FlowScreen {
     }
 
     private void submit() {
-        DocsClient.apply(fSurname.getValue().trim(), fName.getValue().trim(), fBirth.getValue().trim(), fAddr.getValue().trim(), sex);
+        DocsClient.apply(fSurname.getValue().trim(), fName.getValue().trim(), fBirth.getValue().trim(), fPlace.getValue().trim(), fAddr.getValue().trim(), sex);
     }
 
     @Override
@@ -145,7 +147,7 @@ public final class PrimarieScreen extends FlowScreen {
         if (hasId()) {
             JsonObject b = state.getAsJsonObject("buletin");
             boolean expired = JsonClientModule.bool(b, "expired", false);
-            DocViewScreen.card(ms, b, 12, 66);
+            DocViewScreen.card(ms, b, 22, 60);
             Sk.slant(ms, 326, 66, 182, 170, 8f, Sk.ROW);
             Gfx.text(ms, "ACȚIUNI", 340, 84, 7f, Sk.MUTED, 0, false, 1.2f);
 
@@ -163,23 +165,24 @@ public final class PrimarieScreen extends FlowScreen {
         } else {
             Sk.slant(ms, 12, 62, 306, 218, 8f, Sk.ROW);
             Gfx.text(ms, "CERERE BULETIN", 26, 80, 7f, Sk.MUTED, 0, false, 1.2f);
-            fieldBox(ms, fSurname, 26, 90, 278, 22);
-            fieldBox(ms, fName, 26, 118, 278, 22);
-            fieldBox(ms, fBirth, 26, 146, 278, 22);
-            fieldBox(ms, fAddr, 26, 174, 278, 22);
+            fieldBox(ms, fSurname, 26, 86, 278, 21);
+            fieldBox(ms, fName, 26, 110, 278, 21);
+            fieldBox(ms, fBirth, 26, 134, 278, 21);
+            fieldBox(ms, fPlace, 26, 158, 278, 21);
+            fieldBox(ms, fAddr, 26, 182, 278, 21);
 
-            Gfx.text(ms, "SEX", 26, 214, 6.4f, Sk.FAINT, 0, false, 1f);
+            Gfx.text(ms, "SEX", 26, 217, 6.4f, Sk.FAINT, 0, false, 1f);
             for (int i = 0; i < 2; i++) {
                 final String v = i == 0 ? "M" : "F";
                 float bx = 56 + i * 54;
                 boolean sel = v.equals(sex);
-                boolean h = Sk.in(lmx, lmy, bx, 203, 48, 20);
-                Sk.button(ms, i == 0 ? "MASC." : "FEM.", bx, 203, 48, 20, true, sel, h);
-                hitL(bx, 203, 48, 20, () -> sex = v);
+                boolean h = Sk.in(lmx, lmy, bx, 207, 48, 20);
+                Sk.button(ms, i == 0 ? "MASC." : "FEM.", bx, 207, 48, 20, true, sel, h);
+                hitL(bx, 207, 48, 20, () -> sex = v);
             }
-            boolean h = Sk.in(lmx, lmy, 26, 236, 278, 30);
-            Sk.button(ms, "CERE BULETIN · " + money(pNew) + " lei", 26, 236, 278, 30, true, true, h);
-            hitL(26, 236, 278, 30, this::submit);
+            boolean h = Sk.in(lmx, lmy, 26, 240, 278, 30);
+            Sk.button(ms, "CERE BULETIN · " + money(pNew) + " lei", 26, 240, 278, 30, true, true, h);
+            hitL(26, 240, 278, 30, this::submit);
 
             Sk.slant(ms, 326, 62, 182, 218, 8f, Sk.ROW);
             Gfx.text(ms, "CUM FUNCȚIONEAZĂ", 340, 80, 7f, Sk.MUTED, 0, false, 1.2f);

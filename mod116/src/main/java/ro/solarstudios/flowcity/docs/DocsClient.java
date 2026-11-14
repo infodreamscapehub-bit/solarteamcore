@@ -32,11 +32,12 @@ public final class DocsClient extends JsonClientModule {
         ClientModules.register(instance);
     }
 
-    static void apply(String name, String surname, String birth, String address, String sex) {
+    static void apply(String name, String surname, String birth, String birthPlace, String address, String sex) {
         JsonObject o = new JsonObject();
         o.addProperty("name", name);
         o.addProperty("surname", surname);
         o.addProperty("birth", birth);
+        o.addProperty("birthPlace", birthPlace);
         o.addProperty("address", address);
         o.addProperty("sex", sex);
         if (instance != null) instance.send("apply", o);

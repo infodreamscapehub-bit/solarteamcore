@@ -40,6 +40,8 @@ public final class DocsModule extends JsonModule {
         public long issued;
         public long expires;
         public String issuer;
+        public String cnp = "";
+        public String birthPlace = "";
     }
 
     private static final String[] TYPES = {"buletin", "permis", "portarma"};
@@ -75,7 +77,7 @@ public final class DocsModule extends JsonModule {
             }
         }
         on("refresh", (p, j) -> openPrimarie(p));
-        on("apply", (p, j) -> apply(p, str(j, "name", ""), str(j, "surname", ""), str(j, "birth", ""), str(j, "address", ""), str(j, "sex", "")));
+        on("apply", (p, j) -> apply(p, str(j, "name", ""), str(j, "surname", ""), str(j, "birth", ""), str(j, "address", ""), str(j, "sex", ""), str(j, "birthPlace", "")));
         on("renew", (p, j) -> reissue(p, true));
         on("duplicate", (p, j) -> reissue(p, false));
         on("view", (p, j) -> show(p, p, str(j, "type", "buletin")));
@@ -111,6 +113,9 @@ public final class DocsModule extends JsonModule {
         d.issued = s.getLong("issued", 0);
         d.expires = s.getLong("expires", 0);
         d.issuer = s.getString("issuer", "");
+        d.birthPlace = s.getString("birthPlace", "FlowCity");
+        d.cnp = s.getString("cnp", "");
+        if (d.cnp.isEmpty()) d.cnp = fakeCnp(u, d.birth, d.sex);
         return d;
     }
 
@@ -148,7 +153,27 @@ public final class DocsModule extends JsonModule {
         data.set(b + "issued", d.issued);
         data.set(b + "expires", d.expires);
         data.set(b + "issuer", d.issuer);
+        data.set(b + "birthPlace", d.birthPlace);
+        data.set(b + "cnp", d.cnp);
         save();
+    }
+
+    /** CNP FICTIV (judet "99" = nu exista), cu cifra de control reala ca sa arate credibil. */
+    static String fakeCnp(UUID u, String birth, String sex) {
+        long b = DocLogic.parseDate(birth);
+        if (b < 0) return "";
+        java.util.Calendar c = java.util.Calendar.getInstance();
+        c.setTimeInMillis(b);
+        int y = c.get(java.util.Calendar.YEAR);
+        boolean f = "F".equalsIgnoreCase(sex);
+        int sd = y >= 2000 ? (f ? 6 : 5) : (f ? 2 : 1);
+        int nnn = Math.floorMod(u.hashCode(), 900) + 100;
+        String base = String.format("%d%02d%02d%02d99%03d", sd, y % 100, c.get(java.util.Calendar.MONTH) + 1, c.get(java.util.Calendar.DAY_OF_MONTH), nnn);
+        int[] key = {2, 7, 9, 1, 4, 6, 3, 5, 8, 2, 7, 9};
+        int sum = 0;
+        for (int i = 0; i < 12; i++) sum += (base.charAt(i) - '0') * key[i];
+        int r = sum % 11;
+        return base + (r == 10 ? 1 : r);
     }
 
     private static String nz(String s) {
@@ -177,6 +202,9 @@ public final class DocsModule extends JsonModule {
         d.issued = System.currentTimeMillis();
         d.expires = DocLogic.addYears(d.issued, years(t));
         d.issuer = issuer == null ? "" : issuer;
+        String bp = nz(fields.get("birthPlace")).replaceAll("[\\p{Cntrl}§&]", "").trim();
+        d.birthPlace = bp.isEmpty() ? "FlowCity" : bp;
+        d.cnp = fakeCnp(u, d.birth, d.sex);
         serials.add(d.serie + " " + d.numar);
         write(d);
         return d;
@@ -199,6 +227,10 @@ public final class DocsModule extends JsonModule {
         o.addProperty("expiresStr", DocLogic.formatDate(d.expires));
         o.addProperty("expired", d.expires <= System.currentTimeMillis());
         o.addProperty("issuer", d.issuer);
+        o.addProperty("cnp", d.cnp);
+        o.addProperty("birthPlace", d.birthPlace);
+        o.addProperty("citizenship", "Română / ROU");
+        o.addProperty("ownerUuid", String.valueOf(d.owner));
         return o;
     }
 
@@ -293,7 +325,7 @@ public final class DocsModule extends JsonModule {
         }
     }
 
-    private void apply(Player p, String name, String surname, String birth, String address, String sex) {
+    private void apply(Player p, String name, String surname, String birth, String address, String sex, String birthPlace) {
         final UUID u = p.getUniqueId();
         if (get(u, "buletin") != null) {
             result(p, false, "Ai deja buletin. Foloseste reinnoire sau duplicat.");
@@ -332,6 +364,8 @@ public final class DocsModule extends JsonModule {
         f.put("birth", DocLogic.formatDate(b));
         f.put("address", a);
         f.put("sex", sex.toUpperCase(java.util.Locale.ROOT));
+        String bpl = birthPlace == null ? "" : birthPlace.replaceAll("[\\p{Cntrl}§&]", "").trim();
+        f.put("birthPlace", bpl.length() > 30 ? bpl.substring(0, 30) : bpl);
         pay(p, "Buletin", fee("buletin", 150), () -> {
             if (get(u, "buletin") != null) return false;
             Doc d = issue(u, "buletin", f, "Primaria Flow City");
@@ -364,6 +398,7 @@ public final class DocsModule extends JsonModule {
             f.put("birth", cur.birth);
             f.put("address", cur.address);
             f.put("sex", cur.sex);
+            f.put("birthPlace", cur.birthPlace);
             long keep = cur.expires;
             Doc d = issue(u, "buletin", f, "Primaria Flow City");
             if (d == null) return false;
@@ -421,7 +456,7 @@ public final class DocsModule extends JsonModule {
             if (a.length >= 6 && "cere".equalsIgnoreCase(a[0])) {
                 StringBuilder ad = new StringBuilder();
                 for (int i = 5; i < a.length; i++) ad.append(i > 5 ? " " : "").append(a[i]);
-                apply(p, a[1], a[2], a[3], ad.toString(), a[4]);
+                apply(p, a[1], a[2], a[3], ad.toString(), a[4], "");
                 return true;
             }
             openPrimarie(p);
