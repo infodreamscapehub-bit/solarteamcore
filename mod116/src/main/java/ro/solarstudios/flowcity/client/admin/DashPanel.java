@@ -6,12 +6,13 @@ import ro.solarstudios.flowcity.compat.GuiGraphics;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import ro.solarstudios.flowcity.client.ui.Theme;
+import ro.solarstudios.flowcity.cars.client.Sk;
+import ro.solarstudios.flowcity.client.ui.Gfx;
 import ro.solarstudios.flowcity.client.ui.Ui;
 import ro.solarstudios.flowcity.module.ClientModules;
 import ro.solarstudios.flowcity.module.JsonClientModule;
 
-/** Dashboard eAdmin (cand nu e selectat niciun jucator): carduri live, grafic de jucatori, activitate recenta, alerte. */
+/** Dashboard eAdmin (cand nu e selectat niciun jucator): carduri live, grafic de jucatori, activitate recenta, alerte. Tema de iarna FlowCity. */
 public final class DashPanel extends JsonClientModule {
     private static DashPanel instance;
     private static JsonObject stats = new JsonObject();
@@ -70,6 +71,11 @@ public final class DashPanel extends JsonClientModule {
         return SHOWN[slot];
     }
 
+    /** Culoare cu alfa nou (0-255). */
+    private static int al(int color, int a) {
+        return ((Math.max(0, Math.min(255, a)) & 0xFF) << 24) | (color & 0xFFFFFF);
+    }
+
     private static double n(String k) {
         return stats.has(k) && stats.get(k).isJsonPrimitive() ? stats.get(k).getAsDouble() : 0;
     }
@@ -85,15 +91,15 @@ public final class DashPanel extends JsonClientModule {
     public static void draw(GuiGraphics ms, int x, int y, int w, int h, long now) {
         if (!loaded) {
             int dots = (int) ((now / 350) % 4);
-            Ui.textCenter(ms, "Se incarca statisticile" + "...".substring(0, dots), x + w / 2, y + h / 2 - 4, Theme.MUTED);
+            Ui.textCenter(ms, "Se incarca statisticile" + "...".substring(0, dots), x + w / 2, y + h / 2 - 4, Sk.MUTED);
             return;
         }
         float fade = Math.min(1f, (now - loadedAt) / 450f);
         int a = (int) (255 * fade);
         int gap = 4;
         // titlu
-        Ui.text(ms, "DASHBOARD", x, y, Theme.ACCENT);
-        Ui.textRight(ms, (int) n("total") + " jucatori inregistrati  |  +" + (int) n("newToday") + " in 24h", x + w, y, Theme.MUTED);
+        Ui.text(ms, "DASHBOARD", x, y, Sk.ACC);
+        Ui.textRight(ms, (int) n("total") + " jucatori inregistrati  |  +" + (int) n("newToday") + " in 24h", x + w, y, Sk.MUTED);
         y += 12;
 
         // ---- carduri mari
@@ -101,30 +107,30 @@ public final class DashPanel extends JsonClientModule {
         int chh = 46;
         double tps = n("tps");
         card(ms, x, y, cw, chh, "ONLINE", String.valueOf(Math.round(animate(0, n("online")))) + "/" + (int) n("max"),
-            n("max") <= 0 ? 0 : (float) (n("online") / n("max")), Theme.ACCENT, a);
+            n("max") <= 0 ? 0 : (float) (n("online") / n("max")), Sk.ACC, a);
         card(ms, x + (cw + gap), y, cw, chh, "TPS", tps < 0 ? "n/a" : String.format(Locale.US, "%.1f", animate(1, tps)),
-            tps < 0 ? 0 : (float) (tps / 20.0), tps >= 18 ? Theme.OK : (tps >= 14 ? Theme.WARN : Theme.BAD), a);
+            tps < 0 ? 0 : (float) (tps / 20.0), tps >= 18 ? Sk.GOOD : (tps >= 14 ? Sk.WARN : Sk.BAD), a);
         double ramFrac = n("ramMax") <= 0 ? 0 : n("ramUsed") / n("ramMax");
         card(ms, x + 2 * (cw + gap), y, cw, chh, "RAM", Math.round(animate(2, n("ramUsed"))) + " MB",
-            (float) ramFrac, ramFrac < 0.75 ? Theme.VIOLET : (ramFrac < 0.9 ? Theme.WARN : Theme.BAD), a);
+            (float) ramFrac, ramFrac < 0.75 ? 0xFF7DBBFF : (ramFrac < 0.9 ? Sk.WARN : Sk.BAD), a);
         card(ms, x + 3 * (cw + gap), y, cw, chh, "CU MOD", (int) n("mods") + "/" + (int) n("online"),
-            n("online") <= 0 ? 0 : (float) (n("mods") / n("online")), Theme.OK, a);
+            n("online") <= 0 ? 0 : (float) (n("mods") / n("online")), Sk.GOOD, a);
         y += chh + gap;
 
         // ---- grafic jucatori online
         int gh = 34;
-        Ui.frame(ms, x, y, w, gh, Theme.PANEL, Theme.LINE);
-        Ui.text(ms, "Jucatori online (live)", x + 5, y + 3, Theme.FAINT);
-        Ui.textRight(ms, "staff online: " + (int) n("staff"), x + w - 5, y + 3, Theme.MUTED);
-        sparkline(ms, x + 4, y + 13, w - 8, gh - 17, a);
+        Sk.cut(ms, x, y, w, gh, 6f, Sk.ROW);
+        Ui.text(ms, "Jucatori online (live)", x + 8, y + 3, Sk.FAINT);
+        Ui.textRight(ms, "staff online: " + (int) n("staff"), x + w - 8, y + 3, Sk.MUTED);
+        sparkline(ms, x + 8, y + 13, w - 16, gh - 17, a);
         y += gh + gap;
 
         // ---- mini statistici
         int mw = (w - gap * 3) / 4;
-        mini(ms, x, y, mw, "BAN-URI ACTIVE", (int) animate(3, n("bans")), Theme.BAD, a);
-        mini(ms, x + (mw + gap), y, mw, "MUTE ACTIVE", (int) animate(4, n("mutes")), Theme.WARN, a);
-        mini(ms, x + 2 * (mw + gap), y, mw, "SANCTIUNI 24H", (int) animate(5, n("sanctions24")), Theme.VIOLET, a);
-        mini(ms, x + 3 * (mw + gap), y, mw, "ALERTE 24H", (int) animate(6, n("flags24")), n("flags24") > 0 ? Theme.WARN : Theme.FAINT, a);
+        mini(ms, x, y, mw, "BAN-URI ACTIVE", (int) animate(3, n("bans")), Sk.BAD, a);
+        mini(ms, x + (mw + gap), y, mw, "MUTE ACTIVE", (int) animate(4, n("mutes")), Sk.WARN, a);
+        mini(ms, x + 2 * (mw + gap), y, mw, "SANCTIUNI 24H", (int) animate(5, n("sanctions24")), 0xFF7DBBFF, a);
+        mini(ms, x + 3 * (mw + gap), y, mw, "ALERTE 24H", (int) animate(6, n("flags24")), n("flags24") > 0 ? Sk.WARN : Sk.FAINT, a);
         y += 26 + gap;
 
         // ---- activitate recenta + alerte
@@ -135,27 +141,29 @@ public final class DashPanel extends JsonClientModule {
     }
 
     private static void card(GuiGraphics ms, int x, int y, int w, int h, String label, String value, float frac, int color, int a) {
-        Ui.frame(ms, x, y, w, h, Theme.PANEL, Theme.mix(Theme.LINE, color, 0.35f));
-        Ui.rect(ms, x + 1, y + 1, w - 2, 2, Theme.alpha(color, Math.min(255, a)));
-        Ui.text(ms, label, x + 6, y + 7, Theme.FAINT);
+        Sk.cut(ms, x, y, w, h, 6f, Sk.ROW);
+        Ui.rect(ms, x + 6, y, w - 12, 2, al(color, Math.min(255, a)));
+        Ui.text(ms, label, x + 6, y + 7, Sk.FAINT);
         ms.pose().pushPose();
         ms.pose().translate(x + 6, y + 18, 0);
         ms.pose().scale(1.5f, 1.5f, 1f);
-        Ui.textShadow(ms, value, 0, 0, Theme.TEXT);
+        Ui.textShadow(ms, value, 0, 0, Sk.WHITE);
         ms.pose().popPose();
-        Ui.bar(ms, x + 6, y + h - 7, w - 12, 3, Math.max(0f, Math.min(1f, frac)), color);
+        float f = Math.max(0f, Math.min(1f, frac));
+        Gfx.rrect(ms, x + 6, y + h - 7, w - 12, 3, 0, 0xFF1B2839);
+        if (f > 0f) Gfx.rrect(ms, x + 6, y + h - 7, (w - 12) * f, 3, 0, color);
     }
 
     private static void mini(GuiGraphics ms, int x, int y, int w, String label, int value, int color, int a) {
-        Ui.frame(ms, x, y, w, 26, Theme.PANEL, Theme.LINE);
-        Ui.rect(ms, x + 1, y + 3, 2, 20, color);
-        Ui.text(ms, label, x + 7, y + 4, Theme.FAINT);
-        Ui.text(ms, String.valueOf(value), x + 7, y + 14, value > 0 ? color : Theme.MUTED);
+        Sk.slant(ms, x, y, w, 26, 6f, Sk.ROW);
+        Ui.rect(ms, x + 8, y + 4, 2, 18, color);
+        Ui.text(ms, label, x + 14, y + 4, Sk.FAINT);
+        Ui.text(ms, String.valueOf(value), x + 14, y + 14, value > 0 ? color : Sk.MUTED);
     }
 
     private static void sparkline(GuiGraphics ms, int x, int y, int w, int h, int a) {
         if (HISTORY.size() < 2) {
-            Ui.text(ms, "se aduna date...", x + 2, y + h / 2 - 4, Theme.FAINT);
+            Ui.text(ms, "se aduna date...", x + 2, y + h / 2 - 4, Sk.FAINT);
             return;
         }
         int max = 1;
@@ -166,21 +174,21 @@ public final class DashPanel extends JsonClientModule {
             int bw = Math.max(1, w / 48 - 1);
             int bh = Math.max(1, (int) ((double) HISTORY.get(i) / max * h));
             boolean last = i == n - 1;
-            Ui.rect(ms, bx, y + h - bh, bw, bh, last ? Theme.ACCENT : Theme.alpha(Theme.ACCENT_DIM, 0xFF));
+            Ui.rect(ms, bx, y + h - bh, bw, bh, last ? Sk.ACC : Sk.ACC_DARK);
         }
     }
 
     private static int typeColor(String t) {
         switch (t) {
-            case "BAN": return Theme.BAD;
-            case "MUTE": return Theme.WARN;
-            case "KICK": return Theme.VIOLET;
-            default: return Theme.ACCENT;
+            case "BAN": return Sk.BAD;
+            case "MUTE": return Sk.WARN;
+            case "KICK": return 0xFF7DBBFF;
+            default: return Sk.ACC;
         }
     }
 
     private static void feed(GuiGraphics ms, int x, int y, int w, int a) {
-        Ui.text(ms, "ACTIVITATE RECENTA", x, y, Theme.FAINT);
+        Ui.text(ms, "ACTIVITATE RECENTA", x, y, Sk.FAINT);
         int yy = y + 11;
         boolean any = false;
         if (stats.has("recent")) {
@@ -189,19 +197,19 @@ public final class DashPanel extends JsonClientModule {
                 any = true;
                 String t = str(o, "type", "?");
                 int c = typeColor(t);
-                Ui.round(ms, x, yy, 32, 10, Theme.alpha(c, 0x40));
+                Sk.slant(ms, x, yy, 32, 10, 3f, al(c, 0x40));
                 Ui.textCenter(ms, t, x + 16, yy + 1, c);
                 String line = str(o, "target", "?") + " - " + str(o, "reason", "");
-                Ui.text(ms, Ui.clip(line, w - 74), x + 36, yy + 1, Theme.TEXT);
-                Ui.textRight(ms, ago(lng(o, "ts", 0)), x + w - 1, yy + 1, Theme.FAINT);
+                Ui.text(ms, Ui.clip(line, w - 74), x + 36, yy + 1, Sk.WHITE);
+                Ui.textRight(ms, ago(lng(o, "ts", 0)), x + w - 1, yy + 1, Sk.FAINT);
                 yy += 12;
             }
         }
-        if (!any) Ui.text(ms, "Nicio sanctiune inca.", x + 2, yy + 2, Theme.MUTED);
+        if (!any) Ui.text(ms, "Nicio sanctiune inca.", x + 2, yy + 2, Sk.MUTED);
     }
 
     private static void alerts(GuiGraphics ms, int x, int y, int w, int a) {
-        Ui.text(ms, "ALERTE ANTI-CHEAT", x, y, Theme.FAINT);
+        Ui.text(ms, "ALERTE ANTI-CHEAT", x, y, Sk.FAINT);
         int yy = y + 11;
         boolean any = false;
         if (stats.has("flags")) {
@@ -209,13 +217,13 @@ public final class DashPanel extends JsonClientModule {
                 JsonObject o = e.getAsJsonObject();
                 any = true;
                 String sev = str(o, "sev", "LOW");
-                int c = sev.startsWith("H") ? Theme.BAD : (sev.startsWith("M") ? Theme.WARN : Theme.MUTED);
+                int c = sev.startsWith("H") ? Sk.BAD : (sev.startsWith("M") ? Sk.WARN : Sk.MUTED);
                 Ui.rect(ms, x, yy + 1, 3, 8, c);
-                Ui.text(ms, Ui.clip(str(o, "target", "?") + " " + str(o, "trigger", ""), w - 30), x + 7, yy + 1, Theme.TEXT);
-                Ui.textRight(ms, ago(lng(o, "ts", 0)), x + w - 1, yy + 1, Theme.FAINT);
+                Ui.text(ms, Ui.clip(str(o, "target", "?") + " " + str(o, "trigger", ""), w - 30), x + 7, yy + 1, Sk.WHITE);
+                Ui.textRight(ms, ago(lng(o, "ts", 0)), x + w - 1, yy + 1, Sk.FAINT);
                 yy += 12;
             }
         }
-        if (!any) Ui.text(ms, "Totul curat.", x + 2, yy + 2, Theme.OK);
+        if (!any) Ui.text(ms, "Totul curat.", x + 2, yy + 2, Sk.GOOD);
     }
 }

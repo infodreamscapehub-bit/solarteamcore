@@ -6,10 +6,11 @@ import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import ro.solarstudios.flowcity.cars.client.Sk;
 import ro.solarstudios.flowcity.client.ui.Gfx;
 import ro.solarstudios.flowcity.notify.NotifyUi;
 
-/** Banner CNN sus, la mijloc: coboara animat, eticheta pulseaza (breaking), luciu care trece, bara de timp. Stirile vin pe rand. */
+/** Banner CNN (tema de iarna FlowCity) sus, la mijloc: coboara animat, eticheta pulseaza (breaking), luciu care trece, bara de timp. Stirile vin pe rand. */
 public final class NewsBanner {
     private static final long IN = 450;
     private static final long OUT = 400;
@@ -34,6 +35,10 @@ public final class NewsBanner {
 
     public static void clear() {
         QUEUE.clear();
+    }
+
+    private static int lum(int c) {
+        return (((c >> 16) & 0xFF) * 299 + ((c >> 8) & 0xFF) * 587 + (c & 0xFF) * 114) / 1000;
     }
 
     private boolean failed;
@@ -88,29 +93,29 @@ public final class NewsBanner {
         float a = 1f - outT;
 
         if (!ro.solarstudios.flowcity.client.ui.HudLayout.begin(g, "news", x, 6f, w, h)) return;
-        // umbra, cadru colorat, fundal
-        Gfx.rrect(g, x - 1, y + 3, w + 2, h + 2, 15, Gfx.fade(0x66000000, a));
-        Gfx.rrect(g, x, y, w, h, 14, Gfx.fade(Gfx.mixArgb(0xFF2A2E36, c, breaking ? 0.35f + 0.3f * pulse : 0.4f), a));
-        Gfx.rrect(g, x + 1, y + 1, w - 2, h - 2, 13, Gfx.fade(0xFF1F2228, a), Gfx.fade(0xFF121418, a));
+        // umbra, cadru colorat (accent de categorie), fundal navy cu colturi taiate
+        Sk.cut(g, x - 1, y + 3, w + 2, h + 2, 11, Gfx.fade(0x66000000, a));
+        Sk.cut(g, x - 1, y - 1, w + 2, h + 2, 11, Gfx.fade(Gfx.mixArgb(0xFF22344D, c, breaking ? 0.35f + 0.4f * pulse : 0.45f), a));
+        Sk.cut(g, x, y, w, h, 10, Gfx.fade(0xF2081018, a));
+        Gfx.rrect(g, x + 14, y, w - 28, 2, 0, Gfx.fade(Sk.ACC, a * 0.85f));
 
         // eticheta categoriei (breaking pulseaza)
         float tw = 74f;
-        int tagTop = Gfx.mixArgb(c, 0xFFFFFFFF, 0.12f + (breaking ? 0.14f * pulse : 0f));
-        int tagBot = Gfx.mixArgb(c, 0xFF000000, 0.35f);
-        if (breaking) Gfx.rrect(g, x + 4 - 2 * pulse, y + 4 - 2 * pulse, tw + 4 * pulse, h - 8 + 4 * pulse, 12, Gfx.fade(Gfx.fade(c, 0.3f), a));
-        Gfx.rrect(g, x + 5, y + 5, tw, h - 10, 10, Gfx.fade(tagTop, a), Gfx.fade(tagBot, a));
-        Gfx.rrect(g, x + 11, y + 6, tw - 12, 1.4f, 0.7f, Gfx.fade(0x55FFFFFF, a));
-        Gfx.disc(g, x + 5 + 13, y + 18, 2.6f, Gfx.fade(0xFFFFFFFF, a * (breaking ? 0.5f + 0.5f * pulse : 1f)));
-        Gfx.text(g, "CNN", x + 5 + 20, y + 21, 8.5f, Gfx.fade(0xFFFFFFFF, a), 0, true, 1.2f);
-        Gfx.text(g, NotifyUi.clip(NewsState.label(en.item.cat).toUpperCase(), 7.2f, tw - 10), x + 5 + tw / 2f, y + h - 15, 7.2f, Gfx.fade(0xE6FFFFFF, a), 1, false, 0.8f);
+        int tagCol = Gfx.mixArgb(c, 0xFFFFFFFF, breaking ? 0.10f * pulse : 0f);
+        int tagFg = lum(tagCol) > 140 ? 0xFF061426 : 0xFFF2F7FF;
+        if (breaking) Sk.slant(g, x + 4 - 2 * pulse, y + 5 - 2 * pulse, tw + 4 * pulse, h - 10 + 4 * pulse, 9f, Gfx.fade(Gfx.fade(c, 0.28f), a));
+        Sk.slant(g, x + 6, y + 6, tw, h - 12, 9f, Gfx.fade(tagCol, a));
+        Gfx.disc(g, x + 6 + 18, y + 19, 2.4f, Gfx.fade(tagFg, a * (breaking ? 0.5f + 0.5f * pulse : 1f)));
+        Gfx.text(g, "CNN", x + 6 + 25, y + 22, 8.5f, Gfx.fade(tagFg, a), 0, true, 1.2f);
+        Gfx.text(g, NotifyUi.clip(NewsState.label(en.item.cat).toUpperCase(), 7.2f, tw - 22), x + 6 + tw / 2f + 3, y + h - 15, 7.2f, Gfx.fade(tagFg, a * 0.9f), 1, false, 0.8f);
 
         // titlu, rezumat, autor
-        float tx = x + tw + 18f;
-        float mw = w - tw - 30f;
-        Gfx.text(g, NotifyUi.clip(en.item.title, 10f, mw), tx, y + 20, 10f, Gfx.fade(0xFFF4F1EA, a), 0);
+        float tx = x + tw + 20f;
+        float mw = w - tw - 34f;
+        Gfx.text(g, NotifyUi.clip(en.item.title, 10f, mw), tx, y + 20, 10f, Gfx.fade(Sk.WHITE, a), 0, true, 0f);
         java.util.List<String> body = NotifyUi.wrap(en.item.body, 7.8f, mw, 1);
-        if (!body.isEmpty()) Gfx.text(g, body.get(0), tx, y + 32, 7.8f, Gfx.fade(0xFFA19F98, a), 0);
-        Gfx.text(g, NotifyUi.clip("de " + en.item.author, 6.8f, mw), tx, y + (body.isEmpty() ? 32 : 43), 6.8f, Gfx.fade(0xFF6F6D68, a), 0);
+        if (!body.isEmpty()) Gfx.text(g, body.get(0), tx, y + 32, 7.8f, Gfx.fade(Sk.MUTED, a), 0);
+        Gfx.text(g, NotifyUi.clip("de " + en.item.author, 6.8f, mw), tx, y + (body.isEmpty() ? 32 : 43), 6.8f, Gfx.fade(Sk.FAINT, a), 0);
 
         // luciu care trece peste banner
         float p = (float) ((t * 0.45) % 1.0);
@@ -121,7 +126,7 @@ public final class NewsBanner {
 
         // bara de timp
         float left = age < IN ? 1f : Math.max(0f, 1f - (age - IN) / (float) en.dur);
-        Gfx.bar(g, x + tw + 18, y + h - 7, w - tw - 30, 2f, left, Gfx.fade(0x22FFFFFF, a), Gfx.fade(c, a * 0.9f));
+        Gfx.bar(g, tx, y + h - 7, mw, 2f, left, Gfx.fade(0xFF1B2839, a), Gfx.fade(c, a * 0.9f));
         ro.solarstudios.flowcity.client.ui.HudLayout.end(g);
     }
 }
