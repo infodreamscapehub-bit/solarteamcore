@@ -39,7 +39,7 @@ import net.minecraftforge.registries.ForgeRegistries;
  * <p>Admin (nivel 2): /garaj creeaza public|pound &lt;nume&gt;, /garaj creeaza factiune &lt;factiune&gt; &lt;nume&gt;,
  * /garaj parcare &lt;id&gt; [raza], /garaj loc &lt;id&gt;, /garaj locuri &lt;id&gt; sterge, /garaj muta &lt;id&gt;, /garaj sterge &lt;id&gt;, /garaj lista.
  * Benzinarii: /benzinarie creeaza &lt;nume&gt;, raza, muta, sterge, lista. Chei: /fccars cheie &lt;jucator&gt; &lt;masina&gt;.
- * Folosite de plugin: /fccars give, givefaction, impound, unpound, fuel, remove.
+ * Folosite de plugin: /fccars give, givefaction, impound, unpound, fuel, sell, transfer, remove.
  * Membrii unei factiuni au tag-ul de scoreboard "fc_&lt;factiune&gt;" (pluginul il pune automat politistilor din MDT).
  */
 public final class CarsServer {
@@ -314,6 +314,24 @@ public final class CarsServer {
     }
 
     /** Pune vehiculul pe primul loc de parcare liber (sau langa marker, daca nu sunt locuri setate). */
+    /** Masinile create inainte de fix pot sa nu aiba motor/roti in date: le completam (motor fier, roti standard) ca sa porneasca. */
+    private static void heal(ServerWorld level, GarageData.Car c) {
+        try {
+            String fam = VehicleParts.family(level, c.type);
+            if (fam == null) return;
+            String eng = null;
+            String whl = null;
+            if (!c.nbt.getBoolean("HasEngine")) eng = resolveEngine("vehicle:iron_" + fam + "_engine");
+            if (!c.nbt.getBoolean("HasWheels")) whl = "vehicle:standard_wheel";
+            if (eng != null || whl != null) {
+                VehicleParts.apply(c.nbt, eng, whl);
+                LOG.info("Masina {} ({}): am completat motorul/rotile lipsa", c.id, c.type);
+            }
+        } catch (RuntimeException ex) {
+            LOG.warn("heal {}: {}", c.type, ex.toString());
+        }
+    }
+
     private static Entity spawn(ServerWorld level, GarageData.Garage g, GarageData.Car c) {
         EntityType<?> type = EntityType.byString(c.type).orElse(null);
         if (type == null) return null;
@@ -324,6 +342,7 @@ public final class CarsServer {
         for (double[] s : spots) {
             Entity e = type.create(level);
             if (e == null) return null;
+            heal(level, c);
             e.load(c.nbt.copy());
             e.moveTo(s[0], s[1], s[2], (float) s[3], 0f);
             if (!level.noCollision(e, e.getBoundingBox())) continue;
@@ -730,6 +749,99 @@ public final class CarsServer {
         }));
     }
 
+    // ------------------------------------------------------------------ vanzare (pluginul plateste / ia banii)
+
+    /** Procentul caroseriei (0-100); 100 daca masina nu are caroserie. Aceeasi formula ca in meniul clientului. */
+    static int hpPct(CompoundNBT nbt) {
+        float mh = nbt.getFloat("MaxHealth");
+        if (mh <= 0) return 100;
+        return Math.max(0, Math.min(100, Math.round(100f * nbt.getFloat("Health") / mh)));
+    }
+
+    /**
+     * Verifica o vanzare: masina e a jucatorului, parcata in garaj (nu in oras, nu la pound), iar datele pe care pluginul a calculat
+     * pretul (model, numar, motor, roti, caroserie) sunt cele reale. Intoarce masina sau null (mesajul de eroare e deja trimis).
+     */
+    private static GarageData.Car checkSale(CommandContext<CommandSource> c, ServerPlayerEntity owner, GarageData data) {
+        GarageData.Car car = data.get(IntegerArgumentType.getInteger(c, "car"));
+        if (car == null || car.owner == null || !car.owner.equals(owner.getUUID())) {
+            fail(c, "Masina nu e a ta.");
+            return null;
+        }
+        if (car.pound) {
+            fail(c, "Masina e la pound, nu poate fi vanduta.");
+            return null;
+        }
+        if (car.out) {
+            fail(c, "Parcheaza masina in garaj ca s-o vinzi.");
+            return null;
+        }
+        boolean same = car.type.equals(StringArgumentType.getString(c, "type"))
+            && car.plate.equals(StringArgumentType.getString(c, "plate"))
+            && VehicleParts.engine(owner.getLevel(), car.type, car.nbt).equals(StringArgumentType.getString(c, "engine"))
+            && VehicleParts.wheels(car.nbt).equals(StringArgumentType.getString(c, "wheels"))
+            && Math.abs(hpPct(car.nbt) - IntegerArgumentType.getInteger(c, "hp")) <= 2;
+        if (!same) {
+            fail(c, "Masina s-a schimbat. Redeschide garajul.");
+            return null;
+        }
+        return car;
+    }
+
+    /** Scoate din inventar cheile unei masini (cele vechi oricum nu mai merg dupa vanzare). */
+    private static void removeKeys(ServerPlayerEntity p, GarageData.Car car) {
+        for (net.minecraft.item.ItemStack st : p.inventory.items) if (CarKeyItem.opens(st, car)) st.shrink(st.getCount());
+        for (net.minecraft.item.ItemStack st : p.inventory.offhand) if (CarKeyItem.opens(st, car)) st.shrink(st.getCount());
+    }
+
+    /** Reimprospateaza meniul garajului de langa jucator (daca e la unul personal). */
+    private static void reopen(ServerPlayerEntity p, GarageData data) {
+        for (GarageData.Garage g : data.garages()) {
+            if (!GarageData.FACTION.equals(g.type) && nearMenu(p, g)) {
+                openMenu(p, data, g, true, "");
+                return;
+            }
+        }
+    }
+
+    /** Vanzare la dealer: dupa verificari sterge masina (pluginul plateste doar daca intoarce 1). */
+    private static int sell(CommandContext<CommandSource> c) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        ServerPlayerEntity p = EntityArgument.getPlayer(c, "player");
+        GarageData data = GarageData.get(c.getSource().getServer());
+        GarageData.Car car = checkSale(c, p, data);
+        if (car == null) return 0;
+        boolean near = false;
+        for (GarageData.Garage g : data.garages()) near |= nearMenu(p, g);
+        if (!near) return fail(c, "Vinzi masina din meniul unui garaj.");
+        removeKeys(p, car);
+        data.remove(car.id);
+        p.displayClientMessage(new StringTextComponent(car.name + " (" + car.plate + ") a fost vanduta."), false);
+        reopen(p, data);
+        syncAll(c.getSource().getServer());
+        return 1;
+    }
+
+    /** Vanzare intre jucatori (dupa ce cumparatorul a platit prin plugin): muta proprietatea si cheia. */
+    private static int transfer(CommandContext<CommandSource> c) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        ServerPlayerEntity seller = EntityArgument.getPlayer(c, "player");
+        ServerPlayerEntity buyer = EntityArgument.getPlayer(c, "buyer");
+        if (seller.getUUID().equals(buyer.getUUID())) return fail(c, "Nu poti vinde masina tie insuti.");
+        GarageData data = GarageData.get(c.getSource().getServer());
+        GarageData.Car car = checkSale(c, seller, data);
+        if (car == null) return 0;
+        int max = IntegerArgumentType.getInteger(c, "max");
+        if (max > 0 && data.of(buyer.getUUID()).size() >= max) return fail(c, "Cumparatorul nu mai are loc in garaj (maxim " + max + " masini).");
+        removeKeys(seller, car);
+        car.owner = buyer.getUUID();
+        giveKey(buyer, car, true); // cheie noua: cele vechi ale vanzatorului nu mai merg
+        data.setDirty();
+        buyer.displayClientMessage(new StringTextComponent("Ai cumparat " + car.name + " (" + car.plate + "). Ai primit cheia, masina te asteapta in garaj."), false);
+        seller.displayClientMessage(new StringTextComponent("Ai vandut " + car.name + " (" + car.plate + ")."), false);
+        reopen(seller, data);
+        syncAll(c.getSource().getServer());
+        return 1;
+    }
+
     private static int fail(CommandContext<CommandSource> c, String msg) {
         c.getSource().sendFailure(new StringTextComponent(msg));
         return 0;
@@ -913,6 +1025,22 @@ public final class CarsServer {
                                 .then(Commands.argument("color", IntegerArgumentType.integer(0, 0xFFFFFF))
                                     .then(Commands.argument("engine", StringArgumentType.string())
                                         .then(Commands.argument("wheels", StringArgumentType.string()).executes(CarsServer::tune)))))))))))
+            .then(Commands.literal("sell").then(Commands.argument("player", EntityArgument.player())
+                .then(Commands.argument("car", IntegerArgumentType.integer(1))
+                    .then(Commands.argument("type", StringArgumentType.string())
+                        .then(Commands.argument("plate", StringArgumentType.string())
+                            .then(Commands.argument("engine", StringArgumentType.string())
+                                .then(Commands.argument("wheels", StringArgumentType.string())
+                                    .then(Commands.argument("hp", IntegerArgumentType.integer(0, 100)).executes(CarsServer::sell)))))))))
+            .then(Commands.literal("transfer").then(Commands.argument("player", EntityArgument.player())
+                .then(Commands.argument("buyer", EntityArgument.player())
+                    .then(Commands.argument("car", IntegerArgumentType.integer(1))
+                        .then(Commands.argument("type", StringArgumentType.string())
+                            .then(Commands.argument("plate", StringArgumentType.string())
+                                .then(Commands.argument("engine", StringArgumentType.string())
+                                    .then(Commands.argument("wheels", StringArgumentType.string())
+                                        .then(Commands.argument("hp", IntegerArgumentType.integer(0, 100))
+                                            .then(Commands.argument("max", IntegerArgumentType.integer(0, 1000)).executes(CarsServer::transfer)))))))))))
             .then(Commands.literal("givefaction").then(Commands.argument("faction", StringArgumentType.word())
                 .then(Commands.argument("type", StringArgumentType.string())
                     .then(Commands.argument("color", IntegerArgumentType.integer(0, 0xFFFFFF))

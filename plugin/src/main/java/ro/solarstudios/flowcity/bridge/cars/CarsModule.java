@@ -14,6 +14,7 @@ import org.bukkit.entity.Player;
 import ro.solarstudios.flowcity.bridge.core.Commands;
 import ro.solarstudios.flowcity.bridge.core.ModConfig;
 import ro.solarstudios.flowcity.bridge.mdt.MdtModule;
+import ro.solarstudios.flowcity.bridge.notify.NotifyModule;
 import ro.solarstudios.flowcity.bridge.pay.PayModule;
 import ro.solarstudios.flowcity.bridge.module.JsonModule;
 
@@ -105,6 +106,39 @@ public final class CarsModule extends JsonModule {
             return true;
         }, null, "dealership");
         on("tune", this::tune);
+        on("sell_quote", this::sellQuote);
+        on("sell_dealer", this::sellDealer);
+        on("sell_player", this::sellPlayer);
+        // /vindmasina <jucator> <pret>: completeaza oferta in meniul garajului (masina o alegi acolo)
+        Commands.register(plugin, "vindmasina", null, (s, c, l, a) -> {
+            if (!(s instanceof Player)) {
+                s.sendMessage("\u00a7cDoar un jucator poate vinde o masina.");
+                return true;
+            }
+            Player p = (Player) s;
+            if (!plugin.channel().hasMod(p)) {
+                p.sendMessage("\u00a7cVanzarea necesita modul FlowCity pe client.");
+                return true;
+            }
+            double price = 0;
+            if (a.length >= 2) {
+                try {
+                    price = Double.parseDouble(a[1].replace(',', '.'));
+                } catch (NumberFormatException ex) {
+                    price = 0;
+                }
+            }
+            if (a.length < 2 || price <= 0) {
+                p.sendMessage("\u00a77Folosire: /vindmasina <jucator> <pret>  (apoi alegi masina din garaj si apesi VINDE)");
+                return true;
+            }
+            JsonObject o = new JsonObject();
+            o.addProperty("buyer", a[0]);
+            o.addProperty("price", price);
+            send(p, "sell_prefill", o);
+            p.sendMessage("\u00a7aDeschide garajul, alege masina si apasa VINDE: oferta pentru " + a[0] + " e completata.");
+            return true;
+        }, null, "vindemasina");
         Commands.register(plugin, "tuning", "flowcity.dealer.admin", (s, c, l, a) -> {
             if (a.length >= 2 && "open".equalsIgnoreCase(a[0])) {
                 Player t = Bukkit.getPlayerExact(a[1]);
@@ -394,6 +428,212 @@ public final class CarsModule extends JsonModule {
     }
 
     private final Map<UUID, Session> tuneSessions = new HashMap<>();
+
+
+    // ------------------------------------------------------------------ vanzare masini
+
+    private static final java.util.regex.Pattern PLATE = java.util.regex.Pattern.compile("[A-Za-z0-9\\-]{1,12}");
+
+    /** Masina pusa la vanzare, asa cum o vede clientul; modul verifica la executie ca datele sunt cele reale. */
+    private static final class Sale {
+        int car;
+        String type;
+        String plate;
+        String engine;
+        String wheels;
+        int hp;
+    }
+
+    /** Oferta dealerului: pret final, pretul de catalog, bonusul pentru tuning si scaderea pentru uzura (procente). */
+    private static final class Quote {
+        String key;
+        ConfigurationSection section;
+        double price;
+        double base;
+        double bonus;
+        double wearPct;
+    }
+
+    private static Sale parseSale(JsonObject j) {
+        Sale s = new Sale();
+        s.car = (int) num(j, "car", 0);
+        s.type = clean(str(j, "type", "-"));
+        s.plate = str(j, "plate", "");
+        s.engine = clean(str(j, "engine", "-"));
+        s.wheels = clean(str(j, "wheels", "-"));
+        s.hp = (int) Math.max(0, Math.min(100, num(j, "hp", 100)));
+        if (s.car <= 0 || "-".equals(s.type) || !PLATE.matcher(s.plate).matches()) return null;
+        return s;
+    }
+
+    private String saleArgs(Sale s) {
+        return s.car + " \"" + s.type + "\" \"" + s.plate + "\" \"" + s.engine + "\" \"" + s.wheels + "\" " + s.hp;
+    }
+
+    private double playerTax() {
+        return Math.max(0, Math.min(50, cfg.getDouble("sell.player-tax-percent", 3)));
+    }
+
+    /** Motivul pentru care o masina nu se poate vinde (evidenta politiei) sau null. */
+    private static String sellBlock(String plate) {
+        String st = MdtModule.instance == null ? null : MdtModule.instance.vehicleStatus(plate);
+        if (st == null || "Clean".equalsIgnoreCase(st)) return null;
+        if ("Stolen".equalsIgnoreCase(st)) return "Masina e declarata furata in evidenta politiei.";
+        return "Masina e confiscata de politie.";
+    }
+
+    /** Oferta dealerului: catalog * procent, scazut cu uzura caroseriei, plus un procent din piesele de tuning montate. */
+    private Quote quote(Sale s) {
+        ConfigurationSection vs = vehicles();
+        if (vs == null) return null;
+        Quote q = null;
+        for (String key : vs.getKeys(false)) {
+            ConfigurationSection c = vs.getConfigurationSection(key);
+            if (c != null && c.getString("entity", "vehicle:" + key).equals(s.type)) {
+                q = new Quote();
+                q.key = key;
+                q.section = c;
+                break;
+            }
+        }
+        if (q == null) return null;
+        q.base = q.section.getDouble("price", 0);
+        double pct = Math.max(0, cfg.getDouble("sell.dealer-percent", 60)) / 100.0;
+        double wear = Math.max(0, Math.min(100, cfg.getDouble("sell.wear-penalty-percent", 40))) / 100.0 * (100 - s.hp) / 100.0;
+        double ce = Math.max(0, engineCost(q.section.getString("engine", "-"), s.engine));
+        double cw = Math.max(0, wheelsCost(q.section.getString("wheels", "-"), s.wheels));
+        q.bonus = Math.round((ce + cw) * Math.max(0, cfg.getDouble("sell.tuning-percent", 30)) / 100.0);
+        q.wearPct = Math.round(wear * 100.0);
+        q.price = Math.max(0, Math.round(q.base * pct * (1 - wear) + q.bonus));
+        return q;
+    }
+
+    private void sellReply(Player p, boolean ok, boolean done, String msg) {
+        JsonObject o = new JsonObject();
+        o.addProperty("ok", ok);
+        o.addProperty("done", done);
+        o.addProperty("msg", msg);
+        o.addProperty("money", plugin.money().balance(p.getUniqueId()));
+        send(p, "sell_result", o);
+    }
+
+    private void sellQuote(Player p, JsonObject j) {
+        Sale s = parseSale(j);
+        Quote q = s == null ? null : quote(s);
+        JsonObject o = new JsonObject();
+        o.addProperty("car", s == null ? 0 : s.car);
+        String block = s == null ? null : sellBlock(s.plate);
+        if (q == null) {
+            o.addProperty("ok", false);
+            o.addProperty("msg", "Dealerul nu cumpara acest model.");
+        } else if (block != null) {
+            o.addProperty("ok", false);
+            o.addProperty("msg", block);
+        } else {
+            o.addProperty("ok", true);
+            o.addProperty("price", q.price);
+            o.addProperty("base", q.base);
+            o.addProperty("bonus", q.bonus);
+            o.addProperty("wear", q.wearPct);
+            o.addProperty("percent", Math.max(0, cfg.getDouble("sell.dealer-percent", 60)));
+        }
+        o.addProperty("tax", playerTax());
+        send(p, "sell_quote", o);
+    }
+
+    /** Vanzare la dealer: modul scoate masina din garaj, apoi primesti banii (cash) si numarul iese din evidenta. */
+    private void sellDealer(Player p, JsonObject j) {
+        long now = System.currentTimeMillis();
+        if (now - lastBuy.getOrDefault(p.getUniqueId(), 0L) < 1500) return;
+        lastBuy.put(p.getUniqueId(), now);
+        Sale s = parseSale(j);
+        Quote q = s == null ? null : quote(s);
+        if (q == null) {
+            sellReply(p, false, false, "Dealerul nu cumpara acest model.");
+            return;
+        }
+        String block = sellBlock(s.plate);
+        if (block != null) {
+            sellReply(p, false, false, block);
+            return;
+        }
+        if (!console("fccars sell " + p.getName() + " " + saleArgs(s))) {
+            sellReply(p, false, false, "Nu am putut prelua masina. Trebuie sa fie parcata in garaj, iar tu langa meniul garajului.");
+            return;
+        }
+        if (MdtModule.instance != null) MdtModule.instance.unregisterVehicle(s.plate);
+        plugin.money().deposit(p.getUniqueId(), q.price);
+        int max = maxStock(q.section);
+        if (max > 0) {
+            stockCfg.set(q.key, Math.min(max, stockOf(q.key, q.section) + 1));
+            saveStock();
+        }
+        String txt = "Ai vandut masina (" + s.plate + ") pentru " + Math.round(q.price) + " lei.";
+        plugin.notifications().send(p.getUniqueId(), NotifyModule.Type.MONEY, "Dealer auto", txt);
+        sellReply(p, true, true, txt);
+    }
+
+    /** Vanzare catre alt jucator: cumparatorul primeste cererea de plata (PayModule); la plata se muta masina si cheia. */
+    private void sellPlayer(Player seller, JsonObject j) {
+        long now = System.currentTimeMillis();
+        if (now - lastBuy.getOrDefault(seller.getUniqueId(), 0L) < 2000) return;
+        lastBuy.put(seller.getUniqueId(), now);
+        final Sale s = parseSale(j);
+        if (s == null) {
+            sellReply(seller, false, false, "Masina invalida.");
+            return;
+        }
+        final Player buyer = Bukkit.getPlayerExact(str(j, "buyer", ""));
+        final double price = Math.round(num(j, "price", 0) * 100.0) / 100.0;
+        double maxPrice = Math.max(1, cfg.getDouble("sell.player-max-price", 10_000_000));
+        double radius = Math.max(2, cfg.getDouble("sell.player-radius", 10));
+        if (buyer == null || !buyer.isOnline()) {
+            sellReply(seller, false, false, "Cumparatorul trebuie sa fie online.");
+            return;
+        }
+        if (buyer.getUniqueId().equals(seller.getUniqueId())) {
+            sellReply(seller, false, false, "Nu poti vinde masina tie insuti.");
+            return;
+        }
+        if (price < 1 || price > maxPrice) {
+            sellReply(seller, false, false, "Pret invalid (intre 1 si " + Math.round(maxPrice) + " lei).");
+            return;
+        }
+        if (!buyer.getWorld().equals(seller.getWorld()) || buyer.getLocation().distanceSquared(seller.getLocation()) > radius * radius) {
+            sellReply(seller, false, false, "Cumparatorul trebuie sa fie langa tine (maxim " + Math.round(radius) + " blocuri).");
+            return;
+        }
+        String block = sellBlock(s.plate);
+        if (block != null) {
+            sellReply(seller, false, false, block);
+            return;
+        }
+        final double net = Math.round(price * (1 - playerTax() / 100.0) * 100.0) / 100.0;
+        final int maxCars = Math.max(0, cfg.getInt("sell.max-cars-per-player", 10));
+        final UUID sid = seller.getUniqueId();
+        plugin.notifications().send(buyer.getUniqueId(), NotifyModule.Type.INFO, "Oferta de masina",
+            seller.getName() + " iti vinde masina " + s.plate + " cu " + Math.round(price) + " lei.");
+        sellReply(seller, true, false, "Oferta a fost trimisa lui " + buyer.getName() + ". Asteapta sa plateasca.");
+        PayModule.instance.request(buyer, "Masina " + s.plate + " de la " + seller.getName(), price, () -> {
+            Player sl = Bukkit.getPlayer(sid);
+            if (sl == null || !sl.isOnline()) {
+                buyer.sendMessage("\u00a7cVanzatorul a plecat. Banii ti-au fost returnati.");
+                return false;
+            }
+            if (!console("fccars transfer " + sl.getName() + " " + buyer.getName() + " " + saleArgs(s) + " " + maxCars)) {
+                sellReply(sl, false, false, "Transferul a esuat: masina trebuie sa fie parcata in garaj, iar cumparatorul sa aiba loc. Banii au fost returnati.");
+                buyer.sendMessage("\u00a7cTransferul masinii a esuat. Banii ti-au fost returnati.");
+                return false;
+            }
+            if (MdtModule.instance != null) MdtModule.instance.transferVehicle(s.plate, buyer);
+            plugin.money().deposit(sid, net);
+            String a = "Ai vandut masina " + s.plate + " lui " + buyer.getName() + ": " + Math.round(net) + " lei (taxa " + Math.round(price - net) + " lei).";
+            plugin.notifications().send(sid, NotifyModule.Type.MONEY, "Vanzare masina", a);
+            plugin.notifications().send(buyer.getUniqueId(), NotifyModule.Type.OK, "Masina cumparata", "Ai cumparat masina " + s.plate + " pentru " + Math.round(price) + " lei. Ai primit cheia.");
+            sellReply(sl, true, true, a);
+            return true;
+        }, msg -> sellReply(seller, false, false, buyer.getName() + " nu a platit: " + msg));
+    }
 
     // ------------------------------------------------------------------ stoc dealer
 

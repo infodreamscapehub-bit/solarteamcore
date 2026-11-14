@@ -961,6 +961,46 @@ public final class MdtModule extends JsonModule implements Listener {
         pushAll();
     }
 
+    /** Statusul unui numar din evidenta (Clean / Stolen / Confiscated) sau null daca nu e inregistrat. */
+    public String vehicleStatus(String plateIn) {
+        String plate = normPlate(plateIn);
+        Citizen ct = plateOwner(plate);
+        if (ct == null) return null;
+        for (Veh v : ct.vehicles) if (v.plate.equalsIgnoreCase(plate)) return v.status;
+        return null;
+    }
+
+    /** Scoate un numar din evidenta (masina vanduta la dealer). */
+    public void unregisterVehicle(String plateIn) {
+        String plate = normPlate(plateIn);
+        Citizen ct = plateOwner(plate);
+        if (ct == null) return;
+        for (java.util.Iterator<Veh> it = ct.vehicles.iterator(); it.hasNext();) {
+            Veh v = it.next();
+            if (!v.plate.equalsIgnoreCase(plate)) continue;
+            it.remove();
+            sql("DELETE FROM mdt_vehicle WHERE id=?", v.id);
+        }
+        pushAll();
+    }
+
+    /** Muta numarul pe numele noului proprietar (vanzare intre jucatori). */
+    public void transferVehicle(String plateIn, Player to) {
+        String plate = normPlate(plateIn);
+        Citizen from = plateOwner(plate);
+        register(to);
+        Citizen ct = citizens.get(to.getUniqueId());
+        if (from == null || ct == null || from == ct) return;
+        for (java.util.Iterator<Veh> it = from.vehicles.iterator(); it.hasNext();) {
+            Veh v = it.next();
+            if (!v.plate.equalsIgnoreCase(plate)) continue;
+            it.remove();
+            ct.vehicles.add(v);
+            sql("UPDATE mdt_vehicle SET uuid=? WHERE id=?", ct.uuid.toString(), v.id);
+        }
+        pushAll();
+    }
+
     private void vehAdd(Player p, UUID u, String modelIn, String plateIn) {
         if (!guard(p)) return;
         Citizen ct = citizen(u);

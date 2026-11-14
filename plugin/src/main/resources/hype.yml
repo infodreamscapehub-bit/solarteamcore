@@ -417,6 +417,19 @@ garages:
     - medici
     - primarie
 
+# Vanzarea masinilor (butonul VINDE din garaj; /vindmasina <jucator> <pret> pre-completeaza oferta catre un jucator).
+# dealer-percent: cat din pretul de catalog da dealerul. wear-penalty-percent: scaderea maxima pentru o caroserie distrusa (0% caroserie).
+# tuning-percent: cat din valoarea pieselor de tuning montate (motor/roti peste cele de baza) se adauga la oferta dealerului.
+# player-tax-percent: taxa de tranzactie la vanzarea intre jucatori (dispare din joc). max-cars-per-player: locul din garaj al cumparatorului (0 = nelimitat).
+sell:
+  dealer-percent: 60
+  wear-penalty-percent: 40
+  tuning-percent: 30
+  player-tax-percent: 3
+  player-max-price: 10000000
+  player-radius: 10
+  max-cars-per-player: 10
+
 # Benzinarii (statiile le pune adminul in joc: /benzinarie creeaza <nume>)
 fuel:
   price-per-liter: 8
