@@ -324,6 +324,10 @@ public final class HypeModule extends JsonModule implements Listener {
     // ------------------------------------------------------------------ stare / HUD
 
     private String rankOf(Player p) {
+        if (cfg.getBoolean("hud.luckperms.enabled", true)) {
+            String lp = LuckPermsRank.of(p.getUniqueId(), cfg.getString("hud.luckperms.mode", "group"));
+            if (lp != null) return lp;
+        }
         for (Map<?, ?> m : cfg.getMapList("hud.ranks")) {
             Object perm = m.get("perm");
             Object name = m.get("name");

@@ -4,6 +4,11 @@
 
 # Starea trimisa in HUD (rangurile se cauta in ordine dupa permisiune)
 hud:
+  # Rangul din HUD se ia din LuckPerms (daca e instalat). mode: group = numele grupului principal (display name),
+  # prefix / suffix = prefixul/sufixul din meta (culorile se scot). Fara LuckPerms se folosesc rangurile de mai jos.
+  luckperms:
+    enabled: true
+    mode: group
   default-rank: "Jucator"
   ranks:
     - {perm: "flowcity.rank.owner", name: "Owner"}
