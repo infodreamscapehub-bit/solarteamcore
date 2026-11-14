@@ -1,0 +1,106 @@
+# FlowCity - grupuri LuckPerms cu small caps + gradient birdflop. Ruleaza cu /lpsetup (sau lipeste liniile in consola).
+# Dupa: /lp sync si, in hype.yml, hud.luckperms.mode: group (HUD) - prefixul (cu paranteze) il foloseste chatul/tab-ul.
+
+# --- Jucator
+lp creategroup default
+lp group default setweight 1
+lp group default setdisplayname &#8fa3bd&lᴊ&#9baec6&lᴜ&#a7b8cf&lᴄ&#b2c2d8&lᴀ&#becde0&lᴛ&#cad8e9&lᴏ&#d6e2f2&lʀ
+lp group default meta setprefix 1 "&8[&#8fa3bd&lᴊ&#9baec6&lᴜ&#a7b8cf&lᴄ&#b2c2d8&lᴀ&#becde0&lᴛ&#cad8e9&lᴏ&#d6e2f2&lʀ&8] &r"
+
+# --- VIP
+lp creategroup vip
+lp group vip setweight 20
+lp group vip setdisplayname &#fdc830&lᴠ&#f89e32&lɪ&#f37335&lᴘ
+lp group vip meta setprefix 20 "&8[&#fdc830&lᴠ&#f89e32&lɪ&#f37335&lᴘ&8] &r"
+lp group vip parent add default
+lp group vip permission set flowcity.payday.vip true
+
+# --- VIP+
+lp creategroup vipplus
+lp group vipplus setweight 25
+lp group vipplus setdisplayname &#f7971e&lᴠ&#fab032&lɪ&#fcc945&lᴘ&#ffe259&l+
+lp group vipplus meta setprefix 25 "&8[&#f7971e&lᴠ&#fab032&lɪ&#fcc945&lᴘ&#ffe259&l+&8] &r"
+lp group vipplus parent add vip
+
+# --- Politist
+lp creategroup politist
+lp group politist setweight 30
+lp group politist setdisplayname &#4da3ff&lᴘ&#499ef9&lᴏ&#4499f3&lʟ&#4094ed&lɪ&#3c8ee8&lᴛ&#3889e2&lɪ&#3384dc&ls&#2f7fd6&lᴛ
+lp group politist meta setprefix 30 "&8[&#4da3ff&lᴘ&#499ef9&lᴏ&#4499f3&lʟ&#4094ed&lɪ&#3c8ee8&lᴛ&#3889e2&lɪ&#3384dc&ls&#2f7fd6&lᴛ&8] &r"
+lp group politist parent add default
+lp group politist permission set flowcity.payday.politist true
+lp group politist permission set flowcity.outfit.politist true
+lp group politist permission set flowcity.faction.politie true
+
+# --- Medic
+lp creategroup medic
+lp group medic setweight 30
+lp group medic setdisplayname &#62d98f&lᴍ&#54d393&lᴇ&#46cc98&lᴅ&#39c69c&lɪ&#2bc0a0&lᴄ
+lp group medic meta setprefix 30 "&8[&#62d98f&lᴍ&#54d393&lᴇ&#46cc98&lᴅ&#39c69c&lɪ&#2bc0a0&lᴄ&8] &r"
+lp group medic parent add default
+lp group medic permission set flowcity.payday.medic true
+lp group medic permission set flowcity.outfit.medic true
+
+# --- Mecanic
+lp creategroup mecanic
+lp group mecanic setweight 30
+lp group mecanic setdisplayname &#ff9a3c&lᴍ&#fb9139&lᴇ&#f88736&lᴄ&#f47e34&lᴀ&#f07531&lɴ&#ed6b2e&lɪ&#e9622b&lᴄ
+lp group mecanic meta setprefix 30 "&8[&#ff9a3c&lᴍ&#fb9139&lᴇ&#f88736&lᴄ&#f47e34&lᴀ&#f07531&lɴ&#ed6b2e&lɪ&#e9622b&lᴄ&8] &r"
+lp group mecanic parent add default
+lp group mecanic permission set flowcity.payday.mecanic true
+lp group mecanic permission set flowcity.outfit.mecanic true
+
+# --- Taximetrist
+lp creategroup taximetrist
+lp group taximetrist setweight 30
+lp group taximetrist setdisplayname &#ffe259&lᴛ&#ffdc58&lᴀ&#ffd657&lx&#ffd057&lɪ&#ffca56&lᴍ&#ffc455&lᴇ&#ffbf54&lᴛ&#ffb953&lʀ&#ffb353&lɪ&#ffad52&ls&#ffa751&lᴛ
+lp group taximetrist meta setprefix 30 "&8[&#ffe259&lᴛ&#ffdc58&lᴀ&#ffd657&lx&#ffd057&lɪ&#ffca56&lᴍ&#ffc455&lᴇ&#ffbf54&lᴛ&#ffb953&lʀ&#ffb353&lɪ&#ffad52&ls&#ffa751&lᴛ&8] &r"
+lp group taximetrist parent add default
+lp group taximetrist permission set flowcity.payday.taximetrist true
+
+# --- Helper
+lp creategroup helper
+lp group helper setweight 60
+lp group helper setdisplayname &#43e97b&lʜ&#41ec8d&lᴇ&#3fefa0&lʟ&#3cf3b2&lᴘ&#3af6c5&lᴇ&#38f9d7&lʀ
+lp group helper meta setprefix 60 "&8[&#43e97b&lʜ&#41ec8d&lᴇ&#3fefa0&lʟ&#3cf3b2&lᴘ&#3af6c5&lᴇ&#38f9d7&lʀ&8] &r"
+lp group helper parent add default
+lp group helper permission set flowcity.hype.cnn true
+
+# --- Moderator
+lp creategroup moderator
+lp group moderator setweight 70
+lp group moderator setdisplayname &#00c6ff&lᴍ&#00bcff&lᴏ&#00b1ff&lᴅ&#00a6ff&lᴇ&#009cff&lʀ&#0092ff&lᴀ&#0087ff&lᴛ&#007cff&lᴏ&#0072ff&lʀ
+lp group moderator meta setprefix 70 "&8[&#00c6ff&lᴍ&#00bcff&lᴏ&#00b1ff&lᴅ&#00a6ff&lᴇ&#009cff&lʀ&#0092ff&lᴀ&#0087ff&lᴛ&#007cff&lᴏ&#0072ff&lʀ&8] &r"
+lp group moderator parent add helper
+lp group moderator permission set flowcity.hype.cnn.delete true
+lp group moderator permission set flowcity.hype.doc true
+lp group moderator permission set flowcity.fines.admin true
+lp group moderator permission set flowcity.houses.bypass true
+
+# --- Admin
+lp creategroup admin
+lp group admin setweight 80
+lp group admin setdisplayname &#f857a6&lᴀ&#fa5792&lᴅ&#fc587f&lᴍ&#fd586c&lɪ&#ff5858&lɴ
+lp group admin meta setprefix 80 "&8[&#f857a6&lᴀ&#fa5792&lᴅ&#fc587f&lᴍ&#fd586c&lɪ&#ff5858&lɴ&8] &r"
+lp group admin parent add moderator
+lp group admin permission set flowcity.hype.admin true
+lp group admin permission set flowcity.clothes.admin true
+lp group admin permission set flowcity.houses.admin true
+lp group admin permission set flowcity.payday.admin true
+lp group admin permission set flowcity.hype.clearlag true
+lp group admin permission set flowcity.hype.atm.nocard true
+
+# --- Co-Owner
+lp creategroup coowner
+lp group coowner setweight 90
+lp group coowner setdisplayname &#ff5f6d&lᴄ&#ff6d6e&lᴏ&#ff7c6e&l-&#ff8a6f&lᴏ&#ff986f&lᴡ&#ffa670&lɴ&#ffb570&lᴇ&#ffc371&lʀ
+lp group coowner meta setprefix 90 "&8[&#ff5f6d&lᴄ&#ff6d6e&lᴏ&#ff7c6e&l-&#ff8a6f&lᴏ&#ff986f&lᴡ&#ffa670&lɴ&#ffb570&lᴇ&#ffc371&lʀ&8] &r"
+lp group coowner parent add admin
+
+# --- Owner
+lp creategroup owner
+lp group owner setweight 100
+lp group owner setdisplayname &#ff2d2d&lᴏ&#ff4e34&lᴡ&#ff703a&lɴ&#ff9240&lᴇ&#ffb347&lʀ
+lp group owner meta setprefix 100 "&8[&#ff2d2d&lᴏ&#ff4e34&lᴡ&#ff703a&lɴ&#ff9240&lᴇ&#ffb347&lʀ&8] &r"
+lp group owner parent add coowner
+lp group owner permission set * true
