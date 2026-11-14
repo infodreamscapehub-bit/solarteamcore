@@ -73,3 +73,118 @@ pieces:
     slot: pantofi
     price: 180
     file: pieces/ghete.png
+  sapca_baseball_albastra:
+    name: Șapcă baseball albastră
+    slot: cap
+    price: 130
+    file: pieces/sapca_baseball_albastra.png
+  casca_politie:
+    name: Șapcă Poliție
+    slot: cap
+    perm: flowcity.outfit.politist
+    file: pieces/casca_politie.png
+  sapca_alba:
+    name: Șapcă albă
+    slot: cap
+    price: 110
+    file: pieces/sapca_alba.png
+  beanie_gri:
+    name: Beanie gri
+    slot: cap
+    price: 100
+    file: pieces/beanie_gri.png
+  palarie_cowboy:
+    name: Pălărie cowboy
+    slot: cap
+    price: 220
+    file: pieces/palarie_cowboy.png
+  masca_chirurgicala:
+    name: Mască chirurgicală
+    slot: fata
+    price: 40
+    file: pieces/masca_chirurgicala.png
+  barba:
+    name: Barbă
+    slot: fata
+    price: 150
+    file: pieces/barba.png
+  ochelari_aviator:
+    name: Ochelari aviator
+    slot: fata
+    price: 230
+    file: pieces/ochelari_aviator.png
+  hanorac_negru:
+    name: Hanorac negru
+    slot: top
+    price: 260
+    file: pieces/hanorac_negru.png
+  camasa_alba:
+    name: Cămașă albă
+    slot: top
+    price: 240
+    file: pieces/camasa_alba.png
+  jacheta_piele:
+    name: Jachetă de piele
+    slot: top
+    price: 450
+    file: pieces/jacheta_piele.png
+  vesta_reflectorizanta:
+    name: Vestă reflectorizantă
+    slot: top
+    price: 90
+    file: pieces/vesta_reflectorizanta.png
+  geaca_iarna:
+    name: Geacă de iarnă
+    slot: top
+    price: 380
+    file: pieces/geaca_iarna.png
+  tricou_alb:
+    name: Tricou alb
+    slot: top
+    price: 110
+    file: pieces/tricou_alb.png
+  tricou_negru:
+    name: Tricou negru
+    slot: top
+    price: 110
+    file: pieces/tricou_negru.png
+  pantaloni_negri:
+    name: Pantaloni negri
+    slot: pantaloni
+    price: 170
+    file: pieces/pantaloni_negri.png
+  pantaloni_cargo:
+    name: Pantaloni cargo
+    slot: pantaloni
+    price: 210
+    file: pieces/pantaloni_cargo.png
+  pantaloni_sport:
+    name: Pantaloni sport
+    slot: pantaloni
+    price: 150
+    file: pieces/pantaloni_sport.png
+  adidasi_albi:
+    name: Adidași albi
+    slot: pantofi
+    price: 240
+    file: pieces/adidasi_albi.png
+  cizme_negre:
+    name: Cizme negre
+    slot: pantofi
+    price: 280
+    file: pieces/cizme_negre.png
+  cravata:
+    name: Cravată
+    slot: accesoriu
+    price: 80
+    file: pieces/cravata.png
+  rucsac:
+    name: Rucsac
+    slot: accesoriu
+    price: 190
+    file: pieces/rucsac.png
+  centura:
+    name: Centură
+    slot: accesoriu
+    price: 70
+    file: pieces/centura.png

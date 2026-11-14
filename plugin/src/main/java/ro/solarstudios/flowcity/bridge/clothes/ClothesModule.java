@@ -48,7 +48,8 @@ public final class ClothesModule extends JsonModule implements Listener {
     }
 
     private static final java.util.List<String> SLOTS = java.util.Arrays.asList("cap", "fata", "top", "pantaloni", "pantofi", "accesoriu");
-    private static final String[] DEFAULT_PIECES = {"sapca_neagra", "ochelari_soare", "caciula_iarna", "esarfa", "tricou_rosu", "pantaloni_jeans", "ghete"};
+    private static final String[] DEFAULT_PIECES = {"sapca_neagra", "ochelari_soare", "caciula_iarna", "esarfa", "tricou_rosu", "pantaloni_jeans", "ghete",
+        "sapca_baseball_albastra", "casca_politie", "sapca_alba", "beanie_gri", "palarie_cowboy", "masca_chirurgicala", "barba", "ochelari_aviator", "hanorac_negru", "camasa_alba", "jacheta_piele", "vesta_reflectorizanta", "geaca_iarna", "tricou_alb", "tricou_negru", "pantaloni_negri", "pantaloni_cargo", "pantaloni_sport", "adidasi_albi", "cizme_negre", "cravata", "rucsac", "centura"};
 
     private final Map<String, Piece> pieces = new LinkedHashMap<>();
     private final Map<String, Outfit> outfits = new LinkedHashMap<>();
