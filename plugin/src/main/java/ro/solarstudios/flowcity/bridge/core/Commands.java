@@ -68,8 +68,19 @@ public final class Commands {
     public static void takeOver(Plugin plugin, String name) {
         try {
             CommandMap m = commandMap();
-            if (!(m instanceof org.bukkit.command.SimpleCommandMap)) return;
-            java.util.Map<String, org.bukkit.command.Command> km = ((org.bukkit.command.SimpleCommandMap) m).getKnownCommands();
+            java.util.Map<String, org.bukkit.command.Command> km = null;
+            for (Class<?> c = m.getClass(); c != null && km == null; c = c.getSuperclass()) {
+                try {
+                    Field f = c.getDeclaredField("knownCommands");
+                    f.setAccessible(true);
+                    @SuppressWarnings("unchecked")
+                    java.util.Map<String, org.bukkit.command.Command> mm = (java.util.Map<String, org.bukkit.command.Command>) f.get(m);
+                    km = mm;
+                } catch (NoSuchFieldException ignored) {
+                    // cautam in superclasa
+                }
+            }
+            if (km == null) return;
             org.bukkit.command.Command ours = km.get(plugin.getName().toLowerCase() + ":" + name);
             if (ours != null) km.put(name, ours);
         } catch (Exception e) {
