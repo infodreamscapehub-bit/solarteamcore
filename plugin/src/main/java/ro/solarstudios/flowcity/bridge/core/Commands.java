@@ -63,4 +63,17 @@ public final class Commands {
         for (String o : options) if (o.toLowerCase().startsWith(p)) out.add(o);
         return out;
     }
+
+    /** Face ca "/name" sa fie comanda noastra, chiar daca exista deja una cu acelasi nume (ex. /help din Bukkit). */
+    public static void takeOver(Plugin plugin, String name) {
+        try {
+            CommandMap m = commandMap();
+            if (!(m instanceof org.bukkit.command.SimpleCommandMap)) return;
+            java.util.Map<String, org.bukkit.command.Command> km = ((org.bukkit.command.SimpleCommandMap) m).getKnownCommands();
+            org.bukkit.command.Command ours = km.get(plugin.getName().toLowerCase() + ":" + name);
+            if (ours != null) km.put(name, ours);
+        } catch (Exception e) {
+            plugin.getLogger().warning("Nu pot prelua /" + name + ": " + e);
+        }
+    }
 }
