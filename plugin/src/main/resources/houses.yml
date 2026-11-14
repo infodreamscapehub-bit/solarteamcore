@@ -1,0 +1,8 @@
+# Case si chirii. Casele (regiunile) se creeaza in joc cu /casa admin ... si se salveaza in houses-data.yml.
+sell-percent: 70            # la vanzare inapoi primesti atatea % din pretul de cumparare
+max-houses-per-player: 1    # cate case (cumparate + inchiriate) poate avea un jucator
+max-roommates: 4            # colegi de casa (au acces in casa)
+teleport-cooldown-seconds: 30
+rent:
+  period-days: 7            # chiria se plateste o data pe perioada, automat din cont bancar
+  grace-days: 2             # zile de gratie daca nu sunt bani; apoi pierde casa
