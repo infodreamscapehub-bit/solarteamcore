@@ -12,6 +12,9 @@ public final class CarsClient extends JsonClientModule {
     public static JsonArray catalog = new JsonArray();
     public static double money;
     public static double poundFee = 500;
+    /** Oferta pregatita cu /vindmasina (se aplica in meniul garajului). */
+    public static String sellBuyer = "";
+    public static double sellPrice;
     /** Preturi de tuning (paint, engines, wheels) trimise de plugin odata cu catalogul. */
     public static JsonObject tuning = new JsonObject();
 
@@ -56,6 +59,21 @@ public final class CarsClient extends JsonClientModule {
             money = num(d, "money", money);
             Minecraft mc = Minecraft.getInstance();
             if (mc.screen instanceof FuelScreen) ((FuelScreen) mc.screen).result(bool(d, "ok", false), str(d, "msg", ""), num(d, "liters", 0));
+        });
+        on("sell_prefill", d -> {
+            sellBuyer = str(d, "buyer", "");
+            sellPrice = num(d, "price", 0);
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.screen instanceof GarageScreen) ((GarageScreen) mc.screen).prefill();
+        });
+        on("sell_quote", d -> {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.screen instanceof GarageScreen) ((GarageScreen) mc.screen).quote(d);
+        });
+        on("sell_result", d -> {
+            money = num(d, "money", money);
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.screen instanceof GarageScreen) ((GarageScreen) mc.screen).sellResult(d);
         });
         on("dealer_open", d -> {
             Minecraft mc = Minecraft.getInstance();

@@ -199,14 +199,28 @@ public final class Gfx {
     }
 
     private static final java.util.HashMap<String, Cached> CACHE = new java.util.HashMap<>();
+    private static final java.util.HashMap<String, Cached> CACHE_XL = new java.util.HashMap<>();
+    /** Caractere singure (text cu spatiere): fara substring nou la fiecare frame. */
+    private static final String[] CHARS = new String[256];
+
+    private static String charStr(String s, int i) {
+        char ch = s.charAt(i);
+        if (ch >= 256) return s.substring(i, i + 1);
+        String r = CHARS[ch];
+        if (r == null) {
+            r = String.valueOf(ch);
+            CHARS[ch] = r;
+        }
+        return r;
+    }
 
     private static Cached cached(String s, boolean xl) {
-        String key = (xl ? "X" : "N") + s;
-        Cached c = CACHE.get(key);
+        java.util.HashMap<String, Cached> map = xl ? CACHE_XL : CACHE;
+        Cached c = map.get(s);
         if (c == null) {
-            if (CACHE.size() > 1500) CACHE.clear();
+            if (map.size() > 1500) map.clear();
             c = new Cached(new StringTextComponent(s).setStyle(Style.EMPTY.withFont(xl ? FONT_XL : FONT)));
-            CACHE.put(key, c);
+            map.put(s, c);
         }
         return c;
     }
@@ -244,7 +258,7 @@ public final class Gfx {
         } else {
             float cx = 0;
             for (int i = 0; i < s.length(); i++) {
-                String ch = s.substring(i, i + 1);
+                String ch = charStr(s, i);
                 f.draw(g.pose(), comp(ch, xl), cx, 0, color);
                 cx += rawWidth(ch, xl) + spacing / k;
             }

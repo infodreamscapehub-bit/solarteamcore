@@ -17,6 +17,7 @@ import ro.solarstudios.flowcity.client.ui.Gfx;
 import ro.solarstudios.flowcity.client.ui.Ui;
 import ro.solarstudios.flowcity.compat.GuiGraphics;
 import ro.solarstudios.flowcity.module.JsonClientModule;
+import org.lwjgl.glfw.GLFW;
 
 /**
  * Meniul garajului (deschis cu E la marker), in stilul FlowCity: lista de masini cu stare, masina selectata in 3D care se
@@ -47,6 +48,26 @@ public final class GarageScreen extends FlowScreen {
     private float shownHp;
     private int shownFor = -1;
 
+    // ---- vanzare (modal): 0 = inchis, 1 = deschis
+    private int sellMode;
+    private int sellTab;
+    private JsonObject sellCar;
+    private int sellId;
+    private boolean sellBusy;
+    private String sellNote = "";
+    private boolean sellNoteBad;
+    private boolean qReady;
+    private boolean qOk;
+    private double qPrice;
+    private double qBase;
+    private double qBonus;
+    private double qWear;
+    private double qTax = 3;
+    private String qMsg = "";
+    private String buyerBuf = "";
+    private String priceBuf = "";
+    private int sellField;
+
     private Entity preview;
     private String previewType = "";
     private int previewColor = -1;
@@ -58,6 +79,7 @@ public final class GarageScreen extends FlowScreen {
     GarageScreen(JsonObject data) {
         super("Garaj", W, H);
         update(data);
+        prefill();
         if (pound()) CarsClient.request("pound_info", new JsonObject());
     }
 
@@ -76,6 +98,175 @@ public final class GarageScreen extends FlowScreen {
     void payResult(boolean ok, String msg) {
         waiting = false;
         if (!msg.isEmpty()) toast(msg, !ok);
+    }
+
+    /** Oferta pregatita cu /vindmasina: completeaza cumparatorul si pretul (se aplica la deschiderea ferestrei VINDE). */
+    void prefill() {
+        if (!CarsClient.sellBuyer.isEmpty()) {
+            buyerBuf = CarsClient.sellBuyer;
+            priceBuf = CarsClient.sellPrice > 0 ? String.valueOf(Math.round(CarsClient.sellPrice)) : "";
+            sellTab = 1;
+        }
+    }
+
+    void quote(JsonObject d) {
+        if (sellMode == 0 || JsonClientModule.integer(d, "car", 0) != sellId) return;
+        qReady = true;
+        qOk = JsonClientModule.bool(d, "ok", false);
+        qPrice = JsonClientModule.num(d, "price", 0);
+        qBase = JsonClientModule.num(d, "base", 0);
+        qBonus = JsonClientModule.num(d, "bonus", 0);
+        qWear = JsonClientModule.num(d, "wear", 0);
+        qTax = JsonClientModule.num(d, "tax", 3);
+        qMsg = JsonClientModule.str(d, "msg", "");
+    }
+
+    void sellResult(JsonObject d) {
+        sellBusy = false;
+        boolean ok = JsonClientModule.bool(d, "ok", false);
+        String msg = JsonClientModule.str(d, "msg", "");
+        if (ok && JsonClientModule.bool(d, "done", false)) {
+            sellMode = 0;
+            if (!msg.isEmpty()) toast(msg, false);
+            return;
+        }
+        sellNote = msg;
+        sellNoteBad = !ok;
+    }
+
+    private void openSell(JsonObject car) {
+        sellMode = 1;
+        sellCar = car;
+        sellId = JsonClientModule.integer(car, "id", 0);
+        sellBusy = false;
+        sellNote = "";
+        qReady = false;
+        qMsg = "";
+        if (sellField < 0 || sellField > 1) sellField = 0;
+        CarsClient.request("sell_quote", saleObj());
+    }
+
+    private JsonObject saleObj() {
+        JsonObject o = new JsonObject();
+        o.addProperty("car", sellId);
+        o.addProperty("type", JsonClientModule.str(sellCar, "type", "-"));
+        o.addProperty("plate", JsonClientModule.str(sellCar, "plate", ""));
+        o.addProperty("engine", JsonClientModule.str(sellCar, "engine", "-"));
+        o.addProperty("wheels", JsonClientModule.str(sellCar, "wheels", "-"));
+        float mh = (float) JsonClientModule.num(sellCar, "maxHealth", 0);
+        int hp = mh <= 0 ? 100 : Math.max(0, Math.min(100, Math.round(100f * (float) JsonClientModule.num(sellCar, "health", 0) / mh)));
+        o.addProperty("hp", hp);
+        return o;
+    }
+
+    private double typedPrice() {
+        try {
+            return priceBuf.isEmpty() ? 0 : Double.parseDouble(priceBuf);
+        } catch (NumberFormatException ex) {
+            return 0;
+        }
+    }
+
+    private void submitSell() {
+        if (sellBusy || sellMode == 0) return;
+        if (sellTab == 0) {
+            if (!qReady || !qOk) return;
+            sellBusy = true;
+            sellNote = "";
+            CarsClient.request("sell_dealer", saleObj());
+        } else {
+            double price = typedPrice();
+            if (buyerBuf.isEmpty() || price < 1) {
+                sellNote = "Completează numele cumpărătorului și prețul.";
+                sellNoteBad = true;
+                return;
+            }
+            sellBusy = true;
+            sellNote = "";
+            JsonObject o = saleObj();
+            o.addProperty("buyer", buyerBuf);
+            o.addProperty("price", price);
+            CarsClient.request("sell_player", o);
+        }
+    }
+
+    private void sellModal(GuiGraphics ms, float lmx, float lmy) {
+        final float mx0 = 110f;
+        final float my0 = 54f;
+        final float mw = 300f;
+        final float mh = 188f;
+        // blocheaza click-urile de sub fereastra
+        hit(0, 0, width, height, () -> { });
+        Gfx.rrect(ms, 0, 0, W, H, 0, 0xAA02070E);
+        Gfx.rrect(ms, mx0, my0, mw, mh, 6, 0xFF1E3350);
+        Gfx.rrect(ms, mx0 + 1, my0 + 1, mw - 2, mh - 2, 5, 0xFF0B1626);
+        Gfx.text(ms, "VINDE MAȘINA", mx0 + 14, my0 + 22, 11f, Sk.WHITE, 0, true, 1f);
+        Gfx.text(ms, clipG(JsonClientModule.str(sellCar, "name", "?") + " · " + JsonClientModule.str(sellCar, "plate", ""), 7f, false, mw - 28), mx0 + 14, my0 + 34, 7f, Sk.MUTED, 0);
+        Sk.close(ms, mx0 + mw - 30, my0 + 8, lmx, lmy);
+        hitL(mx0 + mw - 30, my0 + 8, 20, 20, () -> sellMode = 0);
+
+        // tab-uri
+        float tw = (mw - 28 - 6) / 2f;
+        for (int i = 0; i < 2; i++) {
+            final int tab = i;
+            float tx = mx0 + 14 + i * (tw + 6);
+            boolean on = sellTab == i;
+            Sk.button(ms, i == 0 ? "LA DEALER" : "LA JUCĂTOR", tx, my0 + 42, tw, 20, true, on, !on && Sk.in(lmx, lmy, tx, my0 + 42, tw, 20));
+            hitL(tx, my0 + 42, tw, 20, () -> {
+                sellTab = tab;
+                sellNote = "";
+            });
+        }
+
+        float cy = my0 + 78;
+        float lx = mx0 + 14;
+        float rx = mx0 + mw - 14;
+        if (sellTab == 0) {
+            if (!qReady) {
+                Gfx.text(ms, "Se calculează oferta...", lx, cy + 10, 8f, Sk.MUTED, 0);
+            } else if (!qOk) {
+                Gfx.text(ms, clipG(qMsg.isEmpty() ? "Dealerul nu cumpără această mașină." : qMsg, 8f, false, mw - 28), lx, cy + 10, 8f, Sk.BAD, 0);
+            } else {
+                Gfx.text(ms, "Preț de catalog", lx, cy + 6, 7.4f, Sk.MUTED, 0);
+                Gfx.text(ms, Ui.money(qBase) + " lei", rx, cy + 6, 7.4f, Sk.WHITE, 2);
+                Gfx.text(ms, "Uzură caroserie", lx, cy + 18, 7.4f, Sk.MUTED, 0);
+                Gfx.text(ms, "-" + Math.round(qWear) + "%", rx, cy + 18, 7.4f, qWear > 0 ? Sk.WARN : Sk.WHITE, 2);
+                Gfx.text(ms, "Piese de tuning", lx, cy + 30, 7.4f, Sk.MUTED, 0);
+                Gfx.text(ms, "+" + Ui.money(qBonus) + " lei", rx, cy + 30, 7.4f, qBonus > 0 ? Sk.GOOD : Sk.WHITE, 2);
+                Gfx.text(ms, "OFERTA DEALERULUI", lx, cy + 54, 6.6f, Sk.FAINT, 0, false, 1f);
+                Gfx.text(ms, Ui.money(qPrice) + " lei", lx, cy + 70, 16f, Sk.ACC, 0, true, 0f);
+            }
+        } else {
+            Gfx.text(ms, "CUMPĂRĂTOR (NUME)", lx, cy + 4, 6.4f, Sk.FAINT, 0, false, 1f);
+            sellInput(ms, lx, cy + 8, mw - 28, buyerBuf, 0, lmx, lmy, "ex: Alex");
+            Gfx.text(ms, "PREȚ (LEI)", lx, cy + 44, 6.4f, Sk.FAINT, 0, false, 1f);
+            sellInput(ms, lx, cy + 48, mw - 28, priceBuf, 1, lmx, lmy, "ex: 25000");
+            double price = typedPrice();
+            double net = Math.round(price * (1 - qTax / 100.0) * 100.0) / 100.0;
+            Gfx.text(ms, price >= 1 ? "Primești " + Ui.money(net) + " lei (taxă " + Math.round(qTax) + "%)" : "Cumpărătorul trebuie să fie lângă tine.", lx, cy + 84, 7f, price >= 1 ? Sk.GOOD : Sk.FAINT, 0);
+        }
+
+        if (!sellNote.isEmpty()) Gfx.text(ms, clipG(sellNote, 7f, false, mw - 28), lx, my0 + mh - 42, 7f, sellNoteBad ? Sk.BAD : Sk.GOOD, 0);
+
+        float by = my0 + mh - 32;
+        float bw = (mw - 28 - 8) / 2f;
+        Sk.button(ms, "ANULEAZĂ", lx, by, bw, 24, true, false, Sk.in(lmx, lmy, lx, by, bw, 24));
+        hitL(lx, by, bw, 24, () -> sellMode = 0);
+        boolean can = !sellBusy && (sellTab == 1 || (qReady && qOk));
+        String label = sellBusy ? "SE PROCESEAZĂ" : (sellTab == 0 ? "VINDE ACUM" : "TRIMITE OFERTA");
+        float sx = lx + bw + 8;
+        Sk.button(ms, label, sx, by, bw, 24, can, true, can && Sk.in(lmx, lmy, sx, by, bw, 24));
+        if (can) hitL(sx, by, bw, 24, this::submitSell);
+    }
+
+    private void sellInput(GuiGraphics ms, float x, float y, float w, String val, int idx, float lmx, float lmy, String hint) {
+        boolean act = sellField == idx;
+        Gfx.rrect(ms, x, y, w, 22, 4, act ? Sk.ACC : 0xFF1E3350);
+        Gfx.rrect(ms, x + 1, y + 1, w - 2, 20, 3, 0xFF0F1D31);
+        boolean blink = act && (System.currentTimeMillis() / 500) % 2 == 0;
+        if (val.isEmpty() && !act) Gfx.text(ms, hint, x + 8, y + 14.5f, 8f, Sk.FAINT, 0);
+        else Gfx.text(ms, val + (blink ? "|" : ""), x + 8, y + 14.5f, 8.6f, Sk.WHITE, 0);
+        hitL(x, y, w, 22, () -> sellField = idx);
     }
 
     private boolean pound() {
@@ -294,9 +485,9 @@ public final class GarageScreen extends FlowScreen {
             }
         } else {
             boolean personal = !"factiune".equals(JsonClientModule.str(data, "type", ""));
-            float bw = personal ? rw - 84 : rw;
+            float bw = personal ? rw - 168 : rw;
             boolean en = !waiting;
-            Sk.button(ms, waiting ? "SE SCOATE" : "SCOATE MAȘINA", rx, ay, bw, 30, en, true, en && Sk.in(lmx, lmy, rx, ay, bw, 30));
+            Sk.button(ms, waiting ? "SE SCOATE" : (personal ? "SCOATE" : "SCOATE MAȘINA"), rx, ay, bw, 30, en, true, en && Sk.in(lmx, lmy, rx, ay, bw, 30));
             if (en) hitL(rx, ay, bw, 30, () -> {
                 waiting = true;
                 CarsNet.send("spawn", gid(), id);
@@ -305,8 +496,13 @@ public final class GarageScreen extends FlowScreen {
                 float tx = rx + bw + 8;
                 Sk.button(ms, "TUNING", tx, ay, 76, 30, true, false, Sk.in(lmx, lmy, tx, ay, 76, 30));
                 hitL(tx, ay, 76, 30, () -> TuningScreen.requestOpen("garage"));
+                float vx = tx + 84;
+                final JsonObject sellSel = sel;
+                Sk.button(ms, "VINDE", vx, ay, 76, 30, true, false, Sk.in(lmx, lmy, vx, ay, 76, 30));
+                hitL(vx, ay, 76, 30, () -> openSell(sellSel));
             }
         }
+        if (sellMode != 0 && sellCar != null) sellModal(ms, lmx, lmy);
     }
 
     private static void stat(GuiGraphics ms, String label, float shown, float real, float x, float y, float w, int color) {
@@ -365,7 +561,7 @@ public final class GarageScreen extends FlowScreen {
         if (button == 0) {
             float lx = (float) ((mx - offX) / scale);
             float ly = (float) ((my - offY) / scale);
-            if (inside(lx, ly, 230, 96, W - 246, 100)) dragging = true;
+            if (sellMode == 0 && inside(lx, ly, 230, 96, W - 246, 100)) dragging = true;
         }
         return super.mouseClicked(mx, my, button);
     }
@@ -387,8 +583,47 @@ public final class GarageScreen extends FlowScreen {
 
     @Override
     public boolean mouseScrolled(double mx, double my, double delta) {
+        if (sellMode != 0) return true;
         scroll -= (int) Math.signum(delta);
         if (scroll < 0) scroll = 0;
         return true;
+    }
+
+    @Override
+    public boolean keyPressed(int key, int scan, int mods) {
+        if (sellMode != 0) {
+            if (key == GLFW.GLFW_KEY_ESCAPE) {
+                sellMode = 0;
+                return true;
+            }
+            if (sellTab == 1) {
+                if (key == GLFW.GLFW_KEY_TAB) {
+                    sellField = 1 - sellField;
+                    return true;
+                }
+                if (key == GLFW.GLFW_KEY_BACKSPACE) {
+                    if (sellField == 0 && !buyerBuf.isEmpty()) buyerBuf = buyerBuf.substring(0, buyerBuf.length() - 1);
+                    if (sellField == 1 && !priceBuf.isEmpty()) priceBuf = priceBuf.substring(0, priceBuf.length() - 1);
+                    return true;
+                }
+            }
+            if (key == GLFW.GLFW_KEY_ENTER || key == GLFW.GLFW_KEY_KP_ENTER) {
+                submitSell();
+                return true;
+            }
+            return true; // fereastra de vanzare e modala: tastele nu ajung la restul ecranului
+        }
+        return super.keyPressed(key, scan, mods);
+    }
+
+    @Override
+    public boolean charTyped(char c, int mods) {
+        if (sellMode != 0) {
+            if (sellTab != 1) return true;
+            if (sellField == 0 && buyerBuf.length() < 16 && (Character.isLetterOrDigit(c) || c == '_') && c < 128) buyerBuf += c;
+            if (sellField == 1 && priceBuf.length() < 9 && c >= '0' && c <= '9') priceBuf += c;
+            return true;
+        }
+        return super.charTyped(c, mods);
     }
 }
