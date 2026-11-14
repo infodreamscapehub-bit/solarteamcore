@@ -359,8 +359,7 @@ public final class DealerScreen extends FlowScreen {
                 try {
                     CompoundNBT t = preview.saveWithoutId(new CompoundNBT());
                     t.put("Color", new IntArrayNBT(new int[] {(color >> 16) & 255, (color >> 8) & 255, color & 255}));
-                    if (!"-".equals(engine)) t.put("EngineStack", stk(engine));
-                    if (!"-".equals(wheels)) t.put("WheelStack", stk(wheels));
+                    ro.solarstudios.flowcity.cars.VehicleParts.apply(t, engine, wheels);
                     preview.load(t);
                 } catch (RuntimeException ignored) {
                     // unele vehicule nu accepta culoare

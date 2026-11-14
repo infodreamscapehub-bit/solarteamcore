@@ -624,12 +624,7 @@ public final class TuningScreen extends FlowScreen {
                 try {
                     CompoundNBT t = preview.saveWithoutId(new CompoundNBT());
                     t.put("Color", new IntArrayNBT(new int[] {(color >> 16) & 255, (color >> 8) & 255, color & 255}));
-                    if (!"-".equals(engine) && !engine.equals(fromEngine)) t.put("EngineStack", stack(engine));
-                    if (!"-".equals(wheels) && !wheels.equals(fromWheels)) t.put("WheelStack", stack(wheels));
-                    if (!"dealer".equals(mode)) {
-                        if (!"-".equals(fromEngine) && engine.equals(fromEngine)) t.put("EngineStack", stack(engine));
-                        if (!"-".equals(fromWheels) && wheels.equals(fromWheels)) t.put("WheelStack", stack(wheels));
-                    }
+                    ro.solarstudios.flowcity.cars.VehicleParts.apply(t, engine, wheels);
                     preview.load(t);
                 } catch (RuntimeException ignored) {
                     // unele vehicule nu accepta culoare / piese

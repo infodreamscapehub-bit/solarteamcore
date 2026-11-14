@@ -144,8 +144,8 @@ public final class CarsServer {
             j.addProperty("health", nbt.getFloat("Health"));
             j.addProperty("maxHealth", nbt.getFloat("MaxHealth"));
             j.addProperty("color", color(nbt));
-            j.addProperty("engine", stackId(nbt, "EngineStack"));
-            j.addProperty("wheels", stackId(nbt, "WheelStack"));
+            j.addProperty("engine", VehicleParts.engine(p.getLevel(), c.type, nbt));
+            j.addProperty("wheels", VehicleParts.wheels(nbt));
             arr.add(j);
         }
         o.add("cars", arr);
@@ -169,8 +169,8 @@ public final class CarsServer {
             j.addProperty("name", c.name);
             j.addProperty("plate", c.plate);
             j.addProperty("color", color(c.nbt));
-            j.addProperty("engine", stackId(c.nbt, "EngineStack"));
-            j.addProperty("wheels", stackId(c.nbt, "WheelStack"));
+            j.addProperty("engine", VehicleParts.engine(p.getLevel(), c.type, c.nbt));
+            j.addProperty("wheels", VehicleParts.wheels(c.nbt));
             arr.add(j);
         }
         o.add("cars", arr);
@@ -229,8 +229,8 @@ public final class CarsServer {
             for (GarageData.Garage g : data.garages()) near |= nearMenu(p, g);
             if (!near) return fail(c, "Tuning-ul se face la garaj sau la mecanic.");
         }
-        String curEngine = stackId(car.nbt, "EngineStack");
-        String curWheels = stackId(car.nbt, "WheelStack");
+        String curEngine = VehicleParts.engine(p.getLevel(), car.type, car.nbt);
+        String curWheels = VehicleParts.wheels(car.nbt);
         if (!curEngine.equals(StringArgumentType.getString(c, "fromEngine")) || !curWheels.equals(StringArgumentType.getString(c, "fromWheels"))
             || color(car.nbt) != IntegerArgumentType.getInteger(c, "fromColor")) {
             return fail(c, "Masina s-a schimbat. Redeschide meniul de tuning.");
@@ -246,8 +246,7 @@ public final class CarsServer {
         }
         int rgb = IntegerArgumentType.getInteger(c, "color");
         car.nbt.put("Color", new IntArrayNBT(new int[] {(rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255}));
-        if (!engine.equals(curEngine)) car.nbt.put("EngineStack", stack(engine));
-        if (!wheels.equals(curWheels)) car.nbt.put("WheelStack", stack(wheels));
+        VehicleParts.apply(car.nbt, engine.equals(curEngine) ? null : engine, wheels.equals(curWheels) ? null : wheels);
         data.setDirty();
         p.displayClientMessage(new StringTextComponent(car.name + " (" + car.plate + ") a fost tunata."), false);
         return 1;
@@ -945,15 +944,13 @@ public final class CarsServer {
         if (e == null) return null;
         CompoundNBT init = e.saveWithoutId(new CompoundNBT());
         init.put("Color", new IntArrayNBT(new int[] {(rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255}));
-        if (!engine.isEmpty() && !engine.equals("-")) init.put("EngineStack", stack(engine));
-        if (!wheels.isEmpty() && !wheels.equals("-")) init.put("WheelStack", stack(wheels));
+        VehicleParts.apply(init, engine, wheels);
         e.load(init);
         CompoundNBT nbt = strip(e.saveWithoutId(new CompoundNBT()));
-        if (!engine.equals("-") && !nbt.contains("EngineStack")) {
+        if (!engine.equals("-") && !nbt.getBoolean("HasEngine")) {
             LOG.warn("give {}: motorul {} nu a fost preluat de vehicul; il pun direct in date", type, engine);
-            nbt.put("EngineStack", stack(engine));
         }
-        if (!wheels.equals("-") && !nbt.contains("WheelStack")) nbt.put("WheelStack", stack(wheels));
+        VehicleParts.apply(nbt, engine, wheels);
         if (nbt.contains("FuelCapacity")) nbt.putFloat("CurrentFuel", nbt.getFloat("FuelCapacity") * 0.5f);
         e.remove();
         return GarageData.get(server).add(owner, faction, type, name, plate, nbt);
