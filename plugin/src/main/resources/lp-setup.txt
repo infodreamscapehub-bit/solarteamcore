@@ -29,7 +29,6 @@ lp group politist setdisplayname &#4da3ff&lᴘ&#499ef9&lᴏ&#4499f3&lʟ&#4094ed&
 lp group politist meta setprefix 30 "&8[&#4da3ff&lᴘ&#499ef9&lᴏ&#4499f3&lʟ&#4094ed&lɪ&#3c8ee8&lᴛ&#3889e2&lɪ&#3384dc&ls&#2f7fd6&lᴛ&8] &r"
 lp group politist parent add default
 lp group politist permission set flowcity.payday.politist true
-lp group politist permission set flowcity.outfit.politist true
 lp group politist permission set flowcity.faction.politie true
 
 # --- Medic
@@ -39,7 +38,6 @@ lp group medic setdisplayname &#62d98f&lᴍ&#54d393&lᴇ&#46cc98&lᴅ&#39c69c&l�
 lp group medic meta setprefix 30 "&8[&#62d98f&lᴍ&#54d393&lᴇ&#46cc98&lᴅ&#39c69c&lɪ&#2bc0a0&lᴄ&8] &r"
 lp group medic parent add default
 lp group medic permission set flowcity.payday.medic true
-lp group medic permission set flowcity.outfit.medic true
 
 # --- Mecanic
 lp creategroup mecanic
@@ -48,7 +46,6 @@ lp group mecanic setdisplayname &#ff9a3c&lᴍ&#fb9139&lᴇ&#f88736&lᴄ&#f47e34&
 lp group mecanic meta setprefix 30 "&8[&#ff9a3c&lᴍ&#fb9139&lᴇ&#f88736&lᴄ&#f47e34&lᴀ&#f07531&lɴ&#ed6b2e&lɪ&#e9622b&lᴄ&8] &r"
 lp group mecanic parent add default
 lp group mecanic permission set flowcity.payday.mecanic true
-lp group mecanic permission set flowcity.outfit.mecanic true
 
 # --- Taximetrist
 lp creategroup taximetrist
@@ -84,7 +81,6 @@ lp group admin setdisplayname &#f857a6&lᴀ&#fa5792&lᴅ&#fc587f&lᴍ&#fd586c&l�
 lp group admin meta setprefix 80 "&8[&#f857a6&lᴀ&#fa5792&lᴅ&#fc587f&lᴍ&#fd586c&lɪ&#ff5858&lɴ&8] &r"
 lp group admin parent add moderator
 lp group admin permission set flowcity.hype.admin true
-lp group admin permission set flowcity.clothes.admin true
 lp group admin permission set flowcity.houses.admin true
 lp group admin permission set flowcity.payday.admin true
 lp group admin permission set flowcity.hype.clearlag true

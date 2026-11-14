@@ -41,7 +41,6 @@ public final class ClientInit {
         ro.solarstudios.flowcity.pay.PayClient.register();
         ro.solarstudios.flowcity.shop.ShopClient.register();
         ro.solarstudios.flowcity.fines.FinesClient.register();
-        ro.solarstudios.flowcity.clothes.ClothesClient.register();
         ro.solarstudios.flowcity.bank.BankClient.register();
         ro.solarstudios.flowcity.cars.client.MecanicClient.register();
         ro.solarstudios.flowcity.houses.HousesClient.register();

@@ -42,7 +42,6 @@ public final class ModContent {
     public static final RegistryObject<Block> DEALER = BLOCKS.register("dealer_auto", () -> new ro.solarstudios.flowcity.cars.CarsBlock(true));
     public static final RegistryObject<Item> DEALER_ITEM = ITEMS.register("dealer_auto", () -> new BlockItem(DEALER.get(), props()));
     public static final RegistryObject<Item> PHONE = ITEMS.register("phone", PhoneItem::new);
-    public static final RegistryObject<Item> CLOTHES = ITEMS.register("imbracaminte", ro.solarstudios.flowcity.clothes.ClothesItem::new);
 
 
     static {
