@@ -65,7 +65,19 @@ public final class ClientInit {
         ro.solarstudios.flowcity.cars.client.GaragesClient.registerKeys(event);
     }
 
+    private static boolean openHudEditor;
+
     public static final class Events {
+        @SubscribeEvent
+        public void onChat(net.minecraftforge.client.event.ClientChatEvent e) {
+            String m = e.getMessage() == null ? "" : e.getMessage().trim().toLowerCase();
+            if (m.equals("/hudeditor") || m.equals("/hud") || m.equals(".hudeditor")) {
+                e.setCanceled(true);
+                Minecraft.getInstance().gui.getChat().addRecentChat(e.getMessage());
+                openHudEditor = true;
+            }
+        }
+
         @SubscribeEvent
         public void onLogin(ClientPlayerNetworkEvent.LoggedInEvent e) {
             helloTicks = 40; // trimitem HELLO la ~2s dupa intrare, cand conexiunea e stabila
@@ -97,6 +109,10 @@ public final class ClientInit {
                             "§e[FlowCity] §7Serverul nu raspunde: lipseste pluginul FlowCityBridge sau are alta versiune."), false);
                     }
                 }
+            }
+            if (openHudEditor && (mc.screen == null || mc.screen instanceof net.minecraft.client.gui.screen.ChatScreen)) {
+                openHudEditor = false;
+                mc.setScreen(new ro.solarstudios.flowcity.client.ui.HudEditorScreen());
             }
             if (hudEdit != null) {
                 while (hudEdit.consumeClick()) {
