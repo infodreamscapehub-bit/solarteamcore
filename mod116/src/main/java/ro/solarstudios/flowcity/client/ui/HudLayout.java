@@ -85,6 +85,7 @@ public final class HudLayout {
         add("toasts", "Notificări");
         add("news", "Știri CNN");
         add("prompt", "Mesaj interacțiune");
+        add("taxi", "Taximetru");
         load();
     }
 
@@ -210,6 +211,8 @@ public final class HudLayout {
                 float w = Math.min(372f, sw - 20f);
                 return new float[] {(sw - w) / 2f, 6f, w, 54f};
             }
+            case "taxi":
+                return new float[] {10f, sh / 2f - 34f, 156f, 64f};
             default:
                 return new float[] {sw / 2f - 90f, sh - 92f, 180f, 24f};
         }

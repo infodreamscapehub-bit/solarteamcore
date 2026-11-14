@@ -1,0 +1,21 @@
+# Taxi - taximetristi jucatori. Comenzi: /taxi (ecran), /taxi duty, /taxi call [mesaj], /taxi accept <jucator>,
+# /taxi start, /taxi stop, /taxi cancel, /taxi top. NPC/ghiseu: CONSOLE taxi open %player%
+tag: "&e[Taxi] &7"
+# permisiunea necesara ca sa lucrezi ca taximetrist (implicit o au toti jucatorii; scoate-o din LuckPerms ca sa limitezi)
+driver-permission: flowcity.taxi.driver
+# true = soferul are nevoie de permis valid cu categoria B (documentele din Primarie/Politie)
+require-licence: false
+fares:
+  start-fee: 20
+  per-km: 15
+  per-minute-wait: 2
+  min-fare: 30
+  max-fare: 5000
+# procentul din cursa care nu ajunge la sofer (ramane la companie / se sterge)
+company-cut-percent: 10
+call-cooldown-seconds: 60
+request-ttl-seconds: 120
+# raza (blocuri) in care clientul trebuie sa fie de sofer ca sa porneasca cursa (daca nu sunt in acelasi vehicul)
+start-radius: 4
+# daca clientul se departeaza mai mult de atat de sofer, cursa se opreste si se cere plata
+leave-radius: 15

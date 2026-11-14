@@ -76,6 +76,14 @@ public final class HelpModule extends JsonModule {
             .add("/roata", "Roata norocului", "flowcity.hype.wheel"));
         cats.add(new Cat("politie", "POLIȚIE", "§9")
             .add("/mdt", "Deschide tableta MDT a poliției", "flowcity.mdt.use"));
+        cats.add(new Cat("taxi", "TAXI", "§e")
+            .add("/taxi", "Ecranul de taxi (cheamă un taxi, panoul șoferului)", null)
+            .add("/taxi call [mesaj]", "Cheamă un taxi la locația ta", null)
+            .add("/taxi cancel", "Anulează cererea de taxi", null)
+            .add("/taxi duty [on|off]", "Intri/ieși de la datorie ca taximetrist", "flowcity.taxi.driver")
+            .add("/taxi accept <jucător>", "Accepți o cerere de taxi", "flowcity.taxi.driver")
+            .add("/taxi start | stop", "Pornești / oprești cursa (taximetrul)", "flowcity.taxi.driver")
+            .add("/taxi top", "Clasamentul taximetriștilor", null));
         cats.add(new Cat("staff", "STAFF", "§c")
             .add("/dealer open <jucător>", "Deschide dealerul auto pentru un jucător", "flowcity.dealer.admin")
             .add("/dealer stock [<vehicul> <număr>]", "Vezi sau setezi stocul dealerului", "flowcity.dealer.admin")

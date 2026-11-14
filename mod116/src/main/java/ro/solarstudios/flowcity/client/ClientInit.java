@@ -47,6 +47,7 @@ public final class ClientInit {
         ro.solarstudios.flowcity.docs.DocsClient.register();
         ro.solarstudios.flowcity.politie.PolitieClient.register();
         ro.solarstudios.flowcity.hudeditor.HudEditorClient.register();
+        ro.solarstudios.flowcity.taxi.TaxiClient.register();
         ro.solarstudios.flowcity.cars.client.GaragesClient.register();
         if (ro.solarstudios.flowcity.cars.CarsCompat.loaded()) ro.solarstudios.flowcity.cars.client.CarHud.register();
     }
