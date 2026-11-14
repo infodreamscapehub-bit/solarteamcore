@@ -13,6 +13,7 @@ import net.minecraft.inventory.container.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.text.StringTextComponent;
 import net.minecraftforge.fml.common.ObfuscationReflectionHelper;
+import ro.solarstudios.flowcity.cars.client.Sk;
 import ro.solarstudios.flowcity.client.ui.Gfx;
 import ro.solarstudios.flowcity.client.ui.Ui;
 import ro.solarstudios.flowcity.compat.GuiGraphics;
@@ -129,42 +130,42 @@ public final class FlowInventoryScreen extends ContainerScreen<PlayerContainer> 
         float open = ease((now - born) / 260f);
         double t = now / 1000.0;
 
-        Gfx.rrect(g, 0, 0, width, height, 0, Gfx.fade(0x99050608, open));
+        Sk.background(g, 0, 0, width, height, open);
         g.pose().pushPose();
         g.pose().translate(leftPos, topPos, 0);
-        Gfx.rrect(g, -4, 2, W + 8, H + 6, 18, Gfx.fade(0x55000000, open));
-        Gfx.rrect(g, 0, 0, W, H, 16, Gfx.fade(0xFF1C1F25, open), Gfx.fade(0xFF121418, open));
-        Gfx.rrect(g, 0.5f, 0.5f, W - 1, 1, 0, Gfx.fade(0x14FFFFFF, open));
+        Gfx.alpha = open;
+        try {
+        Gfx.rrect(g, 0, 0, W, H, 0, 0xD0081018);
+        Gfx.rrect(g, 0, 0, W, 2, 0, Sk.ACC);
 
         // personaj
-        Gfx.rrect(g, 10, 10, 128, H - 20, 12, Gfx.fade(0xFF0E1013, open));
-        Gfx.scrim(g, 80, 120, 56, 80, Gfx.fade(0x26E9A23B, open));
-        Gfx.scrim(g, 80, 196, 34, 5, Gfx.fade(0x66000000, open));
+        Sk.slant(g, 10, 10, 128, H - 20, 8, 0xB0111A28);
+        Gfx.scrim(g, 80, 120, 56, 80, 0x264DA3FF);
+        Gfx.scrim(g, 80, 196, 34, 5, 0x66000000);
         String name = mc.player.getName().getString();
-        Gfx.text(g, Ui.clip(name, 110), 74, 28, 10, Gfx.fade(0xFFF4F1EA, open), 1, true, 0);
+        Gfx.text(g, Ui.clip(name, 110), 74, 28, 10, Gfx.fade(Sk.WHITE, open), 1, true, 0);
         int lvl = mc.player.experienceLevel;
-        Gfx.text(g, "Nivel " + lvl, 74, 39, 7.5f, Gfx.fade(0xFF8E8C86, open), 1);
-        for (int i = 0; i < 4; i++) Gfx.text(g, ARMOR[i], 21, 50 + i * 30 - 3, 6.5f, Gfx.fade(0xFF6F6D68, open), 0, false, 0.4f);
-        Gfx.text(g, "Mana", 105, 167, 6.5f, Gfx.fade(0xFF6F6D68, open), 0, false, 0.4f);
+        Gfx.text(g, "Nivel " + lvl, 74, 39, 7.5f, Gfx.fade(Sk.MUTED, open), 1);
+        for (int i = 0; i < 4; i++) Gfx.text(g, ARMOR[i], 21, 50 + i * 30 - 3, 6.5f, Gfx.fade(Sk.FAINT, open), 0, false, 0.4f);
+        Gfx.text(g, "Mana", 105, 167, 6.5f, Gfx.fade(Sk.FAINT, open), 0, false, 0.4f);
 
         // antet dreapta: titlu, bani, ocupare
-        Gfx.text(g, "INVENTAR", GX, 26, 13, Gfx.fade(0xFFF4F1EA, open), 0, true, 1f);
+        Gfx.text(g, "INVENTAR", GX, 26, 13, Gfx.fade(Sk.WHITE, open), 0, true, 1f);
         JsonObject st = ro.solarstudios.flowcity.hype.HypeState.state;
         if (st != null && st.has("cash")) {
             String cash = "$" + Ui.money(JsonClientModule.num(st, "cash", 0));
             String bank = "Banca $" + Ui.money(JsonClientModule.num(st, "bank", 0));
-            Gfx.text(g, cash, W - 12, 25, 12, Gfx.fade(0xFF5FDC8F, open), 2, true, 0);
-            Gfx.text(g, bank, W - 12, 36, 7.5f, Gfx.fade(0xFF8E8C86, open), 2);
+            Gfx.text(g, cash, W - 12, 25, 12, Gfx.fade(Sk.GOOD, open), 2, true, 0);
+            Gfx.text(g, bank, W - 12, 36, 7.5f, Gfx.fade(Sk.MUTED, open), 2);
         }
         int used = 0;
         for (int i = 9; i <= 44 && i < menu.slots.size(); i++) if (menu.slots.get(i).hasItem()) used++;
         float frac = used / 36f;
-        Gfx.text(g, "Ocupat " + used + " / 36", GX, 44, 7.5f, Gfx.fade(0xFF8E8C86, open), 0);
+        Gfx.text(g, "Ocupat " + used + " / 36", GX, 44, 7.5f, Gfx.fade(Sk.MUTED, open), 0);
         float bx = GX + 70;
         float bw = 9 * STEP - 2 - 70;
-        Gfx.rrect(g, bx, 40, bw, 4, 2, Gfx.fade(0xFF262A31, open));
-        int bc = frac > 0.9f ? 0xFFE2453F : (frac > 0.7f ? 0xFFE9A23B : 0xFF4CC878);
-        Gfx.rrect(g, bx, 40, Math.max(4, bw * frac), 4, 2, Gfx.fade(bc, open));
+        int bc = frac > 0.9f ? Sk.BAD : (frac > 0.7f ? Sk.WARN : Sk.GOOD);
+        Sk.segs(g, bx, 39, bw, 5, Math.round(frac * 12), 12, bc);
 
         // sloturi
         List<Slot> sl = menu.slots;
@@ -183,26 +184,28 @@ public final class FlowInventoryScreen extends ContainerScreen<PlayerContainer> 
             float x = s.x - 2 - pop * 1.5f;
             float y = s.y - 2 - pop * 1.5f;
             float sz = 20 + pop * 3;
-            if (hov[i] > 0.02f) Gfx.rrect(g, x - 2, y - 2, sz + 4, sz + 4, 8, Gfx.fade(0x2EE9A23B, open * hov[i]));
-            int border = sel ? 0xFFE9A23B : Gfx.mixArgb(i == 0 ? 0xFF4A4E58 : 0xFF2A2E36, 0xFF6F7380, hov[i]);
-            Gfx.rrect(g, x, y, sz, sz, 6, Gfx.fade(border, open));
-            int fill = i == 0 ? 0xFF22252B : (hot ? 0xFF1B1E24 : 0xFF17191E);
-            Gfx.rrect(g, x + 1, y + 1, sz - 2, sz - 2, 5, Gfx.fade(Gfx.mixArgb(fill, 0xFF262A32, hov[i]), open));
-            if (pop > 0) Gfx.rrect(g, x - 1, y - 1, sz + 2, sz + 2, 7, Gfx.fade(0x55F6C15A, open * pop));
+            int border = sel ? Sk.ACC : Gfx.mixArgb(i == 0 ? 0xFF2F4966 : 0xFF1B2839, Sk.ACC, hov[i]);
+            Gfx.rrect(g, x, y, sz, sz, 0, border);
+            int fill = i == 0 ? 0xFF14243A : (hot ? 0xFF101B2B : 0xFF0C1522);
+            Gfx.rrect(g, x + 1, y + 1, sz - 2, sz - 2, 0, Gfx.mixArgb(fill, 0xFF1B2A40, hov[i]));
+            if (pop > 0) Gfx.rrect(g, x - 1, y - 1, sz + 2, sz + 2, 0, Gfx.fade(0x554DA3FF, pop));
             if (hot) Gfx.text(g, String.valueOf(i - 35), x + 3, y + 7, 5.5f, Gfx.fade(0x55FFFFFF, open), 0);
-            if (sel) Gfx.rrect(g, x + 5, y + sz - 2.5f, sz - 10, 1.5f, 0.75f, Gfx.fade(0xFFE9A23B, open));
+            if (sel) Gfx.rrect(g, x + 3, y + sz - 2.5f, sz - 6, 1.5f, 0, Sk.ACC);
         }
         // eticheta hotbar + crafting
-        Gfx.text(g, "RAPID 1-9", GX, GY + 3 * STEP + 8, 6.5f, Gfx.fade(0xFF6F6D68, open), 0, false, 0.6f);
-        Gfx.text(g, "CRAFTING", GX, 174, 6.5f, Gfx.fade(0xFF6F6D68, open), 0, false, 0.6f);
+        Gfx.text(g, "RAPID 1-9", GX, GY + 3 * STEP + 8, 6.5f, Gfx.fade(Sk.FAINT, open), 0, false, 0.6f);
+        Gfx.text(g, "CRAFTING", GX, 174, 6.5f, Gfx.fade(Sk.FAINT, open), 0, false, 0.6f);
         float ax = GX + 2 * STEP + 8;
         float ay = 176 + 22;
         float pulse = 0.5f + 0.5f * (float) Math.sin(t * 3);
-        int ac = sl.get(0).hasItem() ? Gfx.mixArgb(0xFFE9A23B, 0xFFF6C15A, pulse) : 0xFF3A3E47;
+        int ac = sl.get(0).hasItem() ? Gfx.mixArgb(Sk.ACC, 0xFFB5D8FF, pulse) : 0xFF2A3B52;
         Gfx.line(g, ax, ay, ax + 18, ay, 1.6f, Gfx.fade(ac, open));
         Gfx.poly(g, new float[] {ax + 22, ay, ax + 16, ay - 4, ax + 16, ay + 4}, Gfx.fade(ac, open));
-        Gfx.text(g, "E / ESC  inchide", W - 12, H - 10, 7, Gfx.fade(0xFF5C606A, open), 2);
-        g.pose().popPose();
+        Gfx.text(g, "E / ESC  inchide", W - 12, H - 10, 7, Gfx.fade(Sk.FAINT, open), 2);
+        } finally {
+            Gfx.alpha = 1f;
+            g.pose().popPose();
+        }
 
         // personajul 3D (se uita dupa mouse)
         float cx = leftPos + 80;

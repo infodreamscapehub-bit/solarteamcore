@@ -5,6 +5,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.audio.SimpleSound;
 import net.minecraft.util.SoundEvents;
 import net.minecraft.util.math.vector.Vector3f;
+import ro.solarstudios.flowcity.cars.client.Sk;
 import ro.solarstudios.flowcity.client.ui.FlowScreen;
 import ro.solarstudios.flowcity.client.ui.Gfx;
 import ro.solarstudios.flowcity.client.ui.Ui;
@@ -19,11 +20,11 @@ public final class WheelScreen extends FlowScreen {
     private static final int W = 470;
     private static final int H = 290;
     private static final float R = 96f;
-    private static final int GOLD = 0xFFF6C15A;
-    private static final int GOLD2 = 0xFFD98E2B;
-    private static final int WHITE = 0xFFF4F1EA;
-    private static final int MUTED = 0xFF8E8C86;
-    private static final int FAINT = 0xFF6F6D68;
+    private static final int GOLD = 0xFF7DBBFF;
+    private static final int GOLD2 = 0xFF2F7FD6;
+    private static final int WHITE = 0xFFF2F7FF;
+    private static final int MUTED = 0xFF8FA3BD;
+    private static final int FAINT = 0xFF55667C;
 
     private double rotation;           // grade
     private boolean spinning;
@@ -161,20 +162,19 @@ public final class WheelScreen extends FlowScreen {
         float lmx = (mx - offX) / scale;
         float lmy = (my - offY) / scale;
 
-        Gfx.rrect(ms, 0, 0, width, height, 0, Gfx.fade(0xC0050608, open));
+        Sk.background(ms, 0, 0, width, height, open);
         ms.pose().pushPose();
         ms.pose().translate(offX, offY, 0);
         ms.pose().scale(scale, scale, 1f);
 
         // ---- panou
-        Gfx.rrect(ms, -6, 2, W + 12, H + 10, 22, 0x55000000);
-        Gfx.rrect(ms, 0, 0, W, H, 18, 0xFF1D2026, 0xFF121418);
-        Gfx.rrect(ms, 0.5f, 0.5f, W - 1, 1, 0, 0x14FFFFFF);
-        Gfx.rrect(ms, 10, 10, 250, H - 20, 14, 0xFF101216);
+        Gfx.rrect(ms, 0, 0, W, H, 0, 0xD0081018);
+        Gfx.rrect(ms, 0, 0, W, 2, 0, Sk.ACC);
+        Sk.slant(ms, 10, 10, 250, H - 20, 8, 0xB0111A28);
 
         float cx = 135f;
         float cy = 150f;
-        Gfx.scrim(ms, cx, cy, R + 50, R + 50, 0x1CF6C15A);
+        Gfx.scrim(ms, cx, cy, R + 50, R + 50, 0x224DA3FF);
         drawWheel(ms, cx, cy, now, ps);
         drawPointer(ms, cx, cy - R - 20);
         if (confAt > 0) drawConfetti(ms, now);
@@ -183,12 +183,8 @@ public final class WheelScreen extends FlowScreen {
         drawRight(ms, now, dt, lmx, lmy);
 
         // inchidere
-        boolean hx = inside(lmx, lmy, W - 30, 10, 18, 18);
-        if (hx) Gfx.disc(ms, W - 21, 19, 9, 0x22FFFFFF);
-        int xc = hx ? 0xFFE2453F : 0xFF8E8C86;
-        Gfx.line(ms, W - 25, 15, W - 17, 23, 1.6f, xc);
-        Gfx.line(ms, W - 17, 15, W - 25, 23, 1.6f, xc);
-        hitL(W - 30, 10, 18, 18, this::onClose);
+        Sk.close(ms, W - 30, 10, lmx, lmy);
+        hitL(W - 30, 10, 20, 20, this::onClose);
 
         ms.pose().popPose();
     }
@@ -207,13 +203,13 @@ public final class WheelScreen extends FlowScreen {
         int sc;
         String st;
         if (spinning) {
-            sc = 0xFFE9A23B;
+            sc = Sk.WARN;
             st = "Se învârte...";
         } else if (left > 0) {
-            sc = 0xFF8E8C86;
+            sc = Sk.MUTED;
             st = "Următorul spin: " + Ui.duration((left + 999) / 1000);
         } else {
-            sc = 0xFF5FDC8F;
+            sc = Sk.GOOD;
             st = "Spin disponibil!";
         }
         float pl = 0.5f + 0.5f * (float) Math.sin(now / 300.0);
@@ -226,16 +222,8 @@ public final class WheelScreen extends FlowScreen {
         float bhh = 32f;
         boolean hov = can && inside(lmx, lmy, rx, by, rw, bhh);
         bh += ((hov ? 1f : 0f) - bh) * Math.min(1f, dt * 14f);
-        if (can) {
-            float p = 0.5f + 0.5f * (float) Math.sin(now / 400.0);
-            Gfx.rrect(ms, rx - 3 - p * 2, by - 3 - p * 2, rw + 6 + p * 4, bhh + 6 + p * 4, 14, Gfx.fade(0x33F6C15A, 1f - p * 0.6f));
-        }
-        int t1 = can ? Gfx.mixArgb(GOLD, 0xFFFFFFFF, bh * 0.18f) : 0xFF24272D;
-        int t2 = can ? Gfx.mixArgb(GOLD2, 0xFFFFFFFF, bh * 0.10f) : 0xFF1E2126;
-        Gfx.rrect(ms, rx, by, rw, bhh, 12, t1, t2);
-        if (can) Gfx.rrect(ms, rx + 6, by + 1, rw - 12, 1.5f, 0.75f, 0x66FFFFFF);
         String label = can ? "ÎNVÂRTE" : (spinning ? "SE ÎNVÂRTE" : "INDISPONIBIL");
-        Gfx.text(ms, label, rx + rw / 2f, by + 20, 11, can ? 0xFF2A1A06 : FAINT, 1, true, 0.8f);
+        Sk.button(ms, label, rx, by, rw, bhh, can, true, hov);
         if (can) hitL(rx, by, rw, bhh, WheelClient::spin);
 
         // premiul castigat
@@ -245,8 +233,8 @@ public final class WheelScreen extends FlowScreen {
             float a = easeOut((now - doneAt) / 400f);
             float cy0 = y0 + (1f - a) * 8f;
             float pulse = 0.5f + 0.5f * (float) Math.sin(now / 220.0);
-            Gfx.rrect(ms, rx - 1, cy0 - 1, rw + 2, 56, 13, Gfx.fade(Gfx.mixArgb(GOLD, 0xFFFFFFFF, pulse * 0.3f), a));
-            Gfx.rrect(ms, rx, cy0, rw, 54, 12, Gfx.fade(0xFF2A2214, a), Gfx.fade(0xFF1A150C, a));
+            Sk.slant(ms, rx - 1, cy0 - 1, rw + 2, 56, 8, Gfx.fade(Gfx.mixArgb(GOLD, 0xFFFFFFFF, pulse * 0.3f), a));
+            Sk.slant(ms, rx, cy0, rw, 54, 8, Gfx.fade(0xFF10223A, a));
             Gfx.text(ms, "AI CÂȘTIGAT", rx + rw / 2f, cy0 + 15, 6.5f, Gfx.fade(GOLD, a), 1, false, 1.2f);
             Gfx.text(ms, clipG(WheelState.resultName, 14, true, rw - 16), rx + rw / 2f, cy0 + 33, 14, Gfx.fade(WHITE, a), 1, true, 0);
             Gfx.text(ms, clipG(WheelState.resultDetail, 7.5f, false, rw - 16), rx + rw / 2f, cy0 + 46, 7.5f, Gfx.fade(MUTED, a), 1);
@@ -279,9 +267,9 @@ public final class WheelScreen extends FlowScreen {
 
         // umbra + inel auriu
         Gfx.disc(ms, cx, cy + 5, R + 22, 0x77000000, 0x00000000, 0, 0);
-        Gfx.ring(ms, cx, cy, R + 1, R + 14, 0xFFB9761F, GOLD);
+        Gfx.ring(ms, cx, cy, R + 1, R + 14, 0xFF1F5FA8, GOLD);
         Gfx.ring(ms, cx, cy, R + 14, R + 16, 0xFF0E1013, 0xFF0E1013);
-        Gfx.ring(ms, cx, cy, R - 0.5f, R + 2, 0xFF0E1013, 0xFF6B4A18);
+        Gfx.ring(ms, cx, cy, R - 0.5f, R + 2, 0xFF0E1013, 0xFF123A66);
 
         // felii
         if (n > 0) {
@@ -339,8 +327,8 @@ public final class WheelScreen extends FlowScreen {
             float bx = cx + (float) Math.cos(a) * (R + 7.5f);
             float by = cy + (float) Math.sin(a) * (R + 7.5f);
             boolean on = spinning ? (i + phase) % 3 == 0 : (i + phase) % 2 == 0;
-            if (on) Gfx.disc(ms, bx, by, 5.5f, 0x99FFD27A, 0x00FFD27A, 0, 0);
-            Gfx.disc(ms, bx, by, 1.9f, on ? 0xFFFFF1C2 : 0xFF7A5420);
+            if (on) Gfx.disc(ms, bx, by, 5.5f, 0x997DBBFF, 0x007DBBFF, 0, 0);
+            Gfx.disc(ms, bx, by, 1.9f, on ? 0xFFE6F3FF : 0xFF2A4A70);
         }
 
         // butuc
