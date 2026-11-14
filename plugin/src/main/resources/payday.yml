@@ -7,10 +7,29 @@ afk-minutes: 5
 base-salary: 200
 # grup -> salariu (da jucatorului permisiunea flowcity.payday.<grup>)
 groups:
+  vip: 400
+  vipplus: 450
+  premium: 550
+  elite: 700
+  legend: 900
   politist: 900
+  detectiv: 950
+  jandarm: 850
   medic: 800
+  pompier: 750
   mecanic: 600
   taximetrist: 500
-  vip: 400
+  avocat: 1000
+  procuror: 1100
+  judecator: 1200
+  jurnalist: 650
+  bodyguard: 700
+  curier: 450
+  sofer: 450
+  fermier: 400
+  miner: 450
+  pescar: 380
+  vanzator: 500
+  barman: 400
 # impozit retinut din salariu (procent)
 tax-percent: 5

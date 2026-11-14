@@ -1,72 +1,237 @@
-# FlowCity - grupuri LuckPerms cu small caps + gradient birdflop. Ruleaza cu /lpsetup (sau lipeste liniile in consola).
-# Dupa: /lp sync si, in hype.yml, hud.luckperms.mode: group (HUD) - prefixul (cu paranteze) il foloseste chatul/tab-ul.
+# FlowCity - grupuri LuckPerms de roleplay: small caps + gradient birdflop (&#RRGGBB). Ruleaza cu /lpsetup (o singura data).
+# Dupa: /lp sync si /lp user <nume> parent add <grup>. HUD: hype.yml hud.luckperms.mode: group (nume colorat) sau prefix.
 
-# --- Jucator
+# --- Cetatean
 lp creategroup default
 lp group default setweight 1
-lp group default setdisplayname &#8fa3bd&lᴊ&#9baec6&lᴜ&#a7b8cf&lᴄ&#b2c2d8&lᴀ&#becde0&lᴛ&#cad8e9&lᴏ&#d6e2f2&lʀ
-lp group default meta setprefix 1 "&8[&#8fa3bd&lᴊ&#9baec6&lᴜ&#a7b8cf&lᴄ&#b2c2d8&lᴀ&#becde0&lᴛ&#cad8e9&lᴏ&#d6e2f2&lʀ&8] &r"
+lp group default setdisplayname "&#8fa3bd&lᴄ&#99acc5&lᴇ&#a3b5cc&lᴛ&#adbed4&lᴀ&#b8c7db&lᴛ&#c2d0e3&lᴇ&#ccd9ea&lᴀ&#d6e2f2&lɴ"
+lp group default meta setprefix 1 "&8[&#8fa3bd&lᴄ&#99acc5&lᴇ&#a3b5cc&lᴛ&#adbed4&lᴀ&#b8c7db&lᴛ&#c2d0e3&lᴇ&#ccd9ea&lᴀ&#d6e2f2&lɴ&8] &r"
 
 # --- VIP
 lp creategroup vip
 lp group vip setweight 20
-lp group vip setdisplayname &#fdc830&lᴠ&#f89e32&lɪ&#f37335&lᴘ
+lp group vip setdisplayname "&#fdc830&lᴠ&#f89e32&lɪ&#f37335&lᴘ"
 lp group vip meta setprefix 20 "&8[&#fdc830&lᴠ&#f89e32&lɪ&#f37335&lᴘ&8] &r"
 lp group vip parent add default
 lp group vip permission set flowcity.payday.vip true
 
 # --- VIP+
 lp creategroup vipplus
-lp group vipplus setweight 25
-lp group vipplus setdisplayname &#f7971e&lᴠ&#fab032&lɪ&#fcc945&lᴘ&#ffe259&l+
-lp group vipplus meta setprefix 25 "&8[&#f7971e&lᴠ&#fab032&lɪ&#fcc945&lᴘ&#ffe259&l+&8] &r"
+lp group vipplus setweight 22
+lp group vipplus setdisplayname "&#f7971e&lᴠ&#fab032&lɪ&#fcc945&lᴘ&#ffe259&l+"
+lp group vipplus meta setprefix 22 "&8[&#f7971e&lᴠ&#fab032&lɪ&#fcc945&lᴘ&#ffe259&l+&8] &r"
 lp group vipplus parent add vip
+
+# --- Premium
+lp creategroup premium
+lp group premium setweight 24
+lp group premium setdisplayname "&#11998e&lᴘ&#18a78b&lʀ&#1eb688&lᴇ&#24c486&lᴍ&#2bd283&lɪ&#32e180&lᴜ&#38ef7d&lᴍ"
+lp group premium meta setprefix 24 "&8[&#11998e&lᴘ&#18a78b&lʀ&#1eb688&lᴇ&#24c486&lᴍ&#2bd283&lɪ&#32e180&lᴜ&#38ef7d&lᴍ&8] &r"
+lp group premium parent add vipplus
+
+# --- Elite
+lp creategroup elite
+lp group elite setweight 26
+lp group elite setdisplayname "&#8e2de2&lᴇ&#a03de9&lʟ&#b24df0&lɪ&#c45df8&lᴛ&#d66dff&lᴇ"
+lp group elite meta setprefix 26 "&8[&#8e2de2&lᴇ&#a03de9&lʟ&#b24df0&lɪ&#c45df8&lᴛ&#d66dff&lᴇ&8] &r"
+lp group elite parent add premium
+
+# --- Legend
+lp creategroup legend
+lp group legend setweight 28
+lp group legend setdisplayname "&#ff512f&lʟ&#fc5f2b&lᴇ&#f96d26&lɢ&#f67c22&lᴇ&#f38a1d&lɴ&#f09819&lᴅ"
+lp group legend meta setprefix 28 "&8[&#ff512f&lʟ&#fc5f2b&lᴇ&#f96d26&lɢ&#f67c22&lᴇ&#f38a1d&lɴ&#f09819&lᴅ&8] &r"
+lp group legend parent add elite
 
 # --- Politist
 lp creategroup politist
-lp group politist setweight 30
-lp group politist setdisplayname &#4da3ff&lᴘ&#499ef9&lᴏ&#4499f3&lʟ&#4094ed&lɪ&#3c8ee8&lᴛ&#3889e2&lɪ&#3384dc&ls&#2f7fd6&lᴛ
-lp group politist meta setprefix 30 "&8[&#4da3ff&lᴘ&#499ef9&lᴏ&#4499f3&lʟ&#4094ed&lɪ&#3c8ee8&lᴛ&#3889e2&lɪ&#3384dc&ls&#2f7fd6&lᴛ&8] &r"
+lp group politist setweight 40
+lp group politist setdisplayname "&#4da3ff&lᴘ&#499ef9&lᴏ&#4499f3&lʟ&#4094ed&lɪ&#3c8ee8&lᴛ&#3889e2&lɪ&#3384dc&ls&#2f7fd6&lᴛ"
+lp group politist meta setprefix 40 "&8[&#4da3ff&lᴘ&#499ef9&lᴏ&#4499f3&lʟ&#4094ed&lɪ&#3c8ee8&lᴛ&#3889e2&lɪ&#3384dc&ls&#2f7fd6&lᴛ&8] &r"
 lp group politist parent add default
 lp group politist permission set flowcity.payday.politist true
 lp group politist permission set flowcity.faction.politie true
 
+# --- Detectiv
+lp creategroup detectiv
+lp group detectiv setweight 41
+lp group detectiv setdisplayname "&#7f8cff&lᴅ&#7583f4&lᴇ&#6c79ea&lᴛ&#6270df&lᴇ&#5867d5&lᴄ&#4e5eca&lᴛ&#4554c0&lɪ&#3b4bb5&lᴠ"
+lp group detectiv meta setprefix 41 "&8[&#7f8cff&lᴅ&#7583f4&lᴇ&#6c79ea&lᴛ&#6270df&lᴇ&#5867d5&lᴄ&#4e5eca&lᴛ&#4554c0&lɪ&#3b4bb5&lᴠ&8] &r"
+lp group detectiv parent add politist
+lp group detectiv permission set flowcity.payday.detectiv true
+
+# --- Jandarm
+lp creategroup jandarm
+lp group jandarm setweight 40
+lp group jandarm setdisplayname "&#3a7bd5&lᴊ&#308adc&lᴀ&#2798e3&lɴ&#1da6ea&lᴅ&#13b5f1&lᴀ&#0ac4f8&lʀ&#00d2ff&lᴍ"
+lp group jandarm meta setprefix 40 "&8[&#3a7bd5&lᴊ&#308adc&lᴀ&#2798e3&lɴ&#1da6ea&lᴅ&#13b5f1&lᴀ&#0ac4f8&lʀ&#00d2ff&lᴍ&8] &r"
+lp group jandarm parent add default
+lp group jandarm permission set flowcity.payday.jandarm true
+lp group jandarm permission set flowcity.faction.politie true
+
 # --- Medic
 lp creategroup medic
-lp group medic setweight 30
-lp group medic setdisplayname &#62d98f&lᴍ&#54d393&lᴇ&#46cc98&lᴅ&#39c69c&lɪ&#2bc0a0&lᴄ
-lp group medic meta setprefix 30 "&8[&#62d98f&lᴍ&#54d393&lᴇ&#46cc98&lᴅ&#39c69c&lɪ&#2bc0a0&lᴄ&8] &r"
+lp group medic setweight 40
+lp group medic setdisplayname "&#62d98f&lᴍ&#54d393&lᴇ&#46cc98&lᴅ&#39c69c&lɪ&#2bc0a0&lᴄ"
+lp group medic meta setprefix 40 "&8[&#62d98f&lᴍ&#54d393&lᴇ&#46cc98&lᴅ&#39c69c&lɪ&#2bc0a0&lᴄ&8] &r"
 lp group medic parent add default
 lp group medic permission set flowcity.payday.medic true
 
+# --- Pompier
+lp creategroup pompier
+lp group pompier setweight 40
+lp group pompier setdisplayname "&#ff6a3d&lᴘ&#fe7c39&lᴏ&#fd8d34&lᴍ&#fc9f30&lᴘ&#fbb12c&lɪ&#fac227&lᴇ&#f9d423&lʀ"
+lp group pompier meta setprefix 40 "&8[&#ff6a3d&lᴘ&#fe7c39&lᴏ&#fd8d34&lᴍ&#fc9f30&lᴘ&#fbb12c&lɪ&#fac227&lᴇ&#f9d423&lʀ&8] &r"
+lp group pompier parent add default
+lp group pompier permission set flowcity.payday.pompier true
+
 # --- Mecanic
 lp creategroup mecanic
-lp group mecanic setweight 30
-lp group mecanic setdisplayname &#ff9a3c&lᴍ&#fb9139&lᴇ&#f88736&lᴄ&#f47e34&lᴀ&#f07531&lɴ&#ed6b2e&lɪ&#e9622b&lᴄ
-lp group mecanic meta setprefix 30 "&8[&#ff9a3c&lᴍ&#fb9139&lᴇ&#f88736&lᴄ&#f47e34&lᴀ&#f07531&lɴ&#ed6b2e&lɪ&#e9622b&lᴄ&8] &r"
+lp group mecanic setweight 40
+lp group mecanic setdisplayname "&#ff9a3c&lᴍ&#fb9139&lᴇ&#f88736&lᴄ&#f47e34&lᴀ&#f07531&lɴ&#ed6b2e&lɪ&#e9622b&lᴄ"
+lp group mecanic meta setprefix 40 "&8[&#ff9a3c&lᴍ&#fb9139&lᴇ&#f88736&lᴄ&#f47e34&lᴀ&#f07531&lɴ&#ed6b2e&lɪ&#e9622b&lᴄ&8] &r"
 lp group mecanic parent add default
 lp group mecanic permission set flowcity.payday.mecanic true
 
 # --- Taximetrist
 lp creategroup taximetrist
-lp group taximetrist setweight 30
-lp group taximetrist setdisplayname &#ffe259&lᴛ&#ffdc58&lᴀ&#ffd657&lx&#ffd057&lɪ&#ffca56&lᴍ&#ffc455&lᴇ&#ffbf54&lᴛ&#ffb953&lʀ&#ffb353&lɪ&#ffad52&ls&#ffa751&lᴛ
-lp group taximetrist meta setprefix 30 "&8[&#ffe259&lᴛ&#ffdc58&lᴀ&#ffd657&lx&#ffd057&lɪ&#ffca56&lᴍ&#ffc455&lᴇ&#ffbf54&lᴛ&#ffb953&lʀ&#ffb353&lɪ&#ffad52&ls&#ffa751&lᴛ&8] &r"
+lp group taximetrist setweight 40
+lp group taximetrist setdisplayname "&#ffe259&lᴛ&#ffdc58&lᴀ&#ffd657&lx&#ffd057&lɪ&#ffca56&lᴍ&#ffc455&lᴇ&#ffbf54&lᴛ&#ffb953&lʀ&#ffb353&lɪ&#ffad52&ls&#ffa751&lᴛ"
+lp group taximetrist meta setprefix 40 "&8[&#ffe259&lᴛ&#ffdc58&lᴀ&#ffd657&lx&#ffd057&lɪ&#ffca56&lᴍ&#ffc455&lᴇ&#ffbf54&lᴛ&#ffb953&lʀ&#ffb353&lɪ&#ffad52&ls&#ffa751&lᴛ&8] &r"
 lp group taximetrist parent add default
 lp group taximetrist permission set flowcity.payday.taximetrist true
+
+# --- Avocat
+lp creategroup avocat
+lp group avocat setweight 40
+lp group avocat setdisplayname "&#bdc3c7&lᴀ&#a0a8af&lᴠ&#838e97&lᴏ&#667380&lᴄ&#495968&lᴀ&#2c3e50&lᴛ"
+lp group avocat meta setprefix 40 "&8[&#bdc3c7&lᴀ&#a0a8af&lᴠ&#838e97&lᴏ&#667380&lᴄ&#495968&lᴀ&#2c3e50&lᴛ&8] &r"
+lp group avocat parent add default
+lp group avocat permission set flowcity.payday.avocat true
+
+# --- Procuror
+lp creategroup procuror
+lp group procuror setweight 40
+lp group procuror setdisplayname "&#c33764&lᴘ&#ab3566&lʀ&#943268&lᴏ&#7c306a&lᴄ&#642d6b&lᴜ&#4c2b6d&lʀ&#35286f&lᴏ&#1d2671&lʀ"
+lp group procuror meta setprefix 40 "&8[&#c33764&lᴘ&#ab3566&lʀ&#943268&lᴏ&#7c306a&lᴄ&#642d6b&lᴜ&#4c2b6d&lʀ&#35286f&lᴏ&#1d2671&lʀ&8] &r"
+lp group procuror parent add default
+lp group procuror permission set flowcity.payday.procuror true
+
+# --- Judecator
+lp creategroup judecator
+lp group judecator setweight 42
+lp group judecator setdisplayname "&#f7b733&lᴊ&#f8a930&lᴜ&#f89c2d&lᴅ&#f98e2a&lᴇ&#fa8026&lᴄ&#fa7323&lᴀ&#fb6520&lᴛ&#fb581d&lᴏ&#fc4a1a&lʀ"
+lp group judecator meta setprefix 42 "&8[&#f7b733&lᴊ&#f8a930&lᴜ&#f89c2d&lᴅ&#f98e2a&lᴇ&#fa8026&lᴄ&#fa7323&lᴀ&#fb6520&lᴛ&#fb581d&lᴏ&#fc4a1a&lʀ&8] &r"
+lp group judecator parent add default
+lp group judecator permission set flowcity.payday.judecator true
+
+# --- Jurnalist
+lp creategroup jurnalist
+lp group jurnalist setweight 40
+lp group jurnalist setdisplayname "&#56ccf2&lᴊ&#51c2f1&lᴜ&#4cb9f1&lʀ&#47b0f0&lɴ&#42a6f0&lᴀ&#3e9cef&lʟ&#3993ee&lɪ&#348aee&ls&#2f80ed&lᴛ"
+lp group jurnalist meta setprefix 40 "&8[&#56ccf2&lᴊ&#51c2f1&lᴜ&#4cb9f1&lʀ&#47b0f0&lɴ&#42a6f0&lᴀ&#3e9cef&lʟ&#3993ee&lɪ&#348aee&ls&#2f80ed&lᴛ&8] &r"
+lp group jurnalist parent add default
+lp group jurnalist permission set flowcity.payday.jurnalist true
+lp group jurnalist permission set flowcity.hype.cnn true
+
+# --- Bodyguard
+lp creategroup bodyguard
+lp group bodyguard setweight 40
+lp group bodyguard setdisplayname "&#434343&lʙ&#4e4e4e&lᴏ&#5a5a5a&lᴅ&#656565&lʏ&#707070&lɢ&#7c7c7c&lᴜ&#878787&lᴀ&#939393&lʀ&#9e9e9e&lᴅ"
+lp group bodyguard meta setprefix 40 "&8[&#434343&lʙ&#4e4e4e&lᴏ&#5a5a5a&lᴅ&#656565&lʏ&#707070&lɢ&#7c7c7c&lᴜ&#878787&lᴀ&#939393&lʀ&#9e9e9e&lᴅ&8] &r"
+lp group bodyguard parent add default
+lp group bodyguard permission set flowcity.payday.bodyguard true
+
+# --- Curier
+lp creategroup curier
+lp group curier setweight 40
+lp group curier setdisplayname "&#f5af19&lᴄ&#f49417&lᴜ&#f37916&lʀ&#f35d14&lɪ&#f24213&lᴇ&#f12711&lʀ"
+lp group curier meta setprefix 40 "&8[&#f5af19&lᴄ&#f49417&lᴜ&#f37916&lʀ&#f35d14&lɪ&#f24213&lᴇ&#f12711&lʀ&8] &r"
+lp group curier parent add default
+lp group curier permission set flowcity.payday.curier true
+
+# --- Sofer
+lp creategroup sofer
+lp group sofer setweight 40
+lp group sofer setdisplayname "&#2193b0&ls&#34a4bf&lᴏ&#47b4ce&lғ&#5ac4de&lᴇ&#6dd5ed&lʀ"
+lp group sofer meta setprefix 40 "&8[&#2193b0&ls&#34a4bf&lᴏ&#47b4ce&lғ&#5ac4de&lᴇ&#6dd5ed&lʀ&8] &r"
+lp group sofer parent add default
+lp group sofer permission set flowcity.payday.sofer true
+
+# --- Fermier
+lp creategroup fermier
+lp group fermier setweight 40
+lp group fermier setdisplayname "&#56ab2f&lғ&#64b438&lᴇ&#71bd40&lʀ&#7fc649&lᴍ&#8dce52&lɪ&#9ad75a&lᴇ&#a8e063&lʀ"
+lp group fermier meta setprefix 40 "&8[&#56ab2f&lғ&#64b438&lᴇ&#71bd40&lʀ&#7fc649&lᴍ&#8dce52&lɪ&#9ad75a&lᴇ&#a8e063&lʀ&8] &r"
+lp group fermier parent add default
+lp group fermier permission set flowcity.payday.fermier true
+
+# --- Miner
+lp creategroup miner
+lp group miner setweight 40
+lp group miner setdisplayname "&#757f9a&lᴍ&#8e96ae&lɪ&#a6aec1&lɴ&#bec6d4&lᴇ&#d7dde8&lʀ"
+lp group miner meta setprefix 40 "&8[&#757f9a&lᴍ&#8e96ae&lɪ&#a6aec1&lɴ&#bec6d4&lᴇ&#d7dde8&lʀ&8] &r"
+lp group miner parent add default
+lp group miner permission set flowcity.payday.miner true
+
+# --- Pescar
+lp creategroup pescar
+lp group pescar setweight 40
+lp group pescar setdisplayname "&#1cb5e0&lᴘ&#1691c1&lᴇ&#116da2&ls&#0b4884&lᴄ&#062465&lᴀ&#000046&lʀ"
+lp group pescar meta setprefix 40 "&8[&#1cb5e0&lᴘ&#1691c1&lᴇ&#116da2&ls&#0b4884&lᴄ&#062465&lᴀ&#000046&lʀ&8] &r"
+lp group pescar parent add default
+lp group pescar permission set flowcity.payday.pescar true
+
+# --- Vanzator
+lp creategroup vanzator
+lp group vanzator setweight 40
+lp group vanzator setdisplayname "&#fdbb2d&lᴠ&#debc42&lᴀ&#bebd58&lɴ&#9fbe6d&lᴢ&#80be83&lᴀ&#61bf98&lᴛ&#41c0ae&lᴏ&#22c1c3&lʀ"
+lp group vanzator meta setprefix 40 "&8[&#fdbb2d&lᴠ&#debc42&lᴀ&#bebd58&lɴ&#9fbe6d&lᴢ&#80be83&lᴀ&#61bf98&lᴛ&#41c0ae&lᴏ&#22c1c3&lʀ&8] &r"
+lp group vanzator parent add default
+lp group vanzator permission set flowcity.payday.vanzator true
+
+# --- Barman
+lp creategroup barman
+lp group barman setweight 40
+lp group barman setdisplayname "&#da22ff&lʙ&#cd25fc&lᴀ&#bf29f8&lʀ&#b22cf5&lᴍ&#a430f1&lᴀ&#9733ee&lɴ"
+lp group barman meta setprefix 40 "&8[&#da22ff&lʙ&#cd25fc&lᴀ&#bf29f8&lʀ&#b22cf5&lᴍ&#a430f1&lᴀ&#9733ee&lɴ&8] &r"
+lp group barman parent add default
+lp group barman permission set flowcity.payday.barman true
+
+# --- Mafiot
+lp creategroup mafiot
+lp group mafiot setweight 38
+lp group mafiot setdisplayname "&#232526&lᴍ&#402123&lᴀ&#5d1d20&lғ&#791a1d&lɪ&#96161a&lᴏ&#b31217&lᴛ"
+lp group mafiot meta setprefix 38 "&8[&#232526&lᴍ&#402123&lᴀ&#5d1d20&lғ&#791a1d&lɪ&#96161a&lᴏ&#b31217&lᴛ&8] &r"
+lp group mafiot parent add default
+
+# --- Gangster
+lp creategroup gangster
+lp group gangster setweight 38
+lp group gangster setdisplayname "&#1d976c&lɢ&#2ea577&lᴀ&#3fb382&lɴ&#50c18d&lɢ&#60cf98&ls&#71dda3&lᴛ&#82ebae&lᴇ&#93f9b9&lʀ"
+lp group gangster meta setprefix 38 "&8[&#1d976c&lɢ&#2ea577&lᴀ&#3fb382&lɴ&#50c18d&lɢ&#60cf98&ls&#71dda3&lᴛ&#82ebae&lᴇ&#93f9b9&lʀ&8] &r"
+lp group gangster parent add default
+
+# --- Trial Helper
+lp creategroup trialhelper
+lp group trialhelper setweight 58
+lp group trialhelper setdisplayname "&#a1ffce&lᴛ&#a9ffce&lʀ&#b1ffcf&lɪ&#b9ffcf&lᴀ&#c1ffcf&lʟ &#d2ffd0&lʜ&#daffd0&lᴇ&#e2ffd0&lʟ&#eaffd0&lᴘ&#f2ffd1&lᴇ&#faffd1&lʀ"
+lp group trialhelper meta setprefix 58 "&8[&#a1ffce&lᴛ&#a9ffce&lʀ&#b1ffcf&lɪ&#b9ffcf&lᴀ&#c1ffcf&lʟ &#d2ffd0&lʜ&#daffd0&lᴇ&#e2ffd0&lʟ&#eaffd0&lᴘ&#f2ffd1&lᴇ&#faffd1&lʀ&8] &r"
+lp group trialhelper parent add default
+lp group trialhelper permission set flowcity.hype.cnn true
 
 # --- Helper
 lp creategroup helper
 lp group helper setweight 60
-lp group helper setdisplayname &#43e97b&lʜ&#41ec8d&lᴇ&#3fefa0&lʟ&#3cf3b2&lᴘ&#3af6c5&lᴇ&#38f9d7&lʀ
+lp group helper setdisplayname "&#43e97b&lʜ&#41ec8d&lᴇ&#3fefa0&lʟ&#3cf3b2&lᴘ&#3af6c5&lᴇ&#38f9d7&lʀ"
 lp group helper meta setprefix 60 "&8[&#43e97b&lʜ&#41ec8d&lᴇ&#3fefa0&lʟ&#3cf3b2&lᴘ&#3af6c5&lᴇ&#38f9d7&lʀ&8] &r"
-lp group helper parent add default
+lp group helper parent add trialhelper
 lp group helper permission set flowcity.hype.cnn true
 
 # --- Moderator
 lp creategroup moderator
 lp group moderator setweight 70
-lp group moderator setdisplayname &#00c6ff&lᴍ&#00bcff&lᴏ&#00b1ff&lᴅ&#00a6ff&lᴇ&#009cff&lʀ&#0092ff&lᴀ&#0087ff&lᴛ&#007cff&lᴏ&#0072ff&lʀ
+lp group moderator setdisplayname "&#00c6ff&lᴍ&#00bcff&lᴏ&#00b1ff&lᴅ&#00a6ff&lᴇ&#009cff&lʀ&#0092ff&lᴀ&#0087ff&lᴛ&#007cff&lᴏ&#0072ff&lʀ"
 lp group moderator meta setprefix 70 "&8[&#00c6ff&lᴍ&#00bcff&lᴏ&#00b1ff&lᴅ&#00a6ff&lᴇ&#009cff&lʀ&#0092ff&lᴀ&#0087ff&lᴛ&#007cff&lᴏ&#0072ff&lʀ&8] &r"
 lp group moderator parent add helper
 lp group moderator permission set flowcity.hype.cnn.delete true
@@ -77,7 +242,7 @@ lp group moderator permission set flowcity.houses.bypass true
 # --- Admin
 lp creategroup admin
 lp group admin setweight 80
-lp group admin setdisplayname &#f857a6&lᴀ&#fa5792&lᴅ&#fc587f&lᴍ&#fd586c&lɪ&#ff5858&lɴ
+lp group admin setdisplayname "&#f857a6&lᴀ&#fa5792&lᴅ&#fc587f&lᴍ&#fd586c&lɪ&#ff5858&lɴ"
 lp group admin meta setprefix 80 "&8[&#f857a6&lᴀ&#fa5792&lᴅ&#fc587f&lᴍ&#fd586c&lɪ&#ff5858&lɴ&8] &r"
 lp group admin parent add moderator
 lp group admin permission set flowcity.hype.admin true
@@ -86,17 +251,31 @@ lp group admin permission set flowcity.payday.admin true
 lp group admin permission set flowcity.hype.clearlag true
 lp group admin permission set flowcity.hype.atm.nocard true
 
+# --- Head Admin
+lp creategroup headadmin
+lp group headadmin setweight 85
+lp group headadmin setdisplayname "&#ff0844&lʜ&#ff1b4d&lᴇ&#ff2e57&lᴀ&#ff4060&lᴅ &#ff6673&lᴀ&#ff797d&lᴅ&#ff8b86&lᴍ&#ff9e90&lɪ&#ffb199&lɴ"
+lp group headadmin meta setprefix 85 "&8[&#ff0844&lʜ&#ff1b4d&lᴇ&#ff2e57&lᴀ&#ff4060&lᴅ &#ff6673&lᴀ&#ff797d&lᴅ&#ff8b86&lᴍ&#ff9e90&lɪ&#ffb199&lɴ&8] &r"
+lp group headadmin parent add admin
+
+# --- Manager
+lp creategroup manager
+lp group manager setweight 90
+lp group manager setdisplayname "&#f83600&lᴍ&#f85006&lᴀ&#f86b0c&lɴ&#f88512&lᴀ&#f99f17&lɢ&#f9ba1d&lᴇ&#f9d423&lʀ"
+lp group manager meta setprefix 90 "&8[&#f83600&lᴍ&#f85006&lᴀ&#f86b0c&lɴ&#f88512&lᴀ&#f99f17&lɢ&#f9ba1d&lᴇ&#f9d423&lʀ&8] &r"
+lp group manager parent add headadmin
+
 # --- Co-Owner
 lp creategroup coowner
-lp group coowner setweight 90
-lp group coowner setdisplayname &#ff5f6d&lᴄ&#ff6d6e&lᴏ&#ff7c6e&l-&#ff8a6f&lᴏ&#ff986f&lᴡ&#ffa670&lɴ&#ffb570&lᴇ&#ffc371&lʀ
-lp group coowner meta setprefix 90 "&8[&#ff5f6d&lᴄ&#ff6d6e&lᴏ&#ff7c6e&l-&#ff8a6f&lᴏ&#ff986f&lᴡ&#ffa670&lɴ&#ffb570&lᴇ&#ffc371&lʀ&8] &r"
-lp group coowner parent add admin
+lp group coowner setweight 95
+lp group coowner setdisplayname "&#ff5f6d&lᴄ&#ff6d6e&lᴏ&#ff7c6e&l-&#ff8a6f&lᴏ&#ff986f&lᴡ&#ffa670&lɴ&#ffb570&lᴇ&#ffc371&lʀ"
+lp group coowner meta setprefix 95 "&8[&#ff5f6d&lᴄ&#ff6d6e&lᴏ&#ff7c6e&l-&#ff8a6f&lᴏ&#ff986f&lᴡ&#ffa670&lɴ&#ffb570&lᴇ&#ffc371&lʀ&8] &r"
+lp group coowner parent add manager
 
 # --- Owner
 lp creategroup owner
 lp group owner setweight 100
-lp group owner setdisplayname &#ff2d2d&lᴏ&#ff4e34&lᴡ&#ff703a&lɴ&#ff9240&lᴇ&#ffb347&lʀ
+lp group owner setdisplayname "&#ff2d2d&lᴏ&#ff4e34&lᴡ&#ff703a&lɴ&#ff9240&lᴇ&#ffb347&lʀ"
 lp group owner meta setprefix 100 "&8[&#ff2d2d&lᴏ&#ff4e34&lᴡ&#ff703a&lɴ&#ff9240&lᴇ&#ffb347&lʀ&8] &r"
 lp group owner parent add coowner
 lp group owner permission set * true
