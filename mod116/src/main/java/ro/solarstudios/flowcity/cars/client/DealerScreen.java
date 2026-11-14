@@ -213,8 +213,8 @@ public final class DealerScreen extends FlowScreen {
             boolean s = id.equals(selected);
             boolean h = Sk.in(lmx, lmy, 12, y, 196, ROW - 4);
             Sk.slant(ms, s ? 18 : 12, y, 196, ROW - 4, 7f, s ? Sk.ACC : (h ? Sk.ROW_HOT : Sk.ROW));
-            int fg = s ? 0xFF1A0B05 : Sk.WHITE;
-            int sub = s ? 0xFF5E2610 : Sk.FAINT;
+            int fg = s ? 0xFF061426 : Sk.WHITE;
+            int sub = s ? 0xFF1F4F85 : Sk.FAINT;
             float tx = s ? 32f : 26f;
             Gfx.text(ms, clipG(JsonClientModule.str(o, "name", id), 8.8f, true, 104), tx, y + 12, 8.8f, fg, 0, true, 0f);
             String line2 = JsonClientModule.str(o, "category", "");
@@ -222,7 +222,7 @@ public final class DealerScreen extends FlowScreen {
             if (stk >= 0) line2 += (line2.isEmpty() ? "" : "  ·  ") + (stk == 0 ? "epuizat" : stk + " în stoc");
             Gfx.text(ms, clipG(line2, 6.2f, false, 120), tx, y + 21, 6.2f, stk == 0 && !s ? Sk.BAD : sub, 0);
             double p = JsonClientModule.num(o, "price", 0);
-            Gfx.text(ms, price(p), 202, y + 16, 8.6f, s ? 0xFF1A0B05 : (CarsClient.money >= p ? Sk.WHITE : Sk.BAD), 2, true, 0f);
+            Gfx.text(ms, price(p), 202, y + 16, 8.6f, s ? 0xFF061426 : (CarsClient.money >= p ? Sk.WHITE : Sk.BAD), 2, true, 0f);
             hitL(12, y, 196, ROW - 4, () -> selected = id);
             y += ROW;
         }
@@ -230,7 +230,7 @@ public final class DealerScreen extends FlowScreen {
             float trackH = bottom - top;
             float th = Math.max(14f, trackH * visible / rows.size());
             float ty = top + (trackH - th) * scroll / Math.max(1, rows.size() - visible);
-            Gfx.rrect(ms, 212, top, 2, trackH, 0, 0xFF1C1E23);
+            Gfx.rrect(ms, 212, top, 2, trackH, 0, 0xFF14202F);
             Gfx.rrect(ms, 212, ty, 2, th, 0, Sk.ACC);
         }
         if (sel == null) return;

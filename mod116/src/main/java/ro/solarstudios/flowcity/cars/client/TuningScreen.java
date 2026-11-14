@@ -354,9 +354,9 @@ public final class TuningScreen extends FlowScreen {
             boolean s = tab == i;
             boolean h = Sk.in(lmx, lmy, 12, y, 196, 28);
             Sk.slant(ms, s ? 18 : 12, y, 196, 28, 7f, s ? Sk.ACC : (h ? Sk.ROW_HOT : Sk.ROW));
-            Gfx.text(ms, tabs[i], s ? 32 : 26, y + 18, 9.4f, s ? 0xFF1A0B05 : Sk.WHITE, 0, true, 0.4f);
+            Gfx.text(ms, tabs[i], s ? 32 : 26, y + 18, 9.4f, s ? 0xFF061426 : Sk.WHITE, 0, true, 0.4f);
             if (i == 0) Gfx.rrect(ms, 190, y + 8, 12, 12, 0, 0xFF000000 | color);
-            else Gfx.text(ms, clipG(vals[i], 6.6f, false, 70), 202, y + 17, 6.6f, s ? 0xFF5E2610 : Sk.MUTED, 2);
+            else Gfx.text(ms, clipG(vals[i], 6.6f, false, 70), 202, y + 17, 6.6f, s ? 0xFF1F4F85 : Sk.MUTED, 2);
             final int ti = i;
             hitL(12, y, 196, 28, () -> tab = ti);
         }
@@ -451,11 +451,11 @@ public final class TuningScreen extends FlowScreen {
 
     private void arrow(GuiGraphics ms, float x, float y, boolean left, float lmx, float lmy) {
         boolean h = Sk.in(lmx, lmy, x, y, 18, 18);
-        Gfx.rrect(ms, x, y, 18, 18, 0, h ? Sk.ACC : 0xFF1A1C21);
+        Gfx.rrect(ms, x, y, 18, 18, 0, h ? Sk.ACC : 0xFF14202F);
         float cx = x + 9f;
         float cy = y + 9f;
         float d = left ? -1 : 1;
-        int c = h ? 0xFF160A05 : Sk.MUTED;
+        int c = h ? 0xFF061426 : Sk.MUTED;
         Gfx.line(ms, cx + 2 * d, cy - 4.5f, cx - 2 * d, cy, 1.7f, c);
         Gfx.line(ms, cx - 2 * d, cy, cx + 2 * d, cy + 4.5f, 1.7f, c);
         hitL(x, y, 18, 18, () -> {
@@ -485,7 +485,7 @@ public final class TuningScreen extends FlowScreen {
         for (int i = 0; i < 3; i++) {
             float ty = y + 72 + i * 15f;
             Gfx.text(ms, names[i], x + 10, ty + 5.5f, 7.4f, cols[i], 0, true, 0f);
-            Gfx.rrect(ms, x + 28, ty + 2, 150, 4, 0, 0xFF23252B);
+            Gfx.rrect(ms, x + 28, ty + 2, 150, 4, 0, 0xFF1B2839);
             float fw = 150 * vals[i] / 255f;
             Gfx.rrect(ms, x + 28, ty + 2, Math.max(2, fw), 4, 0, cols[i]);
             boolean hot = slider == i || Sk.in(lmx, lmy, x + 28 + fw - 6, ty - 2, 12, 12);
@@ -521,19 +521,19 @@ public final class TuningScreen extends FlowScreen {
             boolean s = chosen == i;
             boolean h = Sk.in(lmx, lmy, cx, cy, cw, 88);
             Sk.slant(ms, cx, cy, cw, 88, 6f, s ? Sk.ACC : (h ? Sk.ROW_HOT : Sk.ROW));
-            int fg = s ? 0xFF1A0B05 : Sk.WHITE;
+            int fg = s ? 0xFF061426 : Sk.WHITE;
             Gfx.text(ms, TIER_NAMES[i], cx + cw / 2f + 3, cy + 20, 8.6f, fg, 1, true, 0f);
             int pw = tierPower(i);
-            for (int q = 0; q < 5; q++) Gfx.rrect(ms, cx + cw / 2f - 14 + 3, cy + 54 - q * 7, 22, 4, 0, q < pw ? (s ? 0xFF1A0B05 : Sk.ACC) : (s ? 0xFFB0431F : 0xFF23252B));
+            for (int q = 0; q < 5; q++) Gfx.rrect(ms, cx + cw / 2f - 14 + 3, cy + 54 - q * 7, 22, 4, 0, q < pw ? (s ? 0xFF061426 : Sk.ACC) : (s ? 0xFF2E78C9 : 0xFF1B2839));
             String lab;
             int lc;
             if (i == cur) {
                 lab = "INSTALAT";
-                lc = s ? 0xFF1A0B05 : Sk.GOOD;
+                lc = s ? 0xFF061426 : Sk.GOOD;
             } else {
                 double d = Math.max(0, tierPrice(i) - tierPrice(cur));
                 lab = d <= 0 ? "gratis" : "+" + price(d);
-                lc = s ? 0xFF1A0B05 : (d <= 0 ? Sk.GOOD : (afford(d) ? Sk.WHITE : Sk.BAD));
+                lc = s ? 0xFF061426 : (d <= 0 ? Sk.GOOD : (afford(d) ? Sk.WHITE : Sk.BAD));
             }
             Gfx.text(ms, lab, cx + cw / 2f + 3, cy + 80, 6.8f, lc, 1);
             final int ti = i;
@@ -559,16 +559,16 @@ public final class TuningScreen extends FlowScreen {
             boolean s = id.equals(wheels);
             boolean h = Sk.in(lmx, lmy, cx, cy, tw, 42);
             Sk.slant(ms, cx, cy, tw, 42, 5f, s ? Sk.ACC : (h ? Sk.ROW_HOT : Sk.ROW));
-            Gfx.text(ms, clipG(JsonClientModule.str(o, "name", id), 7.8f, true, tw - 12), cx + tw / 2f + 2, cy + 17, 7.8f, s ? 0xFF1A0B05 : Sk.WHITE, 1, true, 0f);
+            Gfx.text(ms, clipG(JsonClientModule.str(o, "name", id), 7.8f, true, tw - 12), cx + tw / 2f + 2, cy + 17, 7.8f, s ? 0xFF061426 : Sk.WHITE, 1, true, 0f);
             String lab;
             int lc;
             if (id.equals(fromWheels)) {
                 lab = "INSTALATE";
-                lc = s ? 0xFF1A0B05 : Sk.GOOD;
+                lc = s ? 0xFF061426 : Sk.GOOD;
             } else {
                 double p = JsonClientModule.num(o, "price", 0);
                 lab = p <= 0 ? "gratis" : "+" + price(p);
-                lc = s ? 0xFF1A0B05 : (p <= 0 ? Sk.GOOD : (afford(p) ? Sk.MUTED : Sk.BAD));
+                lc = s ? 0xFF061426 : (p <= 0 ? Sk.GOOD : (afford(p) ? Sk.MUTED : Sk.BAD));
             }
             Gfx.text(ms, lab, cx + tw / 2f + 2, cy + 33, 6.6f, lc, 1);
             hitL(cx, cy, tw, 42, () -> wheels = id);

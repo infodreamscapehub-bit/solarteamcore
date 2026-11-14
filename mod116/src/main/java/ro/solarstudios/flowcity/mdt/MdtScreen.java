@@ -23,11 +23,11 @@ import ro.solarstudios.flowcity.module.JsonClientModule;
  * cautare dupa numar de inmatriculare, dispecerat (unitati + backup) si echipa.
  */
 public final class MdtScreen extends FlowScreen {
-    private static final int BG = 0xFF0C0D10;
-    private static final int SIDE = 0xFF0A0B0E;
-    private static final int CARD = 0xFF15171C;
-    private static final int CARD2 = 0xFF1E2026;
-    private static final int RULE = 0xFF24262C;
+    private static final int BG = 0xFF0A101A;
+    private static final int SIDE = 0xFF080D16;
+    private static final int CARD = 0xFF111B2A;
+    private static final int CARD2 = 0xFF182638;
+    private static final int RULE = 0xFF22324A;
     private static final int INK = Sk.WHITE;
     private static final int DIM = Sk.MUTED;
     private static final int FAINT = Sk.FAINT;
@@ -35,7 +35,7 @@ public final class MdtScreen extends FlowScreen {
     private static final int AMBER = Sk.WARN;
     private static final int RED = Sk.BAD;
     private static final int GREEN = Sk.GOOD;
-    private static final int DARK = 0xFF1A0B05;
+    private static final int DARK = 0xFF061426;
     private static final int RAIL = 76;
     private static final int TOP = 20;
     private static final int LIST = 152;
@@ -124,10 +124,10 @@ public final class MdtScreen extends FlowScreen {
         int bg;
         int fg;
         if (!enabled) {
-            bg = 0xFF1C1E23;
+            bg = 0xFF14202F;
             fg = FAINT;
         } else if (primary) {
-            bg = hover ? 0xFFFF7448 : Sk.ACC;
+            bg = hover ? 0xFF7DBBFF : Sk.ACC;
             fg = DARK;
         } else if (good) {
             bg = Gfx.mixArgb(Sk.GOOD, 0xFFFFFFFF, hover ? 0.18f : 0f);
@@ -136,7 +136,7 @@ public final class MdtScreen extends FlowScreen {
             bg = Gfx.mixArgb(Sk.BAD, 0xFFFFFFFF, hover ? 0.18f : 0f);
             fg = DARK;
         } else {
-            bg = hover ? 0xFF2C2F36 : 0xFF23252B;
+            bg = hover ? 0xFF2C2F36 : 0xFF1B2839;
             fg = hover ? INK : 0xFFC9CBD0;
         }
         Sk.slant(ms, x, y, w, h, Math.min(5f, h / 3f), bg);

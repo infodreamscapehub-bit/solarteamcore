@@ -210,9 +210,9 @@ public final class GarageScreen extends FlowScreen {
             Sk.slant(ms, s ? 18 : 12, y, 196, ROW - 4, 7f, s ? Sk.ACC : (h ? Sk.ROW_HOT : Sk.ROW));
             float tx = s ? 38f : 32f;
             Gfx.rrect(ms, tx - 10, y + 7, 4, ROW - 18, 0, carColor(c));
-            Gfx.text(ms, clipG(JsonClientModule.str(c, "name", "?"), 8.6f, true, 100), tx, y + 13, 8.6f, s ? 0xFF1A0B05 : Sk.WHITE, 0, true, 0f);
+            Gfx.text(ms, clipG(JsonClientModule.str(c, "name", "?"), 8.6f, true, 100), tx, y + 13, 8.6f, s ? 0xFF061426 : Sk.WHITE, 0, true, 0f);
             plate(ms, JsonClientModule.str(c, "plate", ""), tx, y + 17, 5.6f);
-            Gfx.text(ms, statusLabel(c), 202, y + 13, 6f, s ? 0xFF1A0B05 : statusColor(c), 2, false, 0.6f);
+            Gfx.text(ms, statusLabel(c), 202, y + 13, 6f, s ? 0xFF061426 : statusColor(c), 2, false, 0.6f);
             hitL(12, y, 196, ROW - 4, () -> selected = id);
             y += ROW;
         }
@@ -220,7 +220,7 @@ public final class GarageScreen extends FlowScreen {
             float trackH = bottom - top;
             float th = Math.max(14f, trackH * visible / cars.size());
             float ty = top + (trackH - th) * scroll / Math.max(1, cars.size() - visible);
-            Gfx.rrect(ms, 212, top, 2, trackH, 0, 0xFF1C1E23);
+            Gfx.rrect(ms, 212, top, 2, trackH, 0, 0xFF14202F);
             Gfx.rrect(ms, 212, ty, 2, th, 0, Sk.ACC);
         }
 
