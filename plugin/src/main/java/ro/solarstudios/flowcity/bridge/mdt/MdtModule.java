@@ -815,6 +815,49 @@ public final class MdtModule extends JsonModule implements Listener {
         return null;
     }
 
+    /** Amenzile neplatite ale unui jucator, pentru ecranul "Amenzile mele". */
+    public com.google.gson.JsonArray unpaidFines(UUID u) {
+        com.google.gson.JsonArray arr = new com.google.gson.JsonArray();
+        Citizen ct = citizen(u);
+        if (ct == null) return arr;
+        java.text.SimpleDateFormat df = new java.text.SimpleDateFormat("dd.MM.yyyy HH:mm");
+        for (Fine f : ct.fines) {
+            if (f.paid) continue;
+            com.google.gson.JsonObject o = new com.google.gson.JsonObject();
+            o.addProperty("id", f.id);
+            o.addProperty("amount", f.amount);
+            o.addProperty("reason", f.reason);
+            o.addProperty("by", f.by);
+            o.addProperty("date", df.format(new java.util.Date(f.ts)));
+            arr.add(o);
+        }
+        return arr;
+    }
+
+    /** Suma unei amenzi neplatite, sau -1 daca nu exista / e deja platita. */
+    public int fineAmount(UUID u, long id) {
+        Citizen ct = citizen(u);
+        if (ct == null) return -1;
+        for (Fine f : ct.fines) if (f.id == id && !f.paid) return f.amount;
+        return -1;
+    }
+
+    /** Plata facuta de jucatorul amendat (banii au fost deja luati): marcheaza amenda platita si anunta ofiterul. */
+    public boolean payFineByCitizen(UUID u, long id) {
+        Citizen ct = citizen(u);
+        if (ct == null) return false;
+        for (Fine f : ct.fines) {
+            if (f.id != id || f.paid) continue;
+            f.paid = true;
+            sql("UPDATE mdt_fine SET paid=1 WHERE id=?", id);
+            Player officer = f.byUuid == null ? null : Bukkit.getPlayer(f.byUuid);
+            if (officer != null) officer.sendMessage("\u00a7a[Politie] \u00a7f" + ct.name + " si-a platit amenda de \u00a7e" + f.amount + " lei\u00a7f (" + f.reason + ").");
+            pushAll();
+            return true;
+        }
+        return false;
+    }
+
     /** Folosit de dealerul auto: inregistreaza masina cumparata pe numele jucatorului. */
     public static MdtModule instance;
 

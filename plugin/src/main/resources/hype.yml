@@ -413,3 +413,8 @@ garages:
 # Benzinarii (statiile le pune adminul in joc: /benzinarie creeaza <nume>)
 fuel:
   price-per-liter: 8
+
+# Amenzi platite de jucator (/amenzi). Dupa plata se ruleaza aceste comenzi din consola; %player% = cel care plateste,
+# %amount% = suma. De ex. ca banii sa ajunga la un cont: "eco give politia %amount%". Gol = banii dispar pur si simplu.
+mdt:
+  fines-payment-commands: []
