@@ -427,7 +427,7 @@ public final class MdtScreen extends FlowScreen {
         Ui.rect(ms, px, py + TOP - 1, pw, 1, RULE);
         Sk.slant(ms, px + 8, py + 4, 11, 12, 4f, Sk.ACC);
         Gfx.text(ms, "POLIȚIA FLOWCITY", px + 26, py + 14, 8.6f, INK, 0, true, 0.4f);
-        Ui.text(ms, "MDT", px + 26 + Gfx.width("POLIȚIA FLOWCITY", 8.6f, true) + 14, py + 6, FAINT);
+        Ui.text(ms, "MDT", px + 26 + Math.round(Gfx.width("POLIȚIA FLOWCITY", 8.6f, true)) + 14, py + 6, FAINT);
 
         int xr = px + pw - 8;
         button(ms, "x", xr - 14, py + 3, 14, 14, mx, my, true, 0xFF3A2328, this::onClose);
