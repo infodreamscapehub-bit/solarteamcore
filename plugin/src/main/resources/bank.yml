@@ -1,0 +1,15 @@
+# Banca FlowCity: credite si economii. Comenzi: /banca (deschide), /banca open <jucator> (NPC: CONSOLE banca open %player%)
+# Fara mod: /banca credit <nr> | /banca plateste <suma|tot> | /banca depune <suma|tot> | /banca retrage <suma|tot>
+loans:
+  # nr-ul ofertei = pozitia in lista (1, 2, 3...). min-hours = ore jucate necesare.
+  offers:
+    - {amount: 5000, days: 7, rate: 10, min-hours: 0}
+    - {amount: 15000, days: 14, rate: 12, min-hours: 5}
+    - {amount: 40000, days: 30, rate: 15, min-hours: 20}
+  # la scadenta se retrage automat datoria din banca; daca nu sunt bani, in fiecare zi datoria creste cu atat la suta
+  overdue-penalty-percent-per-day: 5
+  # penalizarea nu depaseste datoria initiala inmultita cu aceasta valoare
+  max-debt-multiplier: 2.5
+savings:
+  daily-interest-percent: 0.5
+  max-balance: 500000
