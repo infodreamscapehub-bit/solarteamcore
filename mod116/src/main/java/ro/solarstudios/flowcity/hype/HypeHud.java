@@ -259,10 +259,10 @@ public final class HypeHud {
             int total = 0;
             for (com.google.gson.JsonElement e : s.getAsJsonArray("rankSegs")) {
                 JsonObject o = e.getAsJsonObject();
-                String t = (JsonClientModule.bool(o, "b", false) ? "\u00a7l" : "") + JsonClientModule.str(o, "t", "");
-                parts.add(t);
+                String seg = (JsonClientModule.bool(o, "b", false) ? "\u00a7l" : "") + JsonClientModule.str(o, "t", "");
+                parts.add(seg);
                 cols.add(0xFF000000 | JsonClientModule.integer(o, "c", 0xFFFFFF));
-                total += Ui.width(t);
+                total += Ui.width(seg);
             }
             int rx = x + W - total;
             for (int i = 0; i < parts.size(); i++) {
