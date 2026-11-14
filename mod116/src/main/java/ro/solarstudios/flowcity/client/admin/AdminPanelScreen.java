@@ -13,6 +13,7 @@ import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.util.SoundEvents;
 import net.minecraft.util.text.ITextComponent;
 import org.lwjgl.glfw.GLFW;
+import ro.solarstudios.flowcity.cars.client.Sk;
 import ro.solarstudios.flowcity.client.ClientBridge;
 import ro.solarstudios.flowcity.client.ui.Theme;
 import ro.solarstudios.flowcity.client.ui.Ui;
@@ -46,6 +47,31 @@ public class AdminPanelScreen extends Screen {
             this.h = h;
             this.action = action;
         }
+    }
+
+    /** Paleta de iarna FlowCity (aceleasi nume ca Theme, dar navy + accent albastru-gheata). */
+    private static final class W {
+        static final int DIM = 0xA0050A12;
+        static final int PANEL = 0xFF0B1320;
+        static final int PANEL_2 = 0xFF111B2A;
+        static final int PANEL_3 = 0xFF182638;
+        static final int LINE = 0xFF22324A;
+        static final int ACCENT = Sk.ACC;
+        static final int ACCENT_DIM = Sk.ACC_DARK;
+        static final int VIOLET = 0xFF8FA3BD;
+        static final int TEXT = Sk.WHITE;
+        static final int MUTED = Sk.MUTED;
+        static final int FAINT = Sk.FAINT;
+        static final int OK = Sk.GOOD;
+        static final int WARN = Sk.WARN;
+        static final int BAD = Sk.BAD;
+        static final int DISABLED = 0xFF14202F;
+    }
+
+    /** Dreptunghi cu contur de 1px, colturi drepte. */
+    private static void box(GuiGraphics g, int x, int y, int w, int h, int fill, int border) {
+        Ui.rect(g, x, y, w, h, border);
+        Ui.rect(g, x + 1, y + 1, w - 2, h - 2, fill);
     }
 
     private static final String[] LOG_TYPES = {"CHAT", "CMD", "CONN", "CREATIVE", "INV", "TX"};
@@ -120,7 +146,7 @@ public class AdminPanelScreen extends Screen {
         TextFieldWidget f = new TextFieldWidget(font, 0, 0, 100, 14, new StringTextComponent(hint));
         f.setMaxLength(max);
         f.setBordered(false);
-        f.setTextColor(Theme.TEXT);
+        f.setTextColor(W.TEXT);
         f.setSuggestion(hint);
         f.setResponder(s -> {
             f.setSuggestion(s.isEmpty() ? hint : null);
@@ -242,8 +268,9 @@ public class AdminPanelScreen extends Screen {
         float ease = 1f - (1f - open) * (1f - open) * (1f - open);
         py += Math.round((1f - ease) * 14f); // panoul urca usor la deschidere
 
-        Ui.rect(ms, 0, 0, width, height, Theme.alpha(Theme.DIM, Math.max(1, (int) (((Theme.DIM >>> 24) & 0xFF) * ease))));
-        Ui.frame(ms, px, py, pw, ph, Theme.PANEL, Theme.LINE);
+        Sk.background(ms, 0, 0, width, height, ease);
+        box(ms, px, py, pw, ph, W.PANEL, W.LINE);
+        Ui.rect(ms, px + 1, py + 1, pw - 2, 2, W.ACCENT);
         drawHeader(ms, mx, my);
         drawList(ms, mx, my);
         drawRight(ms, mx, my);
@@ -252,33 +279,33 @@ public class AdminPanelScreen extends Screen {
     }
 
     private void drawHeader(GuiGraphics ms, int mx, int my) {
-        Ui.rect(ms, px + 1, py + 1, pw - 2, HEAD - 1, Theme.PANEL_2);
-        Ui.rect(ms, px + 1, py + HEAD, pw - 2, 1, Theme.ACCENT_DIM);
-        Ui.rect(ms, px + 8, py + 8, 3, 9, Theme.ACCENT);
-        Ui.textShadow(ms, serverName.toUpperCase(), px + 15, py + 8, Theme.ACCENT);
-        Ui.text(ms, "eAdmin", px + 15 + Ui.width(serverName.toUpperCase()) + 6, py + 8, Theme.TEXT);
-        Ui.textRight(ms, "staff: " + staffName, px + pw - 142, py + 8, Theme.MUTED);
-        button(ms, "REFRESH", px + pw - 56, py + 5, 34, 14, mx, my, true, Theme.PANEL_3, () -> {
+        Ui.rect(ms, px + 1, py + 1, pw - 2, HEAD - 1, W.PANEL_2);
+        Ui.rect(ms, px + 1, py + HEAD, pw - 2, 1, W.ACCENT_DIM);
+        Ui.rect(ms, px + 8, py + 8, 3, 9, W.ACCENT);
+        Ui.textShadow(ms, serverName.toUpperCase(), px + 15, py + 8, W.ACCENT);
+        Ui.text(ms, "eAdmin", px + 15 + Ui.width(serverName.toUpperCase()) + 6, py + 8, W.TEXT);
+        Ui.textRight(ms, "staff: " + staffName, px + pw - 142, py + 8, W.MUTED);
+        button(ms, "REFRESH", px + pw - 56, py + 5, 34, 14, mx, my, true, W.PANEL_3, () -> {
             ClientBridge.requestList(lastQuery, listPage);
             DashPanel.forceRefresh();
             if (selectedUuid != null) ClientBridge.requestProfile(selectedUuid);
         });
-        button(ms, "PANOU", px + pw - 136, py + 5, 36, 14, mx, my, selectedUuid != null, Theme.ACCENT_DIM, () -> {
+        button(ms, "PANOU", px + pw - 136, py + 5, 36, 14, mx, my, selectedUuid != null, W.ACCENT_DIM, () -> {
             selectedUuid = null;
             profile = null;
             logs = null;
             DashPanel.forceRefresh();
         });
-        button(ms, "ROATA", px + pw - 96, py + 5, 36, 14, mx, my, true, Theme.VIOLET, () ->
+        button(ms, "ROATA", px + pw - 96, py + 5, 36, 14, mx, my, true, W.VIOLET, () ->
             Minecraft.getInstance().setScreen(new ro.solarstudios.flowcity.wheel.WheelAdminScreen()));
-        button(ms, "X", px + pw - 18, py + 5, 12, 14, mx, my, true, 0xFF6B2F2B, this::onClose);
+        button(ms, "X", px + pw - 18, py + 5, 12, 14, mx, my, true, 0xFF7A2A26, this::onClose);
     }
 
     private void drawList(GuiGraphics ms, int mx, int my) {
         int x = px + 6;
         int top = py + HEAD + 6;
         // casuta de cautare
-        Ui.frame(ms, x, top, LIST_W, 16, Theme.PANEL_2, search.isFocused() ? Theme.ACCENT : Theme.LINE);
+        box(ms, x, top, LIST_W, 16, W.PANEL_2, search.isFocused() ? W.ACCENT : W.LINE);
         search.x = x + 5;
         search.y = top + 4;
         search.setWidth(LIST_W - 10);
@@ -288,28 +315,28 @@ public class AdminPanelScreen extends Screen {
         int bottom = py + ph - 22;
         int rh = Math.max(11, Math.min(16, (bottom - rowsTop) / 12));
         if (list == null) {
-            Ui.text(ms, "Se incarca...", x + 4, rowsTop + 4, Theme.MUTED);
+            Ui.text(ms, "Se incarca...", x + 4, rowsTop + 4, W.MUTED);
         } else if (list.entries.isEmpty()) {
-            Ui.text(ms, "Niciun jucator.", x + 4, rowsTop + 4, Theme.MUTED);
+            Ui.text(ms, "Niciun jucator.", x + 4, rowsTop + 4, W.MUTED);
         } else {
             int y = rowsTop;
             for (AdminData.PlayerEntry e : list.entries) {
                 boolean sel = e.uuid.equals(selectedUuid);
                 boolean hover = Ui.in(mx, my, x, y, LIST_W, rh - 1);
-                if (sel) Ui.round(ms, x, y, LIST_W, rh - 1, Theme.ACCENT_DIM);
-                else if (hover) Ui.round(ms, x, y, LIST_W, rh - 1, Theme.PANEL_3);
-                Ui.rect(ms, x + 3, y + rh / 2 - 2, 4, 4, e.online ? Theme.OK : Theme.FAINT);
-                int nameColor = e.banned ? Theme.BAD : (e.muted ? Theme.WARN : Theme.TEXT);
+                if (sel) Ui.rect(ms, x, y, LIST_W, rh - 1, W.ACCENT_DIM);
+                else if (hover) Ui.rect(ms, x, y, LIST_W, rh - 1, W.PANEL_3);
+                Ui.rect(ms, x + 3, y + rh / 2 - 2, 4, 4, e.online ? W.OK : W.FAINT);
+                int nameColor = e.banned ? W.BAD : (e.muted ? W.WARN : W.TEXT);
                 int right = x + LIST_W - 4;
                 if (e.banned) {
-                    Ui.textRight(ms, "B", right, y + (rh - 9) / 2, Theme.BAD);
+                    Ui.textRight(ms, "B", right, y + (rh - 9) / 2, W.BAD);
                     right -= 9;
                 } else if (e.muted) {
-                    Ui.textRight(ms, "M", right, y + (rh - 9) / 2, Theme.WARN);
+                    Ui.textRight(ms, "M", right, y + (rh - 9) / 2, W.WARN);
                     right -= 9;
                 }
                 String idLabel = e.id > 0 ? "#" + e.id : "";
-                if (!idLabel.isEmpty()) Ui.textRight(ms, idLabel, right, y + (rh - 9) / 2, sel ? Theme.TEXT : Theme.FAINT);
+                if (!idLabel.isEmpty()) Ui.textRight(ms, idLabel, right, y + (rh - 9) / 2, sel ? W.TEXT : W.FAINT);
                 Ui.text(ms, Ui.clip(e.name, LIST_W - 22 - Ui.width(idLabel)), x + 11, y + (rh - 9) / 2, nameColor);
                 final AdminData.PlayerEntry entry = e;
                 hits.add(new Hit(x, y, LIST_W, rh - 1, () -> select(entry)));
@@ -319,11 +346,11 @@ public class AdminPanelScreen extends Screen {
         // paginare
         int pagerY = py + ph - 19;
         int pages = list == null ? 1 : Math.max(1, (list.total + 11) / 12);
-        button(ms, "<", x, pagerY, 16, 14, mx, my, listPage > 0, Theme.PANEL_3, () -> ClientBridge.requestList(lastQuery, listPage - 1));
-        button(ms, ">", x + LIST_W - 16, pagerY, 16, 14, mx, my, listPage + 1 < pages, Theme.PANEL_3, () -> ClientBridge.requestList(lastQuery, listPage + 1));
-        Ui.textCenter(ms, (listPage + 1) + "/" + pages + "  (" + (list == null ? 0 : list.total) + ")", x + LIST_W / 2, pagerY + 3, Theme.MUTED);
+        button(ms, "<", x, pagerY, 16, 14, mx, my, listPage > 0, W.PANEL_3, () -> ClientBridge.requestList(lastQuery, listPage - 1));
+        button(ms, ">", x + LIST_W - 16, pagerY, 16, 14, mx, my, listPage + 1 < pages, W.PANEL_3, () -> ClientBridge.requestList(lastQuery, listPage + 1));
+        Ui.textCenter(ms, (listPage + 1) + "/" + pages + "  (" + (list == null ? 0 : list.total) + ")", x + LIST_W / 2, pagerY + 3, W.MUTED);
         // separator
-        Ui.rect(ms, px + LIST_W + 10, py + HEAD + 4, 1, ph - HEAD - 8, Theme.LINE);
+        Ui.rect(ms, px + LIST_W + 10, py + HEAD + 4, 1, ph - HEAD - 8, W.LINE);
     }
 
     private void drawRight(GuiGraphics ms, int mx, int my) {
@@ -336,13 +363,13 @@ public class AdminPanelScreen extends Screen {
         }
         // nume + stare
         String name = profile != null ? profile.name : selectedName;
-        Ui.textShadow(ms, name, x, y + 1, Theme.TEXT);
+        Ui.textShadow(ms, name, x, y + 1, W.TEXT);
         int cx = x + Ui.width(name) + 8;
         if (profile != null) {
-            if (profile.id > 0) cx = chipStatic(ms, "#" + profile.id, cx, y - 1, Theme.ACCENT);
-            cx = chipStatic(ms, profile.online ? "ONLINE" : "OFFLINE", cx, y - 1, profile.online ? Theme.OK : Theme.FAINT);
-            if (profile.banned) cx = chipStatic(ms, "BAN ACTIV", cx, y - 1, Theme.BAD);
-            if (profile.muted) cx = chipStatic(ms, "MUTE ACTIV", cx, y - 1, Theme.WARN);
+            if (profile.id > 0) cx = chipStatic(ms, "#" + profile.id, cx, y - 1, W.ACCENT);
+            cx = chipStatic(ms, profile.online ? "ONLINE" : "OFFLINE", cx, y - 1, profile.online ? W.OK : W.FAINT);
+            if (profile.banned) cx = chipStatic(ms, "BAN ACTIV", cx, y - 1, W.BAD);
+            if (profile.muted) cx = chipStatic(ms, "MUTE ACTIV", cx, y - 1, W.WARN);
         }
         // actiuni rapide (stil eAdmin EGK)
         int ay = y + 15;
@@ -359,9 +386,9 @@ public class AdminPanelScreen extends Screen {
             int tw = Ui.width(t.label) + 10;
             boolean sel = t == tab;
             boolean hover = Ui.in(mx, my, tx, ty, tw, 15);
-            Ui.round(ms, tx, ty, tw, 15, sel ? Theme.ACCENT_DIM : (hover ? Theme.PANEL_3 : Theme.PANEL_2));
-            if (sel) Ui.rect(ms, tx + 2, ty + 14, tw - 4, 1, Theme.ACCENT);
-            Ui.textCenter(ms, t.label, tx + tw / 2, ty + 3, sel ? Theme.TEXT : Theme.MUTED);
+            Ui.rect(ms, tx, ty, tw, 15, sel ? W.ACCENT_DIM : (hover ? W.PANEL_3 : W.PANEL_2));
+            if (sel) Ui.rect(ms, tx + 2, ty + 14, tw - 4, 1, W.ACCENT);
+            Ui.textCenter(ms, t.label, tx + tw / 2, ty + 3, sel ? W.TEXT : W.MUTED);
             final Tab target = t;
             hits.add(new Hit(tx, ty, tw, 15, () -> switchTab(target)));
             tx += tw + 2;
@@ -369,9 +396,9 @@ public class AdminPanelScreen extends Screen {
         int cy = ty + 18;
         int ch = py + ph - cy - 6;
         // fundal continut
-        Ui.frame(ms, x, cy, w, ch, Theme.PANEL_2, Theme.LINE);
+        box(ms, x, cy, w, ch, W.PANEL_2, W.LINE);
         if (profile == null) {
-            Ui.text(ms, "Se incarca profilul...", x + 8, cy + 8, Theme.MUTED);
+            Ui.text(ms, "Se incarca profilul...", x + 8, cy + 8, W.MUTED);
             return;
         }
         switch (tab) {
@@ -406,8 +433,8 @@ public class AdminPanelScreen extends Screen {
         boolean on = p != null && p.online;
         boolean frz = p != null && AdminX.frozen.contains(p.uuid);
         String[] labels = {"TP", "AICI", "INV", "SPEC", frz ? "DEZG." : "FRZ", "CASH", "WARN", "KICK", "BAN"};
-        int[] colors = {Theme.ACCENT_DIM, Theme.ACCENT_DIM, Theme.ACCENT_DIM, Theme.VIOLET, frz ? 0xFF2F8CFF : 0xFF2A5E8A, 0xFF1F7A4D,
-            0xFF8A6A1F, 0xFF7A4B1F, 0xFF8A2A35};
+        int[] colors = {W.ACCENT_DIM, W.ACCENT_DIM, W.ACCENT_DIM, W.VIOLET, frz ? 0xFF2F8CFF : 0xFF2A5E8A, 0xFF1F6B3F,
+            0xFF8A6A1F, 0xFF7A4B1F, 0xFF7A2A26};
         boolean[] enabled = {on, on, on, on || AdminX.frozen == null, on, p != null, p != null, p != null, p != null};
         int gap = 3;
         int bw = (w - gap * (labels.length - 1)) / labels.length;
@@ -443,20 +470,20 @@ public class AdminPanelScreen extends Screen {
     }
 
     private void drawCashBar(GuiGraphics ms, int mx, int my, int x, int y, int w) {
-        Ui.frame(ms, x, y, w, 16, Theme.PANEL, Theme.alpha(Theme.OK, 0xAA));
-        Ui.text(ms, "CASH $", x + 5, y + 4, Theme.OK);
+        box(ms, x, y, w, 16, W.PANEL, Theme.alpha(W.OK, 0xAA));
+        Ui.text(ms, "CASH $", x + 5, y + 4, W.OK);
         int fx = x + 44;
         int fw = 80;
-        Ui.frame(ms, fx, y + 2, fw, 12, Theme.PANEL_2, cashField.isFocused() ? Theme.ACCENT : Theme.LINE);
+        box(ms, fx, y + 2, fw, 12, W.PANEL_2, cashField.isFocused() ? W.ACCENT : W.LINE);
         cashField.x = fx + 4;
         cashField.y = y + 4;
         cashField.setWidth(fw - 8);
         cashField.render(ms.pose(), mx, my, 0);
         int bx = fx + fw + 6;
         int bw = (x + w - bx - 8) / 3;
-        button(ms, "SETEAZA", bx, y + 2, bw, 12, mx, my, true, Theme.ACCENT_DIM, () -> sendCash("set"));
-        button(ms, "+ ADAUGA", bx + bw + 2, y + 2, bw, 12, mx, my, true, 0xFF1F7A4D, () -> sendCash("add"));
-        button(ms, "- SCADE", bx + 2 * (bw + 2), y + 2, bw, 12, mx, my, true, 0xFF8A2A35, () -> sendCash("take"));
+        button(ms, "SETEAZA", bx, y + 2, bw, 12, mx, my, true, W.ACCENT_DIM, () -> sendCash("set"));
+        button(ms, "+ ADAUGA", bx + bw + 2, y + 2, bw, 12, mx, my, true, 0xFF1F6B3F, () -> sendCash("add"));
+        button(ms, "- SCADE", bx + 2 * (bw + 2), y + 2, bw, 12, mx, my, true, 0xFF7A2A26, () -> sendCash("take"));
     }
 
     private void sendCash(String mode) {
@@ -476,60 +503,60 @@ public class AdminPanelScreen extends Screen {
     // ---- JOBURI
 
     private void drawJobs(GuiGraphics ms, int x, int y, int w, int h) {
-        Ui.text(ms, "JOB", x, y, Theme.FAINT);
-        Ui.text(ms, "XP", x + w * 45 / 100, y, Theme.FAINT);
-        Ui.textRight(ms, "CASTIGAT TOTAL", x + w, y, Theme.FAINT);
-        Ui.rect(ms, x, y + 10, w, 1, Theme.LINE);
+        Ui.text(ms, "JOB", x, y, W.FAINT);
+        Ui.text(ms, "XP", x + w * 45 / 100, y, W.FAINT);
+        Ui.textRight(ms, "CASTIGAT TOTAL", x + w, y, W.FAINT);
+        Ui.rect(ms, x, y + 10, w, 1, W.LINE);
         if (!profile.uuid.equals(AdminX.jobsUuid)) {
-            Ui.text(ms, "Se incarca...", x, y + 16, Theme.MUTED);
+            Ui.text(ms, "Se incarca...", x, y + 16, W.MUTED);
             return;
         }
         if (AdminX.jobs.isEmpty()) {
-            Ui.text(ms, "Fara istoric de joburi.", x, y + 16, Theme.MUTED);
+            Ui.text(ms, "Fara istoric de joburi.", x, y + 16, W.MUTED);
             return;
         }
         int ry = y + 16;
         for (AdminX.JobRow r : AdminX.jobs) {
             if (ry > y + h - 12) break;
             boolean cur = r.job.equalsIgnoreCase(AdminX.jobsCurrent);
-            Ui.rect(ms, x, ry + 1, 3, 8, cur ? Theme.OK : Theme.FAINT);
-            Ui.text(ms, Ui.clip(r.job, w * 40 / 100), x + 7, ry, cur ? Theme.TEXT : Theme.MUTED);
-            Ui.text(ms, r.xp + " XP", x + w * 45 / 100, ry, Theme.ACCENT);
-            Ui.textRight(ms, "$" + Ui.money(r.earned), x + w, ry, Theme.OK);
+            Ui.rect(ms, x, ry + 1, 3, 8, cur ? W.OK : W.FAINT);
+            Ui.text(ms, Ui.clip(r.job, w * 40 / 100), x + 7, ry, cur ? W.TEXT : W.MUTED);
+            Ui.text(ms, r.xp + " XP", x + w * 45 / 100, ry, W.ACCENT);
+            Ui.textRight(ms, "$" + Ui.money(r.earned), x + w, ry, W.OK);
             ry += 13;
         }
-        if (!AdminX.jobsCurrent.isEmpty()) Ui.text(ms, "Job curent: " + AdminX.jobsCurrent, x, y + h - 9, Theme.FAINT);
+        if (!AdminX.jobsCurrent.isEmpty()) Ui.text(ms, "Job curent: " + AdminX.jobsCurrent, x, y + h - 9, W.FAINT);
     }
 
     // ---- IP / conturi multiple
 
     private void drawIps(GuiGraphics ms, int x, int y, int w, int h) {
-        Ui.text(ms, "VERIFICARE IP / CONTURI MULTIPLE", x, y, Theme.FAINT);
-        Ui.rect(ms, x, y + 10, w, 1, Theme.LINE);
+        Ui.text(ms, "VERIFICARE IP / CONTURI MULTIPLE", x, y, W.FAINT);
+        Ui.rect(ms, x, y + 10, w, 1, W.LINE);
         if (!profile.uuid.equals(AdminX.ipsUuid)) {
-            Ui.text(ms, profile.ip.isEmpty() && !profile.uuid.equals(AdminX.ipsUuid) ? "Se incarca (necesita flowcity.eadmin.ip)..." : "Se incarca...", x, y + 16, Theme.MUTED);
+            Ui.text(ms, profile.ip.isEmpty() && !profile.uuid.equals(AdminX.ipsUuid) ? "Se incarca (necesita flowcity.eadmin.ip)..." : "Se incarca...", x, y + 16, W.MUTED);
             return;
         }
         int ry = y + 16;
-        Ui.text(ms, "Istoric IP-uri", x, ry, Theme.MUTED);
+        Ui.text(ms, "Istoric IP-uri", x, ry, W.MUTED);
         ry += 11;
-        if (AdminX.ipHistory.isEmpty()) Ui.text(ms, "Niciun IP inregistrat.", x, ry, Theme.FAINT);
+        if (AdminX.ipHistory.isEmpty()) Ui.text(ms, "Niciun IP inregistrat.", x, ry, W.FAINT);
         int shown = 0;
         for (AdminX.IpRow r : AdminX.ipHistory) {
             if (shown++ >= 5) break;
-            Ui.text(ms, r.ip, x + 4, ry, Theme.TEXT);
-            Ui.textRight(ms, Ui.time(r.ts), x + w, ry, Theme.FAINT);
+            Ui.text(ms, r.ip, x + 4, ry, W.TEXT);
+            Ui.textRight(ms, Ui.time(r.ts), x + w, ry, W.FAINT);
             ry += 10;
         }
         ry += 8;
         boolean multi = !AdminX.ipOthers.isEmpty();
-        Ui.text(ms, multi ? "CONTURI PE ACELEASI IP-URI (" + AdminX.ipOthers.size() + ")" : "Niciun alt cont pe aceste IP-uri.", x, ry, multi ? Theme.WARN : Theme.OK);
+        Ui.text(ms, multi ? "CONTURI PE ACELEASI IP-URI (" + AdminX.ipOthers.size() + ")" : "Niciun alt cont pe aceste IP-uri.", x, ry, multi ? W.WARN : W.OK);
         ry += 11;
         for (AdminX.Other o : AdminX.ipOthers) {
             if (ry > y + h - 10) break;
-            Ui.rect(ms, x, ry + 1, 3, 7, Theme.WARN);
-            Ui.text(ms, Ui.clip(o.name, w / 2), x + 7, ry, Theme.TEXT);
-            Ui.textRight(ms, o.ip, x + w, ry, Theme.FAINT);
+            Ui.rect(ms, x, ry + 1, 3, 7, W.WARN);
+            Ui.text(ms, Ui.clip(o.name, w / 2), x + 7, ry, W.TEXT);
+            Ui.textRight(ms, o.ip, x + w, ry, W.FAINT);
             ry += 10;
         }
     }
@@ -537,15 +564,15 @@ public class AdminPanelScreen extends Screen {
     // ---- SS
 
     private void drawSs(GuiGraphics ms, int mx, int my, int x, int y, int w, int h) {
-        button(ms, "SOLICITA SS", x, y, 80, 14, mx, my, profile.online, Theme.ACCENT_DIM, () -> AdminX.requestSs(profile.uuid));
-        button(ms, "STERGE", x + 84, y, 50, 14, mx, my, AdminX.ssTex != null, 0xFF6B2F2B, AdminX::clearSs);
-        Ui.text(ms, Ui.clip(AdminX.ssStatus, w - 142), x + 140, y + 3, Theme.MUTED);
+        button(ms, "SOLICITA SS", x, y, 80, 14, mx, my, profile.online, W.ACCENT_DIM, () -> AdminX.requestSs(profile.uuid));
+        button(ms, "STERGE", x + 84, y, 50, 14, mx, my, AdminX.ssTex != null, 0xFF7A2A26, AdminX::clearSs);
+        Ui.text(ms, Ui.clip(AdminX.ssStatus, w - 142), x + 140, y + 3, W.MUTED);
         int fy = y + 20;
         int fh = h - 22;
-        Ui.frame(ms, x, fy, w, fh, Theme.PANEL, Theme.LINE);
+        box(ms, x, fy, w, fh, W.PANEL, W.LINE);
         if (AdminX.ssTex == null || AdminX.ssW <= 0) {
-            Ui.textCenter(ms, "Nicio imagine disponibila", x + w / 2, fy + fh / 2 - 8, Theme.MUTED);
-            Ui.textCenter(ms, "Apasa SOLICITA SS (jucatorul trebuie sa aiba modul).", x + w / 2, fy + fh / 2 + 3, Theme.FAINT);
+            Ui.textCenter(ms, "Nicio imagine disponibila", x + w / 2, fy + fh / 2 - 8, W.MUTED);
+            Ui.textCenter(ms, "Apasa SOLICITA SS (jucatorul trebuie sa aiba modul).", x + w / 2, fy + fh / 2 + 3, W.FAINT);
             return;
         }
         float k = Math.min((w - 4) / (float) AdminX.ssW, (fh - 4) / (float) AdminX.ssH);
@@ -577,43 +604,43 @@ public class AdminPanelScreen extends Screen {
         for (int i = 0; i < rows.length; i++) {
             int cx = x + (i % 2) * col;
             if (i % 2 == 0 && i > 0) ry += 20;
-            Ui.text(ms, rows[i][0].toUpperCase(), cx, ry, Theme.FAINT);
-            Ui.text(ms, Ui.clip(rows[i][1], col - 8), cx, ry + 9, Theme.TEXT);
+            Ui.text(ms, rows[i][0].toUpperCase(), cx, ry, W.FAINT);
+            Ui.text(ms, Ui.clip(rows[i][1], col - 8), cx, ry + 9, W.TEXT);
         }
         ry += 24;
         // contoare sanctiuni
         int bx = x;
-        bx = counter(ms, "WARN", p.warns, bx, ry, Theme.WARN);
-        bx = counter(ms, "MUTE", p.mutes, bx, ry, Theme.WARN);
-        bx = counter(ms, "KICK", p.kicks, bx, ry, Theme.VIOLET);
-        counter(ms, "BAN", p.bans, bx, ry, Theme.BAD);
+        bx = counter(ms, "WARN", p.warns, bx, ry, W.WARN);
+        bx = counter(ms, "MUTE", p.mutes, bx, ry, W.WARN);
+        bx = counter(ms, "KICK", p.kicks, bx, ry, W.VIOLET);
+        counter(ms, "BAN", p.bans, bx, ry, W.BAD);
         ry += 22;
         // flag-uri
-        Ui.text(ms, "FLAG-URI AUTOMATE (" + p.flags.size() + ")", x, ry, Theme.FAINT);
+        Ui.text(ms, "FLAG-URI AUTOMATE (" + p.flags.size() + ")", x, ry, W.FAINT);
         ry += 11;
         int actionsY = y + h - 16;
         int maxFlags = Math.max(0, (actionsY - ry - 2) / 11);
         if (p.flags.isEmpty()) {
-            Ui.text(ms, "Niciun flag.", x, ry, Theme.MUTED);
+            Ui.text(ms, "Niciun flag.", x, ry, W.MUTED);
         }
         for (int i = 0; i < Math.min(maxFlags, p.flags.size()); i++) {
             AdminData.Flag f = p.flags.get(i);
-            int sc = "HIGH".equals(f.severity) ? Theme.BAD : ("MEDIUM".equals(f.severity) ? Theme.WARN : Theme.MUTED);
+            int sc = "HIGH".equals(f.severity) ? W.BAD : ("MEDIUM".equals(f.severity) ? W.WARN : W.MUTED);
             Ui.rect(ms, x, ry + 2, 3, 6, sc);
-            Ui.text(ms, Ui.clip(f.trigger + " - " + f.details, w - 70), x + 7, ry, Theme.TEXT);
-            Ui.textRight(ms, Ui.time(f.ts), x + w, ry, Theme.FAINT);
+            Ui.text(ms, Ui.clip(f.trigger + " - " + f.details, w - 70), x + 7, ry, W.TEXT);
+            Ui.textRight(ms, Ui.time(f.ts), x + w, ry, W.FAINT);
             ry += 11;
         }
         // actiuni rapide
         // schimbare ID (serverul verifica permisiunea flowcity.id.admin)
         int fx = x;
         int fw = Math.min(90, Math.max(40, x + w - fx - 78));
-        Ui.frame(ms, fx, actionsY, fw, 14, Theme.PANEL, idField.isFocused() ? Theme.ACCENT : Theme.LINE);
+        box(ms, fx, actionsY, fw, 14, W.PANEL, idField.isFocused() ? W.ACCENT : W.LINE);
         idField.x = fx + 4;
         idField.y = actionsY + 3;
         idField.setWidth(fw - 8);
         idField.render(ms.pose(), mx, my, 0);
-        button(ms, "SETEAZA ID", fx + fw + 4, actionsY, 74, 14, mx, my, true, 0xFF4B4FA8, this::setId);
+        button(ms, "SETEAZA ID", fx + fw + 4, actionsY, 74, 14, mx, my, true, 0xFF2F7FD6, this::setId);
     }
 
     /** Trimite cererea de schimbare a ID-ului; cu "swap" in camp (ex. "12 swap") schimba ID-urile intre doi jucatori. */
@@ -633,9 +660,9 @@ public class AdminPanelScreen extends Screen {
 
     private int counter(GuiGraphics ms, String label, int value, int x, int y, int color) {
         int w = Math.max(46, Ui.width(label) + 22);
-        Ui.frame(ms, x, y, w, 18, Theme.PANEL, Theme.alpha(color, 0xAA));
+        box(ms, x, y, w, 18, W.PANEL, Theme.alpha(color, 0xAA));
         Ui.text(ms, String.valueOf(value), x + 5, y + 5, color);
-        Ui.textRight(ms, label, x + w - 5, y + 5, Theme.MUTED);
+        Ui.textRight(ms, label, x + w - 5, y + 5, W.MUTED);
         return x + w + 5;
     }
 
@@ -656,36 +683,36 @@ public class AdminPanelScreen extends Screen {
         int ry = y + 19;
         int footer = y + h - 14;
         if (logs == null) {
-            Ui.text(ms, "Se incarca...", x, ry, Theme.MUTED);
+            Ui.text(ms, "Se incarca...", x, ry, W.MUTED);
         } else if (logs.rows.isEmpty()) {
-            Ui.text(ms, "Nicio inregistrare.", x, ry, Theme.MUTED);
+            Ui.text(ms, "Nicio inregistrare.", x, ry, W.MUTED);
         } else {
             int tw = 78;
             for (AdminData.LogRow r : logs.rows) {
                 if (ry + 10 > footer) break;
-                Ui.text(ms, Ui.time(r.ts), x, ry, Theme.FAINT);
+                Ui.text(ms, Ui.time(r.ts), x, ry, W.FAINT);
                 String main = r.a;
                 String rest = (r.b.isEmpty() ? "" : r.b) + (r.c.isEmpty() ? "" : "  " + r.c);
                 int aw = logType.equals("CHAT") || logType.equals("CMD") ? w - tw : 62;
-                Ui.text(ms, Ui.clip(main, aw - 4), x + tw, ry, logType.equals("CMD") ? Theme.VIOLET : Theme.TEXT);
+                Ui.text(ms, Ui.clip(main, aw - 4), x + tw, ry, logType.equals("CMD") ? W.VIOLET : W.TEXT);
                 if (!rest.isEmpty() && aw < w - tw) {
-                    Ui.text(ms, Ui.clip(rest, w - tw - aw), x + tw + aw, ry, Theme.MUTED);
+                    Ui.text(ms, Ui.clip(rest, w - tw - aw), x + tw + aw, ry, W.MUTED);
                 }
                 ry += 10;
             }
         }
         int pages = logs == null ? 1 : Math.max(1, logs.pages);
-        button(ms, "<", x, footer, 16, 13, mx, my, logPage > 0, Theme.PANEL_3, () -> {
+        button(ms, "<", x, footer, 16, 13, mx, my, logPage > 0, W.PANEL_3, () -> {
             logPage--;
             logs = null;
             ClientBridge.requestLogs(selectedUuid, logType, logPage);
         });
-        button(ms, ">", x + 20, footer, 16, 13, mx, my, logPage + 1 < pages, Theme.PANEL_3, () -> {
+        button(ms, ">", x + 20, footer, 16, 13, mx, my, logPage + 1 < pages, W.PANEL_3, () -> {
             logPage++;
             logs = null;
             ClientBridge.requestLogs(selectedUuid, logType, logPage);
         });
-        Ui.text(ms, "Pagina " + (logPage + 1) + "/" + pages + (logs == null ? "" : "  -  " + logs.total + " inregistrari"), x + 42, footer + 3, Theme.MUTED);
+        Ui.text(ms, "Pagina " + (logPage + 1) + "/" + pages + (logs == null ? "" : "  -  " + logs.total + " inregistrari"), x + 42, footer + 3, W.MUTED);
     }
 
     // ---- SANCTIUNI
@@ -695,7 +722,7 @@ public class AdminPanelScreen extends Screen {
         int cx = x;
         for (String t : S_TYPES) {
             int cw = Ui.width(t) + 12;
-            int col = t.equals("BAN") ? Theme.BAD : (t.equals("KICK") ? Theme.VIOLET : Theme.WARN);
+            int col = t.equals("BAN") ? W.BAD : (t.equals("KICK") ? W.VIOLET : W.WARN);
             cx += chip(ms, t, cx, y, cw, 14, mx, my, t.equals(sType), col, () -> sType = t) + 3;
         }
         boolean timed = sType.equals("MUTE") || sType.equals("BAN");
@@ -704,46 +731,46 @@ public class AdminPanelScreen extends Screen {
             for (int i = 0; i < DUR_LABEL.length; i++) {
                 final int minutes = DUR_MIN[i];
                 int cw = Ui.width(DUR_LABEL[i]) + 8;
-                cx += chip(ms, DUR_LABEL[i], cx, y, cw, 14, mx, my, sMinutes == minutes, Theme.ACCENT, () -> sMinutes = minutes) + 2;
+                cx += chip(ms, DUR_LABEL[i], cx, y, cw, 14, mx, my, sMinutes == minutes, W.ACCENT, () -> sMinutes = minutes) + 2;
             }
         }
         int fy = y + 19;
         int applyW = 54;
         int fw = w - applyW - 4;
-        Ui.frame(ms, x, fy, fw, 16, Theme.PANEL, reason.isFocused() ? Theme.ACCENT : Theme.LINE);
+        box(ms, x, fy, fw, 16, W.PANEL, reason.isFocused() ? W.ACCENT : W.LINE);
         reason.x = x + 5;
         reason.y = fy + 4;
         reason.setWidth(fw - 10);
         reason.render(ms.pose(), mx, my, 0);
-        button(ms, "APLICA", x + fw + 4, fy, applyW, 16, mx, my, true, sType.equals("BAN") ? 0xFF8A2D3A : Theme.ACCENT_DIM, this::applySanction);
+        button(ms, "APLICA", x + fw + 4, fy, applyW, 16, mx, my, true, sType.equals("BAN") ? 0xFF7A2A26 : W.ACCENT_DIM, this::applySanction);
 
         // istoric
         int ly = fy + 24;
-        Ui.text(ms, "ISTORIC (" + profile.sanctions.size() + ")", x, ly - 1, Theme.FAINT);
+        Ui.text(ms, "ISTORIC (" + profile.sanctions.size() + ")", x, ly - 1, W.FAINT);
         ly += 11;
         int rowH = 12;
         int fit = Math.max(1, (y + h - ly) / rowH);
         int max = Math.max(0, profile.sanctions.size() - fit);
         scroll = Math.max(0, Math.min(scroll, max));
-        if (profile.sanctions.isEmpty()) Ui.text(ms, "Fara sanctiuni.", x, ly, Theme.MUTED);
+        if (profile.sanctions.isEmpty()) Ui.text(ms, "Fara sanctiuni.", x, ly, W.MUTED);
         for (int i = scroll; i < Math.min(profile.sanctions.size(), scroll + fit); i++) {
             final AdminData.Sanction s = profile.sanctions.get(i);
-            int tc = "BAN".equals(s.type) ? Theme.BAD : ("KICK".equals(s.type) ? Theme.VIOLET : Theme.WARN);
+            int tc = "BAN".equals(s.type) ? W.BAD : ("KICK".equals(s.type) ? W.VIOLET : W.WARN);
             String status = s.deleted ? "REVOCAT" : (s.active ? "ACTIV" : ("MUTE".equals(s.type) || "BAN".equals(s.type) ? "EXPIRAT" : ""));
-            int sc = s.deleted ? Theme.FAINT : (s.active ? Theme.BAD : Theme.MUTED);
+            int sc = s.deleted ? W.FAINT : (s.active ? W.BAD : W.MUTED);
             Ui.text(ms, s.type, x, ly, tc);
             String dur = ("MUTE".equals(s.type) || "BAN".equals(s.type)) ? " " + Ui.minutesLabel(s.minutes) : "";
-            Ui.text(ms, dur, x + 30, ly, Theme.MUTED);
+            Ui.text(ms, dur, x + 30, ly, W.MUTED);
             int reasonX = x + 62;
             int right = x + w - 56;
-            Ui.text(ms, Ui.clip(s.reason + "  (" + s.admin + ")", right - reasonX - 4), reasonX, ly, s.deleted ? Theme.FAINT : Theme.TEXT);
+            Ui.text(ms, Ui.clip(s.reason + "  (" + s.admin + ")", right - reasonX - 4), reasonX, ly, s.deleted ? W.FAINT : W.TEXT);
             Ui.textRight(ms, status, x + w - (s.active && !s.deleted ? 14 : 2), ly, sc);
             if (s.active && !s.deleted) {
-                button(ms, "x", x + w - 11, ly - 2, 11, 11, mx, my, true, 0xFF6B2F2B, () -> ClientBridge.revoke(s.id));
+                button(ms, "x", x + w - 11, ly - 2, 11, 11, mx, my, true, 0xFF7A2A26, () -> ClientBridge.revoke(s.id));
             }
             ly += rowH;
         }
-        if (max > 0) Ui.textRight(ms, "scroll", x + w, y + h - 8, Theme.FAINT);
+        if (max > 0) Ui.textRight(ms, "scroll", x + w, y + h - 8, W.FAINT);
     }
 
     // ---- NOTE
@@ -751,27 +778,27 @@ public class AdminPanelScreen extends Screen {
     private void drawNotes(GuiGraphics ms, int mx, int my, int x, int y, int w, int h) {
         int addW = 60;
         int fw = w - addW - 4;
-        Ui.frame(ms, x, y, fw, 16, Theme.PANEL, note.isFocused() ? Theme.ACCENT : Theme.LINE);
+        box(ms, x, y, fw, 16, W.PANEL, note.isFocused() ? W.ACCENT : W.LINE);
         note.x = x + 5;
         note.y = y + 4;
         note.setWidth(fw - 10);
         note.render(ms.pose(), mx, my, 0);
-        button(ms, "ADAUGA", x + fw + 4, y, addW, 16, mx, my, true, Theme.ACCENT_DIM, this::addNote);
+        button(ms, "ADAUGA", x + fw + 4, y, addW, 16, mx, my, true, W.ACCENT_DIM, this::addNote);
 
         int ly = y + 24;
-        Ui.text(ms, "NOTE STAFF (" + profile.notes.size() + ")", x, ly - 1, Theme.FAINT);
+        Ui.text(ms, "NOTE STAFF (" + profile.notes.size() + ")", x, ly - 1, W.FAINT);
         ly += 11;
         int rowH = 22;
         int fit = Math.max(1, (y + h - ly) / rowH);
         int max = Math.max(0, profile.notes.size() - fit);
         scroll = Math.max(0, Math.min(scroll, max));
-        if (profile.notes.isEmpty()) Ui.text(ms, "Nicio nota.", x, ly, Theme.MUTED);
+        if (profile.notes.isEmpty()) Ui.text(ms, "Nicio nota.", x, ly, W.MUTED);
         for (int i = scroll; i < Math.min(profile.notes.size(), scroll + fit); i++) {
             final AdminData.Note n = profile.notes.get(i);
-            Ui.text(ms, n.admin, x, ly, Theme.ACCENT);
-            Ui.textRight(ms, Ui.time(n.ts), x + w - 14, ly, Theme.FAINT);
-            Ui.text(ms, Ui.clip(n.text, w - 16), x, ly + 10, Theme.TEXT);
-            button(ms, "x", x + w - 11, ly - 1, 11, 11, mx, my, true, 0xFF6B2F2B, () -> ClientBridge.noteDel(n.id));
+            Ui.text(ms, n.admin, x, ly, W.ACCENT);
+            Ui.textRight(ms, Ui.time(n.ts), x + w - 14, ly, W.FAINT);
+            Ui.text(ms, Ui.clip(n.text, w - 16), x, ly + 10, W.TEXT);
+            button(ms, "x", x + w - 11, ly - 1, 11, 11, mx, my, true, 0xFF7A2A26, () -> ClientBridge.noteDel(n.id));
             ly += rowH;
         }
     }
@@ -781,9 +808,9 @@ public class AdminPanelScreen extends Screen {
     private void button(GuiGraphics ms, String label, int x, int y, int w, int h, int mx, int my,
                         boolean enabled, int color, Runnable action) {
         boolean hover = enabled && Ui.in(mx, my, x, y, w, h);
-        int bg = !enabled ? Theme.DISABLED : (hover ? Theme.lighten(color, 28) : color);
-        Ui.round(ms, x, y, w, h, bg);
-        Ui.textCenter(ms, label, x + w / 2, y + (h - 8) / 2, enabled ? Theme.TEXT : Theme.FAINT);
+        int bg = !enabled ? W.DISABLED : (hover ? Theme.lighten(color, 28) : color);
+        Ui.rect(ms, x, y, w, h, bg);
+        Ui.textCenter(ms, label, x + w / 2, y + (h - 8) / 2, enabled ? W.TEXT : W.FAINT);
         if (enabled) {
             hits.add(new Hit(x, y, w, h, action));
         }
@@ -791,16 +818,16 @@ public class AdminPanelScreen extends Screen {
 
     private int chip(GuiGraphics ms, String label, int x, int y, int w, int h, int mx, int my,
                      boolean selected, Runnable action) {
-        return chip(ms, label, x, y, w, h, mx, my, selected, Theme.ACCENT, action);
+        return chip(ms, label, x, y, w, h, mx, my, selected, W.ACCENT, action);
     }
 
     private int chip(GuiGraphics ms, String label, int x, int y, int w, int h, int mx, int my,
                      boolean selected, int color, Runnable action) {
         boolean hover = Ui.in(mx, my, x, y, w, h);
-        int border = selected ? color : Theme.LINE;
-        int fill = selected ? Theme.mix(Theme.PANEL, color, 0.30f) : (hover ? Theme.PANEL_3 : Theme.PANEL);
-        Ui.frame(ms, x, y, w, h, fill, border);
-        Ui.textCenter(ms, label, x + w / 2, y + (h - 8) / 2, selected ? Theme.TEXT : Theme.MUTED);
+        int border = selected ? color : W.LINE;
+        int fill = selected ? Theme.mix(W.PANEL, color, 0.30f) : (hover ? W.PANEL_3 : W.PANEL);
+        box(ms, x, y, w, h, fill, border);
+        Ui.textCenter(ms, label, x + w / 2, y + (h - 8) / 2, selected ? W.TEXT : W.MUTED);
         hits.add(new Hit(x, y, w, h, action));
         return w;
     }
@@ -808,7 +835,7 @@ public class AdminPanelScreen extends Screen {
     /** Eticheta de stare (nu e clicabila). Intoarce pozitia x urmatoare. */
     private int chipStatic(GuiGraphics ms, String label, int x, int y, int color) {
         int w = Ui.width(label) + 10;
-        Ui.round(ms, x, y, w, 12, Theme.alpha(color, 0x33));
+        Ui.rect(ms, x, y, w, 12, Theme.alpha(color, 0x33));
         Ui.text(ms, label, x + 5, y + 2, color);
         return x + w + 4;
     }
@@ -818,8 +845,8 @@ public class AdminPanelScreen extends Screen {
         int w = Math.min(pw - 20, Ui.width(toastText) + 20);
         int x = px + (pw - w) / 2;
         int y = py + ph - 22;
-        int color = toastError ? Theme.BAD : Theme.OK;
-        Ui.frame(ms, x, y, w, 16, Theme.PANEL_3, color);
+        int color = toastError ? W.BAD : W.OK;
+        box(ms, x, y, w, 16, W.PANEL_3, color);
         Ui.textCenter(ms, Ui.clip(toastText, w - 12), x + w / 2, y + 4, color);
     }
 
