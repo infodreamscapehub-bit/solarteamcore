@@ -1,20 +1,18 @@
 package ro.solarstudios.flowcity.news;
 
+import ro.solarstudios.flowcity.cars.client.Sk;
+import ro.solarstudios.flowcity.client.ui.Gfx;
 import ro.solarstudios.flowcity.compat.GuiGraphics;
 import java.util.ArrayList;
 import java.util.List;
-import com.mojang.blaze3d.systems.RenderSystem;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import ro.solarstudios.flowcity.client.ui.FlowScreen;
-import ro.solarstudios.flowcity.client.ui.Theme;
 import ro.solarstudios.flowcity.client.ui.Ui;
-import ro.solarstudios.flowcity.client.ui.Wrap;
 
-/** CNN: lista de stiri (stanga), articolul (dreapta); staff-ul poate publica si sterge. */
+/** Stiri (tema de iarna FlowCity): lista de stiri (stanga), articolul (dreapta); staff-ul poate publica si sterge. */
 public final class NewsScreen extends FlowScreen {
     private static final int LIST_W = 156;
-    private static final int RED = 0xFFE0222D;
+    private static final int TOP = 70;
     private final long openedAt = System.currentTimeMillis();
     private String filter = "";
 
@@ -27,7 +25,12 @@ public final class NewsScreen extends FlowScreen {
     private final TextFieldWidget bodyField = field("Textul stirii (optional)", 600, null);
 
     public NewsScreen() {
-        super("CNN", 470, 262);
+        super("Stiri", 470, 262);
+    }
+
+    @Override
+    protected boolean framed() {
+        return false;
     }
 
     @Override
@@ -82,50 +85,93 @@ public final class NewsScreen extends FlowScreen {
         return 1f - k * k * k;
     }
 
+    private static List<String> wrap(String text, float size, boolean xl, float maxW) {
+        List<String> out = new ArrayList<>();
+        for (String para : text.split("\\n")) {
+            StringBuilder line = new StringBuilder();
+            for (String word : para.split(" ")) {
+                String t = line.length() == 0 ? word : line + " " + word;
+                if (line.length() > 0 && Gfx.width(t, size, xl) > maxW) {
+                    out.add(line.toString());
+                    line = new StringBuilder(word);
+                } else {
+                    line = new StringBuilder(t);
+                }
+            }
+            out.add(line.toString());
+        }
+        return out;
+    }
+
+    private static String clipTo(String s, float size, boolean xl, float maxW) {
+        if (Gfx.width(s, size, xl) <= maxW) return s;
+        String t = s;
+        while (t.length() > 1 && Gfx.width(t + "...", size, xl) > maxW) t = t.substring(0, t.length() - 1);
+        return t + "...";
+    }
+
+    /** Pastila inclinata cu text; returneaza latimea. */
+    private int pill(GuiGraphics ms, String label, int x, int y, int w, int h, int mx, int my, boolean active, int color, Runnable r) {
+        boolean hot = Sk.in(mx, my, x, y, w, h);
+        Sk.slant(ms, x, y, w, h, 4f, active ? color : (hot ? Sk.ROW_HOT : Sk.ROW));
+        Gfx.text(ms, label, x + w / 2f + 1, y + h / 2f + 2.6f, 6.6f, active ? 0xFF061426 : (hot ? Sk.WHITE : Sk.MUTED), 1, true, 0.4f);
+        hit(x, y, w, h, r);
+        return w;
+    }
+
+    private static int pillW(String label) {
+        return Math.round(Gfx.width(label, 6.6f, true)) + 14;
+    }
+
     @Override
     protected void draw(GuiGraphics ms, int mx, int my) {
         long now = System.currentTimeMillis();
-        drawBar(ms, mx, my, now);
-        float in = ease((now - openedAt) / 380f);
-        int slideX = Math.round((1f - in) * 18f);
-        drawList(ms, mx, my, now);
-        Ui.rect(ms, px + LIST_W + 14, py + HEAD + 18, 1, ph - HEAD - 24, Theme.LINE);
-        int rx = px + LIST_W + 22 + slideX;
-        int rw = pw - LIST_W - 30;
-        if (composing) drawCompose(ms, mx, my, rx, rw);
-        else drawArticle(ms, mx, my, rx, rw, now);
+        float open = ease((now - openedAt) / 300f);
+        Sk.background(ms, 0, 0, width, height, open);
+        Gfx.alpha = open;
+        try {
+            drawBar(ms, mx, my, now);
+            float in = ease((now - openedAt) / 380f);
+            int slideX = Math.round((1f - in) * 18f);
+            drawList(ms, mx, my, now);
+            Gfx.rrect(ms, px + LIST_W + 18, py + TOP, 1, ph - TOP - 10, 0, 0xFF1B2839);
+            int rx = px + LIST_W + 28 + slideX;
+            int rw = pw - LIST_W - 46;
+            if (composing) drawCompose(ms, mx, my, rx, rw);
+            else drawArticle(ms, mx, my, rx, rw);
+        } finally {
+            Gfx.alpha = 1f;
+        }
     }
 
-    /** Bara de sus: sigla CNN rosie, LIVE clipitor si ticker cu titlurile care ruleaza. */
+    /** Antet: titlu, buton de inchidere si ticker cu titlurile care ruleaza (LIVE clipitor). */
     private void drawBar(GuiGraphics ms, int mx, int my, long now) {
-        Ui.rect(ms, px + 1, py + 1, pw - 2, HEAD - 1, Theme.PANEL_2);
-        Ui.rect(ms, px + 1, py + HEAD, pw - 2, 1, RED);
-        Ui.rect(ms, px + 1, py + 1, 44, HEAD - 1, RED);
-        ms.pose().pushPose();
-        ms.pose().translate(px + 7, py + 6, 0);
-        ms.pose().scale(1.3f, 1.3f, 1f);
-        Ui.textShadow(ms, "CNN", 0, 0, 0xFFFFFFFF);
-        ms.pose().popPose();
+        Gfx.text(ms, "ȘTIRI", px + 16, py + 32, 17, Sk.WHITE, 0, true, 0f);
+        Gfx.text(ms, "FLOWCITY NEWS", px + 17, py + 44, 6.4f, Sk.MUTED, 0, false, 1.2f);
+        Sk.close(ms, px + pw - 34, py + 12, mx, my);
+        hit(px + pw - 34, py + 12, 20, 20, this::onClose);
+
+        int ty = py + 12;
+        int tx = px + 128;
+        int tw = pw - 128 - 46;
+        Sk.slant(ms, tx, ty, tw + 8, 20, 6f, Sk.ROW);
         boolean blink = (now / 500) % 2 == 0;
-        Ui.rect(ms, px + 52, py + 9, 5, 5, blink ? Theme.BAD : Theme.alpha(Theme.BAD, 0x55));
-        Ui.text(ms, "LIVE", px + 61, py + 8, Theme.TEXT);
-        // ticker
-        int tx = px + 92;
-        int tw = pw - 92 - 26;
+        Gfx.rrect(ms, tx + 14, ty + 8, 5, 5, 0, blink ? Sk.BAD : Gfx.fade(Sk.BAD, 0.35f));
+        Gfx.text(ms, "LIVE", tx + 24, ty + 13.5f, 6.6f, Sk.WHITE, 0, true, 0.6f);
         StringBuilder sb = new StringBuilder();
         for (NewsState.Item it : NewsState.items) sb.append(NewsState.label(it.cat)).append(": ").append(it.title).append("     +++     ");
         String text = sb.length() == 0 ? "Nicio stire momentan" : sb.toString();
+        int cx0 = tx + 56;
+        int cw = tw - 56;
         int full = Math.max(1, Ui.width(text));
         int off = (int) ((now / 28) % full);
-        Minecraft mc = Minecraft.getInstance();
-        Ui.scissor(tx, py + 2, tw, HEAD - 2);
+        Ui.scissor(cx0, ty, cw, 20);
         try {
-            Ui.text(ms, text, tx - off, py + 8, Theme.MUTED);
-            if (full - off < tw) Ui.text(ms, text, tx - off + full, py + 8, Theme.MUTED);
+            Ui.text(ms, text, cx0 - off, ty + 6, Sk.MUTED);
+            if (full - off < cw) Ui.text(ms, text, cx0 - off + full, ty + 6, Sk.MUTED);
         } finally {
             Ui.endScissor();
         }
-        button(ms, "X", px + pw - 18, py + 5, 12, 14, mx, my, true, 0xFF6B2F2B, this::onClose);
     }
 
     private List<NewsState.Item> filtered() {
@@ -136,50 +182,50 @@ public final class NewsScreen extends FlowScreen {
     }
 
     private void drawList(GuiGraphics ms, int mx, int my, long now) {
-        int x = px + 8;
-        // filtre pe categorii
+        int x = px + 12;
         int fx = x;
-        int fy = py + HEAD + 7;
-        fx += chip(ms, "TOATE", fx, fy, Ui.width("TOATE") + 10, 12, mx, my, filter.isEmpty(), Theme.ACCENT, () -> filter = "") + 3;
+        int fy = py + TOP - 2;
+        fx += pill(ms, "TOATE", fx, fy, pillW("TOATE"), 14, mx, my, filter.isEmpty(), Sk.ACC, () -> filter = "") + 3;
         for (String c : NewsState.cats) {
-            int cw = Ui.width(NewsState.label(c)) + 10;
+            String lab = NewsState.label(c).toUpperCase();
+            int cw = pillW(lab);
             if (fx + cw > x + LIST_W) break;
             final String cc = c;
-            fx += chip(ms, NewsState.label(c), fx, fy, cw, 12, mx, my, c.equals(filter), NewsState.color(c), () -> filter = cc) + 3;
+            fx += pill(ms, lab, fx, fy, cw, 14, mx, my, c.equals(filter), NewsState.color(c) | 0xFF000000, () -> filter = cc) + 3;
         }
-        int top = py + HEAD + 24;
-        int bottom = py + ph - (NewsState.canPublish ? 28 : 10);
-        int rowH = 28;
+        int top = py + TOP + 18;
+        int bottom = py + ph - (NewsState.canPublish ? 32 : 10);
+        int rowH = 30;
         int visible = Math.max(1, (bottom - top) / rowH);
         List<NewsState.Item> items = filtered();
         listScroll = Math.max(0, Math.min(listScroll, Math.max(0, items.size() - visible)));
-        if (items.isEmpty()) Ui.text(ms, "Nicio stire.", x + 4, top + 4, Theme.MUTED);
+        if (items.isEmpty()) Gfx.text(ms, "Nicio stire.", x + 4, top + 10, 8, Sk.MUTED, 0);
         NewsState.Item cur = current();
         int y = top;
         for (int i = listScroll; i < Math.min(items.size(), listScroll + visible); i++) {
             NewsState.Item it = items.get(i);
             boolean sel = cur != null && cur.id == it.id && !composing;
-            boolean hover = Ui.in(mx, my, x, y, LIST_W, rowH - 2);
-            int c = NewsState.color(it.cat);
-            // aparitie esalonata a randurilor
+            boolean hover = Sk.in(mx, my, x, y, LIST_W, rowH - 3);
+            int c = NewsState.color(it.cat) | 0xFF000000;
             float rowIn = ease((now - openedAt - (i - listScroll) * 45L) / 260f);
             if (rowIn <= 0f) {
                 y += rowH;
                 continue;
             }
-            int ox = Math.round((1f - rowIn) * -14f);
-            Ui.round(ms, x + ox, y, LIST_W, rowH - 2, sel ? Theme.mix(Theme.PANEL, c, 0.25f) : (hover ? Theme.PANEL_3 : Theme.PANEL_2));
-            Ui.rect(ms, x + ox, y + 2, 2, rowH - 6, c);
-            Ui.text(ms, NewsState.label(it.cat), x + 7 + ox, y + 4, c);
+            float ox = (1f - rowIn) * -14f;
+            Sk.slant(ms, x + ox, y, LIST_W, rowH - 3, 6f, sel ? Sk.ROW_HOT : (hover ? Sk.ROW_HOT : Sk.ROW));
+            Gfx.rrect(ms, x + ox + 9, y + 5, 3, rowH - 13, 0, c);
+            String lab = NewsState.label(it.cat).toUpperCase();
+            Gfx.text(ms, lab, x + 18 + ox, y + 10, 6.2f, c, 0, true, 0.6f);
             if (now - it.ts < 600_000L && it.ts > 0) {
-                int nw = Ui.width("NOU") + 8;
-                Ui.round(ms, x + 12 + Ui.width(NewsState.label(it.cat)) + ox, y + 3, nw, 10, RED);
-                Ui.text(ms, "NOU", x + 16 + Ui.width(NewsState.label(it.cat)) + ox, y + 4, 0xFFFFFFFF);
+                float lw = Gfx.width(lab, 6.2f, true) + 6;
+                Gfx.rrect(ms, x + 18 + ox + lw, y + 3, 22, 9, 0, Sk.BAD);
+                Gfx.text(ms, "NOU", x + 18 + ox + lw + 11, y + 10, 5.6f, Sk.WHITE, 1, true, 0.4f);
             }
-            Ui.textRight(ms, ago(it.ts), x + LIST_W - 4 + ox, y + 4, Theme.FAINT);
-            Ui.text(ms, Ui.clip(it.title, LIST_W - 14), x + 7 + ox, y + 15, Theme.TEXT);
+            Gfx.text(ms, ago(it.ts), x + LIST_W - 12 + ox, y + 10, 6.2f, Sk.FAINT, 2);
+            Gfx.text(ms, clipTo(it.title, 7.8f, false, LIST_W - 34), x + 18 + ox, y + 22, 7.8f, sel ? Sk.WHITE : 0xFFC9D6E8, 0);
             final long id = it.id;
-            hit(x, y, LIST_W, rowH - 2, () -> {
+            hit(x, y, LIST_W, rowH - 3, () -> {
                 selected = id;
                 bodyScroll = 0;
                 composing = false;
@@ -187,89 +233,97 @@ public final class NewsScreen extends FlowScreen {
             y += rowH;
         }
         if (NewsState.canPublish) {
-            button(ms, composing ? "Anuleaza" : "+ Publica stire", x, py + ph - 22, LIST_W, 15, mx, my, true,
-                composing ? 0xFF6B2F2B : Theme.ACCENT_DIM, () -> {
-                    composing = !composing;
-                    if (composing && cat.isEmpty() && !NewsState.cats.isEmpty()) cat = NewsState.cats.get(0);
-                });
+            int bx = x;
+            int by = py + ph - 28;
+            boolean hb = Sk.in(mx, my, bx, by, LIST_W, 20);
+            Sk.button(ms, composing ? "ANULEAZĂ" : "+ PUBLICĂ ȘTIRE", bx, by, LIST_W, 20, true, !composing, hb);
+            hit(bx, by, LIST_W, 20, () -> {
+                composing = !composing;
+                if (composing && cat.isEmpty() && !NewsState.cats.isEmpty()) cat = NewsState.cats.get(0);
+            });
         }
     }
 
-    private void drawArticle(GuiGraphics ms, int mx, int my, int x, int w, long now) {
+    private void drawArticle(GuiGraphics ms, int mx, int my, int x, int w) {
         NewsState.Item it = current();
-        int y = py + HEAD + 12;
+        int y = py + TOP;
         if (it == null) {
-            Ui.textCenter(ms, "Nicio stire de afisat.", x + w / 2, py + ph / 2 - 4, Theme.MUTED);
+            Gfx.text(ms, "Nicio stire de afisat.", x + w / 2f, py + ph / 2f, 9, Sk.MUTED, 1);
             return;
         }
-        int c = NewsState.color(it.cat);
-        tag(ms, NewsState.label(it.cat), x, y, c);
-        Ui.textRight(ms, "de " + it.author + "  -  " + Ui.time(it.ts), x + w, y + 2, Theme.FAINT);
-        y += 18;
-        int ty = y;
-        float ts = 1.35f;
-        for (String l : Wrap.lines(it.title, (int) (w / ts))) {
-            ms.pose().pushPose();
-            ms.pose().translate(x, ty, 0);
-            ms.pose().scale(ts, ts, 1f);
-            Ui.textShadow(ms, l, 0, 0, Theme.TEXT);
-            ms.pose().popPose();
-            ty += 13;
+        int c = NewsState.color(it.cat) | 0xFF000000;
+        String lab = NewsState.label(it.cat).toUpperCase();
+        int bw = Math.round(Gfx.width(lab, 6.6f, true)) + 14;
+        Sk.slant(ms, x, y, bw, 14, 4f, c);
+        Gfx.text(ms, lab, x + bw / 2f + 1, y + 9.6f, 6.6f, 0xFF061426, 1, true, 0.4f);
+        Gfx.text(ms, "de " + it.author + "  ·  " + Ui.time(it.ts), x + w, y + 10, 6.4f, Sk.FAINT, 2);
+        y += 32;
+        for (String l : wrap(it.title, 12f, true, w)) {
+            Gfx.text(ms, l, x, y, 12f, Sk.WHITE, 0, true, 0f);
+            y += 15;
         }
-        y = ty + 5;
-        Ui.rect(ms, x, y, 36, 2, c);
-        Ui.rect(ms, x + 36, y, w - 36, 1, Theme.LINE);
-        y += 7;
-        int bottom = py + ph - (NewsState.canDelete ? 30 : 12);
-        List<String> lines = Wrap.lines(it.body.isEmpty() ? "(fara text suplimentar)" : it.body, w);
-        int visible = Math.max(1, (bottom - y) / 10);
+        y += 2;
+        Gfx.rrect(ms, x, y, 36, 2, 0, c);
+        Gfx.rrect(ms, x + 36, y, w - 36, 1, 0, 0xFF1B2839);
+        y += 14;
+        int bottom = py + ph - (NewsState.canDelete ? 34 : 14);
+        List<String> lines = wrap(it.body.isEmpty() ? "(fara text suplimentar)" : it.body, 7.8f, false, w - 8);
+        int lh = 11;
+        int visible = Math.max(1, (bottom - y) / lh);
         bodyScroll = Math.max(0, Math.min(bodyScroll, Math.max(0, lines.size() - visible)));
+        int trackTop = y - 8;
         for (int i = bodyScroll; i < Math.min(lines.size(), bodyScroll + visible); i++) {
-            Ui.text(ms, lines.get(i), x, y, it.body.isEmpty() ? Theme.FAINT : Theme.MUTED);
-            y += 10;
+            Gfx.text(ms, lines.get(i), x, y, 7.8f, it.body.isEmpty() ? Sk.FAINT : 0xFFC9D6E8, 0);
+            y += lh;
         }
         if (lines.size() > visible) {
-            int trackTop = y - visible * 10;
-            int trackH = visible * 10;
-            Ui.rect(ms, x + w + 3, trackTop, 2, trackH, Theme.PANEL_3);
+            int trackH = visible * lh;
+            Gfx.rrect(ms, x + w - 2, trackTop, 2, trackH, 0, 0xFF14202F);
             int thumb = Math.max(10, trackH * visible / lines.size());
             int thumbY = trackTop + (trackH - thumb) * bodyScroll / Math.max(1, lines.size() - visible);
-            Ui.rect(ms, x + w + 3, thumbY, 2, thumb, Theme.ACCENT);
+            Gfx.rrect(ms, x + w - 2, thumbY, 2, thumb, 0, Sk.ACC);
         }
         if (NewsState.canDelete) {
             final long id = it.id;
-            button(ms, "Sterge stirea", x + w - 84, py + ph - 22, 84, 14, mx, my, true, 0xFF6B2F2B, () -> NewsClient.delete(id));
+            int dx = x + w - 104;
+            int dy = py + ph - 28;
+            boolean hd = Sk.in(mx, my, dx, dy, 104, 20);
+            Sk.button(ms, "ȘTERGE ȘTIREA", dx, dy, 104, 20, true, false, hd);
+            hit(dx, dy, 104, 20, () -> NewsClient.delete(id));
         }
     }
 
     private void drawCompose(GuiGraphics ms, int mx, int my, int x, int w) {
-        int y = py + HEAD + 12;
-        Ui.textShadow(ms, "Publica o stire", x, y, Theme.TEXT);
+        int y = py + TOP + 8;
+        Gfx.text(ms, "PUBLICĂ O ȘTIRE", x, y, 10, Sk.WHITE, 0, true, 0f);
         y += 16;
-        Ui.text(ms, "CATEGORIE", x, y, Theme.FAINT);
-        y += 11;
+        Gfx.text(ms, "CATEGORIE", x, y, 6.2f, Sk.FAINT, 0, false, 1f);
+        y += 6;
         int cx = x;
         for (String c : NewsState.cats) {
-            int cw = Ui.width(NewsState.label(c)) + 14;
+            String lab = NewsState.label(c).toUpperCase();
+            int cw = pillW(lab) + 4;
             final String cc = c;
-            chip(ms, NewsState.label(c), cx, y, cw, 14, mx, my, c.equals(cat), NewsState.color(c), () -> cat = cc);
+            pill(ms, lab, cx, y, cw, 14, mx, my, c.equals(cat), NewsState.color(c) | 0xFF000000, () -> cat = cc);
             cx += cw + 4;
         }
-        y += 24;
-        Ui.text(ms, "TITLU", x, y, Theme.FAINT);
-        drawField(ms, titleField, x, y + 10, w, 16, mx, my);
-        y += 34;
-        Ui.text(ms, "TEXT", x, y, Theme.FAINT);
-        drawField(ms, bodyField, x, y + 10, w, 16, mx, my);
+        y += 28;
+        Gfx.text(ms, "TITLU", x, y, 6.2f, Sk.FAINT, 0, false, 1f);
+        drawField(ms, titleField, x, y + 6, w, 16, mx, my);
+        y += 36;
+        Gfx.text(ms, "TEXT", x, y, 6.2f, Sk.FAINT, 0, false, 1f);
+        drawField(ms, bodyField, x, y + 6, w, 16, mx, my);
         y += 38;
-        button(ms, "PUBLICA ACUM", x, y, 110, 16, mx, my, true, 0xFF4B4FA8, this::publish);
-        Ui.text(ms, "Apare ca banner la toti jucatorii.", x + 118, y + 4, Theme.FAINT);
+        boolean hp = Sk.in(mx, my, x, y, 120, 20);
+        Sk.button(ms, "PUBLICĂ ACUM", x, y, 120, 20, true, true, hp);
+        hit(x, y, 120, 20, this::publish);
+        Gfx.text(ms, "Apare ca banner la toti jucatorii.", x + 130, y + 13, 6.8f, Sk.FAINT, 0);
     }
 
     @Override
     public boolean mouseScrolled(double mx, double my, double delta) {
         int d = -(int) Math.signum(delta);
-        if (mx < px + LIST_W + 12) listScroll += d;
+        if (mx < px + LIST_W + 16) listScroll += d;
         else bodyScroll += d;
         return true;
     }

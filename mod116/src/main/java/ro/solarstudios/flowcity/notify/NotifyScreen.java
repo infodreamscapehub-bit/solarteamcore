@@ -1,6 +1,7 @@
 package ro.solarstudios.flowcity.notify;
 
 import java.util.List;
+import ro.solarstudios.flowcity.cars.client.Sk;
 import ro.solarstudios.flowcity.client.ui.FlowScreen;
 import ro.solarstudios.flowcity.client.ui.Gfx;
 import ro.solarstudios.flowcity.client.ui.Ui;
@@ -30,77 +31,74 @@ public final class NotifyScreen extends FlowScreen {
     @Override
     protected void draw(GuiGraphics ms, int mx, int my) {
         long now = System.currentTimeMillis();
-        float open = easeOut((now - born) / 260f);
+        float open = easeOut((now - born) / 300f);
+        Sk.background(ms, 0, 0, width, height, open);
+        Gfx.alpha = open;
+        try {
+            content(ms, mx, my, now);
+        } finally {
+            Gfx.alpha = 1f;
+        }
+    }
+
+    private void content(GuiGraphics ms, int mx, int my, long now) {
         List<NotifyState.Item> items = NotifyState.history;
 
-        Gfx.rrect(ms, 0, 0, width, height, 0, Gfx.fade(0xB0050608, open));
-        Gfx.rrect(ms, px - 5, py + 2, pw + 10, ph + 8, 20, Gfx.fade(0x55000000, open));
-        Gfx.rrect(ms, px, py, pw, ph, 16, Gfx.fade(0xFF1D2026, open), Gfx.fade(0xFF121418, open));
-        Gfx.rrect(ms, px + 0.5f, py + 0.5f, pw - 1, 1, 0, Gfx.fade(0x14FFFFFF, open));
-
         // antet
-        Gfx.text(ms, "NOTIFICĂRI", px + 18, py + 30, 12, Gfx.fade(0xFFF4F1EA, open), 0, true, 0.7f);
+        Gfx.text(ms, "NOTIFICĂRI", px + 16, py + 36, 17, Sk.WHITE, 0, true, 0f);
         int unread = 0;
         for (NotifyState.Item it : items) if (!it.read) unread++;
-        String sub = items.size() + (items.size() == 1 ? " în istoric" : " în istoric") + (unread > 0 ? "  ·  " + unread + " necitite" : "");
-        Gfx.text(ms, sub, px + 18, py + 43, 7.5f, Gfx.fade(0xFF8E8C86, open), 0);
+        String sub = items.size() + " în istoric" + (unread > 0 ? "  ·  " + unread + " necitite" : "");
+        Gfx.text(ms, sub.toUpperCase(), px + 17, py + 48, 6.4f, Sk.MUTED, 0, false, 1.2f);
 
-        // inchidere
-        boolean hx = Ui.in(mx, my, px + pw - 30, py + 12, 18, 18);
-        if (hx) Gfx.disc(ms, px + pw - 21, py + 21, 9, 0x22FFFFFF);
-        int xc = hx ? 0xFFE2453F : 0xFF8E8C86;
-        Gfx.line(ms, px + pw - 25, py + 17, px + pw - 17, py + 25, 1.6f, xc);
-        Gfx.line(ms, px + pw - 17, py + 17, px + pw - 25, py + 25, 1.6f, xc);
-        hit(px + pw - 30, py + 12, 18, 18, this::onClose);
+        Sk.close(ms, px + pw - 34, py + 14, mx, my);
+        hit(px + pw - 34, py + 14, 20, 20, this::onClose);
 
         // sterge tot
-        int bw = 74;
-        int bx = px + pw - 30 - 8 - bw;
-        int by = py + 13;
+        int bw = 84;
+        int bx = px + pw - 34 - 10 - bw;
+        int by = py + 14;
         boolean can = !items.isEmpty();
-        boolean hb = can && Ui.in(mx, my, bx, by, bw, 18);
-        Gfx.rrect(ms, bx, by, bw, 18, 9, Gfx.fade(can ? (hb ? 0xFF6B2F2B : 0xFF4A2522) : 0xFF24272D, open));
-        Gfx.text(ms, "Șterge tot", bx + bw / 2f, by + 12, 7.5f, Gfx.fade(can ? 0xFFF4F1EA : 0xFF6F6D68, open), 1);
-        if (can) hit(bx, by, bw, 18, NotifyClient::clearAll);
+        boolean hb = can && Ui.in(mx, my, bx, by, bw, 20);
+        Sk.button(ms, "ȘTERGE TOT", bx, by, bw, 20, can, false, hb);
+        if (can) hit(bx, by, bw, 20, NotifyClient::clearAll);
 
         // lista
         int x = px + 12;
-        int w = pw - 24;
-        int top = py + 56;
+        int w = pw - 36;
+        int top = py + 62;
         int bottom = py + ph - 12;
         int visible = Math.max(1, (bottom - top) / ROW);
         scroll = Math.max(0, Math.min(scroll, Math.max(0, items.size() - visible)));
         if (items.isEmpty()) {
-            Gfx.text(ms, "Nicio notificare.", px + pw / 2f, py + ph / 2f + 14, 9, Gfx.fade(0xFF8E8C86, open), 1);
-            NotifyUi.icon(ms, "INFO", px + pw / 2f, py + ph / 2f - 10, 13, 0xFF5BA8FF, open * 0.8f);
+            Gfx.text(ms, "Nicio notificare.", px + pw / 2f, py + ph / 2f + 14, 9, Sk.MUTED, 1);
+            NotifyUi.icon(ms, "INFO", px + pw / 2f, py + ph / 2f - 10, 13, Sk.ACC, 0.8f);
         }
         int y = top;
         for (int i = scroll; i < Math.min(items.size(), scroll + visible); i++) {
             NotifyState.Item it = items.get(i);
             int idx = i - scroll;
-            float a = open * easeOut((now - born - idx * 45L) / 260f);
-            float slide = (1f - easeOut((now - born - idx * 45L) / 260f)) * 14f;
+            float a = easeOut((now - born - idx * 45L) / 260f);
+            float slide = (1f - a) * 14f;
             int c = NotifyState.color(it.type) | 0xFF000000;
             float rx = x + slide;
             boolean hov = Ui.in(mx, my, x, y, w, ROW - 5);
-            Gfx.rrect(ms, rx, y, w, ROW - 5, 10, Gfx.fade(hov ? 0xFF272B33 : 0xFF1B1E24, a));
-            NotifyUi.icon(ms, it.type, rx + 20, y + (ROW - 5) / 2f, 10f, c, a);
-            Gfx.text(ms, NotifyUi.clip(it.title, 8.8f, w - 150), rx + 40, y + 14, 8.8f, Gfx.fade(0xFFF4F1EA, a), 0);
-            List<String> l = NotifyUi.wrap(it.text, 7.6f, w - 62, 1);
-            if (!l.isEmpty()) Gfx.text(ms, l.get(0), rx + 40, y + 26, 7.6f, Gfx.fade(0xFFA19F98, a), 0);
-            Gfx.text(ms, Ui.time(it.ts), rx + w - 12, y + 14, 6.8f, Gfx.fade(0xFF6F6D68, a), 2);
-            if (!it.read) {
-                Gfx.disc(ms, rx + w - 14, y + 25, 6, Gfx.fade(c, a * 0.4f), 0x00000000, 0, 0);
-                Gfx.disc(ms, rx + w - 14, y + 25, 2.6f, Gfx.fade(c, a));
-            }
+            Sk.slant(ms, rx, y, w, ROW - 5, 7f, Gfx.fade(hov ? Sk.ROW_HOT : Sk.ROW, a));
+            Gfx.rrect(ms, rx + 9, y + 6, 3, ROW - 17, 0, Gfx.fade(c, a));
+            NotifyUi.icon(ms, it.type, rx + 28, y + (ROW - 5) / 2f, 10f, c, a);
+            Gfx.text(ms, NotifyUi.clip(it.title, 8.8f, w - 150), rx + 48, y + 14, 8.8f, Gfx.fade(Sk.WHITE, a), 0);
+            List<String> l = NotifyUi.wrap(it.text, 7.6f, w - 70, 1);
+            if (!l.isEmpty()) Gfx.text(ms, l.get(0), rx + 48, y + 26, 7.6f, Gfx.fade(Sk.MUTED, a), 0);
+            Gfx.text(ms, Ui.time(it.ts), rx + w - 18, y + 14, 6.8f, Gfx.fade(Sk.FAINT, a), 2);
+            if (!it.read) Gfx.rrect(ms, rx + w - 22, y + 21, 5, 5, 0, Gfx.fade(c, a));
             y += ROW;
         }
         if (items.size() > visible) {
             float trackH = bottom - top;
             float th = Math.max(16f, trackH * visible / items.size());
             float ty = top + (trackH - th) * scroll / Math.max(1, items.size() - visible);
-            Gfx.rrect(ms, px + pw - 7, top, 2, trackH, 1, Gfx.fade(0xFF262A31, open));
-            Gfx.rrect(ms, px + pw - 7, ty, 2, th, 1, Gfx.fade(0xFFE9A23B, open));
+            Gfx.rrect(ms, px + pw - 14, top, 2, trackH, 0, 0xFF14202F);
+            Gfx.rrect(ms, px + pw - 14, ty, 2, th, 0, Sk.ACC);
         }
     }
 
