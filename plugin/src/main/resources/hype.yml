@@ -424,3 +424,8 @@ fuel:
 # %amount% = suma. De ex. ca banii sa ajunga la un cont: "eco give politia %amount%". Gol = banii dispar pur si simplu.
 mdt:
   fines-payment-commands: []
+  # Termen de plata al amenzilor: dupa "fine-deadline-days" zile de la emitere suma creste cu X% pe zi de intarziere
+  # (pana la fine-penalty-max-percent). 0 zile = fara termen / fara penalizare.
+  fine-deadline-days: 7
+  fine-penalty-percent-per-day: 5
+  fine-penalty-max-percent: 50

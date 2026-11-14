@@ -16,10 +16,13 @@ import ro.solarstudios.flowcity.module.JsonClientModule;
 public final class ClothesScreen extends FlowScreen {
     private static final int W = 520;
     private static final int H = 290;
-    private static final String[] CATS = {"", "civil", "joburi", "sarbatori"};
-    private static final String[] CAT_NAMES = {"TOATE", "CIVIL", "JOBURI", "SĂRBĂTORI"};
+    private static final String[] CATS = {"", "civil", "joburi", "sarbatori", "piese"};
+    private static final String[] CAT_NAMES = {"TOATE", "CIVIL", "JOBURI", "SĂRBĂTORI", "PIESE"};
+    private static final String[] SLOTS = {"", "cap", "fata", "top", "pantaloni", "pantofi", "accesoriu"};
+    private static final String[] SLOT_NAMES = {"TOATE", "CAP", "FAȚĂ", "TOP", "PANTALONI", "PANTOFI", "ACCESORII"};
     private static final int CARD_W = 238;
-    private static final int CARD_H = 56;
+    private static final int CARD_H = 52;
+    private static final int STEP = CARD_H + 6;
 
     private static final class Outfit {
         String id;
@@ -27,11 +30,14 @@ public final class ClothesScreen extends FlowScreen {
         String cat;
         int price;
         String state;
+        String slot;
+        String kind;
         boolean worn;
     }
 
     private final List<Outfit> all = new ArrayList<>();
     private int cat;
+    private int slot;
     private int scroll;
     private final long born = System.currentTimeMillis();
     private String msg = "";
@@ -58,6 +64,8 @@ public final class ClothesScreen extends FlowScreen {
             f.price = JsonClientModule.integer(o, "price", 0);
             f.state = JsonClientModule.str(o, "state", "buy");
             f.worn = JsonClientModule.bool(o, "worn", false);
+            f.slot = JsonClientModule.str(o, "slot", "");
+            f.kind = JsonClientModule.str(o, "kind", "outfit");
             all.add(f);
         }
     }
@@ -85,8 +93,20 @@ public final class ClothesScreen extends FlowScreen {
 
     private List<Outfit> shown() {
         List<Outfit> l = new ArrayList<>();
-        for (Outfit f : all) if (cat == 0 || CATS[cat].equals(f.cat)) l.add(f);
+        for (Outfit f : all) {
+            if (cat != 0 && !CATS[cat].equals(f.cat)) continue;
+            if (cat != 0 && "piese".equals(CATS[cat]) && slot != 0 && !SLOTS[slot].equals(f.slot)) continue;
+            l.add(f);
+        }
         return l;
+    }
+
+    private boolean piecesTab() {
+        return "piese".equals(CATS[cat]);
+    }
+
+    private float listTop() {
+        return piecesTab() ? 108f : 90f;
     }
 
     @Override
@@ -134,14 +154,31 @@ public final class ClothesScreen extends FlowScreen {
             final int ci = i;
             hitL(cx, 60, w, 18, () -> {
                 cat = ci;
+                slot = 0;
                 scroll = 0;
             });
             cx += w + 6;
         }
+        if (piecesTab()) {
+            float sx = 16;
+            for (int i = 0; i < SLOTS.length; i++) {
+                float w = Gfx.width(SLOT_NAMES[i], 6.4f, true) + 14;
+                boolean on = i == slot;
+                boolean h = Sk.in(lmx, lmy, sx, 82, w, 16);
+                Sk.slant(ms, sx, 82, w, 16, 4f, on ? Sk.ACC_DARK : h ? Sk.ROW_HOT : Sk.ROW);
+                Gfx.text(ms, SLOT_NAMES[i], sx + w / 2f, 92.5f, 6.4f, on ? Sk.WHITE : Sk.MUTED, 1, true, 0f);
+                final int si = i;
+                hitL(sx, 82, w, 16, () -> {
+                    slot = si;
+                    scroll = 0;
+                });
+                sx += w + 5;
+            }
+        }
 
         List<Outfit> list = shown();
         if (list.isEmpty()) {
-            Gfx.text(ms, "Nicio tinută aici.", W / 2f, H / 2f + 20, 10, Sk.MUTED, 1);
+            Gfx.text(ms, "Nimic aici.", W / 2f, H / 2f + 30, 10, Sk.MUTED, 1);
         }
         int rows = (list.size() + 1) / 2;
         scroll = Math.max(0, Math.min(scroll, Math.max(0, rows - 3)));
@@ -149,11 +186,11 @@ public final class ClothesScreen extends FlowScreen {
             Outfit f = list.get(i);
             int rr = i / 2 - scroll;
             float x = 14 + (i % 2) * (CARD_W + 10);
-            float y = 90 + rr * (CARD_H + 6);
+            float y = listTop() + rr * STEP;
             Sk.slant(ms, x, y, CARD_W, CARD_H, 8f, f.worn ? Sk.ROW_HOT : Sk.ROW);
             Gfx.rrect(ms, x + 10, y + 10, 3, CARD_H - 20, 0, f.worn ? Sk.GOOD : Sk.ACC);
             Gfx.text(ms, f.name, x + 22, y + 20, 9.4f, Sk.WHITE, 0, true, 0f);
-            String sub = "locked".equals(f.state) ? "Doar pentru jobul potrivit" : f.worn ? "Echipată" : "owned".equals(f.state) ? "În garderobă" : f.price + " lei";
+            String sub = "locked".equals(f.state) ? "Doar pentru jobul potrivit" : f.worn ? "Echipată" : "owned".equals(f.state) ? ("piece".equals(f.kind) ? "În garderobă  ·  " + f.slot : "În garderobă") : f.price + " lei" + ("piece".equals(f.kind) ? "  ·  " + f.slot : "");
             Gfx.text(ms, sub, x + 22, y + 33, 6.8f, "locked".equals(f.state) ? Sk.WARN : f.worn ? Sk.GOOD : Sk.MUTED, 0);
             float bx = x + CARD_W - 92;
             float by = y + 15;
@@ -162,7 +199,8 @@ public final class ClothesScreen extends FlowScreen {
             } else if (f.worn) {
                 boolean h = Sk.in(lmx, lmy, bx, by, 80, 26);
                 Sk.button(ms, "SCOATE", bx, by, 80, 26, true, false, h);
-                hitL(bx, by, 80, 26, () -> ClothesClient.send("equip", ""));
+                final String off = "piece".equals(f.kind) ? f.id : "";
+                hitL(bx, by, 80, 26, () -> ClothesClient.send("equip", off));
             } else if ("owned".equals(f.state)) {
                 boolean h = Sk.in(lmx, lmy, bx, by, 80, 26);
                 Sk.button(ms, "ECHIPEAZĂ", bx, by, 80, 26, true, true, h);
@@ -176,10 +214,10 @@ public final class ClothesScreen extends FlowScreen {
             }
         }
         if (rows > 3) {
-            float trackH = 3 * (CARD_H + 6) - 6;
+            float trackH = 3 * STEP - 6;
             float th = Math.max(14f, trackH * 3 / rows);
-            float ty = 90 + (trackH - th) * scroll / Math.max(1, rows - 3);
-            Gfx.rrect(ms, W - 10, 90, 2, trackH, 0, 0xFF14202F);
+            float ty = listTop() + (trackH - th) * scroll / Math.max(1, rows - 3);
+            Gfx.rrect(ms, W - 10, listTop(), 2, trackH, 0, 0xFF14202F);
             Gfx.rrect(ms, W - 10, ty, 2, th, 0, Sk.ACC);
         }
         if (System.currentTimeMillis() < msgUntil && !msg.isEmpty()) {

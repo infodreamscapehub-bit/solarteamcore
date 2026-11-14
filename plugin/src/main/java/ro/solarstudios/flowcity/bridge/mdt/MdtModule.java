@@ -815,17 +815,50 @@ public final class MdtModule extends JsonModule implements Listener {
         return null;
     }
 
-    /** Amenzile neplatite ale unui jucator, pentru ecranul "Amenzile mele". */
+    private org.bukkit.configuration.file.YamlConfiguration hypeCfg;
+    private long hypeCfgAt;
+
+    private org.bukkit.configuration.file.YamlConfiguration hype() {
+        long n = System.currentTimeMillis();
+        if (hypeCfg == null || n - hypeCfgAt > 60000L) {
+            hypeCfg = ro.solarstudios.flowcity.bridge.core.ModConfig.load(plugin, "hype");
+            hypeCfgAt = n;
+        }
+        return hypeCfg;
+    }
+
+    /** {suma de plata, penalizare %, zile intarziere, termen (ms, 0 = fara termen)} pentru o amenda; fara termen configurat = suma initiala. */
+    private long[] fineDue(Fine f) {
+        int days = hype().getInt("mdt.fine-deadline-days", 0);
+        if (days <= 0) return new long[] {f.amount, 0, 0, 0};
+        long day = 86400000L;
+        long deadline = f.ts + days * day;
+        long now = System.currentTimeMillis();
+        if (now <= deadline) return new long[] {f.amount, 0, 0, deadline};
+        long late = (now - deadline) / day + 1;
+        double perDay = hype().getDouble("mdt.fine-penalty-percent-per-day", 0);
+        double max = hype().getDouble("mdt.fine-penalty-max-percent", 100);
+        double pct = Math.max(0, Math.min(max, perDay * late));
+        return new long[] {Math.round(f.amount * (1 + pct / 100.0)), Math.round(pct), late, deadline};
+    }
+
+    /** Amenzile neplatite ale unui jucator, pentru ecranul "Amenzile mele" (cu termen si penalizare). */
     public com.google.gson.JsonArray unpaidFines(UUID u) {
         com.google.gson.JsonArray arr = new com.google.gson.JsonArray();
         Citizen ct = citizen(u);
         if (ct == null) return arr;
         java.text.SimpleDateFormat df = new java.text.SimpleDateFormat("dd.MM.yyyy HH:mm");
+        java.text.SimpleDateFormat dd = new java.text.SimpleDateFormat("dd.MM.yyyy");
         for (Fine f : ct.fines) {
             if (f.paid) continue;
+            long[] due = fineDue(f);
             com.google.gson.JsonObject o = new com.google.gson.JsonObject();
             o.addProperty("id", f.id);
             o.addProperty("amount", f.amount);
+            o.addProperty("amountDue", due[0]);
+            o.addProperty("penaltyPct", due[1]);
+            o.addProperty("overdue", due[2] > 0);
+            if (due[3] > 0) o.addProperty("dueDate", dd.format(new java.util.Date(due[3])));
             o.addProperty("reason", f.reason);
             o.addProperty("by", f.by);
             o.addProperty("date", df.format(new java.util.Date(f.ts)));
@@ -834,11 +867,11 @@ public final class MdtModule extends JsonModule implements Listener {
         return arr;
     }
 
-    /** Suma unei amenzi neplatite, sau -1 daca nu exista / e deja platita. */
+    /** Suma de plata (cu penalizare de intarziere) a unei amenzi neplatite, sau -1 daca nu exista / e deja platita. */
     public int fineAmount(UUID u, long id) {
         Citizen ct = citizen(u);
         if (ct == null) return -1;
-        for (Fine f : ct.fines) if (f.id == id && !f.paid) return f.amount;
+        for (Fine f : ct.fines) if (f.id == id && !f.paid) return (int) fineDue(f)[0];
         return -1;
     }
 
@@ -851,7 +884,7 @@ public final class MdtModule extends JsonModule implements Listener {
             f.paid = true;
             sql("UPDATE mdt_fine SET paid=1 WHERE id=?", id);
             Player officer = f.byUuid == null ? null : Bukkit.getPlayer(f.byUuid);
-            if (officer != null) officer.sendMessage("\u00a7a[Politie] \u00a7f" + ct.name + " si-a platit amenda de \u00a7e" + f.amount + " lei\u00a7f (" + f.reason + ").");
+            if (officer != null) officer.sendMessage("\u00a7a[Politie] \u00a7f" + ct.name + " si-a platit amenda de \u00a7e" + fineDue(f)[0] + " lei\u00a7f (" + f.reason + ").");
             pushAll();
             return true;
         }

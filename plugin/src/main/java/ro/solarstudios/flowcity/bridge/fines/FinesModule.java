@@ -76,7 +76,7 @@ public final class FinesModule extends JsonModule {
         p.sendMessage("§9[Politie] §fAmenzile tale:");
         for (int i = 0; i < f.size(); i++) {
             JsonObject o = f.get(i).getAsJsonObject();
-            p.sendMessage("§7#" + o.get("id").getAsLong() + " §e" + o.get("amount").getAsInt() + " lei §f- " + o.get("reason").getAsString()
+            p.sendMessage("§7#" + o.get("id").getAsLong() + " §e" + (o.has("amountDue") ? o.get("amountDue").getAsInt() : o.get("amount").getAsInt()) + " lei" + (o.has("overdue") && o.get("overdue").getAsBoolean() ? " §c(INTARZIAT +" + o.get("penaltyPct").getAsInt() + "%)" : "") + " §f- " + o.get("reason").getAsString()
                 + " §7(/amenzi plateste " + o.get("id").getAsLong() + ")");
         }
     }

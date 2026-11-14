@@ -34,3 +34,42 @@ outfits:
     category: sarbatori
     price: 500
     file: mos_craciun.png
+
+# Piese de imbracaminte (se pun peste skin-ul normal al jucatorului; una pe slot). slot: cap | fata | top | pantaloni | pantofi | accesoriu
+# file = PNG 64x64 transparent, desenat pe stratul 2 (overlay) al skin-ului, relativ la plugins/FlowCityBridge/skins/
+pieces:
+  sapca_neagra:
+    name: Șapcă neagră
+    slot: cap
+    price: 120
+    file: pieces/sapca_neagra.png
+  caciula_iarna:
+    name: Căciulă de iarnă
+    slot: cap
+    price: 150
+    file: pieces/caciula_iarna.png
+  ochelari_soare:
+    name: Ochelari de soare
+    slot: fata
+    price: 200
+    file: pieces/ochelari_soare.png
+  esarfa:
+    name: Eșarfă
+    slot: accesoriu
+    price: 90
+    file: pieces/esarfa.png
+  tricou_rosu:
+    name: Tricou roșu
+    slot: top
+    price: 140
+    file: pieces/tricou_rosu.png
+  pantaloni_jeans:
+    name: Blugi
+    slot: pantaloni
+    price: 160
+    file: pieces/pantaloni_jeans.png
+  ghete:
+    name: Ghete
+    slot: pantofi
+    price: 180
+    file: pieces/ghete.png

@@ -21,6 +21,10 @@ public final class FinesScreen extends FlowScreen {
     private static final class Fine {
         long id;
         int amount;
+        int amountDue;
+        int pct;
+        boolean overdue;
+        String dueDate;
         String reason;
         String by;
         String date;
@@ -49,6 +53,10 @@ public final class FinesScreen extends FlowScreen {
             Fine f = new Fine();
             f.id = (long) JsonClientModule.num(o, "id", 0);
             f.amount = JsonClientModule.integer(o, "amount", 0);
+            f.amountDue = JsonClientModule.integer(o, "amountDue", f.amount);
+            f.pct = JsonClientModule.integer(o, "penaltyPct", 0);
+            f.overdue = JsonClientModule.bool(o, "overdue", false);
+            f.dueDate = JsonClientModule.str(o, "dueDate", "");
             f.reason = JsonClientModule.str(o, "reason", "");
             f.by = JsonClientModule.str(o, "by", "");
             f.date = JsonClientModule.str(o, "date", "");
@@ -130,7 +138,7 @@ public final class FinesScreen extends FlowScreen {
         Sk.close(ms, W - 34, 14, lmx, lmy);
         hitL(W - 34, 14, 20, 20, this::onClose);
         long total = 0;
-        for (Fine f : fines) total += f.amount;
+        for (Fine f : fines) total += f.amountDue;
         if (!fines.isEmpty()) {
             Gfx.text(ms, "DE PLATĂ", W - 48, 24, 6f, Sk.FAINT, 2, false, 1f);
             Gfx.text(ms, money(total) + " lei", W - 48, 38, 11.5f, Sk.BAD, 2, true, 0f);
@@ -148,10 +156,14 @@ public final class FinesScreen extends FlowScreen {
         for (int i = scroll; i < Math.min(fines.size(), scroll + visible); i++) {
             Fine f = fines.get(i);
             Sk.slant(ms, 12, y, W - 36, ROW - 6, 8f, Sk.ROW);
-            Gfx.rrect(ms, 26, y + 8, 3, ROW - 22, 0, Sk.BAD);
+            Gfx.rrect(ms, 26, y + 8, 3, ROW - 22, 0, f.overdue ? Sk.BAD : Sk.WARN);
             Gfx.text(ms, clip(f.reason, 9.4f, true, 280), 38, y + 16, 9.4f, Sk.WHITE, 0, true, 0f);
-            Gfx.text(ms, "de la " + f.by + "  ·  " + f.date, 38, y + 29, 6.6f, Sk.MUTED, 0);
-            Gfx.text(ms, money(f.amount) + " lei", W - 140, y + 22, 11, Sk.WHITE, 2, true, 0f);
+            String sub = "de la " + f.by + "  ·  " + f.date;
+            if (f.overdue) sub += "  ·  ÎNTÂRZIAT +" + f.pct + "%";
+            else if (!f.dueDate.isEmpty()) sub += "  ·  termen " + f.dueDate;
+            Gfx.text(ms, clip(sub, 6.6f, false, 280), 38, y + 29, 6.6f, f.overdue ? Sk.BAD : Sk.MUTED, 0);
+            Gfx.text(ms, money(f.amountDue) + " lei", W - 140, y + 22, 11, f.overdue ? Sk.BAD : Sk.WHITE, 2, true, 0f);
+            if (f.overdue) Gfx.text(ms, "inițial " + money(f.amount), W - 140, y + 33, 6f, Sk.FAINT, 2);
             boolean h = Sk.in(lmx, lmy, W - 124, y + 6, 94, 26);
             Sk.button(ms, "PLĂTEȘTE", W - 124, y + 6, 94, 26, true, true, h);
             final long id = f.id;
