@@ -82,6 +82,8 @@ public final class PaydayModule extends JsonModule {
             p.sendMessage("§cPayDay: nu am putut depune salariul.");
             return;
         }
-        p.sendMessage("§9§l[PayDay] §fAi primit salariul: §a+" + net + " lei §7(brut " + gross + ", impozit " + tax + ")");
+        String txt = "Ai primit salariul: +" + net + " lei (brut " + gross + ", impozit " + tax + ")";
+        if (plugin.notifications() != null) plugin.notifications().send(p.getUniqueId(), ro.solarstudios.flowcity.bridge.notify.NotifyModule.Type.MONEY, "Primăria Flow City", txt, "payday");
+        else p.sendMessage("§9§l[Primăria Flow City] §f" + txt);
     }
 }

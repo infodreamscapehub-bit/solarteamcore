@@ -43,5 +43,14 @@
         "stream": false
       }
     ]
+  },
+  "payday": {
+    "category": "master",
+    "sounds": [
+      {
+        "name": "flowcitycore:payday",
+        "stream": false
+      }
+    ]
   }
 }

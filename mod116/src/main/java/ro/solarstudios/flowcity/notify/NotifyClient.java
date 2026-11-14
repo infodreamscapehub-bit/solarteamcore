@@ -18,7 +18,7 @@ public final class NotifyClient extends JsonClientModule {
             NotifyState.history.add(0, it);
             while (NotifyState.history.size() > 100) NotifyState.history.remove(NotifyState.history.size() - 1);
             NotifyState.unread = Math.max(NotifyState.unread + 1, integer(d, "unread", 0));
-            NotifyToasts.add(it.type, it.title, it.text);
+            NotifyToasts.add(it.type, it.title, it.text, str(d, "sound", ""));
         });
         on("unread", d -> {
             NotifyState.unread = integer(d, "n", 0);

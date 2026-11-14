@@ -75,6 +75,11 @@ public final class NotifyModule extends JsonModule implements Listener {
 
     /** Trimite (si salveaza) o notificare. Poate fi apelat pe thread-ul principal. */
     public void send(UUID u, Type type, String title, String text) {
+        send(u, type, title, text, null);
+    }
+
+    /** Ca {@link #send(UUID, Type, String, String)}, cu un sunet propriu al modului (ex. "payday"); null = sunetul implicit al tipului. */
+    public void send(UUID u, Type type, String title, String text, String sound) {
         final String ti = clip(title, 40);
         final String tx = clip(text, 160);
         if (ti.isEmpty()) return;
@@ -125,6 +130,7 @@ public final class NotifyModule extends JsonModule implements Listener {
                 o.addProperty("text", tx);
                 o.addProperty("ts", ts);
                 o.addProperty("unread", res[1]);
+                if (sound != null && !sound.isEmpty()) o.addProperty("sound", sound);
                 send(p, "push", o);
             } else {
                 p.sendMessage(type.color + "§l[!] §r§f" + ti + (tx.isEmpty() ? "" : " §7- " + tx));

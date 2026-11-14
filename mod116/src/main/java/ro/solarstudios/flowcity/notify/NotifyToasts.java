@@ -41,10 +41,15 @@ public final class NotifyToasts {
     private static long lastNs = System.nanoTime();
 
     public static void add(String type, String title, String text) {
+        add(type, title, text, null);
+    }
+
+    public static void add(String type, String title, String text, String soundName) {
         List<String> ls = NotifyUi.wrap(text, 7.6f, W - TEXT_X - 12, 2);
         TOASTS.add(new Toast(type, NotifyUi.clip(title, 8.8f, W - TEXT_X - 12), ls));
         while (TOASTS.size() > 5) TOASTS.remove(0);
-        sound(type);
+        if (soundName != null && !soundName.isEmpty()) ro.solarstudios.flowcity.client.ui.FlowSounds.play(soundName, 0.8F);
+        else sound(type);
     }
 
     public static void clear() {
