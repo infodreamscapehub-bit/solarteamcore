@@ -64,7 +64,7 @@ public final class HudLayout {
     public static final Map<String, String[][]> PARTS = new LinkedHashMap<>();
 
     static {
-        PARTS.put("hud", new String[][] {{"clock", "Ceas"}, {"title", "Titlu + logo"}, {"identity", "Nume"}, {"money", "Bani"}, {"job", "Job"}, {"thirst", "Sete"}});
+        PARTS.put("hud", new String[][] {{"clock", "Ceas"}, {"title", "Titlu + logo"}, {"identity", "Nume"}, {"rank", "Rank"}, {"money", "Bani"}, {"job", "Job"}, {"thirst", "Sete"}});
     }
 
     /** Culoarea de accent aleasa pentru element, sau def daca nu a ales una. */

@@ -253,10 +253,15 @@ public final class HypeHud {
         if (id > 0) cx = chip(ms, "#" + id, cx, y - 1, Theme.ACCENT);
         long min = JsonClientModule.lng(s, "playMin", 0);
         cx = chip(ms, min >= 60 ? (min / 60) + "h" : min + "m", cx + 4, y - 1, Theme.VIOLET);
+        if (HudLayout.part("hud", "rank")) rankChip(ms, s, cx + 4, y - 1);
+    }
+
+    /** Casuta de rank (ca cea cu id-ul si orele): textul in culorile din LuckPerms/birdflop (rankSegs) sau simplu. */
+    private static int rankChip(GuiGraphics ms, JsonObject s, int x, int y) {
+        java.util.List<String> parts = new java.util.ArrayList<>();
+        java.util.List<Integer> cols = new java.util.ArrayList<>();
+        int total = 0;
         if (s.has("rankSegs") && s.get("rankSegs").isJsonArray() && s.getAsJsonArray("rankSegs").size() > 0) {
-            java.util.List<String> parts = new java.util.ArrayList<>();
-            java.util.List<Integer> cols = new java.util.ArrayList<>();
-            int total = 0;
             for (com.google.gson.JsonElement e : s.getAsJsonArray("rankSegs")) {
                 JsonObject o = e.getAsJsonObject();
                 String seg = (JsonClientModule.bool(o, "b", false) ? "\u00a7l" : "") + JsonClientModule.str(o, "t", "");
@@ -264,14 +269,22 @@ public final class HypeHud {
                 cols.add(0xFF000000 | JsonClientModule.integer(o, "c", 0xFFFFFF));
                 total += Ui.width(seg);
             }
-            int rx = x + W - total;
-            for (int i = 0; i < parts.size(); i++) {
-                Ui.text(ms, parts.get(i), rx, y + 2, cols.get(i));
-                rx += Ui.width(parts.get(i));
-            }
         } else {
-            Ui.textRight(ms, JsonClientModule.str(s, "rank", ""), x + W, y + 2, Theme.MUTED);
+            String r = JsonClientModule.str(s, "rank", "");
+            if (r.isEmpty()) return x;
+            parts.add(r);
+            cols.add(Theme.TEXT);
+            total = Ui.width(r);
         }
+        int w = total + 10;
+        int edge = cols.get(0);
+        Ui.frame(ms, x, y, w, 14, Theme.alpha(Theme.mix(0xFF0A1020, edge, 0.14f), 0x50), Theme.alpha(Theme.mix(Theme.PANEL, edge, 0.55f), 0xA0));
+        int rx = x + 5;
+        for (int i = 0; i < parts.size(); i++) {
+            Ui.text(ms, parts.get(i), rx, y + 3, cols.get(i));
+            rx += Ui.width(parts.get(i));
+        }
+        return x + w;
     }
 
     private static int chip(GuiGraphics ms, String text, int x, int y, int color) {
