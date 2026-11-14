@@ -1,0 +1,36 @@
+# Garderoba FlowCity. Fiecare tinuta = un fisier PNG 64x64 din plugins/FlowCityBridge/skins/<file>.
+# category: civil | joburi | sarbatori  (apare ca filtru in garderoba)
+# price: 0 = gratuit; perm: daca e setat, doar cine are permisiunea o poate echipa (uniforme: poliție, medic...).
+# slim: true pentru modelul cu brate subtiri (Alex). Poti adauga oricate tinute noi.
+shop-price-multiplier: 1.0
+outfits:
+  casual_iarna:
+    name: Hanorac de iarnă
+    category: civil
+    price: 350
+    file: casual_iarna.png
+  sport:
+    name: Echipament sport
+    category: civil
+    price: 250
+    file: sport.png
+  politist:
+    name: Uniformă Poliție
+    category: joburi
+    perm: flowcity.outfit.politist
+    file: politist.png
+  medic:
+    name: Uniformă Medic
+    category: joburi
+    perm: flowcity.outfit.medic
+    file: medic.png
+  mecanic:
+    name: Salopetă Mecanic
+    category: joburi
+    perm: flowcity.outfit.mecanic
+    file: mecanic.png
+  mos_craciun:
+    name: Moș Crăciun
+    category: sarbatori
+    price: 500
+    file: mos_craciun.png
