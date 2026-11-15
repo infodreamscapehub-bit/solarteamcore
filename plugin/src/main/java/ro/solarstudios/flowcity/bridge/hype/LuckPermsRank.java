@@ -41,6 +41,8 @@ final class LuckPermsRank {
 
     private static String clean(String s) {
         if (s == null) return null;
+        // placeholdere nerezolvate (%player%, %luckperms_...%, {player}, {name}): numele se pune deja de HUD, deci le scoatem
+        s = s.replaceAll("(?i)%[a-z0-9_:.\\-]+%", "").replaceAll("(?i)\\{(player|name|displayname|username)\\}", "").replaceAll("\\[\\s*\\]", "");
         if (keep) {
             s = s.trim();
             return s.isEmpty() ? null : s;
