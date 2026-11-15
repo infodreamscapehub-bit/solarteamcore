@@ -400,7 +400,8 @@ public final class HudEditorScreen extends FlowScreen {
         Gfx.rrect(ms, x, y, PW - 10, 1.5f, 0, Gfx.fade(Sk.ACC, 0.7f));
 
         // antet: nume + vizibil + reseteaza
-        Gfx.text(ms, sel.label.toUpperCase(java.util.Locale.ROOT), x + 14, y + 22, 9f, Sk.WHITE, 0, true, 0.8f);
+        String selLabel = sel.label.toUpperCase(java.util.Locale.ROOT);
+        Gfx.text(ms, selLabel, x + 14, y + 22, 9f, Sk.WHITE, 0, true, 0.8f);
         float bw = 84;
         float bx = x + PW - 14 - bw;
         boolean rh = Sk.in(mx, my, bx, y + 8, bw, 17);
@@ -421,6 +422,26 @@ public final class HudEditorScreen extends FlowScreen {
             sel.visible = !sel.visible;
             HudLayout.save();
         });
+        // selector de stil (doar pentru panoul principal): 1 / 2 / 3
+        if ("hud".equals(sel.id)) {
+            float lx = x + 14 + Gfx.width(selLabel, 9f, true) + 16;
+            if (lx + 96 < vx) {
+                Gfx.text(ms, "STIL HUD", lx, y + 20, 6.2f, Sk.FAINT, 0, false, 0.9f);
+                float sbx = lx + 46;
+                int cur = HudLayout.styleOf();
+                for (int i = 1; i <= 3; i++) {
+                    boolean sh = Sk.in(mx, my, sbx, y + 8, 20, 17);
+                    tbtn(ms, String.valueOf(i), sbx, y + 8, 20, 17, true, cur == i, sh, false);
+                    tipIf(sh, i == 1 ? "Stil 1: ceas + titlu (clasic)" : (i == 2 ? "Stil 2: antet mare, casute, cash / card" : "Stil 3: pastile compacte, sticlă"));
+                    final int st = i;
+                    hit(Math.round(sbx), Math.round(y + 8), 20, 17, () -> {
+                        pushUndo();
+                        HudLayout.setStyle(st);
+                    });
+                    sbx += 23;
+                }
+            }
+        }
         Gfx.rrect(ms, x + 14, y + 31, PW - 28, 1, 0, Gfx.fade(0xFFFFFFFF, 0.08f));
 
         // slidere: marime + opacitate

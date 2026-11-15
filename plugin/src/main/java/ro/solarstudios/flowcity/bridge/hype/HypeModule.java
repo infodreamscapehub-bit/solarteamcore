@@ -360,6 +360,25 @@ public final class HypeModule extends JsonModule implements Listener {
         o.addProperty("rank", rankOf(p));
         String rawRank = rankRaw(p);
         if (rawRank != null && cfg.getBoolean("hud.luckperms.colors", true)) o.add("rankSegs", RankText.segments(rawRank));
+        if (cfg.getBoolean("hud.luckperms.enabled", true)) {
+            boolean colors = cfg.getBoolean("hud.luckperms.colors", true);
+            if (cfg.getBoolean("hud.luckperms.show-prefix", true)) {
+                String pre = LuckPermsRank.of(u, "prefix", colors);
+                if (pre != null) {
+                    o.addProperty("prefix", RankText.plain(pre));
+                    if (colors) o.add("prefixSegs", RankText.segments(pre));
+                }
+            }
+            if (cfg.getBoolean("hud.luckperms.show-suffix", true)) {
+                String suf = LuckPermsRank.of(u, "suffix", colors);
+                if (suf != null) {
+                    o.addProperty("suffix", RankText.plain(suf));
+                    if (colors) o.add("suffixSegs", RankText.segments(suf));
+                }
+            }
+        }
+        o.addProperty("nameFormat", cfg.getString("hud.luckperms.name-format", "{prefix}{name}{suffix}"));
+        o.addProperty("defaultStyle", Math.max(1, Math.min(3, cfg.getInt("hud.default-style", 1))));
         o.addProperty("id", plugin.ids().idOf(u));
         o.addProperty("online", Bukkit.getOnlinePlayers().size());
         o.addProperty("playMin", p.getStatistic(Statistic.PLAY_ONE_MINUTE) / 1200);

@@ -29,6 +29,8 @@ public final class HudLayout {
         /** Transparenta (0.2 .. 1) si culoarea de accent (0 = implicita). */
         public float alpha = 1f;
         public int color;
+        /** Stilul panoului (doar pentru "hud"): 1..3, 0 = cel implicit de pe server. */
+        public int style;
         /** Partile oprite ale elementului (cheile din PARTS). */
         public final java.util.Set<String> off = new java.util.HashSet<>();
         /** Ultimul dreptunghi desenat (inainte de transformare) si cand a fost vazut. */
@@ -54,6 +56,7 @@ public final class HudLayout {
             visible = true;
             alpha = 1f;
             color = 0;
+            style = 0;
             off.clear();
         }
     }
@@ -71,6 +74,30 @@ public final class HudLayout {
     public static int accent(String id, int def) {
         El e = ELS.get(id);
         return e == null || e.color == 0 ? def : (e.color | 0xFF000000);
+    }
+
+    /** Stilul HUD-ului principal: ales de jucator (1..3), altfel cel implicit trimis de server (hud.default-style), altfel 1. */
+    public static int styleOf() {
+        El e = ELS.get("hud");
+        int st = e == null ? 0 : e.style;
+        if (st < 1 || st > 3) {
+            st = 1;
+            try {
+                JsonObject s = ro.solarstudios.flowcity.hype.HypeState.state;
+                if (s.has("defaultStyle")) st = s.get("defaultStyle").getAsInt();
+            } catch (RuntimeException ignored) {
+                // stare lipsa sau stricata: stilul 1
+            }
+        }
+        return Math.max(1, Math.min(3, st));
+    }
+
+    /** Alege stilul HUD-ului principal (0 = implicit de pe server) si il salveaza. */
+    public static void setStyle(int style) {
+        El e = ELS.get("hud");
+        if (e == null) return;
+        e.style = Math.max(0, Math.min(3, style));
+        save();
     }
 
     /** Partea e vizibila? (implicit da) */
@@ -123,6 +150,7 @@ public final class HudLayout {
             e.visible = !o.has("visible") || o.get("visible").getAsBoolean();
             e.alpha = Math.max(0.2f, Math.min(1f, o.has("alpha") ? o.get("alpha").getAsFloat() : 1f));
             e.color = o.has("color") ? o.get("color").getAsInt() & 0xFFFFFF : 0;
+            e.style = o.has("style") ? Math.max(0, Math.min(3, o.get("style").getAsInt())) : 0;
             e.off.clear();
             if (o.has("off") && o.get("off").isJsonArray()) for (JsonElement x : o.getAsJsonArray("off")) e.off.add(x.getAsString());
         }
@@ -138,6 +166,7 @@ public final class HudLayout {
             o.addProperty("visible", e.visible);
             o.addProperty("alpha", Math.round(e.alpha * 100f) / 100f);
             o.addProperty("color", e.color);
+            o.addProperty("style", e.style);
             com.google.gson.JsonArray off = new com.google.gson.JsonArray();
             for (String k : e.off) off.add(k);
             o.add("off", off);
@@ -230,8 +259,12 @@ public final class HudLayout {
     /** Dreptunghiul implicit al unui element pe care nu l-am vazut desenat (pentru editor). */
     public static float[] defaults(String id, int sw, int sh) {
         switch (id) {
-            case "hud":
-                return new float[] {sw - 244f, 3f, 244f, 110f};
+            case "hud": {
+                int st = styleOf();
+                if (st == 1) return new float[] {sw - 244f, 3f, 244f, 110f};
+                float w = ro.solarstudios.flowcity.hype.HypeHud.widthOf(st);
+                return new float[] {sw - (w + 12f), 3f, w + 8f, ro.solarstudios.flowcity.hype.HypeHud.heightOf(st) + 6f};
+            }
             case "speedo": {
                 float d = Math.max(90f, Math.min(128f, sh * 0.24f));
                 return new float[] {sw - 17f - d, sh - 13f - d, d, d};

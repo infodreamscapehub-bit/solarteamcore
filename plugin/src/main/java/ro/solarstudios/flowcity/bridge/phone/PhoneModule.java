@@ -26,7 +26,6 @@ import ro.solarstudios.flowcity.bridge.module.JsonModule;
 public final class PhoneModule extends JsonModule {
     private static final int MAX_CONTACTS = 60;
     private static final int MAX_TEXT = 200;
-    private static final long RING_MS = 25_000L;
 
     private static final class Call {
         final long id;
@@ -85,24 +84,7 @@ public final class PhoneModule extends JsonModule {
         on("send", (p, j) -> {
             if (needPhone(p)) sendMessage(p, j);
         });
-        on("call", (p, j) -> {
-            if (!needPhone(p)) return;
-            UUID t = uuid(j, "uuid");
-            if (t == null) {
-                String q = str(j, "q", "").trim();
-                if (!q.isEmpty() && q.length() <= 20) t = plugin.ids().resolveAny(q);
-                if (t == null) {
-                    plugin.channel().toast(p, "Nu exista niciun jucator cu acest ID.", true);
-                    return;
-                }
-            }
-            Player tp = Bukkit.getPlayer(t);
-            if (tp != null && !hasPhone(tp)) {
-                plugin.channel().toast(p, "Numarul nu este disponibil (nu are telefon).", true);
-                return;
-            }
-            startCall(p, t);
-        });
+        on("call", (p, j) -> dial(p, uuid(j, "uuid"), str(j, "q", "").trim()));
         on("call_answer", (p, j) -> {
             if (needPhone(p)) answer(p);
         });
@@ -133,6 +115,127 @@ public final class PhoneModule extends JsonModule {
             else p.sendMessage("§cTelefonul necesita modul FlowCity pe client.");
             return true;
         }, null, "phone", "tel");
+        Commands.register(plugin, "apel", "flowcity.phone", (s, c, l, a) -> {
+            Player p = callerOf(s);
+            if (p == null) return true;
+            if (a.length == 0) {
+                p.sendMessage("\u00a77Folosire: /apel <jucator|ID|07xxxxxxxx|112>");
+                return true;
+            }
+            dial(p, null, String.join(" ", a).trim());
+            return true;
+        }, null, "suna");
+        Commands.register(plugin, "raspunde", "flowcity.phone", (s, c, l, a) -> {
+            Player p = callerOf(s);
+            if (p == null) return true;
+            if (!calls.containsKey(p.getUniqueId())) p.sendMessage("\u00a7cNu ai niciun apel.");
+            else if (needPhone(p)) answer(p);
+            return true;
+        }, null);
+        Commands.register(plugin, "inchide", "flowcity.phone", (s, c, l, a) -> {
+            Player p = callerOf(s);
+            if (p == null) return true;
+            if (!calls.containsKey(p.getUniqueId())) p.sendMessage("\u00a7cNu ai niciun apel.");
+            else end(p, false);
+            return true;
+        }, null);
+        Commands.register(plugin, "respinge", "flowcity.phone", (s, c, l, a) -> {
+            Player p = callerOf(s);
+            if (p == null) return true;
+            if (!calls.containsKey(p.getUniqueId())) p.sendMessage("\u00a7cNu ai niciun apel.");
+            else end(p, true);
+            return true;
+        }, null);
+    }
+
+    private Player callerOf(org.bukkit.command.CommandSender s) {
+        if (!(s instanceof Player)) return null;
+        Player p = (Player) s;
+        if (!plugin.channel().hasMod(p)) {
+            p.sendMessage("\u00a7cApelurile necesita modul FlowCity pe client.");
+            return null;
+        }
+        return p;
+    }
+
+    private long ringMs() {
+        return Math.max(5L, plugin.getConfig().getLong("phone.call.ring-timeout-seconds", 30L)) * 1000L;
+    }
+
+    /** Apel dupa UUID, ID, nume, numar 07xxxxxxxx sau 112 (urgente). */
+    private void dial(Player p, UUID t, String q) {
+        if (!needPhone(p)) return;
+        if (t == null) {
+            String clean = q.replaceAll("[\\s.\\-]", "");
+            boolean numeric = clean.matches("\\d+");
+            if (numeric && clean.equals("112")) {
+                emergency(p);
+                return;
+            }
+            if (numeric && clean.length() == 10 && clean.startsWith("07")) {
+                int id = NumberLogic.idOfPhone(clean);
+                if (id > 0) t = plugin.ids().uuidOf(id);
+            } else if (!q.isEmpty() && q.length() <= 20) {
+                t = plugin.ids().resolveAny(q);
+            }
+            if (t == null) {
+                plugin.channel().toast(p, "Numarul format nu exista.", true);
+                return;
+            }
+        }
+        Player tp = Bukkit.getPlayer(t);
+        if (tp != null && !hasPhone(tp)) {
+            plugin.channel().toast(p, "Numarul nu este disponibil (nu are telefon).", true);
+            return;
+        }
+        startCall(p, t);
+    }
+
+    private final Map<UUID, Long> lastEmergency = new HashMap<>();
+
+    /** 112: anunta jucatorii cu permisiunile de urgenta (politie / EMS) cu locatia apelantului. */
+    private void emergency(Player p) {
+        long now = System.currentTimeMillis();
+        Long last = lastEmergency.get(p.getUniqueId());
+        if (last != null && now - last < 30_000L) {
+            plugin.channel().toast(p, "Ai sunat deja la 112. Asteapta ajutorul.", true);
+            return;
+        }
+        lastEmergency.put(p.getUniqueId(), now);
+        List<String> perms = plugin.getConfig().getStringList("phone.call.emergency-permissions");
+        if (perms.isEmpty()) {
+            perms = new ArrayList<>();
+            perms.add("flowcity.politie.officer");
+            perms.add("flowcity.ems.officer");
+        }
+        org.bukkit.Location l = p.getLocation();
+        String where = (l.getWorld() == null ? "?" : l.getWorld().getName()) + " " + l.getBlockX() + " " + l.getBlockY() + " " + l.getBlockZ();
+        String msg = "\u00a7c\u00a7l[112] \u00a7f" + p.getName() + " (#" + plugin.ids().idOf(p.getUniqueId()) + ") cere ajutor la \u00a7e" + where;
+        int n = 0;
+        for (Player o : Bukkit.getOnlinePlayers()) {
+            if (o.getUniqueId().equals(p.getUniqueId())) continue;
+            for (String perm : perms) {
+                if (o.hasPermission(perm)) {
+                    o.sendMessage(msg);
+                    if (plugin.notifications() != null) {
+                        plugin.notifications().send(o, ro.solarstudios.flowcity.bridge.notify.NotifyModule.Type.INFO, "Urgenta 112", p.getName() + " - " + where);
+                    }
+                    n++;
+                    break;
+                }
+            }
+        }
+        plugin.channel().toast(p, n > 0 ? "Serviciul de urgenta a fost anuntat." : "Serviciul de urgenta: nimeni nu este de serviciu acum.", n == 0);
+        p.sendMessage(n > 0 ? "\u00a7a[112] Ajutorul a fost anuntat. Ramai pe loc." : "\u00a7e[112] Nu este nimeni de serviciu in acest moment.");
+    }
+
+    /** Factureaza apelul (daca phone.call.cost-per-minute > 0): intai din banca, apoi cash. */
+    private void charge(UUID u, double amount) {
+        boolean ok = false;
+        if (plugin.bank() != null) ok = plugin.bank().withdraw(u, amount);
+        if (!ok && plugin.money() != null) ok = plugin.money().withdraw(u, amount);
+        Player x = Bukkit.getPlayer(u);
+        if (x != null) plugin.channel().toast(x, ok ? "Apel facturat: $" + Math.round(amount) : "Nu ai avut bani pentru costul apelului.", !ok);
     }
 
     private static final String[] PHONE_ITEMS = {"flowcitycore:phone", "flowcitycore:phone1", "flowcitycore:phone2", "flowcitycore:phone3", "flowcitycore:phone4", "flowcitycore:phone5"};
@@ -196,6 +299,7 @@ public final class PhoneModule extends JsonModule {
         o.addProperty("name", nameOf(u));
         o.addProperty("id", plugin.ids().idOf(u));
         o.addProperty("online", Bukkit.getPlayer(u) != null);
+        o.addProperty("number", NumberLogic.phoneDisplay(NumberLogic.phoneNumber(plugin.ids().idOf(u))));
         return o;
     }
 
@@ -228,6 +332,7 @@ public final class PhoneModule extends JsonModule {
             JsonObject o = new JsonObject();
             o.addProperty("unread", unread);
             o.addProperty("missed", missed);
+            o.addProperty("number", NumberLogic.phoneDisplay(NumberLogic.phoneNumber(plugin.ids().idOf(me))));
             return o;
         }).whenComplete((o, err) -> Bukkit.getScheduler().runTask(plugin, () -> {
             if (err == null && o != null && p.isOnline()) send(p, "state", o);
@@ -494,9 +599,12 @@ public final class PhoneModule extends JsonModule {
         c.active = true;
         c.answeredAt = System.currentTimeMillis();
         voice("link", c.caller, c.callee);
+        boolean hint = plugin.getConfig().getBoolean("phone.call.voice-hint", false);
         for (UUID u : new UUID[] {c.caller, c.callee}) {
             Player x = Bukkit.getPlayer(u);
-            if (x != null) callState(x, c, "active");
+            if (x == null) continue;
+            callState(x, c, "active");
+            if (hint) x.sendMessage("\u00a77[Telefon] Folositi chatul vocal pentru a vorbi.");
         }
     }
 
@@ -531,6 +639,8 @@ public final class PhoneModule extends JsonModule {
         voice("unlink", c.caller, c.callee);
         final long dur = c.active ? (System.currentTimeMillis() - c.answeredAt) / 1000 : 0;
         final String st = status;
+        double perMin = plugin.getConfig().getDouble("phone.call.cost-per-minute", 0.0);
+        if (c.active && perMin > 0 && dur > 0) charge(c.caller, Math.ceil(dur / 60.0) * perMin);
         plugin.db().run(conn -> {
             try (PreparedStatement ps = conn.prepareStatement("INSERT INTO core_phone_calls(caller, callee, ts, duration, status) VALUES (?,?,?,?,?)")) {
                 ps.setString(1, c.caller.toString());
@@ -558,7 +668,12 @@ public final class PhoneModule extends JsonModule {
     private void tickRing() {
         long now = System.currentTimeMillis();
         for (Call c : new ArrayList<>(calls.values())) {
-            if (!c.active && now - c.startedAt > RING_MS && calls.containsKey(c.caller)) {
+            long maxMin = plugin.getConfig().getLong("phone.call.max-minutes", 0L);
+            if (c.active && maxMin > 0 && now - c.answeredAt > maxMin * 60_000L && calls.containsKey(c.caller)) {
+                finish(c, "ANSWERED", c.caller);
+                continue;
+            }
+            if (!c.active && now - c.startedAt > ringMs() && calls.containsKey(c.caller)) {
                 finish(c, "MISSED", c.caller);
                 Player callee = Bukkit.getPlayer(c.callee);
                 if (callee != null) plugin.notifications().send(callee, ro.solarstudios.flowcity.bridge.notify.NotifyModule.Type.INFO,

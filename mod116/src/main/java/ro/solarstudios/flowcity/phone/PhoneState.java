@@ -12,6 +12,7 @@ public final class PhoneState {
         public String name = "?";
         public int id;
         public boolean online;
+        public String number = "";
     }
 
     public static final class Thread {
@@ -55,6 +56,9 @@ public final class PhoneState {
     public static final List<CallLog> calls = new ArrayList<>();
     public static int unread;
     public static int missed;
+    public static String myNumber = "";
+    public static boolean callMuted;
+    public static boolean callSpeaker;
     public static Call call;
     public static long lastRing;
     public static boolean contactsLoaded;
@@ -67,6 +71,9 @@ public final class PhoneState {
         threadWith = null;
         unread = 0;
         missed = 0;
+        myNumber = "";
+        callMuted = false;
+        callSpeaker = false;
         call = null;
         contactsLoaded = false;
     }

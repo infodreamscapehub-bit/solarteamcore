@@ -29,6 +29,7 @@ public final class PhoneClient extends JsonClientModule {
         on("state", d -> {
             PhoneState.unread = integer(d, "unread", 0);
             PhoneState.missed = integer(d, "missed", 0);
+            PhoneState.myNumber = str(d, "number", PhoneState.myNumber);
             if (PhoneState.unread > 0 && !shownUnread) {
                 shownUnread = true;
                 NotifyToasts.add("INFO", "Telefon", "Ai " + PhoneState.unread + " mesaje necitite.");
@@ -112,6 +113,8 @@ public final class PhoneClient extends JsonClientModule {
                 c.id = lng(d, "id", 0);
                 c.with = who;
                 c.incoming = bool(d, "incoming", false);
+                PhoneState.callMuted = false;
+                PhoneState.callSpeaker = false;
                 PhoneState.call = c;
                 PhoneState.lastRing = 0;
             } else if ("active".equals(state)) {
@@ -144,6 +147,7 @@ public final class PhoneClient extends JsonClientModule {
         p.name = str(o, "name", "?");
         p.id = integer(o, "id", 0);
         p.online = bool(o, "online", false);
+        p.number = str(o, "number", "");
         return p;
     }
 

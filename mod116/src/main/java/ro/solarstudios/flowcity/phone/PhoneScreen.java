@@ -623,13 +623,17 @@ public final class PhoneScreen extends FlowScreen {
 
     private void keypad(GuiGraphics ms, int x, int y, int w, int h, int mx, int my) {
         // numarul format
-        String shown = dial.length() == 0 ? "" : "#" + dial;
-        if (shown.isEmpty()) Gfx.text(ms, "Introdu ID-ul jucatorului", x + w / 2f, y + 101, 8, Sk.FAINT, 1);
-        else Gfx.text(ms, shown, x + w / 2f, y + 103, 19, Sk.WHITE, 1, true, 0.5f);
+        String shown = dialShown();
+        if (shown.isEmpty()) Gfx.text(ms, "ID, număr 07… sau 112", x + w / 2f, y + 101, 8, Sk.FAINT, 1);
+        else Gfx.text(ms, shown, x + w / 2f, y + 103, shown.length() > 9 ? 14 : 19, Sk.WHITE, 1, true, 0.5f);
         Ui.rect(ms, x + w / 2 - 46, y + 110, 92, 1, 0xFF22324A);
         String who = "";
         if (dial.length() > 0) {
-            for (PhoneState.Person p : PhoneState.contacts) if (String.valueOf(p.id).equals(dial.toString())) who = p.name;
+            String dd = dial.toString();
+            for (PhoneState.Person p : PhoneState.contacts) {
+                if (String.valueOf(p.id).equals(dd) || (!p.number.isEmpty() && p.number.replace(" ", "").equals(dd))) who = p.name;
+            }
+            if (dd.equals("112")) who = "Serviciul de urgență";
         }
         if (!who.isEmpty()) Gfx.text(ms, clipG(who, 8, false, w - 30), x + w / 2f, y + 124, 8, Sk.GOOD, 1);
 
@@ -658,10 +662,25 @@ public final class PhoneScreen extends FlowScreen {
                 Sk.cut(ms, cx - 17, cy - 17, 34, 34, 8f, hov ? 0xFF22344D : 0xFF14202F);
                 Gfx.text(ms, k, cx, cy + 5.5f, 15, Sk.WHITE, 1, true, 0f);
                 hit((int) cx - 17, (int) cy - 17, 34, 34, () -> {
-                    if (dial.length() < 8) dial.append(k);
+                    if (dial.length() < 10) dial.append(k);
                 });
             }
         }
+    }
+
+    /** Numarul introdus: #ID pentru cifre scurte, 07xx xxx xxx pentru numere de telefon, 112 simplu. */
+    private String dialShown() {
+        String d = dial.toString();
+        if (d.isEmpty()) return "";
+        if (d.startsWith("0")) {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < d.length(); i++) {
+                if (i == 4 || i == 7) sb.append(' ');
+                sb.append(d.charAt(i));
+            }
+            return sb.toString();
+        }
+        return d.equals("112") ? d : "#" + d;
     }
 
     private void callScreen(GuiGraphics ms, int x, int y, int w, int h, int mx, int my, PhoneState.Call c, long now) {
@@ -682,7 +701,10 @@ public final class PhoneScreen extends FlowScreen {
         Gfx.text(ms, ini, cx, cy + 10, 30, Sk.WHITE, 1, true, 0f);
 
         Gfx.text(ms, clipG(c.with.name, 14, true, w - 24), cx, y + 178, 14, Sk.WHITE, 1, true, 0.2f);
-        if (c.with.id > 0) Gfx.text(ms, "#" + c.with.id, cx, y + 192, 7.5f, Sk.MUTED, 1);
+        if (c.with.id > 0) {
+            String sub = "#" + c.with.id + (c.with.number.isEmpty() ? "" : "  ·  " + c.with.number);
+            Gfx.text(ms, sub, cx, y + 192, 7.5f, Sk.MUTED, 1);
+        }
         if (c.active) {
             Gfx.text(ms, clock((now - c.since) / 1000), cx, y + 212, 10, Sk.GOOD, 1, true, 0.5f);
             for (int i = 0; i < 11; i++) {
@@ -702,7 +724,20 @@ public final class PhoneScreen extends FlowScreen {
             callButton(ms, cx + 46, by, GREEN, false, "Răspunde", mx, my, PhoneClient::answer, pulse);
         } else {
             callButton(ms, cx, by, 0xFFE2453F, true, "Închide", mx, my, PhoneClient::hangup, 0f);
+            if (c.active) {
+                toggle(ms, cx - 46, by - 52, "Mut", PhoneState.callMuted, mx, my, () -> PhoneState.callMuted = !PhoneState.callMuted);
+                toggle(ms, cx + 46, by - 52, "Difuzor", PhoneState.callSpeaker, mx, my, () -> PhoneState.callSpeaker = !PhoneState.callSpeaker);
+            }
         }
+    }
+
+    /** Comutator mic (doar indicator in UI): Mut / Difuzor. */
+    private void toggle(GuiGraphics ms, float bx, float by, String label, boolean on, int mx, int my, Runnable r) {
+        boolean hov = Ui.in(mx, my, (int) bx - 22, (int) by - 10, 44, 20);
+        int bg = on ? GREEN : (hov ? 0xFF22344D : 0xFF14202F);
+        Sk.cut(ms, bx - 22, by - 10, 44, 20, 6f, bg);
+        Gfx.text(ms, label, bx, by + 3, 7.5f, on ? 0xFF061426 : Sk.MUTED, 1, true, 0.1f);
+        hit((int) bx - 22, (int) by - 10, 44, 20, r);
     }
 
     private void callButton(GuiGraphics ms, float bx, float by, int color, boolean down, String label, int mx, int my, Runnable r, float pulse) {

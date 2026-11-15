@@ -33,3 +33,12 @@ update:
 phone:
   # true = ai nevoie de un telefon (item flowcitycore:phone*) in inventar pentru mesaje/apeluri
   require-item: true
+  call:
+    ring-timeout-seconds: 30        # dupa cate secunde apelul nesunat devine "pierdut"
+    max-minutes: 0                  # durata maxima a unui apel (0 = nelimitat)
+    cost-per-minute: 0              # cost pe minut platit de apelant la sfarsit (din banca, apoi cash); 0 = gratuit
+    voice-hint: false               # true = la raspuns, mesaj "folositi chatul vocal" in chat
+    # cine primeste apelurile catre 112 (jucatorii cu cel putin una din permisiuni)
+    emergency-permissions:
+      - flowcity.politie.officer
+      - flowcity.ems.officer

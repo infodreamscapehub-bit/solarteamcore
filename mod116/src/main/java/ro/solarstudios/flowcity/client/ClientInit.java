@@ -77,6 +77,24 @@ public final class ClientInit {
                 e.setCanceled(true);
                 Minecraft.getInstance().gui.getChat().addRecentChat(e.getMessage());
                 openHudEditor = true;
+            } else if (m.equals(".hudstyle") || m.startsWith(".hudstyle ")) {
+                e.setCanceled(true);
+                Minecraft.getInstance().gui.getChat().addRecentChat(e.getMessage());
+                String arg = m.substring(".hudstyle".length()).trim();
+                int v = -1;
+                try {
+                    v = Integer.parseInt(arg);
+                } catch (NumberFormatException ignored) {
+                    v = -1;
+                }
+                if (Minecraft.getInstance().player != null) {
+                    if (v >= 1 && v <= 3) {
+                        ro.solarstudios.flowcity.client.ui.HudLayout.setStyle(v);
+                        Minecraft.getInstance().player.displayClientMessage(new StringTextComponent("\u00a7b[FlowCity] \u00a77Stil HUD: \u00a7f" + v), false);
+                    } else {
+                        Minecraft.getInstance().player.displayClientMessage(new StringTextComponent("\u00a7b[FlowCity] \u00a77Folosire: \u00a7f.hudstyle <1-3>"), false);
+                    }
+                }
             } else if (m.equals(".trip")) {
                 e.setCanceled(true);
                 Minecraft.getInstance().gui.getChat().addRecentChat(e.getMessage());

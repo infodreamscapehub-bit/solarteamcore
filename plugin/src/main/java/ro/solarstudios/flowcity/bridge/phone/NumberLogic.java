@@ -78,4 +78,37 @@ public final class NumberLogic {
     public static boolean validDial(String digits) {
         return digits != null && digits.length() >= 3 && digits.length() <= 15;
     }
+
+    // ---- numere fictive 07xx xxx xxx, derivate reversibil din ID-ul jucatorului (fara tabel in DB)
+
+    private static final long PHONE_MOD = 100_000_000L;
+    private static final long PHONE_MUL = 7919L;
+    private static final long PHONE_ADD = 1_234_567L;
+
+    /** Numarul de telefon (10 cifre, incepe cu 07) al jucatorului cu acest ID; ID-urile <= 0 nu au numar. */
+    public static String phoneNumber(int id) {
+        if (id <= 0) return "";
+        long v = ((long) id * PHONE_MUL + PHONE_ADD) % PHONE_MOD;
+        return String.format(java.util.Locale.ROOT, "07%08d", v);
+    }
+
+    /** "0712 345 678" pentru afisare. */
+    public static String phoneDisplay(String number) {
+        if (number == null || number.length() != 10) return number == null ? "" : number;
+        return number.substring(0, 4) + " " + number.substring(4, 7) + " " + number.substring(7);
+    }
+
+    /** ID-ul jucatorului pentru un numar 07xxxxxxxx (doar cifre) sau -1 daca nu e un numar valid. */
+    public static int idOfPhone(String digits) {
+        if (digits == null || digits.length() != 10 || !digits.startsWith("07")) return -1;
+        try {
+            long v = Long.parseLong(digits.substring(2));
+            java.math.BigInteger mod = java.math.BigInteger.valueOf(PHONE_MOD);
+            java.math.BigInteger inv = java.math.BigInteger.valueOf(PHONE_MUL).modInverse(mod);
+            long id = java.math.BigInteger.valueOf(v - PHONE_ADD).mod(mod).multiply(inv).mod(mod).longValue();
+            return id <= 0 || id > Integer.MAX_VALUE ? -1 : (int) id;
+        } catch (NumberFormatException | ArithmeticException e) {
+            return -1;
+        }
+    }
 }
