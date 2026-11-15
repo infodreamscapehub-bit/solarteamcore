@@ -106,45 +106,76 @@ public final class HudLayout {
             Path f = file();
             if (!Files.exists(f)) return;
             JsonObject root = new Gson().fromJson(new String(Files.readAllBytes(f), StandardCharsets.UTF_8), JsonObject.class);
-            if (root == null) return;
-            for (El e : ELS.values()) {
-                JsonElement je = root.get(e.id);
-                if (je == null || !je.isJsonObject()) continue;
-                JsonObject o = je.getAsJsonObject();
-                e.dx = o.has("dx") ? o.get("dx").getAsFloat() : 0f;
-                e.dy = o.has("dy") ? o.get("dy").getAsFloat() : 0f;
-                e.scale = Math.max(0.5f, Math.min(2f, o.has("scale") ? o.get("scale").getAsFloat() : 1f));
-                e.visible = !o.has("visible") || o.get("visible").getAsBoolean();
-                e.alpha = Math.max(0.2f, Math.min(1f, o.has("alpha") ? o.get("alpha").getAsFloat() : 1f));
-                e.color = o.has("color") ? o.get("color").getAsInt() & 0xFFFFFF : 0;
-                e.off.clear();
-                if (o.has("off") && o.get("off").isJsonArray()) for (JsonElement x : o.getAsJsonArray("off")) e.off.add(x.getAsString());
-            }
+            if (root != null) apply(root);
         } catch (IOException | RuntimeException ignored) {
             // fisier lipsa sau stricat: raman pozitiile implicite
         }
     }
 
+    private static void apply(JsonObject root) {
+        for (El e : ELS.values()) {
+            JsonElement je = root.get(e.id);
+            if (je == null || !je.isJsonObject()) continue;
+            JsonObject o = je.getAsJsonObject();
+            e.dx = o.has("dx") ? o.get("dx").getAsFloat() : 0f;
+            e.dy = o.has("dy") ? o.get("dy").getAsFloat() : 0f;
+            e.scale = Math.max(0.5f, Math.min(2f, o.has("scale") ? o.get("scale").getAsFloat() : 1f));
+            e.visible = !o.has("visible") || o.get("visible").getAsBoolean();
+            e.alpha = Math.max(0.2f, Math.min(1f, o.has("alpha") ? o.get("alpha").getAsFloat() : 1f));
+            e.color = o.has("color") ? o.get("color").getAsInt() & 0xFFFFFF : 0;
+            e.off.clear();
+            if (o.has("off") && o.get("off").isJsonArray()) for (JsonElement x : o.getAsJsonArray("off")) e.off.add(x.getAsString());
+        }
+    }
+
+    private static JsonObject toJson() {
+        JsonObject root = new JsonObject();
+        for (El e : ELS.values()) {
+            JsonObject o = new JsonObject();
+            o.addProperty("dx", Math.round(e.dx * 10f) / 10f);
+            o.addProperty("dy", Math.round(e.dy * 10f) / 10f);
+            o.addProperty("scale", Math.round(e.scale * 100f) / 100f);
+            o.addProperty("visible", e.visible);
+            o.addProperty("alpha", Math.round(e.alpha * 100f) / 100f);
+            o.addProperty("color", e.color);
+            com.google.gson.JsonArray off = new com.google.gson.JsonArray();
+            for (String k : e.off) off.add(k);
+            o.add("off", off);
+            root.add(e.id, o);
+        }
+        return root;
+    }
+
     public static void save() {
         try {
-            JsonObject root = new JsonObject();
-            for (El e : ELS.values()) {
-                JsonObject o = new JsonObject();
-                o.addProperty("dx", Math.round(e.dx * 10f) / 10f);
-                o.addProperty("dy", Math.round(e.dy * 10f) / 10f);
-                o.addProperty("scale", Math.round(e.scale * 100f) / 100f);
-                o.addProperty("visible", e.visible);
-                o.addProperty("alpha", Math.round(e.alpha * 100f) / 100f);
-                o.addProperty("color", e.color);
-                com.google.gson.JsonArray off = new com.google.gson.JsonArray();
-                for (String k : e.off) off.add(k);
-                o.add("off", off);
-                root.add(e.id, o);
-            }
-            Files.write(file(), new Gson().toJson(root).getBytes(StandardCharsets.UTF_8));
+            Files.write(file(), new Gson().toJson(toJson()).getBytes(StandardCharsets.UTF_8));
         } catch (IOException | RuntimeException ignored) {
             // nu se poate scrie: pozitiile ramn doar pentru sesiunea curenta
         }
+    }
+
+    /** Starea curenta a tuturor elementelor ca text (pentru ANULEAZA in editor). */
+    public static String snapshot() {
+        return new Gson().toJson(toJson());
+    }
+
+    /** Readuce starea dintr-un snapshot() si o salveaza. */
+    public static void restore(String snap) {
+        try {
+            JsonObject root = new Gson().fromJson(snap, JsonObject.class);
+            if (root != null) {
+                apply(root);
+                save();
+            }
+        } catch (RuntimeException ignored) {
+            // snapshot stricat: nu schimbam nimic
+        }
+    }
+
+    /** Aduce toate elementele la starea implicita. */
+    public static void resetAll() {
+        for (El e : ELS.values()) e.reset();
+        save();
     }
 
     /**
