@@ -279,3 +279,139 @@ lp group owner setdisplayname "&#ff2d2d&lᴏ&#ff4e34&lᴡ&#ff703a&lɴ&#ff9240&l�
 lp group owner meta setprefix 100 "&#ff2d2d&lᴏ&#ff4e34&lᴡ&#ff703a&lɴ&#ff9240&lᴇ&#ffb347&lʀ &r"
 lp group owner parent add coowner
 lp group owner permission set * true
+
+# ===== Ranguri noi: Politie, Mafie, EMS, Primarie (fara [ ]) =====
+# Politistul primeste si acces de ofiter (MDT + sesizari)
+lp group politist permission set flowcity.politie.officer true
+lp group politist permission set flowcity.mdt.use true
+
+# ----- Politie
+
+# --- Ofiter
+lp creategroup ofiter
+lp group ofiter setweight 42
+lp group ofiter setdisplayname "&#4da3ff&lᴏ&#4392f7&lғ&#3981ef&lɪ&#2f71e6&lᴛ&#2560de&lᴇ&#1b4fd6&lʀ"
+lp group ofiter meta setprefix 42 "&#4da3ff&lᴏ&#4392f7&lғ&#3981ef&lɪ&#2f71e6&lᴛ&#2560de&lᴇ&#1b4fd6&lʀ &r"
+lp group ofiter parent add politist
+lp group ofiter permission set flowcity.politie.officer true
+lp group ofiter permission set flowcity.mdt.use true
+lp group ofiter permission set flowcity.payday.ofiter true
+
+# --- Agent Rutier
+lp creategroup agentrutier
+lp group agentrutier setweight 41
+lp group agentrutier setdisplayname "&#5ec8ff&lᴀ&#5ac1ff&lɢ&#55baff&lᴇ&#51b3ff&lɴ&#4dacff&lᴛ&#49a5ff&l &#449eff&lʀ&#4097ff&lᴜ&#3c90ff&lᴛ&#3889ff&lɪ&#3382ff&lᴇ&#2f7bff&lʀ"
+lp group agentrutier meta setprefix 41 "&#5ec8ff&lᴀ&#5ac1ff&lɢ&#55baff&lᴇ&#51b3ff&lɴ&#4dacff&lᴛ&#49a5ff&l &#449eff&lʀ&#4097ff&lᴜ&#3c90ff&lᴛ&#3889ff&lɪ&#3382ff&lᴇ&#2f7bff&lʀ &r"
+lp group agentrutier parent add politist
+lp group agentrutier permission set flowcity.politie.officer true
+lp group agentrutier permission set flowcity.mdt.use true
+lp group agentrutier permission set flowcity.payday.agentrutier true
+
+# --- Comisar
+lp creategroup comisar
+lp group comisar setweight 44
+lp group comisar setdisplayname "&#3b82f6&lᴄ&#3373e4&lᴏ&#2b65d2&lᴍ&#2256c0&lɪ&#1a47ae&ls&#12399c&lᴀ&#0a2a8a&lʀ"
+lp group comisar meta setprefix 44 "&#3b82f6&lᴄ&#3373e4&lᴏ&#2b65d2&lᴍ&#2256c0&lɪ&#1a47ae&ls&#12399c&lᴀ&#0a2a8a&lʀ &r"
+lp group comisar parent add ofiter
+lp group comisar permission set flowcity.payday.comisar true
+
+# --- Sef Politie
+lp creategroup sefpolitie
+lp group sefpolitie setweight 46
+lp group sefpolitie setdisplayname "&#1e40af&ls&#2b4db7&lᴇ&#395abf&lғ&#4668c7&l &#5375cf&lᴘ&#6082d7&lᴏ&#6e8fdf&lʟ&#7b9ce7&lɪ&#88aaef&lᴛ&#96b7f7&lɪ&#a3c4ff&lᴇ"
+lp group sefpolitie meta setprefix 46 "&#1e40af&ls&#2b4db7&lᴇ&#395abf&lғ&#4668c7&l &#5375cf&lᴘ&#6082d7&lᴏ&#6e8fdf&lʟ&#7b9ce7&lɪ&#88aaef&lᴛ&#96b7f7&lɪ&#a3c4ff&lᴇ &r"
+lp group sefpolitie parent add comisar
+lp group sefpolitie permission set flowcity.politie.admin true
+lp group sefpolitie permission set flowcity.mdt.admin true
+lp group sefpolitie permission set flowcity.payday.sefpolitie true
+
+# ----- Mafie
+
+# --- Asociat
+lp creategroup asociat
+lp group asociat setweight 36
+lp group asociat setdisplayname "&#8a8a8a&lᴀ&#7f7f7f&ls&#757575&lᴏ&#6a6a6a&lᴄ&#5f5f5f&lɪ&#555555&lᴀ&#4a4a4a&lᴛ"
+lp group asociat meta setprefix 36 "&#8a8a8a&lᴀ&#7f7f7f&ls&#757575&lᴏ&#6a6a6a&lᴄ&#5f5f5f&lɪ&#555555&lᴀ&#4a4a4a&lᴛ &r"
+lp group asociat parent add default
+
+# --- Soldat
+lp creategroup soldat
+lp group soldat setweight 37
+lp group soldat setdisplayname "&#b11226&ls&#a01022&lᴏ&#8f0f1f&lʟ&#7e0d1b&lᴅ&#6d0c18&lᴀ&#5c0a14&lᴛ"
+lp group soldat meta setprefix 37 "&#b11226&ls&#a01022&lᴏ&#8f0f1f&lʟ&#7e0d1b&lᴅ&#6d0c18&lᴀ&#5c0a14&lᴛ &r"
+lp group soldat parent add asociat
+
+# --- Capo
+lp creategroup capo
+lp group capo setweight 38
+lp group capo setdisplayname "&#d4a017&lᴄ&#b6890f&lᴀ&#987108&lᴘ&#7a5a00&lᴏ"
+lp group capo meta setprefix 38 "&#d4a017&lᴄ&#b6890f&lᴀ&#987108&lᴘ&#7a5a00&lᴏ &r"
+lp group capo parent add soldat
+
+# --- Consigliere
+lp creategroup consigliere
+lp group consigliere setweight 39
+lp group consigliere setdisplayname "&#e6c15a&lᴄ&#ddb054&lᴏ&#d4a04e&lɴ&#ca9047&ls&#c17f41&lɪ&#b86e3b&lɢ&#af5e35&lʟ&#a64e2f&lɪ&#9c3d28&lᴇ&#932c22&lʀ&#8a1c1c&lᴇ"
+lp group consigliere meta setprefix 39 "&#e6c15a&lᴄ&#ddb054&lᴏ&#d4a04e&lɴ&#ca9047&ls&#c17f41&lɪ&#b86e3b&lɢ&#af5e35&lʟ&#a64e2f&lɪ&#9c3d28&lᴇ&#932c22&lʀ&#8a1c1c&lᴇ &r"
+lp group consigliere parent add capo
+
+# --- Don
+lp creategroup don
+lp group don setweight 40
+lp group don setdisplayname "&#ffd700&lᴅ&#bc6c00&lᴏ&#7a0000&lɴ"
+lp group don meta setprefix 40 "&#ffd700&lᴅ&#bc6c00&lᴏ&#7a0000&lɴ &r"
+lp group don parent add consigliere
+
+# ----- EMS
+
+# --- Paramedic
+lp creategroup paramedic
+lp group paramedic setweight 40
+lp group paramedic setdisplayname "&#ff6b6b&lᴘ&#f76563&lᴀ&#ef5e5b&lʀ&#e75853&lᴀ&#e0524b&lᴍ&#d84c43&lᴇ&#d0463b&lᴅ&#c83f33&lɪ&#c0392b&lᴄ"
+lp group paramedic meta setprefix 40 "&#ff6b6b&lᴘ&#f76563&lᴀ&#ef5e5b&lʀ&#e75853&lᴀ&#e0524b&lᴍ&#d84c43&lᴇ&#d0463b&lᴅ&#c83f33&lɪ&#c0392b&lᴄ &r"
+lp group paramedic parent add medic
+lp group paramedic permission set flowcity.ems.officer true
+lp group paramedic permission set flowcity.payday.paramedic true
+
+# --- Doctor
+lp creategroup doctor
+lp group doctor setweight 41
+lp group doctor setdisplayname "&#ffffff&lᴅ&#ffe1e1&lᴏ&#ffc4c4&lᴄ&#ffa6a6&lᴛ&#ff8989&lᴏ&#ff6b6b&lʀ"
+lp group doctor meta setprefix 41 "&#ffffff&lᴅ&#ffe1e1&lᴏ&#ffc4c4&lᴄ&#ffa6a6&lᴛ&#ff8989&lᴏ&#ff6b6b&lʀ &r"
+lp group doctor parent add paramedic
+lp group doctor permission set flowcity.payday.doctor true
+
+# --- Sef Spital
+lp creategroup sefspital
+lp group sefspital setweight 42
+lp group sefspital setdisplayname "&#ff9a9a&ls&#f28c8c&lᴇ&#e67e7e&lғ&#d97070&l &#cd6262&ls&#c05353&lᴘ&#b44545&lɪ&#a73737&lᴛ&#9b2929&lᴀ&#8e1b1b&lʟ"
+lp group sefspital meta setprefix 42 "&#ff9a9a&ls&#f28c8c&lᴇ&#e67e7e&lғ&#d97070&l &#cd6262&ls&#c05353&lᴘ&#b44545&lɪ&#a73737&lᴛ&#9b2929&lᴀ&#8e1b1b&lʟ &r"
+lp group sefspital parent add doctor
+lp group sefspital permission set flowcity.ems.admin true
+lp group sefspital permission set flowcity.payday.sefspital true
+
+# ----- Primarie
+
+# --- Functionar
+lp creategroup functionar
+lp group functionar setweight 40
+lp group functionar setdisplayname "&#6dd5ed&lғ&#65cee6&lᴜ&#5cc6df&lɴ&#54bfd9&lᴄ&#4bb8d2&lᴛ&#43b0cb&lɪ&#3aa9c4&lᴏ&#32a2be&lɴ&#299ab7&lᴀ&#2193b0&lʀ"
+lp group functionar meta setprefix 40 "&#6dd5ed&lғ&#65cee6&lᴜ&#5cc6df&lɴ&#54bfd9&lᴄ&#4bb8d2&lᴛ&#43b0cb&lɪ&#3aa9c4&lᴏ&#32a2be&lɴ&#299ab7&lᴀ&#2193b0&lʀ &r"
+lp group functionar parent add default
+lp group functionar permission set flowcity.payday.functionar true
+
+# --- Viceprimar
+lp creategroup viceprimar
+lp group viceprimar setweight 44
+lp group viceprimar setdisplayname "&#74ebd5&lᴠ&#6edfd5&lɪ&#67d2d5&lᴄ&#61c6d5&lᴇ&#5ab9d5&lᴘ&#54add5&lʀ&#4da0d5&lɪ&#4794d5&lᴍ&#4087d5&lᴀ&#3a7bd5&lʀ"
+lp group viceprimar meta setprefix 44 "&#74ebd5&lᴠ&#6edfd5&lɪ&#67d2d5&lᴄ&#61c6d5&lᴇ&#5ab9d5&lᴘ&#54add5&lʀ&#4da0d5&lɪ&#4794d5&lᴍ&#4087d5&lᴀ&#3a7bd5&lʀ &r"
+lp group viceprimar parent add functionar
+lp group viceprimar permission set flowcity.payday.viceprimar true
+
+# --- Primar
+lp creategroup primar
+lp group primar setweight 46
+lp group primar setdisplayname "&#f9d423&lᴘ&#f5bc1c&lʀ&#f1a415&lɪ&#ee8c0e&lᴍ&#ea7407&lᴀ&#e65c00&lʀ"
+lp group primar meta setprefix 46 "&#f9d423&lᴘ&#f5bc1c&lʀ&#f1a415&lɪ&#ee8c0e&lᴍ&#ea7407&lᴀ&#e65c00&lʀ &r"
+lp group primar parent add viceprimar
+lp group primar permission set flowcity.payday.primar true

@@ -14,6 +14,16 @@ groups:
   legend: 900
   politist: 900
   detectiv: 950
+  ofiter: 1000
+  agentrutier: 920
+  comisar: 1200
+  sefpolitie: 1500
+  paramedic: 850
+  doctor: 1000
+  sefspital: 1300
+  functionar: 800
+  viceprimar: 1300
+  primar: 1600
   jandarm: 850
   medic: 800
   pompier: 750
