@@ -1,0 +1,20 @@
+name: FlowCityRestart
+version: ${version}
+main: ro.solarstudios.restarter.RestartPlugin
+api-version: '1.16'
+author: SolarStudios
+description: Restart / reload / load / unload la pluginuri fara sa dai restart serverului.
+commands:
+  pmgr:
+    description: Manager de pluginuri (restart, reload, load, unload, enable, disable, list, info).
+    usage: /pmgr <restart|reload|load|unload|enable|disable|list|info> [plugin]
+    aliases: [pm, plugmgr]
+    permission: flowrestart.use
+  prestart:
+    description: Restart rapid la unul sau mai multe pluginuri (reincarca jar-ul).
+    usage: /prestart <plugin> [plugin2 ...]
+    permission: flowrestart.use
+permissions:
+  flowrestart.use:
+    description: Poate administra pluginurile
+    default: op
