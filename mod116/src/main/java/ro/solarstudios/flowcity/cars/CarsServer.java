@@ -74,6 +74,9 @@ public final class CarsServer {
             case "tunelist":
                 tuneList(p, data);
                 break;
+            case "trip":
+                resetTrip(p, data);
+                break;
             default:
                 break;
         }
@@ -466,6 +469,59 @@ public final class CarsServer {
     }
 
     /** Bordul cere numarul masinii in care sta jucatorul. */
+    /** Chilometrajul: ultima pozitie esantionata per masina si ultimele valori trimise per sofer. */
+    private static final java.util.Map<Integer, Vector3d> ODO_POS = new java.util.HashMap<>();
+    private static final java.util.Map<UUID, double[]> ODO_SENT = new java.util.HashMap<>();
+
+    private static void sendOdo(ServerPlayerEntity p, Entity v, GarageData.Car c) {
+        JsonObject o = new JsonObject();
+        o.addProperty("eid", v.getId());
+        o.addProperty("odo", Math.round(c.odometerM));
+        o.addProperty("trip", Math.round(c.tripM));
+        CarsNet.reply(p, "odo", o.toString());
+        ODO_SENT.put(p.getUUID(), new double[] {c.id, c.odometerM, c.tripM});
+    }
+
+    /** La ~0,5 s: adauga distanta parcursa masinilor scoase din garaj care au sofer si trimite soferului valorile. */
+    private static void odoTick(MinecraftServer server, GarageData data) {
+        java.util.Set<Integer> activeCars = new java.util.HashSet<>();
+        java.util.Set<UUID> activePlayers = new java.util.HashSet<>();
+        for (ServerPlayerEntity p : server.getPlayerList().getPlayers()) {
+            Entity v = p.getVehicle();
+            if (v == null || v.getControllingPassenger() != p) continue;
+            GarageData.Car c = carOf(server, v);
+            if (c == null) continue;
+            activeCars.add(c.id);
+            activePlayers.add(p.getUUID());
+            Vector3d pos = v.position();
+            Vector3d prev = ODO_POS.put(c.id, pos);
+            if (prev != null) {
+                double d = prev.distanceTo(pos);
+                if (d > 0.02 && d <= 40) {
+                    c.odometerM += d;
+                    c.tripM += d;
+                    data.setDirty();
+                }
+            }
+            double[] sent = ODO_SENT.get(p.getUUID());
+            if (sent == null || (int) sent[0] != c.id || Math.abs(c.odometerM - sent[1]) >= 50) sendOdo(p, v, c);
+        }
+        ODO_POS.keySet().retainAll(activeCars);
+        ODO_SENT.keySet().retainAll(activePlayers);
+    }
+
+    /** Resetarea tripului: doar soferul unei masini din garaj (comanda client ".trip"). */
+    private static void resetTrip(ServerPlayerEntity p, GarageData data) {
+        Entity v = p.getVehicle();
+        if (v == null || v.getControllingPassenger() != p) return;
+        GarageData.Car c = carOf(p.server, v);
+        if (c == null) return;
+        c.tripM = 0;
+        data.setDirty();
+        sendOdo(p, v, c);
+        p.displayClientMessage(new StringTextComponent("Trip resetat."), true);
+    }
+
     private static void plate(ServerPlayerEntity p, GarageData data, int entityId) {
         Entity e = p.level.getEntity(entityId);
         if (e == null || e.distanceTo(p) > 8) return;
@@ -664,6 +720,7 @@ public final class CarsServer {
                     }
                 }
             }
+            if (ticks % 10 == 0) odoTick(server, GarageData.get(server));
             if (ticks % 600 == 0) {
                 for (ServerPlayerEntity p : server.getPlayerList().getPlayers()) syncTo(p, false);
                 LAST_SYNC.keySet().removeIf(id -> server.getPlayerList().getPlayer(id) == null);

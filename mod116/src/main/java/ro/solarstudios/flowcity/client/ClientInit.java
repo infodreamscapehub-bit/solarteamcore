@@ -77,6 +77,10 @@ public final class ClientInit {
                 e.setCanceled(true);
                 Minecraft.getInstance().gui.getChat().addRecentChat(e.getMessage());
                 openHudEditor = true;
+            } else if (m.equals(".trip")) {
+                e.setCanceled(true);
+                Minecraft.getInstance().gui.getChat().addRecentChat(e.getMessage());
+                ro.solarstudios.flowcity.cars.CarsNet.send("trip", 0, 0);
             }
         }
 

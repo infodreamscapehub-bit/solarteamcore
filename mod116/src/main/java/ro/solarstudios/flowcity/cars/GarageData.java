@@ -112,6 +112,9 @@ public final class GarageData extends WorldSavedData {
         public long insUntil;
         /** ITP valabil pana la (epoch ms; 0 = fara). */
         public long itpUntil;
+        /** Chilometraj: metri totali parcursi si metri de calatorie (resetabil). */
+        public double odometerM;
+        public double tripM;
 
         CompoundNBT save() {
             CompoundNBT t = new CompoundNBT();
@@ -130,6 +133,8 @@ public final class GarageData extends WorldSavedData {
             t.putInt("KeyGen", keyGen);
             t.putLong("InsUntil", insUntil);
             t.putLong("ItpUntil", itpUntil);
+            t.putDouble("OdoM", odometerM);
+            t.putDouble("TripM", tripM);
             return t;
         }
 
@@ -150,6 +155,8 @@ public final class GarageData extends WorldSavedData {
             c.keyGen = t.getInt("KeyGen");
             c.insUntil = t.getLong("InsUntil");
             c.itpUntil = t.getLong("ItpUntil");
+            c.odometerM = t.getDouble("OdoM");
+            c.tripM = t.getDouble("TripM");
             return c;
         }
     }

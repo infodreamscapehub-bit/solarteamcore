@@ -32,6 +32,20 @@ public final class CarHud {
     private static int askedFor = -1;
     private static long askedAt;
     private static String plate = "";
+    private static int odoFor = -1;
+    private static String odoDigits = "0000000";
+    private static String tripStr = "0.0";
+
+    /** Chilometrajul trimis de server: metri totali si metri de calatorie pentru vehiculul cu id-ul dat. */
+    public static void setOdo(int entityId, double odoM, double tripM) {
+        odoFor = entityId;
+        long t = (long) (Math.max(0, odoM) / 100.0);
+        StringBuilder sb = new StringBuilder(Long.toString(Math.min(9999999L, t)));
+        while (sb.length() < 7) sb.insert(0, '0');
+        odoDigits = sb.toString();
+        long tt = (long) (Math.max(0, tripM) / 100.0);
+        tripStr = (tt / 10) + "." + (tt % 10);
+    }
 
     /** Raspunsul serverului cu numarul de inmatriculare. */
     public static void setPlate(int entityId, String p) {
@@ -113,14 +127,17 @@ public final class CarHud {
         }
     }
 
-    private static final float[] STOP_POS = {0f, 0.55f, 0.85f, 1f};
-    private static final int[] STOP_COL = {0xFFF6C15A, 0xFFEE9A3A, 0xFFE86A3C, 0xFFE2453F};
+    private static final int SEGMENTS = 24;
+    private static final float[] SEG_POS = {0f, 0.5f, 0.78f, 1f};
+    private static final int[] SEG_COL = {0xFF4DA3FF, 0xFFEAF4FF, 0xFFFFB84D, 0xFFE2453F};
     private static final int GREEN = 0xFF6DBE6F;
+    private static final int OFF = 0xFF1E2733;
+    private static final int MUTED = 0xFF7F8A99;
 
     /**
-     * Bordul FlowCity: cadran rotund cu arc de viteza neted si stralucitor, gradatii dupa viteza maxima a masinii,
-     * viteza mare cu fontul Inter, motor/boost, benzina si stare, nume + numar deasupra.
-     * Totul se deseneaza in coordonatele machetei (cadran de 236) si se scaleaza dupa ecran.
+     * Bordul FlowCity (design nou): arc segmentat de viteza albastru -> alb -> rosu, viteza mare in centru, treapta D/N/R,
+     * iar in dreapta chilometrajul cu cifre in casute, tripul, combustibilul si starea. Coordonatele sunt ale unei machete
+     * de 300 x 145 care se scaleaza dupa ecran.
      */
     private static void draw(GuiGraphics g, Minecraft mc, Entity v) {
         int w = mc.getWindow().getGuiScaledWidth();
@@ -137,7 +154,8 @@ public final class CarHud {
         String pl = plateFor == id ? plate : "";
 
         // valori
-        double speed = Math.abs(num(v, "getSpeed", 0));
+        double rawSpeed = num(v, "getSpeed", 0);
+        double speed = Math.abs(rawSpeed);
         float kmh = (float) Math.abs(num(v, "getKilometersPreHour", 0));
         if (speed > 0.5 && kmh > 1) kmhPerUnit = kmh / speed;
         double max = num(v, "getActualMaxSpeed", num(v, "getMaxSpeed", 0));
@@ -155,101 +173,112 @@ public final class CarHud {
             double cap = num(v, "getFuelCapacity", 0);
             f = cap <= 0 ? 0 : (float) (num(v, "getCurrentFuel", 0) / cap);
         }
+        boolean low = fuel && f < 0.12f;
+        boolean blink = low && (now / 400) % 2 == 0;
+        String gear = shownSpeed < 1.5f ? "N" : (rawSpeed < -0.01 ? "R" : "D");
 
-        // asezare: cadranul de 236 scalat la ~24% din inaltimea ecranului, dreapta jos
-        float d = Math.max(90f, Math.min(128f, h * 0.24f));
-        float k = d / 236f;
-        if (!ro.solarstudios.flowcity.client.ui.HudLayout.begin(g, "speedo", w - 17 - d, h - 13 - d, d, d)) return;
+        // asezare: panou lat 300 x 145, dreapta jos
+        float rw = Math.max(140f, Math.min(210f, h * 0.5f));
+        float k = rw / 300f;
+        float rh = 145f * k;
+        float px = w - 17 - rw;
+        float py = h - 13 - rh;
+        if (!ro.solarstudios.flowcity.client.ui.HudLayout.begin(g, "speedo", px, py, rw, rh)) return;
         g.pose().pushPose();
-        g.pose().translate(w - 17 - d, h - 13 - d, 0);
+        g.pose().translate(px, py, 0);
         g.pose().scale(k, k, 1f);
 
-        float cx = 118;
-        float cy = 118;
-        float r = 94;
+        final int acc = ro.solarstudios.flowcity.client.ui.HudLayout.accent("speedo", 0);
 
-        // corp: umbra, fond cu gradient radial, contur fin
-        Gfx.ring(g, cx, cy + 6, 104, 128, 0x80000000, 0x00000000);
-        Gfx.disc(g, cx, cy, 112, 0xFF22252C, 0xFF0D0E11, 0, -19);
-        Gfx.ring(g, cx, cy, 111, 112.5f, 0x14FFFFFF, 0x10FFFFFF);
+        // panou
+        Gfx.rrect(g, 0, 8, 300, 145, 16, 0x50000000);
+        Gfx.rrect(g, -1, -1, 302, 147, 15, 0x22FFFFFF);
+        Gfx.rrect(g, 0, 0, 300, 145, 14, 0xF0101A28, 0xF0070B12);
+        Gfx.line(g, 178, 16, 178, 129, 1f, 0x1FFFFFFF);
 
-        // gradatii + cifre
-        int minor = dialMax / 18;
-        for (int i = 0; i <= 18; i++) {
-            int val = i * minor;
-            float t = val / (float) dialMax;
-            double a = Math.toRadians(135 + 270.0 * t);
-            float c = (float) Math.cos(a);
-            float sn = (float) Math.sin(a);
-            boolean maj = i % 3 == 0;
-            boolean lit = t <= shownFrac + 0.001f;
-            float r0 = r - 10;
-            float r1 = r - (maj ? 17 : 13);
-            Gfx.line(g, cx + c * r0, cy + sn * r0, cx + c * r1, cy + sn * r1, maj ? 2f : 1.2f, lit ? 0xFFC9C7C0 : 0xFF4A4E57);
-            if (maj && i < 18) {
-                float tr = r - 28;
-                Gfx.text(g, String.valueOf(val), cx + c * tr, cy + sn * tr + 3.5f, 10, lit ? 0xFFD4D2CC : 0xFF5C606A, 1);
+        // arcul segmentat
+        float cx = 96;
+        float cy = 84;
+        float r = 66;
+        float span = 270f / SEGMENTS;
+        for (int i = 0; i < SEGMENTS; i++) {
+            float t = (i + 0.5f) / SEGMENTS;
+            float d0 = 135 + i * span + 1.6f;
+            float d1 = 135 + (i + 1) * span - 1.6f;
+            boolean lit = t <= shownFrac + 0.002f;
+            final int col = acc != 0 ? acc : Gfx.stops(t, SEG_POS, SEG_COL);
+            if (lit) {
+                Gfx.arc(g, cx, cy, r, 13, d0, d1, (x, y) -> col, 0.13f);
+                Gfx.arc(g, cx, cy, r, 7, d0, d1, (x, y) -> col, 1f);
+            } else {
+                Gfx.arc(g, cx, cy, r, 7, d0, d1, (x, y) -> OFF, 1f);
             }
         }
-
-        // arcul de viteza: sina + stralucire + umplere cu gradient
-        Gfx.arc(g, cx, cy, r, 10, 135, 405, (x, y) -> 0xFF262A31, 1f);
-        float end = 135 + 270 * shownFrac;
-        final int acc = ro.solarstudios.flowcity.client.ui.HudLayout.accent("speedo", 0);
-        Gfx.Paint paint = acc == 0 ? (x, y) -> Gfx.stops((x - (cx - r)) / (2 * r), STOP_POS, STOP_COL) : (x, y) -> acc;
-        if (shownFrac > 0.004f) {
-            Gfx.arc(g, cx, cy, r, 24, 135, end, paint, 0.10f);
-            Gfx.arc(g, cx, cy, r, 17, 135, end, paint, 0.18f);
-            Gfx.arc(g, cx, cy, r, 10, 135, end, paint, 1f);
+        // cifre in interiorul arcului
+        for (int i = 0; i <= 6; i++) {
+            float t = i / 6f;
+            double a = Math.toRadians(135 + 270.0 * t);
+            float tr = r - 15;
+            Gfx.text(g, String.valueOf(Math.round(dialMax * t)), cx + (float) Math.cos(a) * tr, cy + (float) Math.sin(a) * tr + 3f, 8f,
+                t <= shownFrac + 0.001f ? 0xFFC9D3E0 : 0xFF4A5666, 1);
         }
 
-        // motor
-        int dot = engine ? GREEN : 0xFF4A4D55;
-        if (engine) Gfx.disc(g, cx, 64, 7, 0x2E6DBE6F);
-        Gfx.disc(g, cx, 64, 3.5f, dot);
+        // lumini: motor + rezerva
+        Gfx.disc(g, cx - 14, 50, 3.5f, engine ? GREEN : 0xFF3A4350);
+        if (engine) Gfx.disc(g, cx - 14, 50, 6.5f, 0x2A6DBE6F);
+        Gfx.disc(g, cx + 14, 50, 3.5f, low ? (blink ? 0xFFFF6A5E : 0xFF8A2F2A) : 0xFF2A323D);
 
-        // viteza
-        Gfx.text(g, String.valueOf(Math.round(shownSpeed)), cx, 122, 58, 0xFFF4F1EA, 1, true, -1f);
-        Gfx.text(g, boost ? "BOOST" : "KM/H", cx, 140, 10.5f, boost ? Theme.ACCENT : 0xFF8E8C86, 1, false, 2.4f);
+        // viteza + treapta
+        Gfx.text(g, String.valueOf(Math.round(shownSpeed)), cx, 94, 44, 0xFFF4F7FB, 1, true, -1f);
+        Gfx.text(g, boost ? "BOOST" : "KM/H", cx, 108, 9, boost ? Theme.ACCENT : MUTED, 1, false, 2.4f);
+        Gfx.text(g, gear, cx, 131, 13, acc != 0 ? acc : 0xFF4DA3FF, 1, true, 0f);
 
-        // benzina + stare
-        float by = 138;
+        // chilometraj: cifre in casute
+        boolean has = odoFor == id;
+        Gfx.text(g, "ODOMETRU", 188, 29, 8.5f, MUTED, 0, false, 1.6f);
+        for (int i = 0; i < 7; i++) {
+            float bx = 188 + i * 14 + (i == 6 ? 5 : 0);
+            Gfx.rrect(g, bx, 35, 12, 18, 3, 0xFF141E2C, 0xFF0A1018);
+            Gfx.text(g, has ? odoDigits.substring(i, i + 1) : "-", bx + 6, 48.5f, 14, i == 6 ? 0xFF4DA3FF : 0xFFF4F7FB, 1);
+        }
+        Gfx.disc(g, 188 + 6 * 14 + 1.5f, 50.5f, 1.4f, 0xFF4DA3FF);
+        Gfx.text(g, "km", 290, 62, 8, MUTED, 2);
+
+        // trip
+        Gfx.text(g, "TRIP", 188, 78, 8.5f, MUTED, 0, false, 1.6f);
+        Gfx.text(g, has ? tripStr + " km" : "- km", 290, 79, 15, 0xFFF4F7FB, 2, true, 0f);
+
+        // combustibil + stare
+        float ry = 98;
         if (fuel) {
-            boolean low = f < 0.12f;
-            boolean blink = low && (now / 400) % 2 == 0;
             int col = low ? Theme.BAD : Theme.ACCENT;
-            int icon = blink ? 0xFFFF6A5E : col;
-            Gfx.rrect(g, 84, by + 11, 6, 9, 1.2f, icon);
-            Gfx.rrect(g, 85.3f, by + 12.3f, 3.4f, 2.6f, 0.6f, 0xFF15171B);
-            Gfx.line(g, 90, by + 13, 92.5f, by + 15, 1.4f, icon);
-            Gfx.line(g, 92.5f, by + 15, 92.5f, by + 19, 1.4f, icon);
-            Gfx.bar(g, 98, by + 14, 36, 4, f, 0xFF262A31, col);
-            Gfx.text(g, Math.round(f * 100) + "%", 139, by + 19, 10, blink ? 0xFFFF6A5E : 0xFFA19F98, 0);
-            by += 13;
+            Gfx.text(g, "COMB.", 188, ry + 5.5f, 8, blink ? 0xFFFF6A5E : MUTED, 0, false, 1.2f);
+            Gfx.bar(g, 222, ry + 1, 46, 5, f, OFF, col);
+            Gfx.text(g, Math.round(f * 100) + "%", 290, ry + 6, 8.5f, blink ? 0xFFFF6A5E : 0xFFB5BFCC, 2);
+            ry += 16;
         } else {
-            by += 6;
+            ry += 8;
         }
         int hc = hp < 0.3f ? Theme.BAD : GREEN;
-        float[] zz = {83, by + 19, 86, by + 16, 89, by + 19, 92, by + 16, 95, by + 19};
-        for (int i = 0; i + 3 < zz.length; i += 2) Gfx.line(g, zz[i], zz[i + 1], zz[i + 2], zz[i + 3], 1.6f, hc);
-        Gfx.bar(g, 98, by + 14, 36, 4, hp, 0xFF262A31, hc);
-        Gfx.text(g, Math.round(hp * 100) + "%", 139, by + 19, 10, hp < 0.3f ? Theme.BAD : 0xFFA19F98, 0);
+        Gfx.text(g, "STARE", 188, ry + 5.5f, 8, MUTED, 0, false, 1.2f);
+        Gfx.bar(g, 222, ry + 1, 46, 5, hp, OFF, hc);
+        Gfx.text(g, Math.round(hp * 100) + "%", 290, ry + 6, 8.5f, hp < 0.3f ? Theme.BAD : 0xFFB5BFCC, 2);
 
-        // nume + numar deasupra cadranului
+        // nume + numar deasupra panoului
         String name = v.getDisplayName().getString();
         if (name.length() > 24) name = name.substring(0, 23) + "...";
         float nw = Gfx.width(name, 13, false);
         float pw = pl.isEmpty() ? 0 : Gfx.width(pl, 11, false) + 0.66f * (pl.length() - 1) + 12;
         float tw = 24 + nw + (pl.isEmpty() ? 0 : 8 + pw);
-        float tx = cx - tw / 2;
+        float tx = 300 - tw;
         float ty = -37;
         Gfx.rrect(g, tx - 1, ty - 1, tw + 2, 29, 10, 0x12FFFFFF);
         Gfx.rrect(g, tx, ty, tw, 27, 9, 0xD10E0F12);
         Gfx.text(g, name, tx + 12, ty + 18.5f, 13, 0xFFEDEDEA, 0);
         if (!pl.isEmpty()) {
-            float px = tx + 12 + nw + 8;
-            Gfx.rrect(g, px, ty + 5.5f, pw, 16, 4, 0xFFF4F1EA);
-            Gfx.text(g, pl, px + 6, ty + 17.5f, 11, 0xFF14161A, 0, false, 0.66f);
+            float qx = tx + 12 + nw + 8;
+            Gfx.rrect(g, qx, ty + 5.5f, pw, 16, 4, 0xFFF4F1EA);
+            Gfx.text(g, pl, qx + 6, ty + 17.5f, 11, 0xFF14161A, 0, false, 0.66f);
         }
         g.pose().popPose();
         ro.solarstudios.flowcity.client.ui.HudLayout.end(g);

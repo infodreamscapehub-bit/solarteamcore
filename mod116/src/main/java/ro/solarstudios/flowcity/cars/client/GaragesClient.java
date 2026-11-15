@@ -165,6 +165,9 @@ public final class GaragesClient {
             case "plate":
                 CarHud.setPlate(o.has("id") ? o.get("id").getAsInt() : -1, o.has("plate") ? o.get("plate").getAsString() : "");
                 break;
+            case "odo":
+                CarHud.setOdo(JsonClientModule.integer(o, "eid", -1), JsonClientModule.num(o, "odo", 0), JsonClientModule.num(o, "trip", 0));
+                break;
             case "inspect":
                 if (mc.screen instanceof PoliceVehicleScreen) ((PoliceVehicleScreen) mc.screen).update(o);
                 else mc.setScreen(new PoliceVehicleScreen(o));
