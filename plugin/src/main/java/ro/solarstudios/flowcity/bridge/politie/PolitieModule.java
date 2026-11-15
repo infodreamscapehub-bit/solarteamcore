@@ -202,6 +202,7 @@ public final class PolitieModule extends JsonModule {
         MdtModule m = MdtModule.instance;
         JsonObject o = new JsonObject();
         o.addProperty("officer", officer(p));
+        o.addProperty("name", p.getName());
         o.add("fines", m == null ? new JsonArray() : m.unpaidFines(u));
         JsonObject docs = new JsonObject();
         docs.add("buletin", docJson(u, "buletin"));
