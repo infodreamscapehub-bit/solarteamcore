@@ -9,8 +9,8 @@ hud:
   luckperms:
     enabled: true
     mode: group
-    show-prefix: true   # prefixul din LuckPerms inainte de nume in HUD
-    show-suffix: true   # sufixul din LuckPerms dupa nume in HUD
+    show-prefix: false   # prefixul din LuckPerms inainte de nume in HUD
+    show-suffix: false   # sufixul din LuckPerms dupa nume in HUD
     name-format: "{prefix}{name}{suffix}"   # ordinea/locul prefixului si sufixului in nume
     colors: true   # pastreaza culorile (birdflop: &#RRGGBB, <gradient:..>, &x&r&r..., &l bold) si le deseneaza in HUD
   default-style: 1   # stilul implicit al HUD-ului din dreapta sus (1/2/3), folosit daca jucatorul n-a ales altul din editor (.hudstyle)
