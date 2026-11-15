@@ -80,7 +80,7 @@ public final class NotifyModule extends JsonModule implements Listener {
 
     /** Ca {@link #send(UUID, Type, String, String)}, cu un sunet propriu al modului (ex. "payday"); null = sunetul implicit al tipului. */
     public void send(UUID u, Type type, String title, String text, String sound) {
-        final String ti = clip(title, 40);
+        final String ti = ro.solarstudios.flowcity.bridge.core.SmallCaps.title(clip(title, 40));
         final String tx = clip(text, 160);
         if (ti.isEmpty()) return;
         final long ts = System.currentTimeMillis();

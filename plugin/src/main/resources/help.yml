@@ -1,0 +1,180 @@
+# FlowCity - /help (alias /ajutor, /?). Toate comenzile, pe categorii. Se reincarca cu: /help reload  (permisiunea flowcity.help.admin).
+#
+# smallcaps: true  -> titlurile si etichetele din /help (si titlurile notificarilor) apar in ꜱᴍᴀʟʟ ᴄᴀᴘꜱ.
+#                     Comutatorul e global: false opreste small caps si in notificari.
+# title            -> antetul listei (se converteste in small caps daca smallcaps: true).
+# page-size        -> cate comenzi pe pagina intr-o categorie.
+# categories:
+#   key      id-ul categoriei (/help <key>)
+#   title    numele afisat
+#   icon     simbol scurt in fata titlului
+#   color    culoarea de inceput (#RRGGBB, birdflop-style); "to" = culoarea de sfarsit pentru gradient (optional)
+#   commands lista de comenzi: usage (cum se scrie), desc (ce face), perm (permisiune; gol = oricine)
+#            Comenzile cu "perm" apar doar celor care o au (OP vede tot). Prefixul "." = comanda din chat a modului (client).
+smallcaps: true
+title: "FlowCity ajutor"
+subtitle: "Comenzile pe care le poți folosi. Click pe una ca s-o scrii în chat."
+page-size: 8
+footer-hint: "/help <categorie> [pagina]  ·  /help <comandă>"
+
+categories:
+  - key: bani
+    title: "Bani și plăți"
+    icon: "$"
+    color: "#F6C15A"
+    to: "#FF9A3C"
+    commands:
+      - {usage: "/banca", desc: "Deschide banca: cont, card, depuneri, retrageri și credite", perm: ""}
+      - {usage: "/banca depune <sumă>", desc: "Depui cash-ul în contul bancar", perm: ""}
+      - {usage: "/banca retrage <sumă>", desc: "Retragi bani din cont ca bancnote", perm: ""}
+      - {usage: "/banca credit <sumă>", desc: "Ceri un credit (se plătește în rate)", perm: ""}
+      - {usage: "/banca plateste", desc: "Plătești rata creditului", perm: ""}
+      - {usage: "/atm deposit <sumă>", desc: "Depui cash-ul în banca ta (la ATM)", perm: "flowcity.hype.atm"}
+      - {usage: "/atm withdraw <sumă>", desc: "Retragi bani ca bancnote în inventar", perm: "flowcity.hype.atm"}
+      - {usage: "/atm transfer <jucător> <sumă>", desc: "Trimiți bani altui jucător", perm: "flowcity.hype.atm"}
+      - {usage: "/payday", desc: "Salariul tău și în cât timp primești următorul PayDay (alias /salariu)", perm: ""}
+      - {usage: "/amenzi", desc: "Îți vezi și plătești amenzile (cash sau card)", perm: ""}
+
+  - key: joburi
+    title: "Joburi"
+    icon: "⚒"
+    color: "#5FDC8F"
+    to: "#2FD5D0"
+    commands:
+      - {usage: "/job", desc: "Deschide meniul de joburi", perm: "flowcity.hype.job"}
+      - {usage: "/job select <id>", desc: "Alegi un job", perm: "flowcity.hype.job"}
+      - {usage: "/job leave", desc: "Părăsești jobul curent", perm: "flowcity.hype.job"}
+      - {usage: "/roata", desc: "Roata norocului (o poți învârti periodic)", perm: "flowcity.hype.wheel"}
+
+  - key: personaj
+    title: "Personaj și HUD"
+    icon: "☻"
+    color: "#4DA3FF"
+    to: "#9B6BFF"
+    commands:
+      - {usage: "/id <jucător|număr>", desc: "Vezi ID-ul unui jucător", perm: ""}
+      - {usage: "/sete", desc: "Cât de sete îți e (0-100)", perm: ""}
+      - {usage: "/hud [fundal|craciun]", desc: "Pornește/oprește HUD-ul sau schimbă aspectul", perm: ""}
+      - {usage: "/hudeditor", desc: "Deschide editorul de HUD (mută, ascunde, schimbă mărimea). Merge și cu F8", perm: ""}
+      - {usage: ".hudstyle <1-3>", desc: "Schimbă stilul HUD-ului din dreapta sus (se scrie în chat, doar cu modul)", perm: ""}
+      - {usage: ".hudeditor", desc: "Deschide editorul de HUD din chat (doar cu modul)", perm: ""}
+      - {usage: ".trip", desc: "Resetează tripul mașinii pe care o conduci (doar cu modul)", perm: ""}
+      - {usage: "/notificari [sterge]", desc: "Istoricul notificărilor tale", perm: ""}
+
+  - key: telefon
+    title: "Telefon"
+    icon: "☎"
+    color: "#5FDC8F"
+    to: "#4DA3FF"
+    commands:
+      - {usage: "/telefon", desc: "Deschide telefonul (sau ține telefonul în inventar și apasă P)", perm: "flowcity.phone"}
+      - {usage: "/apel <jucător|ID|07xxxxxxxx|112>", desc: "Suni un jucător, un număr sau serviciul de urgență (alias /suna)", perm: "flowcity.phone"}
+      - {usage: "/raspunde", desc: "Răspunzi la apelul primit", perm: "flowcity.phone"}
+      - {usage: "/respinge", desc: "Respingi apelul primit", perm: "flowcity.phone"}
+      - {usage: "/inchide", desc: "Închizi apelul curent", perm: "flowcity.phone"}
+
+  - key: politie
+    title: "Poliție"
+    icon: "✪"
+    color: "#2F8CFF"
+    to: "#7CC4FF"
+    commands:
+      - {usage: "/politie", desc: "Ecranul Poliției: amenzi, documente, cazier, plângeri, mașinile mele, angajare", perm: ""}
+      - {usage: "/politie permis [categorii]", desc: "Ceri permisul de conducere", perm: ""}
+      - {usage: "/politie portarma", desc: "Ceri portul de armă (taxă + cazier curat)", perm: ""}
+      - {usage: "/politie cazier", desc: "Ceri certificatul de cazier judiciar", perm: ""}
+      - {usage: "/politie duplicat", desc: "Duplicat pentru permisul pierdut", perm: ""}
+      - {usage: "/politie masini", desc: "Lista mașinilor tale (stare, ITP, RCA)", perm: ""}
+      - {usage: "/politie plangere <text>", desc: "Depui o plângere sau sesizare", perm: ""}
+      - {usage: "/politie angajare", desc: "Cerere de angajare în Poliție", perm: ""}
+      - {usage: "/politie sesizari", desc: "Sesizările primite (ofițeri)", perm: "flowcity.politie.officer"}
+      - {usage: "/politie preia <id>", desc: "Preiei o sesizare (ofițeri)", perm: "flowcity.politie.officer"}
+      - {usage: "/politie arhiveaza <id>", desc: "Arhivezi o sesizare (ofițeri)", perm: "flowcity.politie.officer"}
+      - {usage: "/mdt", desc: "Tableta MDT a poliției: amenzi, căutări, cazier", perm: "flowcity.mdt.use"}
+
+  - key: acte
+    title: "Primărie și acte"
+    icon: "▤"
+    color: "#F4F1EA"
+    to: "#8E8C86"
+    commands:
+      - {usage: "/primarie", desc: "Primăria: faci buletinul, duplicat sau reînnoire", perm: ""}
+      - {usage: "/buletin", desc: "Îți arăți buletinul (carte de identitate de joc)", perm: ""}
+      - {usage: "/permis", desc: "Îți vezi permisul de conducere", perm: ""}
+      - {usage: "/portarma", desc: "Îți vezi portul de armă", perm: ""}
+      - {usage: "/arata <buletin|permis|portarma> [jucător]", desc: "Arăți un act jucătorului din fața ta sau celui ales", perm: ""}
+
+  - key: masini
+    title: "Mașini"
+    icon: "⚙"
+    color: "#FF8A3C"
+    to: "#E2453F"
+    commands:
+      - {usage: "/vindmasina <jucător> <preț>", desc: "Vinzi mașina din garaj altui jucător (taxă de tranzacție)", perm: ""}
+      - {usage: "/mecanic", desc: "Info mecanic: reparații, ITP și RCA (la NPC-ul mecanic)", perm: ""}
+
+  - key: case
+    title: "Case și chirii"
+    icon: "⌂"
+    color: "#9B6BFF"
+    to: "#FF6BB5"
+    commands:
+      - {usage: "/casa", desc: "Meniul caselor: ce deții, ce închiriezi", perm: ""}
+      - {usage: "/casa lista", desc: "Casele disponibile (preț, chirie)", perm: ""}
+      - {usage: "/casa cumpara [casă]", desc: "Cumperi casa unde te afli", perm: ""}
+      - {usage: "/casa inchiriaza [casă]", desc: "Închiriezi casa (chirie săptămânală)", perm: ""}
+      - {usage: "/casa vinde [casă]", desc: "Vinzi casa înapoi", perm: ""}
+      - {usage: "/casa tp [casă]", desc: "Te teleportezi la casa ta", perm: ""}
+      - {usage: "/casa coleg add <jucător> [casă]", desc: "Adaugi un coleg de casă", perm: ""}
+      - {usage: "/casa coleg remove <jucător> [casă]", desc: "Scoți un coleg de casă", perm: ""}
+
+  - key: taxi
+    title: "Taxi"
+    icon: "◆"
+    color: "#F6C15A"
+    to: "#FFE08A"
+    commands:
+      - {usage: "/taxi", desc: "Ecranul de taxi (cheamă un taxi, panoul șoferului)", perm: ""}
+      - {usage: "/taxi call [mesaj]", desc: "Cheamă un taxi la locația ta", perm: ""}
+      - {usage: "/taxi cancel", desc: "Anulează cererea de taxi", perm: ""}
+      - {usage: "/taxi duty [on|off]", desc: "Intri/ieși de la datorie ca taximetrist", perm: "flowcity.taxi.driver"}
+      - {usage: "/taxi accept <jucător>", desc: "Accepți o cerere de taxi", perm: "flowcity.taxi.driver"}
+      - {usage: "/taxi start | stop", desc: "Pornești / oprești cursa (taximetrul)", perm: "flowcity.taxi.driver"}
+      - {usage: "/taxi top", desc: "Clasamentul taximetriștilor", perm: ""}
+
+  - key: staff
+    title: "Staff"
+    icon: "★"
+    color: "#E2453F"
+    to: "#FF8A3C"
+    commands:
+      - {usage: "/dealer open <jucător>", desc: "Deschide dealerul auto pentru un jucător", perm: "flowcity.dealer.admin"}
+      - {usage: "/dealer stock [<vehicul> <număr>]", desc: "Vezi sau setezi stocul dealerului", perm: "flowcity.dealer.admin"}
+      - {usage: "/tuning open <jucător>", desc: "Deschide tuning-ul pentru un jucător", perm: "flowcity.dealer.admin"}
+      - {usage: "/mecanic open <jucător>", desc: "Deschide mecanicul pentru un jucător (NPC)", perm: "flowcity.mecanic.admin"}
+      - {usage: "/banca open <jucător>", desc: "Deschide banca pentru un jucător (NPC)", perm: "flowcity.bank.admin"}
+      - {usage: "/politie open <jucător>", desc: "Deschide ecranul Poliției (NPC)", perm: "flowcity.politie.admin"}
+      - {usage: "/primarie open <jucător>", desc: "Deschide Primăria pentru un jucător (NPC)", perm: "flowcity.hype.doc"}
+      - {usage: "/amenzi open <jucător>", desc: "Deschide amenzile unui jucător (NPC/ghișeu)", perm: "flowcity.fines.admin"}
+      - {usage: "/casa open <jucător>", desc: "Deschide casele pentru un jucător (NPC)", perm: "flowcity.houses.admin"}
+      - {usage: "/casa admin create <id> <preț> <chirie> [nume]", desc: "Creezi o casă din selecția pos1/pos2", perm: "flowcity.houses.admin"}
+      - {usage: "/casa admin <pos1|pos2|spawn|list|delete>", desc: "Administrare case", perm: "flowcity.houses.admin"}
+      - {usage: "/doc give <jucător> <tip> <nume> <prenume> <dd.MM.yyyy> <adresă>", desc: "Emiți un act", perm: "flowcity.hype.doc"}
+      - {usage: "/doc remove <jucător> <tip>", desc: "Retragi un act", perm: "flowcity.hype.doc"}
+      - {usage: "/doc categorii <jucător> <categorii>", desc: "Setezi categoriile permisului", perm: "flowcity.hype.doc"}
+      - {usage: "/shop open <jucător> <magazin>", desc: "Deschide un e-shop (arme, magazine, backpackuri)", perm: "flowcity.shop.admin"}
+      - {usage: "/shop reload", desc: "Reîncarcă shop.yml", perm: "flowcity.shop.admin"}
+      - {usage: "/notify <jucător|*> <tip> <titlu> [| text]", desc: "Trimite o notificare", perm: "flowcity.notify.admin"}
+      - {usage: "/cnn <categorie> <titlu> [| text]", desc: "Postează o știre", perm: "flowcity.hype.cnn"}
+      - {usage: "/setid <jucător> <număr> [swap]", desc: "Setează ID-ul unui jucător", perm: "flowcity.id.admin"}
+      - {usage: "/delid <jucător|#număr>", desc: "Șterge un ID", perm: "flowcity.id.admin"}
+      - {usage: "/listid", desc: "Lista ID-urilor", perm: "flowcity.id.list"}
+      - {usage: "/hype <atm|jobloc|delivery|reload>", desc: "Administrare ATM, joburi, livrări", perm: "flowcity.hype.admin"}
+      - {usage: "/roata reset <jucător>", desc: "Resetează roata unui jucător", perm: "flowcity.hype.admin"}
+      - {usage: "/payday reload", desc: "Reîncarcă payday.yml", perm: "flowcity.payday.admin"}
+      - {usage: "/telefon da [jucător]", desc: "Dai un telefon", perm: "flowcity.phone.give"}
+      - {usage: "/hudeditor <jucător>", desc: "Deschide editorul de HUD pentru alt jucător", perm: "flowcity.hudeditor.others"}
+      - {usage: "/lpsetup", desc: "Creează grupurile LuckPerms de roleplay (o singură dată)", perm: "flowcity.lpsetup"}
+      - {usage: "/help reload", desc: "Reîncarcă help.yml", perm: "flowcity.help.admin"}
+      - {usage: "/eadmin <info|warn|mute|kick|ban|...> <jucător>", desc: "Moderare", perm: "flowcity.eadmin"}
+      - {usage: "/flowcity <update|check|download>", desc: "Verifică și instalează actualizări", perm: "flowcity.update"}

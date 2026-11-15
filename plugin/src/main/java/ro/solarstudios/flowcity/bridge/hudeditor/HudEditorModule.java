@@ -35,6 +35,6 @@ public final class HudEditorModule extends JsonModule {
             }
             send(t, "open", new JsonObject());
             return true;
-        }, null, "hud");
+        }, null);
     }
 }

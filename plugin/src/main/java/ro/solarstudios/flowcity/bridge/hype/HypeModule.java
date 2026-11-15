@@ -341,9 +341,9 @@ public final class HypeModule extends JsonModule implements Listener {
         for (Map<?, ?> m : cfg.getMapList("hud.ranks")) {
             Object perm = m.get("perm");
             Object name = m.get("name");
-            if (perm != null && name != null && p.hasPermission(String.valueOf(perm))) return String.valueOf(name);
+            if (perm != null && name != null && p.hasPermission(String.valueOf(perm))) return ro.solarstudios.flowcity.bridge.core.SmallCaps.title(String.valueOf(name));
         }
-        return cfg.getString("hud.default-rank", "Jucator");
+        return ro.solarstudios.flowcity.bridge.core.SmallCaps.title(cfg.getString("hud.default-rank", "Jucator"));
     }
 
     private int levelOf(PlayerData d, String job) {
