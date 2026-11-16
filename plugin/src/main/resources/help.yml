@@ -172,6 +172,8 @@ categories:
       - {usage: "/hype <atm|jobloc|delivery|reload>", desc: "Administrare ATM, joburi, livrări", perm: "flowcity.hype.admin"}
       - {usage: "/roata reset <jucător>", desc: "Resetează roata unui jucător", perm: "flowcity.hype.admin"}
       - {usage: "/payday reload", desc: "Reîncarcă payday.yml", perm: "flowcity.payday.admin"}
+      - {usage: "/payday test [jucător]", desc: "Trimite doar notificarea PayDay de test (fără bani)", perm: "flowcity.payday.admin"}
+      - {usage: "/payday now [jucător]", desc: "Plătește PayDay-ul imediat unui jucător", perm: "flowcity.payday.admin"}
       - {usage: "/telefon da [jucător]", desc: "Dai un telefon", perm: "flowcity.phone.give"}
       - {usage: "/hudeditor <jucător>", desc: "Deschide editorul de HUD pentru alt jucător", perm: "flowcity.hudeditor.others"}
       - {usage: "/lpsetup", desc: "Creează grupurile LuckPerms de roleplay (o singură dată)", perm: "flowcity.lpsetup"}

@@ -34,6 +34,25 @@ public final class PaydayModule extends JsonModule {
                 s.sendMessage("§aPayDay reincarcat.");
                 return true;
             }
+            if (a.length >= 1 && ("test".equalsIgnoreCase(a[0]) || "now".equalsIgnoreCase(a[0])) && s.hasPermission("flowcity.payday.admin")) {
+                Player t = a.length >= 2 ? Bukkit.getPlayerExact(a[1]) : (s instanceof Player ? (Player) s : null);
+                if (t == null) {
+                    s.sendMessage("§cFolosire: /payday " + a[0] + " <jucator> (jucatorul trebuie sa fie online)");
+                    return true;
+                }
+                if ("now".equalsIgnoreCase(a[0])) {
+                    pay(t);
+                    s.sendMessage("§aPayDay platit acum lui " + t.getName() + ".");
+                } else {
+                    int g = salary(t);
+                    int tx = (int) Math.round(g * cfg.getDouble("tax-percent", 5) / 100.0);
+                    String txt = "TEST: ai primit salariul: +" + (g - tx) + " lei (brut " + g + ", impozit " + tx + ")";
+                    if (plugin.notifications() != null) plugin.notifications().send(t.getUniqueId(), ro.solarstudios.flowcity.bridge.notify.NotifyModule.Type.MONEY, "Primăria Flow City", txt, "payday");
+                    else t.sendMessage("§9§l[Primăria Flow City] §f" + txt);
+                    s.sendMessage("§aNotificare PayDay de test trimisa lui " + t.getName() + " (fara bani).");
+                }
+                return true;
+            }
             if (!(s instanceof Player)) return true;
             Player p = (Player) s;
             int interval = cfg.getInt("interval-minutes", 60);
