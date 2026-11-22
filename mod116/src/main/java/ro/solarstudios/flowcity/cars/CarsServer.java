@@ -974,7 +974,12 @@ public final class CarsServer {
                 data.setDirty();
                 return ok(c, "Markerul garajului a fost mutat aici.");
             })))
-            .then(Commands.literal("sterge").then(Commands.argument("id", IntegerArgumentType.integer(1)).executes(c -> {
+            .then(Commands.literal("sterge").then(Commands.literal("toate").executes(c -> {
+                GarageData data = GarageData.get(c.getSource().getServer());
+                List<GarageData.Garage> all = new java.util.ArrayList<>(data.garages());
+                for (GarageData.Garage g : all) data.removeGarage(g.id);
+                return ok(c, all.size() + " garaje sterse (masinile raman ale jucatorilor).");
+            })).then(Commands.argument("id", IntegerArgumentType.integer(1)).executes(c -> {
                 GarageData data = GarageData.get(c.getSource().getServer());
                 if (data.garage(IntegerArgumentType.getInteger(c, "id")) == null) return fail(c, "Garajul nu exista.");
                 data.removeGarage(IntegerArgumentType.getInteger(c, "id"));
