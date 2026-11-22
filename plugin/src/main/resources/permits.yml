@@ -1,0 +1,42 @@
+# FlowCity - permise (port-arma, vanatoare, licente). Se reincarca cu: /permis reload  (permisiunea flowcity.permits.admin)
+#
+# Cum functioneaza:
+#  - Un permis se cumpara din magazinul "permise" (shop.yml, intrari {permit: port_arma}) sau il da un politist cu /permis da <jucator> <id>.
+#  - Cand se acorda, jucatorul primeste permisiunea LuckPerms "<permission-prefix><id>" (ex: flowcity.permit.port_arma),
+#    iar evidenta ramane in permits-data.yml. Retragerea o scoate pe amandoua (/permis retrage <jucator> <id>).
+#  - Un articol din shop.yml poate cere permis:  {name: "AK-47", item: "tac:ak47", price: 9000, requires: port_arma}
+#    (sau o lista: requires: [port_arma, permis_vanatoare]). Verificarea se face pe server, nu doar in meniu.
+#  - /permise = permisele tale;  /permis lista [jucator]  /permis da <jucator> <id>  /permis retrage <jucator> <id>  (politisti)
+#
+# issue-permission: cine poate da/retrage permise. Pe langa aceasta, OP si flowcity.politie / flowcity.permits.admin pot.
+issue-permission: flowcity.politie.officer
+permission-prefix: flowcity.permit.
+# Comenzile rulate din consola la acordare / retragere (%player% = jucatorul, %perm% = permisiunea). Gol = nu ruleaza nimic.
+grant-command: "lp user %player% permission set %perm% true"
+revoke-command: "lp user %player% permission unset %perm%"
+
+# Fiecare permis:
+#   name       numele afisat
+#   price      pretul in magazinul "permise" (0 = nu se vinde, doar il da politia)
+#   desc       descriere scurta
+#   issued-by  cine il elibereaza (apare in mesajul "Ai nevoie de permis")
+#   icon       itemul din iconita (minecraft:... sau modid:item)
+permits:
+  port_arma:
+    name: "Port-arma"
+    price: 15000
+    desc: "Autorizatie de port si detinere arme de foc"
+    issued-by: "Politia FlowCity"
+    icon: "minecraft:iron_sword"
+  permis_vanatoare:
+    name: "Permis de vanatoare"
+    price: 6000
+    desc: "Permite cumpararea si folosirea armelor de vanatoare"
+    issued-by: "Politia FlowCity"
+    icon: "minecraft:bow"
+  licenta_afaceri:
+    name: "Licenta de afaceri"
+    price: 25000
+    desc: "Necesara pentru deschiderea unei afaceri"
+    issued-by: "Primaria FlowCity"
+    icon: "minecraft:writable_book"

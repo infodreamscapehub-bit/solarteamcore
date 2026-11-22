@@ -11,6 +11,10 @@ public final class ShopClient extends JsonClientModule {
 
     private ShopClient() {
         on("open", d -> Minecraft.getInstance().setScreen(new ShopScreen(d)));
+        on("state", d -> {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.screen instanceof ShopScreen) ((ShopScreen) mc.screen).state(d);
+        });
         on("result", d -> {
             Minecraft mc = Minecraft.getInstance();
             if (mc.screen instanceof ShopScreen) ((ShopScreen) mc.screen).result(bool(d, "ok", false), str(d, "msg", ""));

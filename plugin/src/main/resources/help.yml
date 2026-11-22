@@ -162,8 +162,13 @@ categories:
       - {usage: "/doc give <jucător> <tip> <nume> <prenume> <dd.MM.yyyy> <adresă>", desc: "Emiți un act", perm: "flowcity.hype.doc"}
       - {usage: "/doc remove <jucător> <tip>", desc: "Retragi un act", perm: "flowcity.hype.doc"}
       - {usage: "/doc categorii <jucător> <categorii>", desc: "Setezi categoriile permisului", perm: "flowcity.hype.doc"}
-      - {usage: "/shop open <jucător> <magazin>", desc: "Deschide un e-shop (arme, magazine, backpackuri)", perm: "flowcity.shop.admin"}
+      - {usage: "/shop open <jucător> <magazin>", desc: "Deschide un e-shop (arme, magazine, backpackuri, permise)", perm: "flowcity.shop.admin"}
       - {usage: "/shop reload", desc: "Reîncarcă shop.yml", perm: "flowcity.shop.admin"}
+      - {usage: "/permise", desc: "Vezi permisele tale (port-armă, vânătoare, licențe)", perm: ""}
+      - {usage: "/permis lista [jucător]", desc: "Permisele unui jucător (poliția)", perm: "flowcity.politie.officer"}
+      - {usage: "/permis da <jucător> <id>", desc: "Acorzi un permis (setează și flowcity.permit.<id>)", perm: "flowcity.politie.officer"}
+      - {usage: "/permis retrage <jucător> <id>", desc: "Retragi un permis", perm: "flowcity.politie.officer"}
+      - {usage: "/permis reload", desc: "Reîncarcă permits.yml", perm: "flowcity.permits.admin"}
       - {usage: "/notify <jucător|*> <tip> <titlu> [| text]", desc: "Trimite o notificare", perm: "flowcity.notify.admin"}
       - {usage: "/cnn <categorie> <titlu> [| text]", desc: "Postează o știre", perm: "flowcity.hype.cnn"}
       - {usage: "/setid <jucător> <număr> [swap]", desc: "Setează ID-ul unui jucător", perm: "flowcity.id.admin"}

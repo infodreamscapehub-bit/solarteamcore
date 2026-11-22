@@ -1,14 +1,19 @@
-# E-shop FlowCity. Se deschide de la un NPC (ZNPCs):
-#   /znpcs action add <idNpc> CONSOLE shop open %player% <magazin>
-# Exemple (cate un NPC pentru fiecare): ... shop open %player% arme | magazine | backpackuri
+# E-shop FlowCity. Se deschide de la un NPC Citizens (comanda se ruleaza din consola, <p> = jucatorul care da click):
+#   /npc command add shop open <p> <magazin> -c
+# (acelasi format ca la dealer/tuning). Magazine: arme, magazine, backpackuri, permise.
+#   De pe consola / command block: /shop open <jucator> <magazin>      Reincarcare: /shop reload
 #
 # Fiecare articol:
-#   name:    numele afisat
-#   item:    id-ul itemului (minecraft:iron_sword sau modid:item) - folosit pentru iconita si, daca nu ai "commands", pentru give
-#   price:   pretul per bucata
-#   amount:  cate bucati primesti la o cumparare (implicit 1)
-#   desc:    descriere scurta (optional)
+#   name:     numele afisat
+#   item:     id-ul itemului (minecraft:iron_sword sau modid:item) - folosit pentru iconita si, daca nu ai "commands", pentru give
+#   price:    pretul per bucata (RON)
+#   amount:   cate bucati primesti la o cumparare (implicit 1)
+#   desc:     descriere scurta (optional)
 #   commands: (optional) comenzi rulate din consola in loc de give; %player% = cumparatorul, %amount% = amount
+#   requires: (optional) permis necesar, ex: requires: port_arma  sau  requires: [port_arma, permis_vanatoare]
+#             Id-urile sunt din permits.yml. Verificat pe server; in meniu articolul apare gri, cu lacat.
+#   permit:   (optional) vinde un permis din permits.yml: {permit: port_arma} (numele, pretul si descrierea vin din permits.yml,
+#             dar le poti suprascrie aici cu name/price/desc)
 # Atentie: id-urile armelor depind de modul de arme instalat (verifica cu /give <nume> tab-complete).
 radius: 12          # cat de departe de NPC poti cumpara dupa ce deschizi magazinul
 shops:
@@ -17,16 +22,16 @@ shops:
     categories:
       - name: "Pistoale"
         items:
-          - {name: "M1911", item: "tac:m1911", price: 2500, desc: "Pistol clasic"}
-          - {name: "Glock 17", item: "tac:glock_17", price: 3000, desc: "Pistol 9mm"}
+          - {name: "M1911", item: "tac:m1911", price: 2500, desc: "Pistol clasic", requires: port_arma}
+          - {name: "Glock 17", item: "tac:glock_17", price: 3000, desc: "Pistol 9mm", requires: port_arma}
       - name: "Pusti"
         items:
-          - {name: "AK-47", item: "tac:ak47", price: 9000, desc: "Pusca de asalt"}
-          - {name: "M4A1", item: "tac:m4a1", price: 10000, desc: "Pusca de asalt"}
+          - {name: "AK-47", item: "tac:ak47", price: 9000, desc: "Pusca de asalt", requires: port_arma}
+          - {name: "M4A1", item: "tac:m4a1", price: 10000, desc: "Pusca de asalt", requires: port_arma}
       - name: "Munitie"
         items:
-          - {name: "Munitie 9mm", item: "tac:pistol_ammo", price: 5, amount: 30, desc: "30 buc"}
-          - {name: "Munitie 5.56", item: "tac:rifle_ammo", price: 8, amount: 30, desc: "30 buc"}
+          - {name: "Munitie 9mm", item: "tac:pistol_ammo", price: 5, amount: 30, desc: "30 buc", requires: port_arma}
+          - {name: "Munitie 5.56", item: "tac:rifle_ammo", price: 8, amount: 30, desc: "30 buc", requires: port_arma}
   magazine:
     title: "MAGAZIN"
     categories:
@@ -56,3 +61,12 @@ shops:
           - {name: "Filtru ridicare (item)", item: "usefulbackpacks:filter_item", price: 150, desc: "Ridica automat un item"}
           - {name: "Filtru ridicare (tag)", item: "usefulbackpacks:filter_tag", price: 150, desc: "Ridica automat dupa tag"}
           - {name: "Configurator filtre", item: "usefulbackpacks:filter_configurator", price: 300, desc: "Bloc pentru filtre"}
+  # Permise (preturile se schimba in permits.yml). Se leaga de un NPC la Primarie / Politie.
+  permise:
+    title: "PERMISE"
+    categories:
+      - name: "Permise"
+        items:
+          - {permit: port_arma}
+          - {permit: permis_vanatoare}
+          - {permit: licenta_afaceri}

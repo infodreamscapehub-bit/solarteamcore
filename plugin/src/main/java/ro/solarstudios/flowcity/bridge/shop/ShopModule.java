@@ -19,10 +19,11 @@ import org.bukkit.entity.Player;
 import ro.solarstudios.flowcity.bridge.core.Commands;
 import ro.solarstudios.flowcity.bridge.module.JsonModule;
 import ro.solarstudios.flowcity.bridge.pay.PayModule;
+import ro.solarstudios.flowcity.bridge.permits.PermitsModule;
 
 /**
- * E-shop (arme, orice): se deschide de la un NPC cu "shop open <jucator> <magazin>" (ZNPCs: CONSOLE). Continutul sta in
- * shop.yml. Plata trece prin PayModule (cash sau card), apoi itemele se dau cu "give" din consola (sau cu comenzile din
+ * E-shop (arme, orice): se deschide de la un NPC cu "shop open <jucator> <magazin>" (Citizens: /npc command add shop open <p> <magazin> -c). Continutul sta in
+ * shop.yml. Articolele pot cere permis ("requires: port_arma", verificat pe server) sau pot vinde un permis ("permit: port_arma", vezi PermitsModule). Plata trece prin PayModule (cash sau card), apoi itemele se dau cu "give" din consola (sau cu comenzile din
  * articol). Canal "shop": server -> client: open, result; client -> server: buy.
  */
 public final class ShopModule extends JsonModule {
@@ -33,6 +34,8 @@ public final class ShopModule extends JsonModule {
         int amount;
         String desc;
         List<String> commands = new ArrayList<>();
+        List<String> requires = new ArrayList<>();
+        String permit = "";
     }
 
     private static final class Cat {
@@ -87,7 +90,7 @@ public final class ShopModule extends JsonModule {
                 s.sendMessage("§aShop reincarcat: " + shops.keySet());
                 return true;
             }
-            s.sendMessage("§7Folosire: /shop open <jucator> <magazin> | /shop reload   (ZNPCs: CONSOLE shop open %player% <magazin>)  Magazine: " + shops.keySet());
+            s.sendMessage("§7Folosire: /shop open <jucator> <magazin> | /shop reload   (Citizens: /npc command add shop open <p> <magazin> -c)  Magazine: " + shops.keySet());
             return true;
         }, null);
     }
@@ -119,13 +122,34 @@ public final class ShopModule extends JsonModule {
                         if (!(o instanceof Map)) continue;
                         Map<?, ?> m = (Map<?, ?>) o;
                         Item it = new Item();
-                        it.name = String.valueOf(m.get("name"));
-                        it.item = m.get("item") == null ? "minecraft:stone" : String.valueOf(m.get("item"));
-                        it.price = m.get("price") instanceof Number ? ((Number) m.get("price")).doubleValue() : 0;
-                        it.amount = m.get("amount") instanceof Number ? Math.max(1, ((Number) m.get("amount")).intValue()) : 1;
-                        it.desc = m.get("desc") == null ? "" : String.valueOf(m.get("desc"));
-                        Object cmds = m.get("commands");
-                        if (cmds instanceof List) for (Object x : (List<?>) cmds) it.commands.add(String.valueOf(x));
+                        PermitsModule pm = PermitsModule.instance;
+                        if (m.get("permit") != null) {
+                            it.permit = PermitsModule.norm(String.valueOf(m.get("permit")));
+                            PermitsModule.Def d = pm == null ? null : pm.def(it.permit);
+                            if (d == null) {
+                                plugin.getLogger().warning("shop.yml: permis necunoscut '" + it.permit + "' (vezi permits.yml)");
+                                continue;
+                            }
+                            it.name = m.get("name") == null ? d.name : String.valueOf(m.get("name"));
+                            it.item = m.get("item") == null ? d.icon : String.valueOf(m.get("item"));
+                            it.price = m.get("price") instanceof Number ? ((Number) m.get("price")).doubleValue() : d.price;
+                            it.desc = m.get("desc") == null ? d.desc : String.valueOf(m.get("desc"));
+                            it.amount = 1;
+                        } else {
+                            it.name = String.valueOf(m.get("name"));
+                            it.item = m.get("item") == null ? "minecraft:stone" : String.valueOf(m.get("item"));
+                            it.price = m.get("price") instanceof Number ? ((Number) m.get("price")).doubleValue() : 0;
+                            it.amount = m.get("amount") instanceof Number ? Math.max(1, ((Number) m.get("amount")).intValue()) : 1;
+                            it.desc = m.get("desc") == null ? "" : String.valueOf(m.get("desc"));
+                            Object cmds = m.get("commands");
+                            if (cmds instanceof List) for (Object x : (List<?>) cmds) it.commands.add(String.valueOf(x));
+                        }
+                        Object rq = m.get("requires");
+                        if (rq instanceof List) {
+                            for (Object x : (List<?>) rq) it.requires.add(PermitsModule.norm(String.valueOf(x)));
+                        } else if (rq != null) {
+                            for (String x : String.valueOf(rq).split("[,; ]+")) if (!x.isEmpty()) it.requires.add(PermitsModule.norm(x));
+                        }
                         if (it.price > 0) c.items.add(it);
                     }
                 }
@@ -161,13 +185,59 @@ public final class ShopModule extends JsonModule {
                 io.addProperty("price", it.price);
                 io.addProperty("amount", it.amount);
                 io.addProperty("desc", it.desc);
+                if (!it.permit.isEmpty()) io.addProperty("permit", it.permit);
+                if (!it.requires.isEmpty()) {
+                    JsonArray rq = new JsonArray();
+                    JsonArray rn = new JsonArray();
+                    for (String r : it.requires) {
+                        rq.add(new com.google.gson.JsonPrimitive(r));
+                        rn.add(new com.google.gson.JsonPrimitive(permitName(r)));
+                    }
+                    io.add("req", rq);
+                    io.add("reqn", rn);
+                }
                 items.add(io);
             }
             co.add("items", items);
             cats.add(co);
         }
         o.add("cats", cats);
+        addState(p, o);
         send(p, "open", o);
+    }
+
+    private static String permitName(String id) {
+        PermitsModule pm = PermitsModule.instance;
+        return pm == null ? id : pm.nameOf(id);
+    }
+
+    /** Solduri (cash/card) si permisele jucatorului, pentru meniu. */
+    private void addState(Player p, JsonObject o) {
+        o.addProperty("cash", plugin.money().balance(p.getUniqueId()));
+        o.addProperty("bank", plugin.bank().balance(p.getUniqueId()));
+        JsonArray have = new JsonArray();
+        PermitsModule pm = PermitsModule.instance;
+        if (pm != null) for (String id : pm.held(p)) have.add(new com.google.gson.JsonPrimitive(id));
+        o.add("have", have);
+    }
+
+    private void sendState(Player p) {
+        JsonObject o = new JsonObject();
+        addState(p, o);
+        send(p, "state", o);
+    }
+
+    /** Motivul pentru care jucatorul nu poate cumpara articolul (permis lipsa / permis deja detinut) sau null. */
+    private String blocked(Player p, Item it) {
+        PermitsModule pm = PermitsModule.instance;
+        for (String r : it.requires) {
+            if (pm == null || !pm.has(p, r)) {
+                return "Ai nevoie de permisul \"" + permitName(r) + "\" ca sa cumperi asta. Il obtii de la " + (pm == null ? "Politie" : pm.issuerOf(r))
+                    + " sau din magazinul de permise.";
+            }
+        }
+        if (!it.permit.isEmpty() && pm != null && pm.has(p, it.permit)) return "Ai deja permisul \"" + permitName(it.permit) + "\".";
+        return null;
     }
 
     private void result(Player p, boolean ok, String msg) {
@@ -193,13 +263,33 @@ public final class ShopModule extends JsonModule {
             return;
         }
         final Item it = sh.cats.get(ci).items.get(ii);
-        final int q = qty;
+        final int q = it.permit.isEmpty() ? qty : 1;
+        String why = blocked(p, it);
+        if (why != null) {
+            result(p, false, why);
+            return;
+        }
         PayModule pay = PayModule.instance;
         if (pay == null) {
             result(p, false, "Plata indisponibila.");
             return;
         }
         pay.request(p, q + " x " + it.name, it.price * q, () -> {
+            // reverificare dupa plata (permisul se poate fi schimbat intre timp): banii se intorc daca nu mai e permis
+            String again = blocked(p, it);
+            if (again != null) {
+                result(p, false, again);
+                return false;
+            }
+            if (!it.permit.isEmpty()) {
+                if (PermitsModule.instance == null || !PermitsModule.instance.grant(p, it.permit, "magazin")) {
+                    result(p, false, "Permisul nu poate fi acordat acum.");
+                    return false;
+                }
+                result(p, true, "Ai obtinut permisul: " + it.name + ".");
+                sendState(p);
+                return true;
+            }
             if (it.commands.isEmpty() && it.item.contains(":") && !it.item.startsWith("minecraft:")) {
                 // item de mod: verificam ca exista (pe Arclight apare ca Material)
                 if (Material.matchMaterial(it.item.replace(':', '_').toUpperCase()) == null) {
@@ -218,6 +308,7 @@ public final class ShopModule extends JsonModule {
                 }
             }
             result(p, true, "Ai cumparat " + q + " x " + it.name + ".");
+            sendState(p);
             return true;
         }, msg -> result(p, false, msg));
     }
