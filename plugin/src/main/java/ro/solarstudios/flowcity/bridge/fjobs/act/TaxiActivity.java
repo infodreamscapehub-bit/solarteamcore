@@ -22,7 +22,7 @@ import ro.solarstudios.flowcity.bridge.fjobs.FJobDef;
  * cu penalizare daca pasagerul asteapta prea mult. Limita onesta: masina vine din Vehicle Mod si nu e detectata sigur ca vehicul Bukkit,
  * de aceea cerinta "sa fii intr-un vehicul" e optionala (require-vehicle: true in fjobs.yml).
  */
-public final class TaxiActivity extends BaseActivity<TaxiActivity.St> {
+public final class TaxiActivity extends BaseActivity<TaxiActivity.St> implements ShiftGate {
     static final class Offer {
         FJobDef.Point from;
         FJobDef.Point to;
@@ -43,6 +43,19 @@ public final class TaxiActivity extends BaseActivity<TaxiActivity.St> {
         Location last;
         long nextOffer;
         int doneShift;
+        // --- Vehicle Mod (server-side) ---
+        java.util.UUID veh;           // vehiculul cu care s-a urcat pasagerul (distanta se numara doar cu el)
+        java.util.UUID rider;         // pasager real (jucator) asezat in acelasi vehicul, daca exista
+        long riderGoneSince;
+        boolean riderLeft;
+        long lastTick;
+        double speed;                 // m/s, ultima secunda
+        double speedMax;
+        int crashes;                  // franari/impacturi bruste in cursa
+        int rejected;                 // pasi respinsi (teleport / viteza imposibila / alt vehicul)
+        java.util.UUID markVeh;
+        String markOrig;
+        boolean marked;
     }
 
     private static final String[] WHO = {"Dl. Popescu", "Doamna Ionescu", "Un turist", "Studentul Andrei", "Doamna Elena", "Dl. Marin", "Ioana", "Un om de afaceri",
@@ -85,11 +98,13 @@ public final class TaxiActivity extends BaseActivity<TaxiActivity.St> {
     @Override
     protected void onEnd(Player p, FJobDef jd, St s) {
         removePassenger(s);
+        unmarkVehicle(s);
     }
 
     @Override
     protected void onQuit(Player p, St s) {
         removePassenger(s);
+        unmarkVehicle(s);
     }
 
     private void removePassenger(St s) {
@@ -105,8 +120,61 @@ public final class TaxiActivity extends BaseActivity<TaxiActivity.St> {
         return s.cur != null;
     }
 
+    /** Mod Vehicle Mod: soferul trebuie sa fie in vehicul MrCrayfish (verificat pe server). Oprit cu "vehicle-mod: false". */
+    private boolean vehMode(FJobDef jd) {
+        return jd.cb("vehicle-mod", true);
+    }
+
     private boolean vehicleOk(Player p, FJobDef jd) {
+        if (vehMode(jd)) return VehicleLink.drivenBy(p) != null;
         return !jd.cb("require-vehicle", false) || p.isInsideVehicle();
+    }
+
+    private void cfgVehicle(FJobDef jd) {
+        if (jd.conf != null) VehicleLink.configure(jd.conf.getStringList("vehicle-classes"), jd.conf.getStringList("vehicle-namespaces"));
+    }
+
+    @Override
+    public String canStart(Player p, FJobDef jd) {
+        cfgVehicle(jd);
+        if (vehMode(jd) && VehicleLink.drivenBy(p) == null) {
+            return VehicleLink.modVehicle(p) != null
+                ? "Trebuie sa fii SOFERUL vehiculului (locul din fata), nu pasager, ca sa incepi tura de taxi."
+                : "Pentru tura de taxi trebuie sa conduci un vehicul din Vehicle Mod. Urca-te la volan si porneste tura din nou.";
+        }
+        return null;
+    }
+
+    private void markVehicle(FJobDef jd, St s, org.bukkit.entity.Entity v) {
+        if (!jd.cb("marker", false)) return;
+        try {
+            if (s.marked && v != null && v.getUniqueId().equals(s.markVeh)) return;
+            unmarkVehicle(s);
+            if (v == null) return;
+            s.markVeh = v.getUniqueId();
+            s.markOrig = v.getCustomName();
+            v.setCustomName(jd.cs("marker-text", "§e[TAXI]"));
+            v.setCustomNameVisible(true);
+            s.marked = true;
+        } catch (RuntimeException ignored) {
+            s.marked = false;
+        }
+    }
+
+    private void unmarkVehicle(St s) {
+        if (!s.marked) return;
+        s.marked = false;
+        try {
+            org.bukkit.entity.Entity v = s.markVeh == null ? null : org.bukkit.Bukkit.getEntity(s.markVeh);
+            if (v != null) {
+                v.setCustomName(s.markOrig);
+                v.setCustomNameVisible(s.markOrig != null);
+            }
+        } catch (RuntimeException ignored) {
+            // vehicul descarcat
+        }
+        s.markVeh = null;
+        s.markOrig = null;
     }
 
     private void makeOffers(Player p, FJobDef jd, St s, long now) {
@@ -136,12 +204,23 @@ public final class TaxiActivity extends BaseActivity<TaxiActivity.St> {
 
     private void accept(Player p, FJobDef jd, St s, int idx) {
         if (s.cur != null || idx < 0 || idx >= s.offers.size()) return;
+        if (!vehicleOk(p, jd)) {
+            api.toast(p, jd.name, vehMode(jd) ? "Accepti comenzi doar ca sofer intr-un vehicul Vehicle Mod." : "Trebuie sa fii intr-un vehicul.");
+            return;
+        }
         Offer o = s.offers.remove(idx);
         s.cur = o;
         s.stage = 0;
         s.acceptedAt = System.currentTimeMillis();
         s.traveled = 0;
         s.last = p.getLocation();
+        s.rider = null;
+        s.riderLeft = false;
+        s.riderGoneSince = 0;
+        s.crashes = 0;
+        s.rejected = 0;
+        s.speed = 0;
+        s.speedMax = 0;
         World w = org.bukkit.Bukkit.getWorld(o.from.world);
         if (w != null) {
             Location at = new Location(w, o.from.x, o.from.y, o.from.z);
@@ -163,6 +242,9 @@ public final class TaxiActivity extends BaseActivity<TaxiActivity.St> {
 
     @Override
     protected void tickJob(Player p, FJobDef jd, St s, long now) {
+        long dtMs = s.lastTick == 0 ? 1000 : Math.max(200, Math.min(5000, now - s.lastTick));
+        s.lastTick = now;
+        if (vehMode(jd)) markVehicle(jd, s, VehicleLink.drivenBy(p));
         makeOffers(p, jd, s, now);
         if (s.cur == null) {
             mark(p, pts(jd, "stand"), "END_ROD", 40);
@@ -175,8 +257,21 @@ public final class TaxiActivity extends BaseActivity<TaxiActivity.St> {
             if (near && vehicleOk(p, jd)) {
                 if (s.nearSince == 0) s.nearSince = now;
                 Fx.bar(p, "§eSe urca pasagerul...");
-                if (now - s.nearSince >= jd.cd("board-seconds", 2) * 1000) {
+                org.bukkit.entity.Entity dv = vehMode(jd) ? VehicleLink.drivenBy(p) : null;
+                Player rp = dv == null ? null : VehicleLink.otherPlayer(dv, p);
+                boolean needReal = jd.cb("require-real-passenger", false);
+                if (needReal && rp == null) {
+                    Fx.bar(p, "§eAsteptam un pasager real in vehicul...");
+                } else if (now - s.nearSince >= jd.cd("board-seconds", 2) * 1000) {
                     if (pe != null) pe.remove();
+                    s.veh = dv == null ? null : dv.getUniqueId();
+                    s.rider = rp == null ? null : rp.getUniqueId();
+                    s.riderLeft = false;
+                    s.riderGoneSince = 0;
+                    s.crashes = 0;
+                    s.rejected = 0;
+                    s.speed = 0;
+                    s.speedMax = 0;
                     s.passenger = null;
                     s.stage = 1;
                     s.boardedAt = now;
@@ -185,7 +280,7 @@ public final class TaxiActivity extends BaseActivity<TaxiActivity.St> {
                     s.nearSince = 0;
                     api.gps(p, o.to);
                     Fx.sound(p, "ENTITY_VILLAGER_YES", 0.8f, 1f);
-                    api.toast(p, jd.name, o.who + " a urcat. Du-l la " + o.to.name + ".");
+                    api.toast(p, jd.name, (rp != null ? rp.getName() : o.who) + " a urcat. Du-l la " + o.to.name + ".");
                     api.refreshPanel(p);
                 }
             } else {
@@ -202,15 +297,59 @@ public final class TaxiActivity extends BaseActivity<TaxiActivity.St> {
             }
             return;
         }
-        // in cursa: aparatul numara doar deplasarea plauzibila
+        // in cursa: aparatul numara doar deplasarea plauzibila, cu acelasi vehicul si ca sofer
         Location cur = p.getLocation();
-        if (s.last != null && s.last.getWorld() == cur.getWorld() && vehicleOk(p, jd)) {
+        double dt = dtMs / 1000.0;
+        org.bukkit.entity.Entity dv = vehMode(jd) ? VehicleLink.drivenBy(p) : null;
+        boolean drvOk = !vehMode(jd) || dv != null;
+        boolean sameVeh = !vehMode(jd) || (dv != null && dv.getUniqueId().equals(s.veh));
+        double spd = 0;
+        if (s.last != null && s.last.getWorld() == cur.getWorld() && drvOk) {
             double dx = cur.getX() - s.last.getX();
             double dz = cur.getZ() - s.last.getZ();
             double step = Math.sqrt(dx * dx + dz * dz);
-            if (step <= jd.cd("max-speed", 40) * 1.2) s.traveled += step;
+            double maxSpd = jd.cd("max-speed", 40);
+            if (step <= maxSpd * 1.2 * Math.max(1.0, dt) && sameVeh) {
+                s.traveled += step;
+                spd = step / dt;
+            } else {
+                s.rejected++;
+            }
         }
+        double crashMin = jd.cd("crash-min-speed", 6);
+        double crashDrop = jd.cd("crash-drop", 0.65);
+        if (s.speed >= crashMin && spd < s.speed * (1 - crashDrop) && !near(p, o.to, jd.cd("dropoff-radius", 6) + 12)) {
+            s.crashes++;
+            Fx.bar(p, "§cFranare/impact brusc! Bonusul de condus curat se pierde.");
+        }
+        s.speed = spd;
+        s.speedMax = Math.max(s.speedMax, spd);
         s.last = cur;
+        if (vehMode(jd) && dv == null && s.rejected > 0 && now % 5000 < 1000) Fx.bar(p, "§cTaximetrul nu numara: conduci alt vehicul sau nu esti la volan.");
+        // pasagerul real: daca coboara inainte de destinatie, plata scade (sau cursa se anuleaza dupa mult timp)
+        if (s.rider != null) {
+            Player rp = org.bukkit.Bukkit.getPlayer(s.rider);
+            org.bukkit.entity.Entity rv = rp == null ? null : VehicleLink.vehicleOf(rp);
+            boolean seated = rv != null && s.veh != null && rv.getUniqueId().equals(s.veh);
+            if (seated) {
+                s.riderGoneSince = 0;
+            } else if (!near(p, o.to, jd.cd("dropoff-radius", 6) + 6)) {
+                if (s.riderGoneSince == 0) s.riderGoneSince = now;
+                long gone = now - s.riderGoneSince;
+                if (!s.riderLeft && gone > jd.cd("leave-grace-seconds", 8) * 1000) {
+                    s.riderLeft = true;
+                    api.toast(p, jd.name, "Pasagerul a coborat din vehicul! Plata scade.");
+                }
+                if (gone > jd.cd("leave-abort-seconds", 60) * 1000) {
+                    api.toast(p, jd.name, "Pasagerul a parasit cursa. Cursa a fost anulata, fara plata.");
+                    s.cur = null;
+                    s.rider = null;
+                    s.nextOffer = now + 6000;
+                    api.refreshPanel(p);
+                    return;
+                }
+            }
+        }
         if (near(p, o.to, jd.cd("dropoff-radius", 6)) && vehicleOk(p, jd)) finish(p, jd, s, now);
     }
 
@@ -227,6 +366,19 @@ public final class TaxiActivity extends BaseActivity<TaxiActivity.St> {
         }
         double meter = Math.min(s.traveled, o.straight * jd.cd("max-route-ratio", 1.6));
         double fare = jd.cd("start-fare", 8) + jd.cd("per-100m", 6) * (meter / 100.0);
+        double secRide = Math.max(1, (now - s.boardedAt) / 1000.0);
+        double avg = s.traveled / secRide;
+        String bonusNote = "";
+        if (vehMode(jd)) {
+            if (s.crashes == 0 && jd.cd("clean-bonus", 0.10) > 0) {
+                fare *= 1 + jd.cd("clean-bonus", 0.10);
+                bonusNote += " (+condus curat)";
+            }
+            if (avg >= jd.cd("bonus-avg-speed", 9) && s.crashes <= 1 && jd.cd("speed-bonus", 0.08) > 0) {
+                fare *= 1 + jd.cd("speed-bonus", 0.08);
+                bonusNote += " (+viteza medie " + Math.round(avg * 3.6) + " km/h)";
+            }
+        }
         double expectSec = o.straight / Math.max(1, jd.cd("expected-speed", 11));
         double sec = (now - s.boardedAt) / 1000.0;
         double q = 1.0;
@@ -238,6 +390,12 @@ public final class TaxiActivity extends BaseActivity<TaxiActivity.St> {
             q = 1.0 + jd.cd("fast-tip", 0.15);
             note = " (+bacsis)";
         }
+        if (s.riderLeft) {
+            q *= jd.cd("leave-penalty", 0.5);
+            note += " (pasagerul a coborat devreme)";
+        }
+        note += bonusNote;
+        s.rider = null;
         double pay = payQ(p, jd, fare, Math.round(jd.cd("xp", 8)), d, q, true);
         s.doneShift++;
         api.addCounter(p, "taxi.rides", 1);
@@ -280,7 +438,8 @@ public final class TaxiActivity extends BaseActivity<TaxiActivity.St> {
         }
         lines.add("Pasager: " + s.cur.who);
         lines.add("Spre: " + s.cur.to.name + " (" + Math.round(dist(p, s.cur.to)) + " m)");
-        lines.add("Aparat: " + Math.round(s.traveled) + " m  |  " + money(jd.cd("start-fare", 8) + jd.cd("per-100m", 6) * s.traveled / 100.0));
+        lines.add("Taximetru: " + Math.round(s.traveled) + " m  |  " + money(jd.cd("start-fare", 8) + jd.cd("per-100m", 6) * s.traveled / 100.0));
+        if (vehMode(jd)) lines.add(Math.round(s.speed * 3.6) + " km/h (max " + Math.round(s.speedMax * 3.6) + ")  |  " + (s.crashes == 0 ? "condus curat" : s.crashes + " impacte") + (s.riderLeft ? "  |  pasager plecat" : ""));
         return Math.max(0, Math.min(1.0, 1.0 - dist(p, s.cur.to) / Math.max(1, s.cur.straight)));
     }
 
@@ -303,7 +462,8 @@ public final class TaxiActivity extends BaseActivity<TaxiActivity.St> {
         }
         pn.stat("Curse", String.valueOf(api.counter(p, "taxi.rides")));
         pn.stat("Distanta totala", api.counter(p, "taxi.meters") + " m");
-        pn.stat("Cerinta vehicul", jd.cb("require-vehicle", false) ? "da" : "nu");
+        pn.stat("Cerinta vehicul", vehMode(jd) ? "Vehicle Mod, sofer" : jd.cb("require-vehicle", false) ? "da" : "nu");
+        if (vehMode(jd)) pn.stat("Vehicul detectat", VehicleLink.drivenBy(p) != null ? "da" : "nu esti la volan");
         pn.btn("gps", "Navigheaza", s.cur != null);
         pn.btn("cancel", "Anuleaza cursa", s.cur != null && s.stage == 0);
         pn.reward("Pornire " + money(jd.cd("start-fare", 8)) + " + " + money(jd.cd("per-100m", 6)) + " / 100 m parcursi");

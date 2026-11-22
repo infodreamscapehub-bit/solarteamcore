@@ -11,6 +11,12 @@
 # -> Administrare -> job -> "Adauga punct aici".
 # ===========================================================================
 settings:
+  gear:
+    starter-kit: true          # la prima tura a unui job primesti gratuit piesele cu 'starter'
+    require-to-start: true     # fara echipamentul 'required' nu incepi tura
+    missing-required-pay: 0.5  # daca il pierzi in tura, plata se inmulteste cu aceasta valoare
+    max-bonus: 0.6             # plafon total al bonusurilor de echipament (0.6 = +60%)
+    remove-on-end: false       # true = itemele se sterg la sfarsitul turei (cu 'refund' per item)
   xp-base: 100               # XP pentru nivelul 1 -> 2 al unui job
   xp-growth: 1.35
   max-level: 50
@@ -42,6 +48,29 @@ jobs:
   # ---------------------------- CIVILE: activitate cu reguli (functionale) ----------------------------
   miner:
     name: "Miner"
+    gear:   # echipament real (iteme cu eticheta PDC). Chei: name desc material price pack max starter uses required consumable consume(pay|mission) soulbound remove-on-end bonus-pay bonus-xp min-level refund enabled glow enchants
+      pickaxe:
+        name: "Tarnacop de miner"
+        desc: "Obligatoriu. Se uzeaza treptat."
+        material: "IRON_PICKAXE"
+        price: 150
+        starter: 1
+        uses: 400
+        required: true
+      helmet:
+        name: "Casca de miner"
+        desc: "Protectie: +5% plata."
+        material: "LEATHER_HELMET"
+        price: 90
+        soulbound: true
+        bonus-pay: 0.05
+      lantern:
+        name: "Lanterna de mina"
+        desc: "+8% XP. Nivel 3."
+        material: "LANTERN"
+        price: 120
+        min-level: 3
+        bonus-xp: 0.08
     icon: pickaxe
     group: "Resurse"
     desc: "Zone de minerit, spaca potrivita per minereu, resurse predate la depozit, contracte de colectare."
@@ -78,6 +107,32 @@ jobs:
     #   depot: [{name: "Depozit minereu", world: world, x: 280, y: 64, z: -90}]
   lumberjack:
     name: "Taietor de lemne"
+    gear:   # echipament real (iteme cu eticheta PDC). Chei: name desc material price pack max starter uses required consumable consume(pay|mission) soulbound remove-on-end bonus-pay bonus-xp min-level refund enabled glow enchants
+      axe:
+        name: "Topor de padurar"
+        desc: "Obligatoriu. Se uzeaza treptat."
+        material: "IRON_AXE"
+        price: 140
+        starter: 1
+        uses: 400
+        required: true
+      helmet:
+        name: "Casca forestiera"
+        desc: "+5% plata."
+        material: "LEATHER_HELMET"
+        price: 80
+        soulbound: true
+        bonus-pay: 0.05
+      oil:
+        name: "Ulei pentru fierastrau"
+        desc: "Consumabil: +10% plata la fiecare plata."
+        material: "GLASS_BOTTLE"
+        price: 40
+        pack: 5
+        max: 20
+        consumable: true
+        consume: "pay"
+        bonus-pay: 0.1
     icon: axe
     group: "Resurse"
     desc: "Identifici copaci naturali in padure, ii tai intregi cu securea, duci lemnul la depozit; contracte pe specie."
@@ -115,6 +170,32 @@ jobs:
     #   depot:  [{name: "Depozit lemn", world: world, x: -150, y: 64, z: 100}]
   fisher:
     name: "Pescar"
+    gear:   # echipament real (iteme cu eticheta PDC). Chei: name desc material price pack max starter uses required consumable consume(pay|mission) soulbound remove-on-end bonus-pay bonus-xp min-level refund enabled glow enchants
+      rod:
+        name: "Lanseta profesionala"
+        desc: "Obligatorie. Se uzeaza treptat."
+        material: "FISHING_ROD"
+        price: 120
+        starter: 1
+        uses: 300
+        required: true
+      bait:
+        name: "Momeala"
+        desc: "Consumabil: +12% plata."
+        material: "WHEAT_SEEDS"
+        price: 40
+        pack: 16
+        max: 64
+        consumable: true
+        consume: "pay"
+        bonus-pay: 0.12
+      vest:
+        name: "Vesta de pescar"
+        desc: "+6% XP."
+        material: "LEATHER_CHESTPLATE"
+        price: 100
+        soulbound: true
+        bonus-xp: 0.06
     icon: fish
     group: "Resurse"
     desc: "Sistem de capturi: specii dupa apa/ora/nivel/undita, pesti care pot scapa, cos cu limita, vanzare la piata."
@@ -149,6 +230,32 @@ jobs:
     #   spot:   [{name: "Lac - ponton", world: world, x: 40, y: 63, z: 20}]
   farmer:
     name: "Fermier"
+    gear:   # echipament real (iteme cu eticheta PDC). Chei: name desc material price pack max starter uses required consumable consume(pay|mission) soulbound remove-on-end bonus-pay bonus-xp min-level refund enabled glow enchants
+      hoe:
+        name: "Sapa de fermier"
+        desc: "Obligatorie. Se uzeaza treptat."
+        material: "IRON_HOE"
+        price: 110
+        starter: 1
+        uses: 300
+        required: true
+      seeds:
+        name: "Seminte selectate"
+        desc: "Consumabil: +10% plata la recoltare."
+        material: "WHEAT_SEEDS"
+        price: 30
+        pack: 16
+        max: 64
+        consumable: true
+        consume: "mission"
+        bonus-pay: 0.1
+      hat:
+        name: "Palarie de fermier"
+        desc: "+5% plata."
+        material: "LEATHER_HELMET"
+        price: 60
+        soulbound: true
+        bonus-pay: 0.05
     icon: wheat
     group: "Resurse"
     desc: "Planteaza, uda cu galeata, recolteaza culturi mature in loturi si vinde la piata (calitate + transport)."
@@ -188,6 +295,31 @@ jobs:
     #   market: [{name: "Piata", world: world, x: 0, y: 64, z: 0}]
   garbage:
     name: "Gunoier"
+    gear:   # echipament real (iteme cu eticheta PDC). Chei: name desc material price pack max starter uses required consumable consume(pay|mission) soulbound remove-on-end bonus-pay bonus-xp min-level refund enabled glow enchants
+      vest:
+        name: "Salopeta reflectorizanta"
+        desc: "Obligatorie pentru tura."
+        material: "LEATHER_LEGGINGS"
+        price: 60
+        starter: 1
+        required: true
+        soulbound: true
+      bags:
+        name: "Saci de gunoi"
+        desc: "Consumabil: +8% plata per misiune."
+        material: "BLACK_DYE"
+        price: 30
+        pack: 10
+        max: 40
+        consumable: true
+        consume: "mission"
+        bonus-pay: 0.08
+      grabber:
+        name: "Clesti de colectat"
+        desc: "+8% XP."
+        material: "STICK"
+        price: 70
+        bonus-xp: 0.08
     icon: trash
     group: "Servicii"
     desc: "Rute predefinite: aduni sacii din containere, ridici containerele grele, incarci camionul si descarci la depozit."
@@ -223,6 +355,31 @@ jobs:
     #   depot: [{name: "Depozit", world: world, x: 50, y: 64, z: 50}]
   builder:
     name: "Constructor"
+    gear:   # echipament real (iteme cu eticheta PDC). Chei: name desc material price pack max starter uses required consumable consume(pay|mission) soulbound remove-on-end bonus-pay bonus-xp min-level refund enabled glow enchants
+      helmet:
+        name: "Casca de santier"
+        desc: "Obligatorie pentru tura."
+        material: "LEATHER_HELMET"
+        price: 70
+        starter: 1
+        required: true
+        soulbound: true
+      tape:
+        name: "Ruleta de masurat"
+        desc: "+6% plata."
+        material: "CLOCK"
+        price: 110
+        bonus-pay: 0.06
+      mortar:
+        name: "Mortar"
+        desc: "Consumabil: +10% plata per misiune."
+        material: "CLAY_BALL"
+        price: 40
+        pack: 8
+        max: 32
+        consumable: true
+        consume: "mission"
+        bonus-pay: 0.1
     icon: hammer
     group: "Constructii"
     desc: "Misiuni la santiere: iei materiale marcate, construiesti sau repari, primesti bonus de finalizare."
@@ -416,6 +573,31 @@ jobs:
   # ---------------------------- CIVILE: livrari (functionale dupa ce adminul seteaza punctele) ----------------------------
   courier:
     name: "Curier"
+    gear:   # echipament real (iteme cu eticheta PDC). Chei: name desc material price pack max starter uses required consumable consume(pay|mission) soulbound remove-on-end bonus-pay bonus-xp min-level refund enabled glow enchants
+      bag:
+        name: "Rucsac de curier"
+        desc: "Obligatoriu pentru tura."
+        material: "LEATHER_CHESTPLATE"
+        price: 80
+        starter: 1
+        required: true
+        soulbound: true
+      tape:
+        name: "Banda adeziva"
+        desc: "Consumabil: +8% plata per livrare."
+        material: "STRING"
+        price: 30
+        pack: 10
+        max: 40
+        consumable: true
+        consume: "mission"
+        bonus-pay: 0.08
+      phone:
+        name: "Suport de telefon"
+        desc: "+6% XP."
+        material: "COMPARATOR"
+        price: 90
+        bonus-xp: 0.06
     icon: box
     group: "Transport"
     desc: "Ridici colete fizice de la depozit, le duci la adrese diferite si verifici destinatarul. Cronometru optional cu bonus de livrare rapida."
@@ -447,6 +629,25 @@ jobs:
     #   address: [{name: "Str. Florilor 12", world: world, x: 120, y: 64, z: 30}]       # minim 2 adrese
   food_delivery:
     name: "Livrator de mancare"
+    gear:   # echipament real (iteme cu eticheta PDC). Chei: name desc material price pack max starter uses required consumable consume(pay|mission) soulbound remove-on-end bonus-pay bonus-xp min-level refund enabled glow enchants
+      bag:
+        name: "Geanta termica"
+        desc: "Obligatorie pentru tura."
+        material: "CHEST"
+        price: 70
+        starter: 1
+        required: true
+        soulbound: true
+      wraps:
+        name: "Pungi de livrare"
+        desc: "Consumabil: +8% plata per livrare."
+        material: "PAPER"
+        price: 25
+        pack: 10
+        max: 40
+        consumable: true
+        consume: "mission"
+        bonus-pay: 0.08
     icon: pizza
     group: "Transport"
     desc: "Ia comanda de la restaurant si o duci clientului cat mai repede."
@@ -458,6 +659,31 @@ jobs:
     delivery: {item: "comanda", radius: 4, base-pay: 8, per-100m: 4, xp: 5, max-speed: 30}
   postman:
     name: "Postas"
+    gear:   # echipament real (iteme cu eticheta PDC). Chei: name desc material price pack max starter uses required consumable consume(pay|mission) soulbound remove-on-end bonus-pay bonus-xp min-level refund enabled glow enchants
+      bag:
+        name: "Geanta postala"
+        desc: "Obligatorie pentru tura."
+        material: "LEATHER_CHESTPLATE"
+        price: 70
+        starter: 1
+        required: true
+        soulbound: true
+      stamp:
+        name: "Stampila postala"
+        desc: "+8% XP."
+        material: "NAME_TAG"
+        price: 60
+        bonus-xp: 0.08
+      envelopes:
+        name: "Plicuri"
+        desc: "Consumabil: +8% plata per livrare."
+        material: "PAPER"
+        price: 20
+        pack: 10
+        max: 40
+        consumable: true
+        consume: "mission"
+        bonus-pay: 0.08
     icon: mail
     group: "Transport"
     desc: "Ridici corespondenta, o sortezi pe strazi (mini-joc), o duci pe jos la cutii postale; scrisorile recomandate cer verificare."
@@ -487,6 +713,31 @@ jobs:
     #   mailbox: [{name: "Str. Florilor - nr 3", world: world, x: 20, y: 64, z: 5}]
   trucker:
     name: "Camionagiu"
+    gear:   # echipament real (iteme cu eticheta PDC). Chei: name desc material price pack max starter uses required consumable consume(pay|mission) soulbound remove-on-end bonus-pay bonus-xp min-level refund enabled glow enchants
+      tacho:
+        name: "Tahograf"
+        desc: "Obligatoriu pentru tura."
+        material: "CLOCK"
+        price: 120
+        starter: 1
+        required: true
+        soulbound: true
+      fuel:
+        name: "Combustibil de rezerva"
+        desc: "Consumabil: +10% plata per cursa."
+        material: "BLAZE_POWDER"
+        price: 60
+        pack: 3
+        max: 9
+        consumable: true
+        consume: "mission"
+        bonus-pay: 0.1
+      chains:
+        name: "Lanturi de fixare"
+        desc: "+5% plata."
+        material: "CHAIN"
+        price: 80
+        bonus-pay: 0.05
     icon: truck
     group: "Transport"
     desc: "Transporti marfa intre depozite, pe distante lungi."
@@ -499,6 +750,32 @@ jobs:
     delivery: {item: "marfa", radius: 6, base-pay: 40, per-100m: 6, xp: 12, max-speed: 40}
   dock_worker:
     name: "Muncitor portuar"
+    gear:   # echipament real (iteme cu eticheta PDC). Chei: name desc material price pack max starter uses required consumable consume(pay|mission) soulbound remove-on-end bonus-pay bonus-xp min-level refund enabled glow enchants
+      helmet:
+        name: "Casca de protectie"
+        desc: "Obligatorie pentru tura."
+        material: "IRON_HELMET"
+        price: 80
+        starter: 1
+        required: true
+        soulbound: true
+      hook:
+        name: "Carlig de marfa"
+        desc: "+6% plata. Se uzeaza treptat."
+        material: "SHEARS"
+        price: 90
+        uses: 300
+        bonus-pay: 0.06
+      labels:
+        name: "Etichete de marfa"
+        desc: "Consumabil: +8% plata per misiune."
+        material: "NAME_TAG"
+        price: 30
+        pack: 8
+        max: 32
+        consumable: true
+        consume: "mission"
+        bonus-pay: 0.08
     icon: anchor
     group: "Transport"
     desc: "Muta containere intre cheu si depozitele portului."
@@ -510,6 +787,32 @@ jobs:
     delivery: {item: "containerul", radius: 5, base-pay: 20, per-100m: 5, xp: 8, max-speed: 30}
   cargo_handler:
     name: "Manipulant marfa"
+    gear:   # echipament real (iteme cu eticheta PDC). Chei: name desc material price pack max starter uses required consumable consume(pay|mission) soulbound remove-on-end bonus-pay bonus-xp min-level refund enabled glow enchants
+      vest:
+        name: "Vesta reflectorizanta"
+        desc: "Obligatorie pentru tura."
+        material: "LEATHER_CHESTPLATE"
+        price: 60
+        starter: 1
+        required: true
+        soulbound: true
+      gloves:
+        name: "Manusi de lucru"
+        desc: "+5% plata."
+        material: "LEATHER_BOOTS"
+        price: 50
+        soulbound: true
+        bonus-pay: 0.05
+      labels:
+        name: "Etichete de marfa"
+        desc: "Consumabil: +8% plata per misiune."
+        material: "NAME_TAG"
+        price: 30
+        pack: 8
+        max: 32
+        consumable: true
+        consume: "mission"
+        bonus-pay: 0.08
     icon: pallet
     group: "Transport"
     desc: "Muti paleti intre rampele unui depozit."
@@ -523,6 +826,31 @@ jobs:
   # ---------------------------- CIVILE: rute cu checkpoint-uri (functionale dupa ce adminul seteaza punctele) ----------------------------
   bus_driver:
     name: "Sofer de autobuz"
+    gear:   # echipament real (iteme cu eticheta PDC). Chei: name desc material price pack max starter uses required consumable consume(pay|mission) soulbound remove-on-end bonus-pay bonus-xp min-level refund enabled glow enchants
+      uniform:
+        name: "Uniforma de sofer"
+        desc: "Obligatorie pentru tura."
+        material: "LEATHER_CHESTPLATE"
+        price: 90
+        starter: 1
+        required: true
+        soulbound: true
+      tickets:
+        name: "Bilete"
+        desc: "Consumabil: +8% plata per cursa."
+        material: "PAPER"
+        price: 20
+        pack: 16
+        max: 64
+        consumable: true
+        consume: "mission"
+        bonus-pay: 0.08
+      machine:
+        name: "Aparat de bilete"
+        desc: "+6% XP."
+        material: "COMPARATOR"
+        price: 130
+        bonus-xp: 0.06
     icon: bus
     group: "Transport"
     desc: "Linii cu statii in ordine: opresti, pasagerii urca/coboara, respecti orarul pentru bonus."
@@ -552,6 +880,25 @@ jobs:
     #   stop: [{name: "Linia 1 - Piata", world: world, x: 0, y: 64, z: 0}]                # EXEMPLU dezactivat
   window_washer:
     name: "Spalator de geamuri"
+    gear:   # echipament real (iteme cu eticheta PDC). Chei: name desc material price pack max starter uses required consumable consume(pay|mission) soulbound remove-on-end bonus-pay bonus-xp min-level refund enabled glow enchants
+      belt:
+        name: "Centura de siguranta"
+        desc: "Obligatorie pentru tura."
+        material: "LEAD"
+        price: 80
+        starter: 1
+        required: true
+        soulbound: true
+      solution:
+        name: "Solutie de curatat"
+        desc: "Consumabil: +10% plata per misiune."
+        material: "GLASS_BOTTLE"
+        price: 30
+        pack: 5
+        max: 20
+        consumable: true
+        consume: "mission"
+        bonus-pay: 0.1
     icon: window
     group: "Servicii"
     desc: "Urci pe platforma unei cladiri si speli ferestrele murdare, una cate una, cu racleta."
@@ -582,6 +929,28 @@ jobs:
     #   window:   [{name: "Bloc A - geam 1", world: world, x: 0, y: 72, z: 2}]        # EXEMPLU dezactivat
   firefighter:
     name: "Pompier"
+    gear:   # echipament real (iteme cu eticheta PDC). Chei: name desc material price pack max starter uses required consumable consume(pay|mission) soulbound remove-on-end bonus-pay bonus-xp min-level refund enabled glow enchants
+      helmet:
+        name: "Casca de pompier"
+        desc: "Obligatorie pentru tura."
+        material: "IRON_HELMET"
+        price: 100
+        starter: 1
+        required: true
+        soulbound: true
+      hose:
+        name: "Furtun de interventie"
+        desc: "+6% plata."
+        material: "LEAD"
+        price: 90
+        bonus-pay: 0.06
+      extinguisher:
+        name: "Extinctor"
+        desc: "+8% plata. Se uzeaza treptat."
+        material: "BLAZE_ROD"
+        price: 140
+        uses: 120
+        bonus-pay: 0.08
     icon: flame
     group: "Urgente"
     desc: "Patrulezi punctele de inspectie ale oraselului (prevenire incendii)."
@@ -593,6 +962,31 @@ jobs:
     route: {label: "punct de inspectie", radius: 5, pay-per-point: 8, xp-per-point: 4, complete-bonus: 30, complete-xp: 14, min-seconds-per-point: 10}
   lifeguard:
     name: "Salvamar"
+    gear:   # echipament real (iteme cu eticheta PDC). Chei: name desc material price pack max starter uses required consumable consume(pay|mission) soulbound remove-on-end bonus-pay bonus-xp min-level refund enabled glow enchants
+      buoy:
+        name: "Colac de salvare"
+        desc: "Obligatoriu pentru tura."
+        material: "HEART_OF_THE_SEA"
+        price: 90
+        starter: 1
+        required: true
+        soulbound: true
+      whistle:
+        name: "Fluier"
+        desc: "+6% XP."
+        material: "GOLD_NUGGET"
+        price: 40
+        bonus-xp: 0.06
+      kit:
+        name: "Trusa de prim ajutor"
+        desc: "Consumabil: +10% plata per misiune."
+        material: "RED_DYE"
+        price: 50
+        pack: 3
+        max: 9
+        consumable: true
+        consume: "mission"
+        bonus-pay: 0.1
     icon: lifebuoy
     group: "Urgente"
     desc: "Supraveghezi plajele, trecand prin posturile de salvare."
@@ -604,6 +998,31 @@ jobs:
     route: {label: "post de salvare", radius: 5, pay-per-point: 7, xp-per-point: 3, complete-bonus: 25, complete-xp: 10, min-seconds-per-point: 10}
   sanitation:
     name: "Agent de salubritate"
+    gear:   # echipament real (iteme cu eticheta PDC). Chei: name desc material price pack max starter uses required consumable consume(pay|mission) soulbound remove-on-end bonus-pay bonus-xp min-level refund enabled glow enchants
+      gloves:
+        name: "Manusi de protectie"
+        desc: "Obligatorii pentru tura."
+        material: "LEATHER_BOOTS"
+        price: 50
+        starter: 1
+        required: true
+        soulbound: true
+      broom:
+        name: "Matura industriala"
+        desc: "+6% plata."
+        material: "STICK"
+        price: 70
+        bonus-pay: 0.06
+      disinfectant:
+        name: "Dezinfectant"
+        desc: "Consumabil: +10% plata per misiune."
+        material: "GLASS_BOTTLE"
+        price: 30
+        pack: 5
+        max: 20
+        consumable: true
+        consume: "mission"
+        bonus-pay: 0.1
     icon: broom
     group: "Servicii"
     desc: "Curati strazile mergand prin punctele de pe ruta de salubrizare."
@@ -617,6 +1036,27 @@ jobs:
   # ---------------------------- SPECIALE ----------------------------
   taxi:
     name: "Taximetrist"
+    gear:   # echipament real (iteme cu eticheta PDC). Chei: name desc material price pack max starter uses required consumable consume(pay|mission) soulbound remove-on-end bonus-pay bonus-xp min-level refund enabled glow enchants
+      license:
+        name: "Licenta de taxi"
+        desc: "Obligatorie pentru tura."
+        material: "PAPER"
+        price: 200
+        starter: 1
+        required: true
+        soulbound: true
+      meter:
+        name: "Taximetru"
+        desc: "+5% plata."
+        material: "CLOCK"
+        price: 150
+        bonus-pay: 0.05
+      lamp:
+        name: "Lampa TAXI"
+        desc: "+5% XP."
+        material: "SEA_LANTERN"
+        price: 120
+        bonus-xp: 0.05
     icon: taxi
     category: special
     group: "Transport"
@@ -634,7 +1074,21 @@ jobs:
       usor:  {name: "Usor",  min-level: 0, pay: 1.0, xp: 1.0, size: 2, seconds: 75, attempts: 3}
       mediu: {name: "Mediu", min-level: 3, pay: 1.5, xp: 1.4, size: 3, seconds: 55, attempts: 3}
       greu:  {name: "Greu",  min-level: 7, pay: 2.2, xp: 2.0, size: 5, seconds: 40, attempts: 2}
-    require-vehicle: false        # true = trebuie sa fii intr-un vehicul Bukkit (vezi README: masinile din mod pot sa nu fie detectate)
+    vehicle-mod: true             # tura si cursele cer sa fii SOFERUL unui vehicul MrCrayfish Vehicle Mod (verificat pe server). false = ca inainte
+    require-vehicle: false        # folosit doar cu vehicle-mod: false (orice vehicul Bukkit)
+    vehicle-classes: ["com.mrcrayfish.vehicle."]   # pachetul claselor entitatilor de vehicul (detectie prin CraftEntity#getHandle)
+    vehicle-namespaces: ["vehicle"]                # rezerva: namespace-ul tipului de entitate
+    require-real-passenger: false # true = cursa porneste doar daca un alt JUCATOR sta in acelasi vehicul (altfel pasager NPC virtual)
+    leave-grace-seconds: 8        # pasager real care coboara mai mult de atat: plata se inmulteste cu leave-penalty
+    leave-penalty: 0.5
+    leave-abort-seconds: 60       # daca lipseste atat de mult din vehicul, cursa se anuleaza fara plata
+    clean-bonus: 0.10             # +10% daca nu ai avut franari/impacturi bruste (0 = oprit)
+    speed-bonus: 0.08             # +8% daca viteza medie a cursei >= bonus-avg-speed
+    bonus-avg-speed: 9            # m/s (~32 km/h)
+    crash-min-speed: 6            # m/s: sub aceasta viteza nu se detecteaza impacturi
+    crash-drop: 0.65              # scadere de viteza peste 65% intr-o secunda = impact/franare brusca
+    marker: false                 # true = numele vehiculului devine marker-text pe durata turei (revenire la sfarsit)
+    marker-text: "§e[TAXI]"
     offer-interval-seconds: 20
     offer-ttl-seconds: 60
     min-distance: 80
@@ -657,6 +1111,35 @@ jobs:
     #   destination: [{name: "Aeroport", world: world, x: 500, y: 64, z: 200}]           # minim 2
   mechanic:
     name: "Mecanic"
+    gear:   # echipament real (iteme cu eticheta PDC). Chei: name desc material price pack max starter uses required consumable consume(pay|mission) soulbound remove-on-end bonus-pay bonus-xp min-level refund enabled glow enchants
+      wrench:
+        name: "Cheie franceza"
+        desc: "Obligatorie. Se uzeaza treptat."
+        material: "IRON_NUGGET"
+        price: 100
+        starter: 1
+        uses: 300
+        required: true
+      parts:
+        name: "Piese de schimb"
+        desc: "Consumabil: +10% plata per reparatie."
+        material: "IRON_INGOT"
+        price: 80
+        pack: 5
+        max: 15
+        consumable: true
+        consume: "mission"
+        bonus-pay: 0.1
+      oil:
+        name: "Ulei de motor"
+        desc: "Consumabil: +8% XP per reparatie."
+        material: "GLASS_BOTTLE"
+        price: 35
+        pack: 5
+        max: 20
+        consumable: true
+        consume: "mission"
+        bonus-xp: 0.08
     icon: wrench
     group: "Servicii"
     desc: "Comenzi la boxe: diagnostic, cumperi piesa, o montezi printr-un mini-joc; plus revizii."

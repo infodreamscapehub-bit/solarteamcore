@@ -23,6 +23,8 @@ public final class FJobsPanelScreen extends FlowScreen {
     private float offX;
     private float offY;
     private final long born = System.currentTimeMillis();
+    private boolean gearPage;
+    private float gearScroll;
 
     public FJobsPanelScreen() {
         super("Panou job", W, H);
@@ -92,6 +94,10 @@ public final class FJobsPanelScreen extends FlowScreen {
     }
 
     private void body(GuiGraphics ms, JsonObject p, float lmx, float lmy) {
+        if (gearPage && arr(p, "gear").size() > 0) {
+            gearBody(ms, p, lmx, lmy);
+            return;
+        }
         Gfx.text(ms, s(p, "job"), 24, 30, 16, Sk.WHITE, 0, true, 0f);
         String status = s(p, "status");
         boolean shift = b(p, "inShift");
@@ -191,6 +197,84 @@ public final class FJobsPanelScreen extends FlowScreen {
             Gfx.text(ms, clip("· " + te.getAsString(), rw - 24, 5.8f), rx + 12, ty + i * 9f, 5.8f, Sk.MUTED, 0);
         }
         button(ms, "JOB CENTER", W - 160, 8, 118, 18, lmx, lmy, true, false, FJobsClient::open);
+        if (arr(p, "gear").size() > 0) button(ms, "ECHIPAMENT", W - 290, 8, 120, 18, lmx, lmy, true, true, () -> {
+            gearPage = true;
+            gearScroll = 0;
+        });
+    }
+
+    private static final float ROW_H = 44f;
+
+    private void gearAct(String act, String id, double value) {
+        JsonObject o = new JsonObject();
+        o.addProperty("act", act);
+        o.addProperty("id", id);
+        o.addProperty("qty", 1);
+        o.addProperty("value", value);
+        FJobsClient.request("job_op", o);
+    }
+
+    /** Pagina ECHIPAMENT: lista derulabila de unelte si consumabile (cumparare cu bani; admin: pret si activare). Totul e validat pe server. */
+    private void gearBody(GuiGraphics ms, JsonObject p, float lmx, float lmy) {
+        Gfx.text(ms, "ECHIPAMENT  ·  " + s(p, "job"), 24, 30, 14, Sk.WHITE, 0, true, 0f);
+        Gfx.text(ms, "Itemele sunt reale (in inventar), legate de job; efectele se aplica pe server.", 24, 44, 6.2f, Sk.MUTED, 0);
+        button(ms, "INAPOI", W - 160, 8, 118, 18, lmx, lmy, true, false, () -> gearPage = false);
+        JsonArray g = arr(p, "gear");
+        boolean admin = b(p, "admin");
+        float top = 62;
+        float bottom = H - 14;
+        gearScroll = Math.max(0, Math.min(Math.max(0, g.size() * ROW_H - (bottom - top)), gearScroll));
+        Gfx.rrect(ms, 16, top - 4, W - 32, bottom - top + 8, 10, CARD);
+        for (int i = 0; i < g.size(); i++) {
+            float y = top + i * ROW_H - gearScroll;
+            if (y < top - 2 || y + ROW_H - 4 > bottom + 2) continue;
+            JsonObject it = g.get(i).getAsJsonObject();
+            final String id = s(it, "id");
+            boolean locked = b(it, "locked");
+            boolean off = !b(it, "enabled");
+            int owned = (int) n(it, "owned");
+            int max = (int) n(it, "max");
+            Gfx.rrect(ms, 24, y, W - 48, ROW_H - 6, 8, 0xFF1B2140);
+            // pictograma vectoriala (fara texturi): mic cub cu stralucire
+            int ic = b(it, "required") ? Sk.WARN : b(it, "consumable") ? Sk.GOOD : VIOLET;
+            Gfx.rrect(ms, 32, y + 6, 26, 26, 6, 0xFF10152B);
+            Gfx.rrect(ms, 38, y + 12, 14, 14, 4, ic);
+            Gfx.line(ms, 40, y + 24, 50, y + 14, 1.4f, 0xFF0B0720);
+            StringBuilder tag = new StringBuilder();
+            if (b(it, "required")) tag.append("OBLIGATORIU  ");
+            if (b(it, "consumable")) tag.append("CONSUMABIL  ");
+            if (n(it, "uses") > 0) tag.append((int) n(it, "uses")).append(" utilizari  ");
+            if (b(it, "soulbound")) tag.append("LEGAT  ");
+            if (n(it, "bonusPay") > 0) tag.append("+").append(Math.round(n(it, "bonusPay") * 100)).append("% plata  ");
+            if (n(it, "bonusXp") > 0) tag.append("+").append(Math.round(n(it, "bonusXp") * 100)).append("% XP");
+            Gfx.text(ms, clip(s(it, "name") + (off ? "  (dezactivat)" : ""), 220, 8f), 68, y + 15, 8f, off ? Sk.FAINT : Sk.WHITE, 0, true, 0f);
+            Gfx.text(ms, clip(s(it, "desc"), 250, 5.8f), 68, y + 25, 5.8f, Sk.MUTED, 0);
+            Gfx.text(ms, clip(tag.toString().trim(), admin ? 250 : 300, 5.2f), 68, y + 34, 5.2f, Sk.FAINT, 0, false, 0.5f);
+            float bx = W - 48 - 96;
+            String price = n(it, "price") <= 0 ? "GRATIS" : (long) n(it, "price") + "$" + (n(it, "pack") > 1 ? " /" + (int) n(it, "pack") : "");
+            Gfx.text(ms, "ai " + owned + "/" + max, bx - 10, y + 15, 6.2f, owned > 0 ? Sk.GOOD : Sk.MUTED, 2);
+            boolean can = !locked && !off && owned < max;
+            String lab = locked ? "NIV " + (int) n(it, "minLevel") : owned >= max ? "AI DEJA" : "CUMPARA " + price;
+            button(ms, lab, bx, y + 8, 96, 20, lmx, lmy, can, can, () -> gearAct("gear_buy", id, 0));
+            if (admin) {
+                final double pr = n(it, "price");
+                button(ms, "-10", bx - 120, y + 22, 28, 14, lmx, lmy, true, false, () -> gearAct("gear_admin_price", id, Math.max(0, pr - 10)));
+                button(ms, "+10", bx - 88, y + 22, 28, 14, lmx, lmy, true, false, () -> gearAct("gear_admin_price", id, pr + 10));
+                button(ms, off ? "ACTIV" : "OPRIT", bx - 56, y + 22, 44, 14, lmx, lmy, true, false, () -> gearAct("gear_admin_toggle", id, 0));
+                button(ms, b(it, "required") ? "OBL:DA" : "OBL:NU", bx - 166, y + 22, 42, 14, lmx, lmy, true, false, () -> gearAct("gear_admin_required", id, 0));
+            }
+        }
+        if (g.size() * ROW_H > bottom - top) {
+            float frac = gearScroll / Math.max(1f, g.size() * ROW_H - (bottom - top));
+            Gfx.rrect(ms, W - 22, top, 3, bottom - top, 1.5f, 0xFF262E55);
+            Gfx.rrect(ms, W - 22, top + frac * (bottom - top - 30), 3, 30, 1.5f, VIOLET);
+        }
+    }
+
+    @Override
+    public boolean mouseScrolled(double mx, double my, double delta) {
+        if (gearPage) gearScroll -= (float) delta * 30f;
+        return true;
     }
 
     private void chip(GuiGraphics ms, String label, float x, float y, float w, float h, float lmx, float lmy, boolean enabled, boolean sel, Runnable action) {

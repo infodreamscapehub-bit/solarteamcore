@@ -48,7 +48,9 @@ categories:
       - {usage: "Mecanic", desc: "Comandă la box, click dreapta, diagnostic + reparație prin mini-joc", perm: ""}
       - {usage: "Curier / Poștaș", desc: "Click dreapta la depozit/oficiu, livrezi coletele (iteme) la adrese, verifici destinatarul", perm: ""}
       - {usage: "Gunoier / Spălător geamuri", desc: "Rute cu saci și camion; platformă + racletă cu click dreapta pe geam", perm: ""}
-      - {usage: "Taxi / Autobuz", desc: "Comenzi și statii în ordine; aparatul numără distanța parcursă", perm: ""}
+      - {usage: "Echipament (Panou job → ECHIPAMENT)", desc: "Unelte și consumabile reale pentru fiecare job: cumperi cu bani sau primești kit la prima tură; unele sunt obligatorii, dau bonus sau se consumă/uzează", perm: ""}
+      - {usage: "Taxi (Vehicle Mod)", desc: "Tura cere să fii ȘOFERUL unui vehicul Vehicle Mod; pasagerul stă în același vehicul; taximetru în HUD, plată pe distanță, bonus condus curat/viteză, penalizare dacă pasagerul coboară devreme", perm: "flowcity.taxi.driver"}
+      - {usage: "Autobuz", desc: "Stații în ordine; aparatul numără distanța parcursă", perm: ""}
       - {usage: "Miner / Tăietor / Fermier / Pescar", desc: "Lucrezi în zone setate, predai resursele la depozit/piață pentru bani", perm: ""}
       - {usage: "Constructor", desc: "Iei materiale marcate de la depozit și construiești/repari la șantier", perm: ""}
       - {usage: "/roata", desc: "Roata norocului (o poți învârti periodic)", perm: "flowcity.hype.wheel"}

@@ -600,7 +600,7 @@ public final class FJobsScreen extends FlowScreen {
         if (mine) {
             smallButton(ms, shift ? "ÎNCHEIE TURA" : "ÎNCEPE TURA", x, by, 112, 24, lmx, lmy, true, !shift, () -> FJobsClient.request(shift ? "end" : "start", new JsonObject()));
             smallButton(ms, "DEMISIONEAZĂ", x + 120, by, 96, 24, lmx, lmy, !shift, false, () -> FJobsClient.request("quit", new JsonObject()));
-            if (j.has("kind") && "READY".equals(s(j, "status"))) smallButton(ms, "PANOU JOB", x + 224, by, 78, 24, lmx, lmy, true, false, FJobsClient::openPanel);
+            if ((j.has("kind") || b(j, "hasGear")) && "READY".equals(s(j, "status"))) smallButton(ms, "PANOU JOB", x + 224, by, 78, 24, lmx, lmy, true, false, FJobsClient::openPanel);
         } else {
             smallButton(ms, "ANGAJEAZĂ-TE", x, by, 118, 24, lmx, lmy, b(j, "canHire"), true, () -> hire(id));
         }

@@ -127,6 +127,7 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
     private final List<BukkitTask> tasks = new ArrayList<>();
     private final java.util.Random rnd = new java.util.Random();
     private final Map<String, JobActivity> acts = new LinkedHashMap<>();
+    private FJobsGear gear;
     private final Set<UUID> panelViewers = new HashSet<>();
     private Challenges challenges;
     private long lastActErr;
@@ -179,6 +180,8 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
             pushToViewers();
         });
 
+        gear = new FJobsGear(this);
+        Bukkit.getPluginManager().registerEvents(gear, plugin);
         Bukkit.getPluginManager().registerEvents(this, plugin);
         registerCommands();
 
@@ -227,6 +230,7 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
         long ttl = (long) (cfg.getDouble("settings.placed-ttl-minutes", 180) * 60_000L);
         placed = new PlacedSet(ttl, cfg.getInt("settings.placed-max", 60000));
         jobs.clear();
+        if (gear != null) gear.invalidate();
         ConfigurationSection list = cfg.getConfigurationSection("jobs");
         if (list == null) return;
         for (String id : list.getKeys(false)) {
@@ -486,6 +490,28 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
             msg(p, false, "Nu poti incepe tura in creative.");
             return;
         }
+        JobActivity gateAct = actOf(j);
+        if (gateAct instanceof ro.solarstudios.flowcity.bridge.fjobs.act.ShiftGate) {
+            String why;
+            try {
+                why = ((ro.solarstudios.flowcity.bridge.fjobs.act.ShiftGate) gateAct).canStart(p, j);
+            } catch (RuntimeException ex) {
+                actError("canStart", j, ex);
+                why = null;
+            }
+            if (why != null) {
+                msg(p, false, why);
+                return;
+            }
+        }
+        gear.giveKit(p, j);
+        if (cfg.getBoolean("settings.gear.require-to-start", true)) {
+            String miss = gear.missingRequired(p, j);
+            if (miss != null) {
+                msg(p, false, "Iti trebuie echipament ca sa incepi tura: " + miss + ". Il iei din Panou -> Echipament.");
+                return;
+            }
+        }
         pr.shiftStart = System.currentTimeMillis();
         pr.shiftEarned = 0;
         pr.shiftXp = 0;
@@ -528,6 +554,7 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
                 actError("end", j, ex);
             }
         }
+        if (j != null) gear.onEnd(p, j);
         double earned = pr.shiftEarned;
         // bonus de performanta: castig/ora peste tinta, dupa un minim de timp lucrat
         double bonus = 0;
@@ -571,7 +598,9 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
         long before = pr.xp.getOrDefault(jd.id, 0L);
         int lvlBefore = HypeMath.levelFor(before, xpBase(), xpGrowth(), maxLevel());
         int plvlBefore = profileLevel(pr);
-        double pay = HypeMath.round2(HypeMath.payWithBonus(rawPay, lvlBefore, bonusPerLevel()) * jd.payMultiplier);
+        FJobsGear.Fx gfx = gear.apply(p, jd, mission, rawPay, rawXp);
+        rawXp = Math.round(rawXp * gfx.xp);
+        double pay = HypeMath.round2(HypeMath.payWithBonus(rawPay, lvlBefore, bonusPerLevel()) * jd.payMultiplier * gfx.pay);
         if (pay > 0) plugin.money().deposit(p.getUniqueId(), pay);
         long after = before + Math.max(0, rawXp);
         pr.xp.put(jd.id, after);
@@ -993,6 +1022,7 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
                 e.addProperty("drops", j.delivery.drops.size());
             }
             if (j.route != null) e.addProperty("route", j.route.points.size());
+            if (!gear.defs(j).isEmpty()) e.addProperty("hasGear", true);
             if (j.custom()) {
                 e.addProperty("kind", j.kind);
                 JobActivity ka = acts.get(j.kind);
@@ -1258,12 +1288,41 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
         FJobDef jd = pr.job.isEmpty() ? null : jobs.get(pr.job);
         JobActivity a = actOf(jd);
         if (a == null) {
-            msg(p, false, "Jobul tau nu are panou dedicat.");
+            if (jd == null || gear.defs(jd).isEmpty()) {
+                msg(p, false, "Jobul tau nu are panou dedicat.");
+                return;
+            }
+            panelViewers.add(p.getUniqueId());
+            sendGenericPanel(p, jd);
+            sendProf(p, pr);
             return;
         }
         panelViewers.add(p.getUniqueId());
         sendPanel(p, jd, a);
         sendProf(p, pr);
+    }
+
+    /** Panou minimal pentru joburile fara activitate proprie: stare, obiective scurte si echipamentul (gear). */
+    private void sendGenericPanel(Player p, FJobDef jd) {
+        FJobsData.Profile pr = prof(p);
+        JsonObject o = new JsonObject();
+        o.addProperty("job", jd.name);
+        o.addProperty("status", pr.inShift() ? "in tura" : "in afara turei");
+        o.addProperty("level", jobLevel(pr, jd.id));
+        JsonArray obj = new JsonArray();
+        obj.add(jd.desc == null || jd.desc.isEmpty() ? "Munceste in tura ca sa castigi bani si XP." : jd.desc);
+        obj.add("Echipamentul (unelte si consumabile) se cumpara din pagina ECHIPAMENT.");
+        o.add("objectives", obj);
+        o.add("stats", new JsonArray());
+        o.add("buttons", new JsonArray());
+        o.add("rewards", new JsonArray());
+        o.add("tips", new JsonArray());
+        o.addProperty("ready", jd.status() == FJobDef.Status.READY);
+        o.addProperty("inShift", pr.inShift());
+        o.addProperty("note", jd.statusNote());
+        o.add("gear", gear.state(p, jd));
+        o.addProperty("admin", isAdmin(p));
+        send(p, "panel", o);
     }
 
     private void sendPanel(Player p, FJobDef jd, JobActivity a) {
@@ -1272,6 +1331,8 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
             o.addProperty("ready", jd.status() == FJobDef.Status.READY);
             o.addProperty("inShift", prof(p).inShift());
             o.addProperty("note", jd.statusNote());
+            o.add("gear", gear.state(p, jd));
+            o.addProperty("admin", isAdmin(p));
             send(p, "panel", o);
         } catch (RuntimeException ex) {
             actError("panel", jd, ex);
@@ -1304,6 +1365,11 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
         lastOp.put(p.getUniqueId(), now);
         FJobsData.Profile pr = prof(p);
         FJobDef jd = pr.job.isEmpty() ? null : jobs.get(pr.job);
+        String gact = str(j, "act", "");
+        if (jd != null && gact.startsWith("gear_")) {
+            gearOp(p, jd, gact, j);
+            return;
+        }
         JobActivity a = actOf(jd);
         if (a == null || !jd.active || creative(p)) return;
         try {
@@ -1311,6 +1377,27 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
         } catch (RuntimeException ex) {
             actError("op", jd, ex);
         }
+    }
+
+    /** Cumparare / administrare echipament (gear_buy, gear_admin_price|toggle|required). Validat integral aici. */
+    private void gearOp(Player p, FJobDef jd, String act, JsonObject j) {
+        if (creative(p)) return;
+        String id = str(j, "id", "");
+        boolean ok;
+        if ("gear_buy".equals(act)) {
+            ok = gear.buy(p, jd, id, (int) Math.max(1, Math.min(8, j.has("qty") && j.get("qty").isJsonPrimitive() ? j.get("qty").getAsDouble() : 1)));
+        } else if (act.startsWith("gear_admin_")) {
+            double v = 0;
+            try {
+                v = j.has("value") && j.get("value").isJsonPrimitive() ? j.get("value").getAsDouble() : 0;
+            } catch (RuntimeException ignored) {
+                v = 0;
+            }
+            ok = gear.admin(p, jd, act.substring("gear_admin_".length()), id, v);
+        } else {
+            return;
+        }
+        if (ok || panelViewers.contains(p.getUniqueId())) refreshPanel(p);
     }
 
     private void panelOpt(Player p, JsonObject j) {
@@ -1461,6 +1548,7 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
         FJobDef jd = pr == null || pr.job.isEmpty() ? null : jobs.get(pr.job);
         JobActivity a = actOf(jd);
         if (a != null) sendPanel(p, jd, a);
+        else if (jd != null && !gear.defs(jd).isEmpty()) sendGenericPanel(p, jd);
     }
 
     // ------------------------------------------------------------------ comenzi (doar deschiderea; administrarea e in GUI)
