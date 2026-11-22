@@ -47,6 +47,24 @@ public final class GpsIcons {
         glyph(g, icon, cx, cy, r * 0.5f, col, alpha);
     }
 
+    /**
+     * Marcaj de harta: simbolul mare, colorat, cu contur intunecat in jur (fara disc), ca sa se vada pe orice teren.
+     * u = unitate (simbolul acopera aprox. +-1.1u); hot = inel alb in jurul lui.
+     */
+    public static void pin(GuiGraphics g, String icon, float cx, float cy, float u, int color, float alpha, boolean hot) {
+        int halo = Gfx.fade(0xFF050B14, alpha);
+        float o = Math.max(0.9f, u * 0.26f);
+        glyph(g, icon, cx - o, cy, u, halo, alpha);
+        glyph(g, icon, cx + o, cy, u, halo, alpha);
+        glyph(g, icon, cx, cy - o, u, halo, alpha);
+        glyph(g, icon, cx, cy + o, u, halo, alpha);
+        if (hot) {
+            int w = Gfx.fade(0xFFFFFFFF, alpha * 0.9f);
+            Gfx.ring(g, cx, cy, u * 1.45f, u * 1.45f + 1.3f, w, w);
+        }
+        glyph(g, icon, cx, cy, u, Gfx.fade(color, alpha), alpha);
+    }
+
     /** Doar simbolul (fara insemn), u = unitate (aprox. jumatate din raza insemnului). */
     public static void glyph(GuiGraphics g, String icon, float cx, float cy, float u, int col, float alpha) {
         int dk = Gfx.fade(DARK, alpha);

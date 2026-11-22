@@ -50,7 +50,7 @@ public final class MiniMapRenderer {
             }
             clipRad = r;
         } else {
-            float c = Math.min(11f, s * 0.1f);
+            float c = Math.min(3.5f, s * 0.04f);
             float[] p = {c, 0, s - c, 0, s, c, s, s - c, s - c, s, c, s, 0, s - c, 0, c};
             clipN = 8;
             System.arraycopy(p, 0, clip, 0, p.length);
@@ -188,7 +188,7 @@ public final class MiniMapRenderer {
             if (circle) {
                 Gfx.disc(g, r, r + 1.5f, r + 1.5f, Gfx.fade(0x66000000, op));
             } else {
-                Gfx.rrect(g, -1f, 1f, size + 2f, size + 2f, 6f, Gfx.fade(0x55000000, op));
+                Gfx.rrect(g, -2f, 1f, size + 4f, size + 4f, 4f, Gfx.fade(0x66000000, op));
             }
             fan(g, clip, clipN, Gfx.fade(0xFF0B1626, op));
 
@@ -202,10 +202,8 @@ public final class MiniMapRenderer {
             if (MiniMapSettings.showCompass) drawCompass(g, size, circle);
             drawZoomNote(g, size);
             if (MiniMapSettings.showCoords) {
-                Sk.cut(g, 0f, size + 2f, size, 13f, 4f, Gfx.fade(0xD0081018, op));
-                Gfx.rrect(g, 0f, size + 4f, 2.5f, 9f, 0f, Sk.ACC);
-                String s = "X: " + Math.round(pl.getX()) + "   Z: " + Math.round(pl.getZ());
-                Gfx.text(g, s, size / 2f, size + 11.6f, 7.2f, Sk.WHITE, 1, true, 0f);
+                String s = Math.round(pl.getX()) + ", " + Math.round(pl.getY()) + ", " + Math.round(pl.getZ());
+                Gfx.textS(g, s, size / 2f, size + 11.8f, 7.6f, Gfx.fade(Sk.WHITE, op), 1, true, 0.2f);
             }
         } finally {
             g.pose().popPose();
@@ -256,8 +254,8 @@ public final class MiniMapRenderer {
             if (GpsNav.isTarget(l.id)) continue;
             project(l.x, l.z);
             if (!MiniMapClip.inside(clip, clipN, outX, outY)) continue;
-            float rr = Math.max(3.4f, Math.min(6.5f, 4.4f * l.size / 100f));
-            GpsIcons.badge(g, l.icon, outX, outY, rr, l.color, 1f, false);
+            float u = Math.max(3.6f, Math.min(6f, 4.6f * l.size / 100f));
+            GpsIcons.pin(g, l.icon, outX, outY, u, l.color, 1f, false);
             drawn++;
         }
     }
@@ -274,7 +272,7 @@ public final class MiniMapRenderer {
         float s = clipSize;
         if (MiniMapClip.inside(clip, clipN, px, py)) {
             Gfx.ring(g, px, py, 5f + t * 9f, 5.8f + t * 9f, Gfx.fade(GpsNav.color, 0.8f * (1f - t)), Gfx.fade(GpsNav.color, 0.8f * (1f - t)));
-            GpsIcons.badge(g, "pin", px, py, 5.6f, GpsNav.color, 1f, true);
+            GpsIcons.pin(g, "pin", px, py, 5.2f, GpsNav.color, 1f, true);
             return;
         }
         // in afara razei: sageata pe margine, spre destinatie
@@ -311,15 +309,20 @@ public final class MiniMapRenderer {
     }
 
     private static void drawFrame(GuiGraphics g, float size, boolean circle) {
-        int line = Gfx.fade(0xFF4DA3FF, 0.85f);
+        int line = Gfx.fade(0xFF4DA3FF, 0.55f);
+        int dark = 0xFF0A1220;
         if (circle) {
             float r = size / 2f;
-            Gfx.ring(g, r, r, r - 1.6f, r + 0.4f, line, line);
-            Gfx.ring(g, r, r, r + 0.4f, r + 2.2f, 0x55000000, 0x00000000);
+            Gfx.ring(g, r, r, r - 0.6f, r + 2.4f, dark, dark);
+            Gfx.ring(g, r, r, r - 1.4f, r - 0.4f, line, line);
         } else {
             for (int i = 0; i < clipN; i++) {
                 int j = (i + 1) % clipN;
-                Gfx.line(g, clip[i * 2], clip[i * 2 + 1], clip[j * 2], clip[j * 2 + 1], 1.7f, line);
+                Gfx.line(g, clip[i * 2], clip[i * 2 + 1], clip[j * 2], clip[j * 2 + 1], 3.2f, dark);
+            }
+            for (int i = 0; i < clipN; i++) {
+                int j = (i + 1) % clipN;
+                Gfx.line(g, clip[i * 2], clip[i * 2 + 1], clip[j * 2], clip[j * 2 + 1], 1f, line);
             }
         }
     }
@@ -334,8 +337,7 @@ public final class MiniMapRenderer {
             float k = circle ? half : (float) (half / Math.max(Math.abs(vx), Math.abs(vy)));
             float lx = cx + (float) vx * k;
             float ly = cy + (float) vy * k;
-            Gfx.disc(g, lx, ly, 4.6f, 0xB0081018);
-            Gfx.text(g, names[i], lx, ly + 2.3f, 6.4f, i == 0 ? Sk.BAD : Sk.WHITE, 1, true, 0f);
+            Gfx.textS(g, names[i], lx, ly + 2.4f, 6.8f, i == 0 ? 0xFFFF8A80 : Sk.WHITE, 1, true, 0f);
         }
     }
 

@@ -19,10 +19,10 @@ import ro.solarstudios.flowcity.compat.GuiGraphics;
  * Navigarea e DIRECTA (nu ruta pe strazi). Coordonate ecran = coordonate GUI; nordul (-Z) e in sus.
  */
 public final class GpsScreen extends FlowScreen {
-    private static final float M = 12f;
+    private static final float M = 14f;
     private static final int VIOLET = 0xFF8B7BFF;
-    private static final float PITCH = 30f;
-    private static final float ROW_H = 26f;
+    private static final float PITCH = 46f;
+    private static final float ROW_H = 38f;
     private static final String PIN = "_pin";
 
     // camera
@@ -42,6 +42,9 @@ public final class GpsScreen extends FlowScreen {
     });
     private boolean dirty = true;
     private final List<GpsData.Loc> shown = new ArrayList<>();
+    /** Randurile listei: locatiile cu acelasi nume se grupeaza intr-un rand cu sageti < i/n >. */
+    private final List<List<GpsData.Loc>> rows = new ArrayList<>();
+    private final java.util.Map<String, Integer> variant = new java.util.HashMap<>();
     private List<GpsData.Loc> all = new ArrayList<>();
     private GpsData.Loc selected;
     private int totalInDim;
@@ -181,11 +184,59 @@ public final class GpsScreen extends FlowScreen {
             for (GpsData.Loc l : all) if (l.id.equals(selected.id)) fresh = l;
             selected = fresh;
         }
+        rows.clear();
+        java.util.LinkedHashMap<String, List<GpsData.Loc>> gm = new java.util.LinkedHashMap<>();
+        for (GpsData.Loc l : shown) {
+            List<GpsData.Loc> gl = gm.get(GpsData.norm(l.name));
+            if (gl == null) {
+                gl = new ArrayList<>(2);
+                gm.put(GpsData.norm(l.name), gl);
+            }
+            gl.add(l);
+        }
+        rows.addAll(gm.values());
+        if (selected != null) syncVariant(selected);
         clampScroll();
     }
 
     private void clampScroll() {
-        scroll = Math.max(0, Math.min(scroll, Math.max(0, shown.size() - rowsVisible)));
+        scroll = Math.max(0, Math.min(scroll, Math.max(0, rows.size() - rowsVisible)));
+    }
+
+    private static String key(List<GpsData.Loc> grp) {
+        return GpsData.norm(grp.get(0).name);
+    }
+
+    private GpsData.Loc cur(List<GpsData.Loc> grp) {
+        Integer i = variant.get(key(grp));
+        int k = i == null ? 0 : i;
+        if (k < 0 || k >= grp.size()) k = 0;
+        return grp.get(k);
+    }
+
+    private void syncVariant(GpsData.Loc l) {
+        for (List<GpsData.Loc> grp : rows) {
+            for (int j = 0; j < grp.size(); j++) {
+                if (grp.get(j).id.equals(l.id)) {
+                    variant.put(key(grp), j);
+                    return;
+                }
+            }
+        }
+    }
+
+    private boolean hasSel(List<GpsData.Loc> grp) {
+        if (selected == null) return false;
+        for (GpsData.Loc l : grp) if (l.id.equals(selected.id)) return true;
+        return false;
+    }
+
+    private void cycle(List<GpsData.Loc> grp, int d) {
+        Integer cur = variant.get(key(grp));
+        int i = cur == null ? 0 : cur;
+        i = ((i + d) % grp.size() + grp.size()) % grp.size();
+        variant.put(key(grp), i);
+        select(grp.get(i), true);
     }
 
     private double dist(GpsData.Loc l) {
@@ -210,11 +261,20 @@ public final class GpsScreen extends FlowScreen {
             tgtZ = l.z;
             anim = true;
         }
-        if (l != null) revealSelected();
+        if (l != null) {
+            syncVariant(l);
+            revealSelected();
+        }
     }
 
     private void revealSelected() {
-        int i = shown.indexOf(selected);
+        int i = -1;
+        for (int k = 0; k < rows.size(); k++) {
+            if (hasSel(rows.get(k))) {
+                i = k;
+                break;
+            }
+        }
         if (i < 0) return;
         if (i < scroll) scroll = i;
         else if (i >= scroll + rowsVisible) scroll = i - rowsVisible + 1;
@@ -301,7 +361,7 @@ public final class GpsScreen extends FlowScreen {
         if (button == 0) {
             if (super.mouseClicked(mx, my, button)) return true;
             if (overPanel(mx, my)) return true;
-            if (GpsNav.active && mx < 12 + cardW() && my > height - 12 - 70) return true;
+            if (GpsNav.active && mx < M + cardW() && my > height - M - 74) return true;
             menuOpen = false;
             layersOpen = false;
             pressMap = true;
@@ -499,13 +559,11 @@ public final class GpsScreen extends FlowScreen {
         Gfx.rrect(g, 0, 0, width, height, 0, 0xFF0C1C33, 0xFF08111F);
         drawGrid(g);
         GpsMap.draw(g, camX, camZ, zoom, mapCx, mapCy, width, height, open);
-        g.fillGradient(0, 0, width, 70, 0xAA070F1C, 0x00070F1C);
-        g.fillGradient(0, height - 80, width, height, 0x00070F1C, 0xAA070F1C);
+        g.fillGradient(0, 0, width, 46, 0x66070F1C, 0x00070F1C);
         if (showZones) drawZones(g);
         drawRoute(g, t);
         GpsData.Loc hover = drawMarkers(g, mc, mx, my, t);
         drawPlayer(g, mc, t);
-        drawSnow(g, t);
 
         // interfata
         drawTop(g, mc, mx, my);
@@ -517,9 +575,8 @@ public final class GpsScreen extends FlowScreen {
         if (System.currentTimeMillis() < noteUntil) {
             float w = Gfx.width(note, 8.6f, true) + 28f;
             float x = mapCx - w / 2f;
-            Sk.cut(g, x, 52, w, 22, 6, 0xF0081018);
-            Gfx.rrect(g, x, 52, 3, 22, 0, Sk.ACC);
-            Gfx.text(g, note, mapCx, 67, 8.6f, Sk.WHITE, 1, true, 0f);
+            box(g, x, 56, w, 24, 12f, 0xF00A1220, Sk.ACC);
+            Gfx.text(g, note, mapCx, 72, 8.6f, Sk.WHITE, 1, true, 0f);
         }
     }
 
@@ -618,9 +675,10 @@ public final class GpsScreen extends FlowScreen {
     }
 
     private GpsData.Loc drawMarkers(GuiGraphics g, Minecraft mc, int mx, int my, float t) {
-        float r = Math.max(6.5f, Math.min(10f, 5f + zoom * 1.6f));
+        float u0 = Math.max(4.8f, Math.min(6.8f, 3.9f + zoom * 1.3f));
+        float r = u0 * 1.35f;
         GpsData.Loc hover = null;
-        float bd = (r + 4f) * (r + 4f);
+        float bd = (r + 3f) * (r + 3f);
         boolean mouseMap = !overPanel(mx, my);
         for (GpsData.Loc l : shown) {
             if (l.hidden) continue;
@@ -642,24 +700,24 @@ public final class GpsScreen extends FlowScreen {
             float y = sy(l.z);
             if (x < -20 || y < -20 || x > width + 20 || y > height + 20) continue;
             boolean hv = l == hover;
-            float lr = r * l.size / 100f;
-            GpsIcons.badge(g, l.icon, x, y, hv ? lr + 1.5f : lr, l.color, 1f, GpsNav.isTarget(l.id));
-            if (zoom >= 1.5f || hv) Gfx.textS(g, clip(l.name, 7.2f, true, 110f), x, y + r + 9f, 7.2f, Sk.WHITE, 1, true, 0.3f);
+            float u = u0 * l.size / 100f * (hv ? 1.18f : 1f);
+            GpsIcons.pin(g, l.icon, x, y, u, l.color, 1f, GpsNav.isTarget(l.id));
+            if (zoom >= 1.5f || hv) Gfx.textS(g, clip(l.name, 7.2f, true, 110f), x, y + u * 1.4f + 8f, 7.2f, Sk.WHITE, 1, true, 0.3f);
         }
         if (sel != null && (!PIN.equals(sel.id) || GpsPrefs.layerOn("waypoints"))) {
             float x = sx(sel.x);
             float y = sy(sel.z);
             float ph = (t % 1.6f) / 1.6f;
             Gfx.ring(g, x, y, r + 3f + ph * 12f, r + 4f + ph * 12f, Gfx.fade(sel.color, 0.8f * (1f - ph)), Gfx.fade(sel.color, 0.8f * (1f - ph)));
-            GpsIcons.badge(g, sel.icon, x, y, r + 2f, sel.color, 1f, true);
-            Gfx.textS(g, clip(sel.name, 8f, true, 140f), x, y + r + 12f, 8f, Sk.WHITE, 1, true, 0.3f);
+            GpsIcons.pin(g, sel.icon, x, y, u0 * 1.25f, sel.color, 1f, true);
+            Gfx.textS(g, clip(sel.name, 8f, true, 140f), x, y + u0 * 1.7f + 9f, 8f, Sk.WHITE, 1, true, 0.3f);
         }
         // destinatia activa daca nu e in lista curenta (ex. setata de server)
         if (GpsNav.active && GpsPrefs.layerOn("waypoints") && GpsNav.dim.equals(GpsData.dimOf(mc)) && !isShown(GpsNav.id)) {
             float x = sx(GpsNav.x);
             float y = sy(GpsNav.z);
-            GpsIcons.badge(g, "pin", x, y, r + 1f, GpsNav.color, 1f, true);
-            Gfx.textS(g, clip(GpsNav.name, 7.6f, true, 140f), x, y + r + 11f, 7.6f, Sk.WHITE, 1, true, 0.3f);
+            GpsIcons.pin(g, "pin", x, y, u0 * 1.1f, GpsNav.color, 1f, true);
+            Gfx.textS(g, clip(GpsNav.name, 7.6f, true, 140f), x, y + u0 * 1.5f + 9f, 7.6f, Sk.WHITE, 1, true, 0.3f);
         }
         // indicator pe margine cand destinatia e in afara ecranului
         if (GpsNav.active && GpsNav.dim.equals(GpsData.dimOf(mc))) {
@@ -691,92 +749,106 @@ public final class GpsScreen extends FlowScreen {
         GpsIcons.arrow(g, x, y, 7.5f, ang, 0xFFFFFFFF, 0xFF1B6FD1);
     }
 
-    private void drawSnow(GuiGraphics g, float t) {
-        for (int i = 0; i < 16; i++) {
-            float sp = 9f + (i % 5) * 4f;
-            float x = ((i * 97.3f + t * (5f + i % 4)) % (width + 24f)) - 12f + (float) Math.sin(t * 0.8f + i) * 6f;
-            float y = ((i * 53.7f + t * sp) % (height + 24f)) - 12f;
-            Gfx.disc(g, x, y, 0.9f + (i % 3) * 0.5f, 0x44FFFFFF);
-        }
-    }
-
     private void tooltip(GuiGraphics g, GpsData.Loc l, int mx, int my) {
         double d = dist(l);
         String line = l.catName + (d >= 0 ? "  ·  " + GpsNav.fmtDist(d) : "");
         float w = Math.max(Gfx.width(l.name, 9f, true), Gfx.width(line, 7.4f, false)) + 24f;
         float x = Math.min(mx + 14f, width - w - 6f);
         float y = Math.min(my + 14f, height - 44f);
-        Sk.cut(g, x, y, w, 36, 6, 0xF2081018);
-        Gfx.rrect(g, x, y, 3, 36, 0, l.color);
+        box(g, x, y, w, 36, 10f, 0xF20A1220, 0xFF2A3A55);
+        Gfx.rrect(g, x + 6, y + 8, 3, 20, 1.5f, l.color);
         Gfx.text(g, l.name, x + 12, y + 15, 9f, Sk.WHITE, 0, true, 0f);
         Gfx.text(g, line, x + 12, y + 28, 7.4f, Sk.MUTED, 0);
     }
 
     // ------------------------------------------------------------------ butoane
 
+    /** Dreptunghi rotunjit cu contur subtire (conturul = acelasi dreptunghi, mai mare cu bw). */
+    private static void box(GuiGraphics g, float x, float y, float w, float h, float r, int fill, int edge, float bw) {
+        Gfx.rrect(g, x - bw, y - bw, w + 2f * bw, h + 2f * bw, r + bw, edge);
+        Gfx.rrect(g, x, y, w, h, r, fill);
+    }
+
+    private static void box(GuiGraphics g, float x, float y, float w, float h, float r, int fill, int edge) {
+        box(g, x, y, w, h, r, fill, edge, 1f);
+    }
+
+    private static String fmt1(double v) {
+        return String.valueOf(Math.round(v * 10.0) / 10.0);
+    }
+
     private void btn(GuiGraphics g, String label, float x, float y, float w, float h, int style, int mx, int my, Runnable r) {
         boolean hov = Sk.in(mx, my, x, y, w, h);
         int bg;
         int fg;
+        int edge;
         if (style == 0) {
             bg = hov ? 0xFF7DBBFF : Sk.ACC;
             fg = 0xFF061426;
+            edge = 0xFF9CCBFF;
         } else if (style == 2) {
             bg = hov ? 0xFFFF7A6E : Sk.BAD;
             fg = 0xFF1A0705;
+            edge = 0xFFFFA096;
+        } else if (style == 3) {
+            bg = hov ? 0xFF3A2F6B : 0xFF2A2250;
+            fg = Sk.WHITE;
+            edge = VIOLET;
         } else {
-            bg = hov ? 0xFF22344D : 0xFF14202F;
+            bg = hov ? 0xFF1B2E47 : 0xE80B1424;
             fg = hov ? Sk.WHITE : 0xFFC9CBD0;
+            edge = hov ? Sk.ACC : 0xFF22344D;
         }
-        Sk.slant(g, x, y, w, h, 7f, bg);
+        box(g, x, y, w, h, Math.min(12f, h * 0.34f), bg, edge);
         Gfx.text(g, label, x + w / 2f + 1, y + h / 2f + 3.4f, 8.6f, fg, 1, true, 0.5f);
         hitF(x, y, w, h, r);
     }
 
     private void sq(GuiGraphics g, float x, float y, float s, int mx, int my, Runnable r) {
         boolean hov = Sk.in(mx, my, x, y, s, s);
-        Sk.cut(g, x, y, s, s, 6f, hov ? 0xF0223656 : 0xF0081018);
-        Gfx.rrect(g, x, y + s - 2, s, 2, 0, hov ? Sk.ACC : 0xFF22344D);
+        box(g, x, y, s, s, 11f, hov ? 0xF0223656 : 0xE80B1424, hov ? Sk.ACC : 0xFF22344D);
         hitF(x, y, s, s, r);
     }
 
     private void drawControls(GuiGraphics g, int mx, int my) {
-        float s = 34f;
-        float x = areaRight - M - s - (panelAnim > 0.5f ? 0f : 0f);
+        float s = 36f;
+        float x = areaRight - M - s;
         float y3 = height - M - s;
-        float y2 = y3 - s - 6f;
-        float y1 = y2 - s - 6f;
+        float y2 = y3 - s - 7f;
+        float y1 = y2 - s - 7f;
         sq(g, x, y1, s, mx, my, () -> zoomBy(1.3f, mapCx, mapCy));
-        Gfx.line(g, x + 11, y1 + s / 2f - 1, x + s - 11, y1 + s / 2f - 1, 2f, Sk.WHITE);
-        Gfx.line(g, x + s / 2f, y1 + 10, x + s / 2f, y1 + s - 12, 2f, Sk.WHITE);
+        Gfx.line(g, x + 11, y1 + s / 2f, x + s - 11, y1 + s / 2f, 2f, Sk.WHITE);
+        Gfx.line(g, x + s / 2f, y1 + 11, x + s / 2f, y1 + s - 11, 2f, Sk.WHITE);
         sq(g, x, y2, s, mx, my, () -> zoomBy(1f / 1.3f, mapCx, mapCy));
-        Gfx.line(g, x + 11, y2 + s / 2f - 1, x + s - 11, y2 + s / 2f - 1, 2f, Sk.WHITE);
+        Gfx.line(g, x + 11, y2 + s / 2f, x + s - 11, y2 + s / 2f, 2f, Sk.WHITE);
         sq(g, x, y3, s, mx, my, this::centerOnPlayer);
-        Gfx.ring(g, x + s / 2f, y3 + s / 2f - 1, 6f, 7.6f, Sk.WHITE, Sk.WHITE);
-        Gfx.disc(g, x + s / 2f, y3 + s / 2f - 1, 2.2f, Sk.ACC);
-        Gfx.line(g, x + s / 2f, y3 + 6, x + s / 2f, y3 + 11, 1.6f, Sk.WHITE);
-        Gfx.line(g, x + s / 2f, y3 + s - 8, x + s / 2f, y3 + s - 13, 1.6f, Sk.WHITE);
-        Gfx.line(g, x + 7, y3 + s / 2f - 1, x + 12, y3 + s / 2f - 1, 1.6f, Sk.WHITE);
-        Gfx.line(g, x + s - 7, y3 + s / 2f - 1, x + s - 12, y3 + s / 2f - 1, 1.6f, Sk.WHITE);
+        float cy3 = y3 + s / 2f;
+        Gfx.ring(g, x + s / 2f, cy3, 6f, 7.6f, Sk.WHITE, Sk.WHITE);
+        Gfx.disc(g, x + s / 2f, cy3, 2.2f, Sk.ACC);
+        Gfx.line(g, x + s / 2f, y3 + 7, x + s / 2f, y3 + 12, 1.6f, Sk.WHITE);
+        Gfx.line(g, x + s / 2f, y3 + s - 7, x + s / 2f, y3 + s - 12, 1.6f, Sk.WHITE);
+        Gfx.line(g, x + 7, cy3, x + 12, cy3, 1.6f, Sk.WHITE);
+        Gfx.line(g, x + s - 7, cy3, x + s - 12, cy3, 1.6f, Sk.WHITE);
     }
 
+    /** Litera de busola pe marginea hartii (fara fundal, cu umbra). */
     private void compass(GuiGraphics g, String letter, float x, float y) {
-        Gfx.disc(g, x, y, 10f, 0xE0081018);
-        Gfx.ring(g, x, y, 9f, 10f, 0xFF22344D, 0xFF22344D);
-        Gfx.text(g, letter, x, y + 3.4f, 8.6f, "N".equals(letter) ? Sk.ACC : Sk.WHITE, 1, true, 0f);
+        Gfx.textS(g, letter, x, y, 12f, "N".equals(letter) ? 0xFFFFD36B : Sk.WHITE, 1, true, 0f);
     }
 
     private void drawTop(GuiGraphics g, Minecraft mc, int mx, int my) {
         // meniu (hamburger)
         float bx = M;
         float by = M;
-        boolean hov = Sk.in(mx, my, bx, by, 38, 38);
-        Sk.cut(g, bx, by, 38, 38, 8, menuOpen || hov ? 0xF0223656 : 0xF0081018);
-        for (int i = 0; i < 3; i++) Gfx.rrect(g, bx + 10, by + 11 + i * 6, 18, 2.4f, 1, Sk.WHITE);
-        hitF(bx, by, 38, 38, () -> menuOpen = !menuOpen);
-        btn(g, "MINIMAP", bx + 46, by, 96, 38, 0, mx, my, () -> mc.setScreen(new MiniMapSettingsScreen()));
+        float hs = 40f;
+        boolean hov = Sk.in(mx, my, bx, by, hs, hs);
+        boolean act = menuOpen || hov;
+        box(g, bx, by, hs, hs, 12f, act ? 0xF0223656 : 0xE80B1424, act ? Sk.ACC : 0xFF22344D);
+        for (int i = 0; i < 3; i++) Gfx.rrect(g, bx + 11, by + 12 + i * 6.5f, 18, 2.6f, 1.3f, Sk.WHITE);
+        hitF(bx, by, hs, hs, () -> menuOpen = !menuOpen);
+        btn(g, "MINIMAP", bx + hs + 8, by, 96, hs, 1, mx, my, () -> mc.setScreen(new MiniMapSettingsScreen()));
         if (GpsData.admin) {
-            btn(g, "EDITOR HARTĂ", bx + 150, by, 132, 38, 0, mx, my, () -> mc.setScreen(new MapEditorScreen(camX, camZ, zoom)));
+            btn(g, "EDITOR HARTĂ", bx + hs + 112, by, 132, hs, 3, mx, my, () -> mc.setScreen(new MapEditorScreen(camX, camZ, zoom)));
         }
         if (menuOpen) {
             String[] items = {
@@ -787,16 +859,16 @@ public final class GpsScreen extends FlowScreen {
                 "Straturi hartă",
                 "Grilă: " + (GpsPrefs.grid ? "ACTIVĂ" : "OPRITĂ")
             };
-            float mw = 214f;
-            float my0 = by + 44f;
-            Sk.cut(g, bx, my0, mw, items.length * 30f + 10f, 8, 0xF4081018);
+            float mw = 222f;
+            float my0 = by + hs + 8f;
+            box(g, bx, my0, mw, items.length * 32f + 12f, 14f, 0xF40A1220, 0xFF2A3A55);
             for (int i = 0; i < items.length; i++) {
-                float y = my0 + 5f + i * 30f;
-                boolean h = Sk.in(mx, my, bx + 4, y, mw - 8, 28);
-                if (h) Sk.slant(g, bx + 4, y, mw - 8, 28, 5f, 0xFF1B2E47);
-                Gfx.text(g, items[i], bx + 16, y + 18, 8.6f, h ? Sk.WHITE : 0xFFC9CBD0, 0, true, 0f);
+                float y = my0 + 6f + i * 32f;
+                boolean h = Sk.in(mx, my, bx + 6, y, mw - 12, 30);
+                if (h) Gfx.rrect(g, bx + 6, y, mw - 12, 30, 9f, 0xFF1B2E47);
+                Gfx.text(g, items[i], bx + 18, y + 19.5f, 8.6f, h ? Sk.WHITE : 0xFFC9CBD0, 0, true, 0f);
                 final int idx = i;
-                hitF(bx + 4, y, mw - 8, 28, () -> {
+                hitF(bx + 6, y, mw - 12, 30, () -> {
                     menuOpen = false;
                     if (idx == 0) {
                         showZones = !showZones;
@@ -814,23 +886,22 @@ public final class GpsScreen extends FlowScreen {
                 });
             }
         }
-        // coordonate
-        String sxs = "X: " + Math.round(mc.player.getX()) + "   |   Z: " + Math.round(mc.player.getZ());
-        float w = Gfx.width(sxs, 10f, true) + 40f;
+        // coordonate (pastila sus, la centru)
+        String sxs = "X: " + fmt1(mc.player.getX()) + "   |   Z: " + fmt1(mc.player.getZ());
+        float w = Gfx.width(sxs, 10f, true) + 56f;
         float x = mapCx - w / 2f;
-        Sk.cut(g, x, M, w, 30, 8, 0xF0081018);
-        Gfx.rrect(g, x, M + 28, w, 2, 0, Sk.ACC);
-        Gfx.disc(g, x + 14, M + 15, 3.4f, Sk.ACC);
-        Gfx.text(g, sxs, mapCx + 5, M + 20.5f, 10f, Sk.WHITE, 1, true, 0.3f);
-        // busola
-        compass(g, "N", mapCx, 92f);
-        compass(g, "S", mapCx, height - 26f);
-        compass(g, "W", 26f, mapCy);
-        compass(g, "E", areaRight - 26f, mapCy);
+        box(g, x, M, w, 34, 17f, 0xEC0A1220, 0xFF2A3A55);
+        Gfx.poly(g, new float[] {x + 18, M + 9, x + 24, M + 24, x + 18, M + 20.5f, x + 12, M + 24}, Sk.ACC);
+        Gfx.text(g, sxs, mapCx + 8, M + 22.5f, 10f, Sk.WHITE, 1, true, 0.3f);
+        // busola: litere pe marginile hartii
+        compass(g, "N", mapCx, 76f);
+        compass(g, "S", mapCx, height - 14f);
+        compass(g, "V", 16f, mapCy + 4f);
+        compass(g, "E", areaRight - 16f, mapCy + 4f);
         if (!overPanel(mx, my)) {
             long cx = Math.round(camX + (mx - mapCx) / zoom);
             long cz = Math.round(camZ + (my - mapCy) / zoom);
-            Gfx.text(g, "cursor " + cx + " , " + cz, mapCx, M + 44f, 7f, 0xFF9CB4D0, 1);
+            Gfx.textS(g, "cursor " + cx + " , " + cz, mapCx, M + 50f, 7f, 0xFFD6E4F5, 1, false, 0f);
         }
     }
 
@@ -846,8 +917,8 @@ public final class GpsScreen extends FlowScreen {
         float rowH = 26f;
         float h = LAYERS.length * rowH + 40f;
         float x = M;
-        float y = M + 44f + (menuOpen ? 6f * 30f + 16f : 0f);
-        Sk.cut(g, x, y, w, h, 8, 0xF4081018);
+        float y = M + 48f + (menuOpen ? 6f * 32f + 20f : 0f);
+        box(g, x, y, w, h, 14f, 0xF40A1220, 0xFF2A3A55);
         Gfx.text(g, "STRATURI", x + 14, y + 20, 8f, Sk.ACC, 0, true, 1.4f);
         hitF(x, y, w, h, () -> {});
         for (int i = 0; i < LAYERS.length; i++) {
@@ -855,7 +926,7 @@ public final class GpsScreen extends FlowScreen {
             float ry = y + 30f + i * rowH;
             boolean on = GpsPrefs.layerOn(id);
             boolean hv = Sk.in(mx, my, x + 4, ry, w - 8, rowH - 2);
-            if (hv) Sk.slant(g, x + 4, ry, w - 8, rowH - 2, 5f, 0xFF1B2E47);
+            if (hv) Gfx.rrect(g, x + 4, ry, w - 8, rowH - 2, 8f, 0xFF1B2E47);
             Gfx.rrect(g, x + 14, ry + 5, 14, 14, 3, on ? Sk.ACC : 0xFF22344D);
             if (on) {
                 Gfx.line(g, x + 17, ry + 12, x + 20.5f, ry + 15.5f, 1.8f, 0xFF061426);
@@ -870,28 +941,39 @@ public final class GpsScreen extends FlowScreen {
     }
 
     private void drawCard(GuiGraphics g, Minecraft mc, int mx, int my) {
+        float h = 74f;
         if (showZones && !GpsData.zones.isEmpty()) {
-            float ly = height - M - (GpsNav.active ? 78f : 0f) - 22f;
-            Sk.cut(g, M, ly, 156, 20, 5, 0xE0081018);
-            Gfx.rrect(g, M + 8, ly + 6, 9, 9, 2, 0xFF2FBF71);
-            Gfx.text(g, "LEGAL", M + 22, ly + 14, 6.8f, Sk.WHITE, 0, true, 0.6f);
-            Gfx.rrect(g, M + 76, ly + 6, 9, 9, 2, 0xFFE5484D);
-            Gfx.text(g, "ILEGAL", M + 90, ly + 14, 6.8f, Sk.WHITE, 0, true, 0.6f);
+            float ly = height - M - (GpsNav.active ? h + 8f : 0f) - 26f;
+            box(g, M, ly, 160, 26, 13f, 0xE80B1424, 0xFF22344D);
+            Gfx.rrect(g, M + 12, ly + 8.5f, 9, 9, 3, 0xFF2FBF71);
+            Gfx.text(g, "LEGAL", M + 26, ly + 17, 6.8f, Sk.WHITE, 0, true, 0.6f);
+            Gfx.rrect(g, M + 80, ly + 8.5f, 9, 9, 3, 0xFFE5484D);
+            Gfx.text(g, "ILEGAL", M + 94, ly + 17, 6.8f, Sk.WHITE, 0, true, 0.6f);
         }
         if (!GpsNav.active) return;
         float w = cardW();
-        float h = 70f;
         float x = M;
         float y = height - M - h;
-        Sk.cut(g, x, y, w, h, 10, 0xF4081018);
-        Gfx.rrect(g, x, y + 8, 4, h - 16, 0, GpsNav.color);
-        Gfx.text(g, "RUTĂ ACTIVĂ", x + 16, y + 17, 6.6f, Sk.ACC, 0, true, 1.4f);
-        Gfx.text(g, GpsNav.route.roads() ? "pe străzi" : "direcție directă", x + 16 + Gfx.width("RUTĂ ACTIVĂ", 6.6f, true) + 14f, y + 17, 6.6f, Sk.MUTED, 0);
-        Gfx.text(g, clip(GpsNav.name, 10.5f, true, w - 150f), x + 16, y + 34, 10.5f, Sk.WHITE, 0, true, 0f);
+        box(g, x, y, w, h, 15f, 0xF00A1220, 0xFF2A3A55);
+        Gfx.rrect(g, x + 8, y + 12, 3.5f, h - 24, 1.7f, GpsNav.color);
+        Gfx.text(g, "RUTĂ ACTIVĂ", x + 22, y + 19, 6.6f, Sk.ACC, 0, true, 1.4f);
+        Gfx.text(g, GpsNav.route.roads() ? "pe străzi" : "direcție directă", x + 22 + Gfx.width("RUTĂ ACTIVĂ", 6.6f, true) + 14f, y + 19, 6.6f, Sk.MUTED, 0);
+        Gfx.text(g, clip(GpsNav.name, 10.5f, true, w - 190f), x + 22, y + 38, 10.5f, Sk.WHITE, 0, true, 0f);
         double d = GpsNav.distance(mc);
         String info = d < 0 ? "în altă lume" : GpsNav.fmtDist(d) + "  ·  ~" + GpsNav.fmtEta(GpsNav.etaSeconds(mc));
-        Gfx.text(g, info, x + 16, y + 54, 9f, 0xFFC9D4E4, 0, true, 0f);
-        btn(g, "ANULEAZĂ GPS", x + w - 126, y + h - 42, 114, 30, 2, mx, my, this::cancel);
+        Gfx.text(g, info, x + 22, y + 58, 9f, 0xFFC9D4E4, 0, true, 0f);
+        // buton "Anulare GPS" (pastila cu X rosu)
+        float bw = 138f;
+        float bh = 34f;
+        float bx = x + w - bw - 14f;
+        float by = y + (h - bh) / 2f;
+        boolean hv = Sk.in(mx, my, bx, by, bw, bh);
+        box(g, bx, by, bw, bh, 12f, hv ? 0xFF2A1518 : 0xFF1A1014, hv ? Sk.BAD : 0xFF6B2A2E);
+        Gfx.rrect(g, bx + 8, by + 8, 18, 18, 5f, Sk.BAD);
+        Gfx.line(g, bx + 13, by + 13, bx + 21, by + 21, 1.8f, Sk.WHITE);
+        Gfx.line(g, bx + 21, by + 13, bx + 13, by + 21, 1.8f, Sk.WHITE);
+        Gfx.text(g, "Anulare GPS", bx + 33, by + 21.5f, 9f, Sk.WHITE, 0, true, 0f);
+        hitF(bx, by, bw, bh, this::cancel);
     }
 
     // ------------------------------------------------------------------ panou LOCATII
@@ -902,17 +984,16 @@ public final class GpsScreen extends FlowScreen {
         float y = M;
         float w = panelW;
         float h = height - 2 * M;
-        Sk.cut(g, x - 1, y - 1, w + 2, h + 2, 17, 0x884DA3FF);
-        Sk.cut(g, x, y, w, h, 16, 0xF4081018);
-        Gfx.text(g, "LOCAȚII", x + 18, y + 32, 16f, Sk.WHITE, 0, true, 0.6f);
-        Gfx.text(g, totalInDim + " total", x + w - 16, y + 30, 8f, Sk.MUTED, 2);
-        Gfx.rrect(g, x + 16, y + 40, w - 32, 2, 0, Sk.ACC);
-        Gfx.rrect(g, x + w - 16 - (w - 32) * 0.22f, y + 40, (w - 32) * 0.22f, 2, 0, VIOLET);
+        box(g, x, y, w, h, 18f, 0xF20A1220, 0xFF2A3A55);
+        Gfx.rrect(g, x + 14, y + 17, 3.5f, 19, 1.7f, Sk.ACC);
+        Gfx.text(g, "LOCAȚII", x + 24, y + 33, 15f, Sk.WHITE, 0, true, 0.6f);
+        Gfx.text(g, totalInDim + " total", x + w - 18, y + 31, 8f, Sk.MUTED, 2);
+        Gfx.rrect(g, x + 16, y + 43, w - 32, 2, 1f, Sk.ACC);
+        Gfx.rrect(g, x + w - 16 - (w - 32) * 0.22f, y + 43, (w - 32) * 0.22f, 2, 1f, VIOLET);
 
         // cautare
-        float sy0 = y + 52;
-        Sk.slant(g, x + 14, sy0, w - 28, 28, 4f, Sk.ROW);
-        Gfx.rrect(g, x + 18, sy0 + 26, w - 36, 1.6f, 0, search.isFocused() ? Sk.ACC : 0xFF22344D);
+        float sy0 = y + 55;
+        box(g, x + 14, sy0, w - 28, 28, 10f, 0xE00D1626, search.isFocused() ? Sk.ACC : 0xFF22344D);
         Gfx.ring(g, x + 29, sy0 + 13, 3.2f, 4.4f, Sk.MUTED, Sk.MUTED);
         Gfx.line(g, x + 32, sy0 + 16, x + 36, sy0 + 20, 1.6f, Sk.MUTED);
         search.x = Math.round(x + 44);
@@ -924,7 +1005,7 @@ public final class GpsScreen extends FlowScreen {
         // filtre
         List<String> cs = chips();
         float cx = x + 14;
-        float cy = sy0 + 38;
+        float cy = sy0 + 37;
         float maxX = x + w - 14;
         for (String c : cs) {
             String label = "FAV".equals(c) ? "★" : c;
@@ -936,9 +1017,9 @@ public final class GpsScreen extends FlowScreen {
             }
             boolean sel = c.equals(filter);
             boolean hv = Sk.in(mx, my, cx, cy, cw, 21);
-            Sk.slant(g, cx, cy, cw, 21, 5f, sel ? Sk.ACC : hv ? 0xFF22344D : Sk.ROW);
+            box(g, cx, cy, cw, 21, 8f, sel ? Sk.ACC : hv ? 0xFF22344D : 0xE00D1626, sel ? Sk.ACC : 0xFF22344D);
             if ("FAV".equals(c)) star(g, cx + cw / 2f, cy + 10.5f, 6f, sel ? 0xFF061426 : 0xFFFFC857);
-            else Gfx.text(g, label, cx + cw / 2f + 2, cy + 14.5f, 7.2f, sel ? 0xFF061426 : Sk.MUTED, 1, true, 0.5f);
+            else Gfx.text(g, label, cx + cw / 2f + 1, cy + 14.5f, 7.2f, sel ? 0xFF061426 : Sk.MUTED, 1, true, 0.5f);
             final String key = c;
             hitF(cx, cy, cw, 21, () -> {
                 filter = key;
@@ -947,97 +1028,152 @@ public final class GpsScreen extends FlowScreen {
             });
             cx += cw + 6f;
         }
-        listTop = cy + 31f;
+        listTop = cy + 32f;
 
         // zona de jos: bara de pagini + detalii
-        float pbH = 30f;
+        float pbH = 34f;
         float pbY = y + h - 14 - pbH;
-        float dH = selected != null ? 100f : 0f;
+        boolean compact = height < 360;
+        float dH = selected != null ? (compact ? 72f : 104f) : 0f;
         float dY = pbY - 8 - dH;
         listBottom = (selected != null ? dY : pbY) - 8f;
-        rowsVisible = Math.max(1, (int) ((listBottom - listTop + 4f) / PITCH));
+        rowsVisible = Math.max(1, (int) ((listBottom - listTop + (PITCH - ROW_H)) / PITCH));
         clampScroll();
 
         // lista
-        if (shown.isEmpty()) {
+        float rowW = w - 36f;
+        if (rows.isEmpty()) {
             String msg = !GpsData.loaded && GpsData.all().isEmpty() ? "Se încarcă locațiile…" : (totalInDim == 0 ? "Nicio locație configurată" : "Nicio locație găsită");
             Gfx.text(g, msg, x + w / 2f, listTop + 30, 8.6f, Sk.MUTED, 1);
             if (totalInDim == 0 && GpsData.loaded) Gfx.text(g, GpsData.admin ? "Adaugă din EDITOR HARTĂ → LOCAȚII" : "Adminul poate adăuga locații din editor", x + w / 2f, listTop + 46, 6.8f, Sk.FAINT, 1);
         }
         for (int i = 0; i < rowsVisible; i++) {
             int idx = scroll + i;
-            if (idx >= shown.size()) break;
-            GpsData.Loc l = shown.get(idx);
+            if (idx >= rows.size()) break;
+            final List<GpsData.Loc> grp = rows.get(idx);
+            GpsData.Loc l = cur(grp);
+            int n = grp.size();
             float ry = listTop + i * PITCH;
             float appear = ease((System.currentTimeMillis() - born - i * 40L) / 260f);
             float rx = x + 14 + (1f - appear) * 18f;
-            boolean sel = l == selected;
-            boolean hv = Sk.in(mx, my, x + 14, ry, w - 28, ROW_H);
-            Sk.slant(g, rx, ry, w - 28, ROW_H, 5f, sel ? 0xFF1B2E47 : hv ? Sk.ROW_HOT : Sk.ROW);
-            if (sel) {
-                Gfx.rrect(g, rx, ry + 3, 3, ROW_H - 6, 0, Sk.ACC);
-                Gfx.rrect(g, rx + 5, ry + ROW_H - 1.5f, w - 38, 1.5f, 0, 0x884DA3FF);
+            boolean sel = hasSel(grp);
+            boolean hv = Sk.in(mx, my, x + 14, ry, rowW, ROW_H);
+            box(g, rx, ry, rowW, ROW_H, 12f, sel ? 0xF016294A : hv ? 0xF0152238 : 0xE00D1626, sel ? Sk.ACC : hv ? 0xFF2F4668 : 0xFF1E2C44, sel ? 2f : 1f);
+            if (sel) Gfx.rrect(g, rx + 5, ry + 9, 3f, ROW_H - 18, 1.5f, VIOLET);
+            float icx = rx + 27;
+            float icy = ry + ROW_H / 2f;
+            if (GpsNav.isTarget(l.id)) Gfx.ring(g, icx, icy, 10.5f, 11.6f, Gfx.fade(0xFFFFFFFF, 0.9f * appear), Gfx.fade(0xFFFFFFFF, 0.9f * appear));
+            GpsIcons.glyph(g, l.icon, icx, icy, 5.4f, Gfx.fade(l.color, appear), appear);
+            int nameCol = sel || hv ? Sk.WHITE : 0xFFD6E0EE;
+            if (n > 1) {
+                float a2 = rx + rowW - 30f;
+                String lab = (variantIndex(grp) + 1) + "/" + n;
+                float lw = Gfx.width(lab, 9f, true);
+                float lx = a2 - 8f - lw / 2f;
+                float a1 = lx - lw / 2f - 8f - 22f;
+                Gfx.text(g, clip(upper(l.name), 9.2f, true, a1 - (rx + 46) - 6f), rx + 46, icy + 3.4f, 9.2f, nameCol, 0, true, 0.4f);
+                final float fa1 = a1;
+                final float fa2 = a2;
+                final float fry = ry;
+                final GpsData.Loc fl0 = l;
+                hitF(x + 14, ry, rowW, ROW_H, () -> rowClick(fl0));
+                Gfx.text(g, lab, lx, icy + 3.4f, 9f, Sk.WHITE, 1, true, 0f);
+                stepBtn(g, fa1, fry + 8f, 22f, 22f, true, mx, my, () -> cycle(grp, -1));
+                stepBtn(g, fa2, fry + 8f, 22f, 22f, false, mx, my, () -> cycle(grp, 1));
+            } else {
+                double d = dist(l);
+                String ds = d < 0 ? "-" : GpsNav.fmtDist(d);
+                float dw = Gfx.width(ds, 7.4f, false);
+                if (GpsPrefs.fav.contains(l.id)) star(g, rx + rowW - 14 - dw - 12f, icy, 4.6f, 0xFFFFC857);
+                Gfx.text(g, ds, rx + rowW - 14, icy + 2.8f, 7.4f, sel ? Sk.WHITE : Sk.MUTED, 2);
+                float tw = rowW - 46 - dw - 34;
+                Gfx.text(g, clip(upper(l.name), 9.2f, true, tw), rx + 46, icy + 3.4f, 9.2f, nameCol, 0, true, 0.4f);
+                final GpsData.Loc fl = l;
+                hitF(x + 14, ry, rowW, ROW_H, () -> rowClick(fl));
             }
-            GpsIcons.badge(g, l.icon, rx + 22, ry + ROW_H / 2f, 9f, l.color, appear, GpsNav.isTarget(l.id));
-            double d = dist(l);
-            String ds = d < 0 ? "-" : GpsNav.fmtDist(d);
-            float dw = Gfx.width(ds, 7.4f, false);
-            if (GpsPrefs.fav.contains(l.id)) star(g, x + w - 24 - dw - 12f, ry + ROW_H / 2f, 4.4f, 0xFFFFC857);
-            Gfx.text(g, ds, x + w - 24, ry + ROW_H / 2f + 2.8f, 7.4f, sel ? Sk.WHITE : Sk.MUTED, 2);
-            float tw = w - 28 - 44 - dw - 26;
-            Gfx.text(g, clip(l.name, 8.8f, true, tw), rx + 38, ry + ROW_H / 2f + 3.2f, 8.8f, sel || hv ? Sk.WHITE : 0xFFD6E0EE, 0, true, 0f);
-            final GpsData.Loc fl = l;
-            hitF(x + 14, ry, w - 28, ROW_H, () -> {
-                long now = System.currentTimeMillis();
-                boolean dbl = fl.id.equals(lastClickId) && now - lastClickAt < 380;
-                lastClickId = fl.id;
-                lastClickAt = now;
-                select(fl, true);
-                if (dbl) activate();
-            });
+        }
+
+        // scrollbar personalizat (indicator; derulare cu rotita / PgUp / PgDn / sageti)
+        if (rows.size() > rowsVisible) {
+            float th = Math.max(20f, listBottom - listTop);
+            float trackX = x + w - 17f;
+            Gfx.rrect(g, trackX, listTop, 4f, th, 2f, 0xFF14202F);
+            float thumb = Math.max(20f, th * rowsVisible / (float) rows.size());
+            float maxS = rows.size() - rowsVisible;
+            float ty = listTop + (th - thumb) * (maxS <= 0 ? 0f : scroll / maxS);
+            Gfx.rrect(g, trackX, ty, 4f, thumb, 2f, Sk.ACC, VIOLET);
         }
 
         // detalii selectie
         if (selected != null) {
             GpsData.Loc s = selected;
-            Sk.slant(g, x + 14, dY, w - 28, dH, 6f, 0xFF101C2E);
-            Gfx.rrect(g, x + 14, dY + 6, 3, 46, 0, s.color);
-            Gfx.text(g, clip(s.name, 10.5f, true, w - 86), x + 28, dY + 20, 10.5f, Sk.WHITE, 0, true, 0f);
+            box(g, x + 14, dY, w - 28, dH, 13f, 0xFF0F1A2C, 0xFF22344D);
+            Gfx.rrect(g, x + 22, dY + 9, 3.2f, 44, 1.6f, s.color);
+            Gfx.text(g, clip(s.name, 10.5f, true, w - 96), x + 34, dY + 21, 10.5f, Sk.WHITE, 0, true, 0f);
             double d = dist(s);
             String sub = s.catName + (d >= 0 ? "  ·  " + GpsNav.fmtDist(d) : "");
-            Gfx.text(g, clip(sub, 7.2f, false, w - 80), x + 28, dY + 32, 7.2f, Sk.MUTED, 0);
-            String desc = s.desc.isEmpty() ? "" : s.desc;
-            Gfx.text(g, clip(desc, 7.2f, false, w - 52), x + 28, dY + 44, 7.2f, 0xFF9CB4D0, 0);
-            Gfx.text(g, "X: " + Math.round(s.x) + "   Z: " + Math.round(s.z), x + 28, dY + 56, 7.4f, Sk.FAINT, 0, true, 0.2f);
+            Gfx.text(g, clip(sub, 7.2f, false, w - 86), x + 34, dY + 33, 7.2f, Sk.MUTED, 0);
+            if (!compact) {
+                String desc = s.desc.isEmpty() ? "" : s.desc;
+                Gfx.text(g, clip(desc, 7.2f, false, w - 58), x + 34, dY + 45, 7.2f, 0xFF9CB4D0, 0);
+                Gfx.text(g, "X: " + Math.round(s.x) + "   Z: " + Math.round(s.z), x + 34, dY + 57, 7.4f, Sk.FAINT, 0, true, 0.2f);
+            }
             if (!PIN.equals(s.id)) {
                 boolean fav = GpsPrefs.fav.contains(s.id);
-                float fx = x + w - 34;
-                star(g, fx + 8, dY + 15, 7f, fav ? 0xFFFFC857 : 0xFF55667C);
-                hitF(fx - 4, dY + 4, 24, 22, () -> toggleFav(s));
+                float fx = x + w - 38;
+                star(g, fx + 8, dY + 16, 7f, fav ? 0xFFFFC857 : 0xFF55667C);
+                hitF(fx - 4, dY + 5, 24, 22, () -> toggleFav(s));
             }
             boolean target = GpsNav.isTarget(s.id);
-            btn(g, target ? "ANULEAZĂ GPS" : "SETEAZĂ GPS", x + 24, dY + dH - 38, w - 48, 30, target ? 2 : 0, mx, my, this::activate);
+            btn(g, target ? "ANULEAZĂ GPS" : "SETEAZĂ GPS", x + 24, dY + dH - (compact ? 35 : 38), w - 48, compact ? 28 : 30, target ? 2 : 0, mx, my, this::activate);
         }
 
-        // bara de pagini
-        Sk.slant(g, x + 14, pbY, w - 28, pbH, 5f, Sk.ROW);
-        String range = shown.isEmpty() ? "0 / 0" : (scroll + 1) + "-" + Math.min(scroll + rowsVisible, shown.size()) + " / " + shown.size();
-        Gfx.text(g, range, x + 28, pbY + 19.5f, 9.4f, Sk.WHITE, 0, true, 0.3f);
-        Gfx.text(g, "scroll", x + w - 84, pbY + 18.5f, 7.2f, Sk.FAINT, 2);
+        // bara de pagini: "x-y / total" + Scroll
+        box(g, x + 14, pbY, w - 28, pbH, 12f, 0xE00D1626, 0xFF22344D);
+        String range = rows.isEmpty() ? "0 / 0" : (scroll + 1) + "-" + Math.min(scroll + rowsVisible, rows.size()) + " / " + rows.size();
+        Gfx.text(g, range, x + 28, pbY + 22f, 10f, Sk.WHITE, 0, true, 0.3f);
+        Gfx.text(g, "Scroll", x + w - 86, pbY + 20.5f, 7.2f, Sk.FAINT, 2);
         float bx = x + w - 20 - 52;
-        arrowBtn(g, bx, pbY + 3, 24, 24, true, mx, my, () -> {
+        arrowBtn(g, bx, pbY + 5, 24, 24, true, mx, my, () -> {
             scroll -= rowsVisible;
             clampScroll();
         });
-        arrowBtn(g, bx + 28, pbY + 3, 24, 24, false, mx, my, () -> {
+        arrowBtn(g, bx + 28, pbY + 5, 24, 24, false, mx, my, () -> {
             scroll += rowsVisible;
             clampScroll();
         });
     }
 
+    private int variantIndex(List<GpsData.Loc> grp) {
+        Integer i = variant.get(key(grp));
+        int k = i == null ? 0 : i;
+        return k < 0 || k >= grp.size() ? 0 : k;
+    }
+
+    private void rowClick(GpsData.Loc fl) {
+        long now = System.currentTimeMillis();
+        boolean dbl = fl.id.equals(lastClickId) && now - lastClickAt < 380;
+        lastClickId = fl.id;
+        lastClickAt = now;
+        select(fl, true);
+        if (dbl) activate();
+    }
+
+    /** Sageata stanga/dreapta din randul cu mai multe locatii ("< 2/2 >"). */
+    private void stepBtn(GuiGraphics g, float x, float y, float w, float h, boolean left, int mx, int my, Runnable r) {
+        boolean hv = Sk.in(mx, my, x, y, w, h);
+        box(g, x, y, w, h, 7f, hv ? 0xFF22344D : 0xFF14202F, hv ? Sk.ACC : 0xFF2A3A55);
+        float cx = x + w / 2f;
+        float cy = y + h / 2f;
+        int col = hv ? Sk.WHITE : Sk.MUTED;
+        if (left) Gfx.poly(g, new float[] {cx - 3.5f, cy, cx + 2.5f, cy - 5f, cx + 2.5f, cy + 5f}, col);
+        else Gfx.poly(g, new float[] {cx + 3.5f, cy, cx - 2.5f, cy - 5f, cx - 2.5f, cy + 5f}, col);
+        hitF(x, y, w, h, r);
+    }
+
     private void arrowBtn(GuiGraphics g, float x, float y, float w, float h, boolean up, int mx, int my, Runnable r) {
         boolean hv = Sk.in(mx, my, x, y, w, h);
-        Gfx.rrect(g, x, y, w, h, 3, hv ? 0xFF22344D : 0xFF14202F);
+        Gfx.rrect(g, x, y, w, h, 8f, hv ? 0xFF22344D : 0xFF14202F);
         float cx = x + w / 2f;
         float cy = y + h / 2f;
         if (up) Gfx.poly(g, new float[] {cx, cy - 4f, cx + 5f, cy + 3f, cx - 5f, cy + 3f}, hv ? Sk.WHITE : Sk.MUTED);
@@ -1058,7 +1194,6 @@ public final class GpsScreen extends FlowScreen {
         Gfx.poly(g, p, color);
     }
 
-    @SuppressWarnings("unused")
     private static String upper(String s) {
         return s.toUpperCase(Locale.ROOT);
     }
