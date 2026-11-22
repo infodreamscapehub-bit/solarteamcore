@@ -20,7 +20,7 @@ import java.util.zip.GZIPOutputStream;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.material.MaterialColor;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.multiplayer.ClientWorld;
+import net.minecraft.client.world.ClientWorld;
 import net.minecraft.client.renderer.BufferBuilder;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.texture.DynamicTexture;
