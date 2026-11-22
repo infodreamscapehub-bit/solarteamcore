@@ -492,7 +492,7 @@ public final class GaragesClient {
      * Card mic deasupra markerului (mereu cu fata spre camera): fundal inchis translucid cu colturi taiate,
      * iconita, nume + tip + distanta. icon: 0 masina, 1 pompa, 2 pound, 3 lacat (fara acces).
      */
-    private static void card(MatrixStack ps, IRenderTypeBuffer buf, ActiveRenderInfo cam, Vector3d c, double x, double y, double z, String title, String sub, float dist, int rgb, int icon, float fade) {
+    private static void card(MatrixStack ps, IRenderTypeBuffer.Impl buf, ActiveRenderInfo cam, Vector3d c, double x, double y, double z, String title, String sub, float dist, int rgb, int icon, float fade) {
         int ba = (int) (205 * fade);
         if (ba < 8) return;
         FontRenderer font = Minecraft.getInstance().font;
