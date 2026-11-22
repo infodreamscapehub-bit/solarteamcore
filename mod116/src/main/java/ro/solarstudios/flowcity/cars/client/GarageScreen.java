@@ -67,6 +67,7 @@ public final class GarageScreen extends FlowScreen {
     private String buyerBuf = "";
     private String priceBuf = "";
     private int sellField;
+    private boolean confirmSell;
 
     private Entity preview;
     private String previewType = "";
@@ -136,6 +137,7 @@ public final class GarageScreen extends FlowScreen {
 
     private void openSell(JsonObject car) {
         sellMode = 1;
+        confirmSell = false;
         sellCar = car;
         sellId = JsonClientModule.integer(car, "id", 0);
         sellBusy = false;
@@ -171,6 +173,11 @@ public final class GarageScreen extends FlowScreen {
         if (sellBusy || sellMode == 0) return;
         if (sellTab == 0) {
             if (!qReady || !qOk) return;
+            if (!confirmSell) {
+                confirmSell = true;
+                return;
+            }
+            confirmSell = false;
             sellBusy = true;
             sellNote = "";
             CarsClient.request("sell_dealer", saleObj());
@@ -257,6 +264,24 @@ public final class GarageScreen extends FlowScreen {
         float sx = lx + bw + 8;
         Sk.button(ms, label, sx, by, bw, 24, can, true, can && Sk.in(lmx, lmy, sx, by, bw, 24));
         if (can) hitL(sx, by, bw, 24, this::submitSell);
+        if (confirmSell) {
+            hit(0, 0, width, height, () -> { });
+            Gfx.rrect(ms, 0, 0, W, H, 0, 0xB002070E);
+            float cx0 = 150f;
+            float cy0 = 96f;
+            float cw = 220f;
+            float ch = 100f;
+            Sk.cut(ms, cx0 - 1, cy0 - 1, cw + 2, ch + 2, 9f, Sk.ACC);
+            Sk.cut(ms, cx0, cy0, cw, ch, 9f, 0xFF0B1626);
+            Gfx.text(ms, "CONFIRMI VÂNZAREA?", cx0 + cw / 2f, cy0 + 22, 10f, Sk.WHITE, 1, true, 0.8f);
+            Gfx.text(ms, clipG(JsonClientModule.str(sellCar, "name", "?") + " · " + JsonClientModule.str(sellCar, "plate", ""), 7.4f, false, cw - 24), cx0 + cw / 2f, cy0 + 38, 7.4f, Sk.MUTED, 1);
+            Gfx.text(ms, Ui.money(qPrice) + " lei", cx0 + cw / 2f, cy0 + 58, 14f, Sk.ACC, 1, true, 0f);
+            float bw2 = (cw - 36f) / 2f;
+            Sk.button(ms, "NU", cx0 + 14, cy0 + 68, bw2, 24, true, false, Sk.in(lmx, lmy, cx0 + 14, cy0 + 68, bw2, 24));
+            hitL(cx0 + 14, cy0 + 68, bw2, 24, () -> confirmSell = false);
+            Sk.button(ms, "DA, VINDE", cx0 + 22 + bw2, cy0 + 68, bw2, 24, true, true, Sk.in(lmx, lmy, cx0 + 22 + bw2, cy0 + 68, bw2, 24));
+            hitL(cx0 + 22 + bw2, cy0 + 68, bw2, 24, this::submitSell);
+        }
     }
 
     private void sellInput(GuiGraphics ms, float x, float y, float w, String val, int idx, float lmx, float lmy, String hint) {
@@ -361,34 +386,76 @@ public final class GarageScreen extends FlowScreen {
         }
     }
 
-    private void content(GuiGraphics ms, float lmx, float lmy, float dt) {
-        String type = JsonClientModule.str(data, "type", "public");
-        String sub = pound() ? "POUND" : ("factiune".equals(type) ? "FACȚIUNE · " + JsonClientModule.str(data, "faction", "").toUpperCase() : "GARAJ");
-        Gfx.text(ms, clipG(JsonClientModule.str(data, "name", "Garaj"), 17, true, 190), 16, 38, 17, Sk.WHITE, 0, true, 0f);
-        Gfx.text(ms, sub, 17, 50, 6.4f, Sk.MUTED, 0, false, 1.2f);
-        Sk.close(ms, W - 34, 14, lmx, lmy);
-        hitL(W - 34, 14, 20, 20, this::onClose);
-
+    private JsonArray listedCars() {
         JsonArray all = data.has("cars") ? data.getAsJsonArray("cars") : new JsonArray();
         JsonArray cars = new JsonArray();
         for (int i = 0; i < all.size(); i++) if (listed(all.get(i).getAsJsonObject())) cars.add(all.get(i));
+        return cars;
+    }
 
+    private JsonObject selectedCar(JsonArray cars) {
+        for (int i = 0; i < cars.size(); i++) if (JsonClientModule.integer(cars.get(i).getAsJsonObject(), "id", 0) == selected) return cars.get(i).getAsJsonObject();
+        return null;
+    }
+
+    private static String engineLabel(String id) {
+        if (id == null || id.isEmpty() || "-".equals(id)) return "FĂRĂ MOTOR";
+        String s = id.toLowerCase();
+        String tier = s.contains("netherite") ? "NETHERITE" : s.contains("diamond") ? "DIAMANT" : s.contains("gold") ? "AUR" : s.contains("iron") ? "FIER" : s.contains("stone") ? "PIATRĂ" : s.contains("wood") ? "LEMN" : "STANDARD";
+        String fam = s.contains("electric") ? "ELECTRIC" : s.contains("large") ? "MARE" : s.contains("small") ? "MIC" : "";
+        return fam.isEmpty() ? tier : tier + " · " + fam;
+    }
+
+    private static String km(double meters) {
+        return String.format(java.util.Locale.ROOT, "%.1f km", meters / 1000.0);
+    }
+
+    private static void badge(GuiGraphics ms, String text, float rightX, float y, int color) {
+        float w = Gfx.width(text, 5.6f, false) + 10f;
+        Sk.cut(ms, rightX - w, y, w, 11, 3f, Gfx.fade(color, 0.22f));
+        Gfx.text(ms, text, rightX - w / 2f, y + 7.6f, 5.6f, color, 1, true, 0.6f);
+    }
+
+    private static String badgeText(JsonObject c) {
+        if (JsonClientModule.bool(c, "pound", false)) return "POUND";
+        if (JsonClientModule.bool(c, "out", false)) return "AFARĂ";
+        return "STA";
+    }
+
+    private void trySpawn(JsonObject sel) {
+        if (waiting || sel == null || pound() || sellMode != 0) return;
+        if (JsonClientModule.bool(sel, "out", false) || JsonClientModule.bool(sel, "pound", false)) return;
+        waiting = true;
+        CarsNet.send("spawn", gid(), JsonClientModule.integer(sel, "id", 0));
+    }
+
+    private void content(GuiGraphics ms, float lmx, float lmy, float dt) {
+        long now = System.currentTimeMillis();
+        String type = JsonClientModule.str(data, "type", "public");
+        String crumb = pound() ? "FLOWCITY › POUND" : ("factiune".equals(type) ? "FLOWCITY › GARAJ › " + JsonClientModule.str(data, "faction", "").toUpperCase() : "FLOWCITY › GARAJ");
+        Gfx.text(ms, crumb, 17, 24, 6.2f, Sk.MUTED, 0, false, 1.4f);
+        Gfx.text(ms, clipG(JsonClientModule.str(data, "name", "Garaj"), 17, true, 300), 16, 44, 17, Sk.WHITE, 0, true, 0f);
+        Sk.slant(ms, 16, 50, 46, 2, 0f, Sk.ACC);
+        Sk.close(ms, W - 34, 14, lmx, lmy);
+        hitL(W - 34, 14, 20, 20, this::onClose);
+
+        JsonArray cars = listedCars();
         if (cars.size() == 0) {
-            Gfx.text(ms, pound() ? "Nu ai nicio mașină la pound." : "Nu ai nicio mașină aici.", 16, 84, 9, Sk.WHITE, 0);
-            if (!pound()) Gfx.text(ms, "Cumpără una de la dealerul auto.", 16, 98, 7.6f, Sk.MUTED, 0);
+            Sk.cut(ms, 16, 70, 300, 70, 8f, 0x99081018);
+            Gfx.text(ms, pound() ? "Nu ai nicio mașină la pound." : "Nu ai nicio mașină aici.", 32, 100, 10, Sk.WHITE, 0, true, 0f);
+            if (!pound()) Gfx.text(ms, "Cumpără una de la dealerul auto.", 32, 118, 7.6f, Sk.MUTED, 0);
             return;
         }
 
-        JsonObject sel = null;
-        for (int i = 0; i < cars.size(); i++) if (JsonClientModule.integer(cars.get(i).getAsJsonObject(), "id", 0) == selected) sel = cars.get(i).getAsJsonObject();
+        JsonObject sel = selectedCar(cars);
         if (sel == null) {
             sel = cars.get(0).getAsJsonObject();
             selected = JsonClientModule.integer(sel, "id", 0);
         }
 
-        // ---- lista (paralelograme, cea aleasa plina cu accent)
-        Gfx.text(ms, cars.size() + (cars.size() == 1 ? " MAȘINĂ" : " MAȘINI"), 208, 50, 6.2f, Sk.FAINT, 2, false, 1f);
-        float top = 64f;
+        // ---- lista: carduri cu bara de benzina si insigna de stare
+        Gfx.text(ms, cars.size() + (cars.size() == 1 ? " MAȘINĂ" : " MAȘINI"), 16, 66, 6.2f, Sk.FAINT, 0, false, 1.2f);
+        float top = 72f;
         float bottom = H - 12f;
         int visible = Math.max(1, (int) ((bottom - top) / ROW));
         scroll = Math.max(0, Math.min(scroll, Math.max(0, cars.size() - visible)));
@@ -397,35 +464,54 @@ public final class GarageScreen extends FlowScreen {
             JsonObject c = cars.get(i).getAsJsonObject();
             final int id = JsonClientModule.integer(c, "id", 0);
             boolean s = id == selected;
-            boolean h = Sk.in(lmx, lmy, 12, y, 196, ROW - 4);
-            Sk.slant(ms, s ? 18 : 12, y, 196, ROW - 4, 7f, s ? Sk.ACC : (h ? Sk.ROW_HOT : Sk.ROW));
-            float tx = s ? 38f : 32f;
-            Gfx.rrect(ms, tx - 10, y + 7, 4, ROW - 18, 0, carColor(c));
-            Gfx.text(ms, clipG(JsonClientModule.str(c, "name", "?"), 8.6f, true, 100), tx, y + 13, 8.6f, s ? 0xFF061426 : Sk.WHITE, 0, true, 0f);
-            plate(ms, JsonClientModule.str(c, "plate", ""), tx, y + 17, 5.6f);
-            Gfx.text(ms, statusLabel(c), 202, y + 13, 6f, s ? 0xFF061426 : statusColor(c), 2, false, 0.6f);
-            hitL(12, y, 196, ROW - 4, () -> selected = id);
+            boolean h = Sk.in(lmx, lmy, 12, y, 200, ROW - 4);
+            float ro = easeOut((now - born - (i - scroll) * 55L) / 280f);
+            float shift = (1f - ro) * -26f + (s ? 6f : 0f);
+            float prevA = Gfx.alpha;
+            Gfx.alpha = prevA * ro;
+            Sk.slant(ms, 12 + shift, y, 200, ROW - 4, 7f, s ? Sk.ACC : (h ? Sk.ROW_HOT : Sk.ROW));
+            int fg = s ? 0xFF061426 : Sk.WHITE;
+            float tx = 30f + shift;
+            Gfx.rrect(ms, tx - 10, y + 6, 3, ROW - 16, 0, carColor(c));
+            Gfx.text(ms, clipG(JsonClientModule.str(c, "name", "?"), 8.4f, true, 96), tx, y + 13, 8.4f, fg, 0, true, 0f);
+            plate(ms, JsonClientModule.str(c, "plate", ""), tx, y + 17, 5.2f);
+            badge(ms, badgeText(c), 204 + shift, y + 5, s ? 0xFF061426 : statusColor(c));
+            if (JsonClientModule.bool(c, "needsFuel", true) && !JsonClientModule.bool(c, "pound", false)) {
+                float cap = (float) JsonClientModule.num(c, "fuelCap", 0);
+                float f = cap <= 0 ? 0 : Math.max(0f, Math.min(1f, (float) JsonClientModule.num(c, "fuel", 0) / cap));
+                Gfx.rrect(ms, 150 + shift, y + 24, 54, 3, 0, s ? 0x55061426 : 0xFF14202F);
+                Gfx.rrect(ms, 150 + shift, y + 24, 54 * f, 3, 0, s ? 0xFF061426 : (f < 0.15f ? Sk.BAD : Sk.WARN));
+            }
+            Gfx.alpha = prevA;
+            hitL(12, y, 200, ROW - 4, () -> selected = id);
             y += ROW;
         }
         if (cars.size() > visible) {
             float trackH = bottom - top;
             float th = Math.max(14f, trackH * visible / cars.size());
             float ty = top + (trackH - th) * scroll / Math.max(1, cars.size() - visible);
-            Gfx.rrect(ms, 212, top, 2, trackH, 0, 0xFF14202F);
-            Gfx.rrect(ms, 212, ty, 2, th, 0, Sk.ACC);
+            Gfx.rrect(ms, 216, top, 2, trackH, 0, 0xFF14202F);
+            Gfx.rrect(ms, 216, ty, 2, th, 0, Sk.ACC);
         }
 
-        // ---- masina selectata
-        float rx = 230f;
-        float rr = W - 16f;
+        // ---- panoul masinii selectate
+        float px = 226f;
+        float pw = W - 12f - px;
+        float pAnim = easeOut((now - born - 120L) / 320f);
+        float prevA = Gfx.alpha;
+        Gfx.alpha = prevA * pAnim;
+        Sk.cut(ms, px, 58, pw, H - 70, 9f, 0x99081018);
+        Sk.cut(ms, px, 58, 70, 2, 0f, Sk.ACC);
+        float rx = px + 12f;
+        float rr = px + pw - 12f;
         float rw = rr - rx;
         int paint = carColor(sel);
-        Sk.floor(ms, rx, rr, 112f, 170f, paint);
-        renderPreview(ms, JsonClientModule.str(sel, "type", ""), JsonClientModule.integer(sel, "color", 0xFFFFFF), rx + rw / 2f, 170, 340f, 190f, dt);
-        Gfx.text(ms, statusLabel(sel), rr, 56, 6.8f, statusColor(sel), 2, false, 1.2f);
-        Gfx.text(ms, clipG(JsonClientModule.str(sel, "name", "?"), 20, true, rw), rx, 76, 20, Sk.WHITE, 0, true, 0f);
-        plate(ms, JsonClientModule.str(sel, "plate", "-"), rx, 83, 7.2f);
-        Gfx.text(ms, "trage pentru a roti", rr, 196, 5.8f, Sk.FAINT, 2);
+        Sk.floor(ms, px + 6, px + pw - 6, 100f, 150f, paint);
+        renderPreview(ms, JsonClientModule.str(sel, "type", ""), JsonClientModule.integer(sel, "color", 0xFFFFFF), px + pw / 2f, 150, pw, 128f, dt);
+        Gfx.text(ms, clipG(JsonClientModule.str(sel, "name", "?"), 15, true, rw - 70), rx, 80, 15, Sk.WHITE, 0, true, 0f);
+        plate(ms, JsonClientModule.str(sel, "plate", "-"), rx, 87, 6.4f);
+        badge(ms, statusLabel(sel), rr, 68, statusColor(sel));
+        Gfx.text(ms, "trage pentru a roti", rr, 144, 5.6f, Sk.FAINT, 2);
 
         // ---- bare benzina / caroserie
         float fuel = 0f;
@@ -443,28 +529,41 @@ public final class GarageScreen extends FlowScreen {
         }
         shownFuel += (fuel - shownFuel) * Math.min(1f, dt * 6f);
         shownHp += (hp - shownHp) * Math.min(1f, dt * 6f);
-        float by0 = 208f;
+        float by0 = 160f;
         if (needsFuel) {
             stat(ms, "BENZINĂ", shownFuel, fuel, rx, by0, rw, fuel < 0.15f ? Sk.BAD : Sk.WARN);
-            stat(ms, "CAROSERIE", shownHp, hp, rx, by0 + 16, rw, hp < 0.3f ? Sk.BAD : Sk.GOOD);
+            stat(ms, "CAROSERIE", shownHp, hp, rx, by0 + 14, rw, hp < 0.3f ? Sk.BAD : Sk.GOOD);
         } else {
-            stat(ms, "CAROSERIE", shownHp, hp, rx, by0 + 8, rw, hp < 0.3f ? Sk.BAD : Sk.GOOD);
+            stat(ms, "CAROSERIE", shownHp, hp, rx, by0 + 7, rw, hp < 0.3f ? Sk.BAD : Sk.GOOD);
         }
 
-        // ---- actiune
+        // ---- km total / trip / motor
+        boolean hasOdo = sel.has("odo");
+        float cw = (rw - 12f) / 3f;
+        float cy = 192f;
+        String[] lab = {"KM TOTAL", "TRIP", "MOTOR"};
+        String[] val = {hasOdo ? km(JsonClientModule.num(sel, "odo", 0)) : "-", hasOdo ? km(JsonClientModule.num(sel, "trip", 0)) : "-", engineLabel(JsonClientModule.str(sel, "engine", "-"))};
+        for (int i = 0; i < 3; i++) {
+            float cx = rx + i * (cw + 6f);
+            Sk.cut(ms, cx, cy, cw, 28, 4f, 0x90111A28);
+            Gfx.text(ms, lab[i], cx + 7, cy + 10, 5.4f, Sk.FAINT, 0, false, 0.8f);
+            Gfx.text(ms, clipG(val[i], 7.4f, true, cw - 12), cx + 7, cy + 22, 7.4f, Sk.WHITE, 0, true, 0f);
+        }
+
+        // ---- actiuni
         final int id = selected;
-        float ay = 246f;
+        float ay = 226f;
         boolean out = JsonClientModule.bool(sel, "out", false);
         if (pound()) {
             String reason = JsonClientModule.str(sel, "reason", "");
-            Gfx.text(ms, JsonClientModule.bool(sel, "pound", false) ? "Ridicată de poliție" : "Găsită abandonată în oraș", rx, ay + 6, 7.6f, Sk.MUTED, 0);
-            if (!reason.isEmpty()) Gfx.text(ms, clipG("Motiv: " + reason, 6.8f, false, rw), rx, ay + 16, 6.8f, Sk.FAINT, 0);
+            Gfx.text(ms, JsonClientModule.bool(sel, "pound", false) ? "Ridicată de poliție" : "Găsită abandonată în oraș", rx, ay + 8, 7.4f, Sk.MUTED, 0);
+            if (!reason.isEmpty()) Gfx.text(ms, clipG("Motiv: " + reason, 6.6f, false, rw), rx, ay + 18, 6.6f, Sk.FAINT, 0);
             double fee = CarsClient.poundFee;
             boolean afford = CarsClient.money >= fee;
             String label = waiting ? "SE PROCESEAZĂ" : (afford ? "PLĂTEȘTE " + Ui.money(fee) + " LEI" : "FĂRĂ BANI");
             boolean en = !waiting && afford;
-            Sk.button(ms, label, rx, ay + 20, rw, 26, en, true, en && Sk.in(lmx, lmy, rx, ay + 20, rw, 26));
-            if (en) hitL(rx, ay + 20, rw, 26, () -> {
+            Sk.button(ms, label, rx, ay + 22, rw, 28, en, true, en && Sk.in(lmx, lmy, rx, ay + 22, rw, 28));
+            if (en) hitL(rx, ay + 22, rw, 28, () -> {
                 waiting = true;
                 JsonObject o = new JsonObject();
                 o.addProperty("car", id);
@@ -472,43 +571,46 @@ public final class GarageScreen extends FlowScreen {
                 CarsClient.request("pound_pay", o);
             });
         } else if (JsonClientModule.bool(sel, "pound", false)) {
-            Gfx.text(ms, "Mașina a fost ridicată.", rx, ay + 12, 9, Sk.BAD, 0);
-            Gfx.text(ms, "Mergi la pound s-o scoți.", rx, ay + 25, 7.4f, Sk.FAINT, 0);
+            Gfx.text(ms, "Mașina a fost ridicată.", rx, ay + 18, 9, Sk.BAD, 0);
+            Gfx.text(ms, "Mergi la pound s-o scoți.", rx, ay + 32, 7.4f, Sk.FAINT, 0);
         } else if (out) {
             if (JsonClientModule.bool(sel, "loaded", false)) {
-                Gfx.text(ms, "E în oraș, la X " + JsonClientModule.integer(sel, "lx", 0) + "   Z " + JsonClientModule.integer(sel, "lz", 0), rx, ay + 8, 8, Sk.MUTED, 0);
-                Gfx.text(ms, "Intră cu ea în zona de parcare (P)", rx, ay + 20, 7, Sk.FAINT, 0);
-                Gfx.text(ms, "și apasă tasta de interacțiune ca s-o parchezi.", rx, ay + 30, 7, Sk.FAINT, 0);
+                Gfx.text(ms, "E în oraș, la X " + JsonClientModule.integer(sel, "lx", 0) + "   Z " + JsonClientModule.integer(sel, "lz", 0), rx, ay + 8, 7.6f, Sk.MUTED, 0);
+                Gfx.text(ms, "Intră cu ea în zona de parcare (P) și apasă E.", rx, ay + 19, 6.8f, Sk.FAINT, 0);
+                Sk.button(ms, "PARCHEAZĂ", rx, ay + 26, rw, 26, true, false, Sk.in(lmx, lmy, rx, ay + 26, rw, 26));
+                hitL(rx, ay + 26, rw, 26, () -> toast("Intră cu mașina în zona de parcare (P) și apasă E.", false));
             } else {
-                Gfx.text(ms, "Nu mai e în oraș.", rx, ay + 12, 9, Sk.WARN, 0);
-                Gfx.text(ms, "O găsești la pound.", rx, ay + 25, 7.4f, Sk.FAINT, 0);
+                Gfx.text(ms, "Nu mai e în oraș.", rx, ay + 18, 9, Sk.WARN, 0);
+                Gfx.text(ms, "O găsești la pound.", rx, ay + 32, 7.4f, Sk.FAINT, 0);
             }
         } else {
             boolean personal = !"factiune".equals(JsonClientModule.str(data, "type", ""));
-            float bw = personal ? rw - 168 : rw;
+            float bw = personal ? rw - 160 : rw;
             boolean en = !waiting;
-            Sk.button(ms, waiting ? "SE SCOATE" : (personal ? "SCOATE" : "SCOATE MAȘINA"), rx, ay, bw, 30, en, true, en && Sk.in(lmx, lmy, rx, ay, bw, 30));
-            if (en) hitL(rx, ay, bw, 30, () -> {
+            Sk.button(ms, waiting ? "SE SCOATE" : "SCOATE", rx, ay + 6, bw, 34, en, true, en && Sk.in(lmx, lmy, rx, ay + 6, bw, 34));
+            if (en) hitL(rx, ay + 6, bw, 34, () -> {
                 waiting = true;
                 CarsNet.send("spawn", gid(), id);
             });
             if (personal) {
                 float tx = rx + bw + 8;
-                Sk.button(ms, "TUNING", tx, ay, 76, 30, true, false, Sk.in(lmx, lmy, tx, ay, 76, 30));
-                hitL(tx, ay, 76, 30, () -> TuningScreen.requestOpen("garage"));
+                Sk.button(ms, "TUNING", tx, ay + 6, 76, 34, true, false, Sk.in(lmx, lmy, tx, ay + 6, 76, 34));
+                hitL(tx, ay + 6, 76, 34, () -> TuningScreen.requestOpen("garage"));
                 float vx = tx + 84;
                 final JsonObject sellSel = sel;
-                Sk.button(ms, "VINDE", vx, ay, 76, 30, true, false, Sk.in(lmx, lmy, vx, ay, 76, 30));
-                hitL(vx, ay, 76, 30, () -> openSell(sellSel));
+                Sk.button(ms, "VINDE", vx, ay + 6, 68, 34, true, false, Sk.in(lmx, lmy, vx, ay + 6, 68, 34));
+                hitL(vx, ay + 6, 68, 34, () -> openSell(sellSel));
             }
+            Gfx.text(ms, "SUS/JOS alege · ENTER scoate", rr, ay + 49, 5.4f, Sk.FAINT, 2);
         }
+        Gfx.alpha = prevA;
         if (sellMode != 0 && sellCar != null) sellModal(ms, lmx, lmy);
     }
 
     private static void stat(GuiGraphics ms, String label, float shown, float real, float x, float y, float w, int color) {
-        Gfx.text(ms, label, x, y + 7, 6.4f, Sk.MUTED, 0, false, 0.6f);
-        Sk.segs(ms, x + 66, y, w - 66 - 34, 7, Math.round(Math.max(0f, Math.min(1f, shown)) * 20), 20, color);
-        Gfx.text(ms, Math.round(Math.max(0, real) * 100) + "%", x + w, y + 8, 8, Sk.WHITE, 2, true, 0f);
+        Gfx.text(ms, label, x, y + 7, 6.2f, Sk.MUTED, 0, false, 0.6f);
+        Sk.segs(ms, x + 62, y, w - 62 - 32, 7, Math.round(Math.max(0f, Math.min(1f, shown)) * 20), 20, color);
+        Gfx.text(ms, Math.round(Math.max(0, real) * 100) + "%", x + w, y + 7.5f, 7.6f, Sk.WHITE, 2, true, 0f);
     }
 
     // ------------------------------------------------------------------ masina 3D
@@ -561,7 +663,7 @@ public final class GarageScreen extends FlowScreen {
         if (button == 0) {
             float lx = (float) ((mx - offX) / scale);
             float ly = (float) ((my - offY) / scale);
-            if (sellMode == 0 && inside(lx, ly, 230, 96, W - 246, 100)) dragging = true;
+            if (sellMode == 0 && inside(lx, ly, 232, 62, W - 252, 96)) dragging = true;
         }
         return super.mouseClicked(mx, my, button);
     }
@@ -593,7 +695,8 @@ public final class GarageScreen extends FlowScreen {
     public boolean keyPressed(int key, int scan, int mods) {
         if (sellMode != 0) {
             if (key == GLFW.GLFW_KEY_ESCAPE) {
-                sellMode = 0;
+                if (confirmSell) confirmSell = false;
+                else sellMode = 0;
                 return true;
             }
             if (sellTab == 1) {
@@ -612,6 +715,23 @@ public final class GarageScreen extends FlowScreen {
                 return true;
             }
             return true; // fereastra de vanzare e modala: tastele nu ajung la restul ecranului
+        }
+        if (key == GLFW.GLFW_KEY_UP || key == GLFW.GLFW_KEY_DOWN) {
+            JsonArray cars = listedCars();
+            int idx = 0;
+            for (int i = 0; i < cars.size(); i++) if (JsonClientModule.integer(cars.get(i).getAsJsonObject(), "id", 0) == selected) idx = i;
+            idx = Math.max(0, Math.min(cars.size() - 1, idx + (key == GLFW.GLFW_KEY_UP ? -1 : 1)));
+            if (cars.size() > 0) {
+                selected = JsonClientModule.integer(cars.get(idx).getAsJsonObject(), "id", 0);
+                int vis = Math.max(1, (int) ((H - 12f - 72f) / ROW));
+                if (idx < scroll) scroll = idx;
+                if (idx >= scroll + vis) scroll = idx - vis + 1;
+            }
+            return true;
+        }
+        if (key == GLFW.GLFW_KEY_ENTER || key == GLFW.GLFW_KEY_KP_ENTER) {
+            trySpawn(selectedCar(listedCars()));
+            return true;
         }
         return super.keyPressed(key, scan, mods);
     }

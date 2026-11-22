@@ -149,6 +149,8 @@ public final class CarsServer {
             j.addProperty("color", color(nbt));
             j.addProperty("engine", VehicleParts.engine(p.getLevel(), c.type, nbt));
             j.addProperty("wheels", VehicleParts.wheels(nbt));
+            j.addProperty("odo", Math.round(c.odometerM));
+            j.addProperty("trip", Math.round(c.tripM));
             arr.add(j);
         }
         o.add("cars", arr);
