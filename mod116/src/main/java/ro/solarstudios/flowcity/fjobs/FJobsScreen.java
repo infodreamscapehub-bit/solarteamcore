@@ -524,6 +524,7 @@ public final class FJobsScreen extends FlowScreen {
     // ------------------------------------------------------------------ fereastra de detalii + administrare
 
     private boolean adminOpen;
+    private int group = 1;
 
     private void detailModal(GuiGraphics ms, float lmx, float lmy, float l, float t, float r, float bt) {
         JsonObject j = jobById(detail);
@@ -551,6 +552,11 @@ public final class FJobsScreen extends FlowScreen {
             detail = "";
             adminOpen = false;
         });
+        if (adminOpen && admin && j.has("kind")) {
+            adminCustom(ms, j, mx0, my0 + 86, mw, lmx, lmy);
+            actionButtons(ms, j, mx0, my0 + mh - 34, mw, lmx, lmy);
+            return;
+        }
         // statistici
         float sy = my0 + 92;
         float cw = (mw - 24 - 8 * 3) / 4f;
@@ -592,12 +598,48 @@ public final class FJobsScreen extends FlowScreen {
         boolean shift = b(m, "inShift");
         float x = mx0 + 12;
         if (mine) {
-            smallButton(ms, shift ? "ÎNCHEIE TURA" : "ÎNCEPE TURA", x, by, 118, 24, lmx, lmy, true, !shift, () -> FJobsClient.request(shift ? "end" : "start", new JsonObject()));
-            smallButton(ms, "DEMISIONEAZĂ", x + 126, by, 110, 24, lmx, lmy, !shift, false, () -> FJobsClient.request("quit", new JsonObject()));
+            smallButton(ms, shift ? "ÎNCHEIE TURA" : "ÎNCEPE TURA", x, by, 112, 24, lmx, lmy, true, !shift, () -> FJobsClient.request(shift ? "end" : "start", new JsonObject()));
+            smallButton(ms, "DEMISIONEAZĂ", x + 120, by, 96, 24, lmx, lmy, !shift, false, () -> FJobsClient.request("quit", new JsonObject()));
+            if (j.has("kind") && "READY".equals(s(j, "status"))) smallButton(ms, "PANOU JOB", x + 224, by, 78, 24, lmx, lmy, true, false, FJobsClient::openPanel);
         } else {
             smallButton(ms, "ANGAJEAZĂ-TE", x, by, 118, 24, lmx, lmy, b(j, "canHire"), true, () -> hire(id));
         }
-        if (admin) smallButton(ms, adminOpen ? "ASCUNDE ADMIN" : "ADMINISTRARE", mx0 + mw - 12 - 110, by, 110, 24, lmx, lmy, true, false, () -> adminOpen = !adminOpen);
+        if (admin) smallButton(ms, adminOpen ? "ASCUNDE ADMIN" : "ADMINISTRARE", mx0 + mw - 12 - 90, by, 90, 24, lmx, lmy, true, false, () -> adminOpen = !adminOpen);
+    }
+
+    /** Administrare pentru joburile cu activitate proprie: parametri generali + puncte pe tipuri (statii), adaugate unde stai in joc. */
+    private void adminCustom(GuiGraphics ms, JsonObject j, float x0, float y0, float mw, float lmx, float lmy) {
+        final String id = s(j, "id");
+        Gfx.rrect(ms, x0 + 8, y0 - 2, mw - 16, 176, 8, 0xFF0A0D1C);
+        Gfx.text(ms, "ADMINISTRARE (server validează)", x0 + 14, y0 + 8, 5.8f, 0xFFFBBF24, 0, false, 1.1f);
+        float x = x0 + 14;
+        float y = y0 + 12;
+        stepper(ms, "Salariu", (long) n(j, "estPay") + "", x, y, lmx, lmy, "estPay", id, n(j, "estPay"), 50);
+        stepper(ms, "Nivel min", (int) n(j, "minLevel") + "", x + 100, y, lmx, lmy, "minLevel", id, n(j, "minLevel"), 1);
+        stepper(ms, "Locuri", (int) n(j, "max") + "", x + 200, y, lmx, lmy, "max", id, n(j, "max"), 1);
+        stepper(ms, "Mult. plata", String.format(java.util.Locale.ROOT, "%.2f", n(j, "payMult")), x + 300, y, lmx, lmy, "payMult", id, n(j, "payMult"), 0.1);
+        float ty = y + 34;
+        toggle(ms, "Activ", b(j, "active"), x, ty, lmx, lmy, "active", id);
+        toggle(ms, "Premium", b(j, "premium"), x + 70, ty, lmx, lmy, "premium", id);
+        Gfx.text(ms, "GRUP / LINIE / RUTĂ NR.", x + 150, ty + 9, 5.2f, Sk.FAINT, 0, false, 0.7f);
+        smallButton(ms, "-", x + 262, ty - 4, 16, 18, lmx, lmy, group > 1, false, () -> group = Math.max(1, group - 1));
+        Gfx.text(ms, String.valueOf(group), x + 292, ty + 9, 8, Sk.WHITE, 1, true, 0f);
+        smallButton(ms, "+", x + 306, ty - 4, 16, 18, lmx, lmy, group < 99, false, () -> group = Math.min(99, group + 1));
+        JsonArray sk = j.has("stations") && j.get("stations").isJsonArray() ? j.getAsJsonArray("stations") : new JsonArray();
+        float ry = ty + 26;
+        Gfx.text(ms, "PUNCTE (stai în joc unde vrei punctul, apoi apasă ADAUGĂ AICI)", x, ry, 5.4f, Sk.FAINT, 0, false, 0.6f);
+        ry += 6;
+        for (int i = 0; i < sk.size() && i < 4; i++) {
+            JsonObject so = sk.get(i).getAsJsonObject();
+            final String kind = s(so, "k");
+            float yy = ry + i * 22;
+            Gfx.text(ms, clip(s(so, "label") + " (" + (int) n(so, "n") + ")", 150, 6.6f, false), x, yy + 12, 6.6f, Sk.WHITE, 0);
+            smallButton(ms, "+ ADAUGĂ AICI", x + 156, yy, 96, 18, lmx, lmy, true, true, () -> point(id, kind, "add", group));
+            smallButton(ms, "- ULTIMUL", x + 256, yy, 70, 18, lmx, lmy, n(so, "n") > 0, false, () -> point(id, kind, "pop", group));
+            smallButton(ms, "GOLEȘTE", x + 330, yy, 64, 18, lmx, lmy, n(so, "n") > 0, false, () -> point(id, kind, "clear", group));
+        }
+        String note = s(j, "note");
+        if (!note.isEmpty()) Gfx.text(ms, clip(note, mw - 36, 5.8f, false), x, y0 + 166, 5.8f, Sk.WARN, 0);
     }
 
     private void adminPanel(GuiGraphics ms, JsonObject j, float x0, float y0, float mw, float lmx, float lmy) {
@@ -653,10 +695,15 @@ public final class FJobsScreen extends FlowScreen {
     }
 
     private static void point(String id, String kind, String op) {
+        point(id, kind, op, 1);
+    }
+
+    private static void point(String id, String kind, String op, int group) {
         JsonObject o = new JsonObject();
         o.addProperty("id", id);
         o.addProperty("kind", kind);
         o.addProperty("op", op);
+        o.addProperty("group", group);
         FJobsClient.request("adm_point", o);
     }
 

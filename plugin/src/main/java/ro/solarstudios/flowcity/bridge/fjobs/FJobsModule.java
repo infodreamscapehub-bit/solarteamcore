@@ -38,7 +38,24 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.permissions.PermissionDefault;
 import org.bukkit.scheduler.BukkitTask;
+import ro.solarstudios.flowcity.bridge.FlowCityBridge;
 import ro.solarstudios.flowcity.bridge.core.Commands;
+import ro.solarstudios.flowcity.bridge.fjobs.act.BuilderActivity;
+import ro.solarstudios.flowcity.bridge.fjobs.act.BusActivity;
+import ro.solarstudios.flowcity.bridge.fjobs.act.Challenges;
+import ro.solarstudios.flowcity.bridge.fjobs.act.CourierActivity;
+import ro.solarstudios.flowcity.bridge.fjobs.act.ElectricianActivity;
+import ro.solarstudios.flowcity.bridge.fjobs.act.FJobsApi;
+import ro.solarstudios.flowcity.bridge.fjobs.act.FarmerActivity;
+import ro.solarstudios.flowcity.bridge.fjobs.act.FisherActivity;
+import ro.solarstudios.flowcity.bridge.fjobs.act.GarbageActivity;
+import ro.solarstudios.flowcity.bridge.fjobs.act.JobActivity;
+import ro.solarstudios.flowcity.bridge.fjobs.act.LumberjackActivity;
+import ro.solarstudios.flowcity.bridge.fjobs.act.MechanicActivity;
+import ro.solarstudios.flowcity.bridge.fjobs.act.MinerActivity;
+import ro.solarstudios.flowcity.bridge.fjobs.act.PostmanActivity;
+import ro.solarstudios.flowcity.bridge.fjobs.act.TaxiActivity;
+import ro.solarstudios.flowcity.bridge.fjobs.act.WindowsActivity;
 import ro.solarstudios.flowcity.bridge.core.ModConfig;
 import ro.solarstudios.flowcity.bridge.hype.HypeMath;
 import ro.solarstudios.flowcity.bridge.hype.JobRules;
@@ -62,7 +79,7 @@ import ro.solarstudios.flowcity.bridge.notify.NotifyModule;
  *  - none: fara logica inca -> status "in pregatire", jobul nu se poate lua.
  * Joburile cu delivery/route sunt "READY" doar cand adminul a setat punctele (din GUI, stand in joc).
  */
-public final class FJobsModule extends JsonModule implements Listener {
+public final class FJobsModule extends JsonModule implements Listener, FJobsApi {
     private static final class Trip {
         final String job;
         final FJobDef.Point from;
@@ -108,6 +125,10 @@ public final class FJobsModule extends JsonModule implements Listener {
     private final Set<UUID> viewers = new HashSet<>();
     private final List<BukkitTask> tasks = new ArrayList<>();
     private final java.util.Random rnd = new java.util.Random();
+    private final Map<String, JobActivity> acts = new LinkedHashMap<>();
+    private final Set<UUID> panelViewers = new HashSet<>();
+    private Challenges challenges;
+    private long lastActErr;
 
     @Override
     public String id() {
@@ -125,6 +146,12 @@ public final class FJobsModule extends JsonModule implements Listener {
 
         cfg = ModConfig.load(plugin, "fjobs");
         overFile = new File(plugin.getDataFolder(), "fjobs-admin.yml");
+        challenges = new Challenges(this);
+        for (JobActivity a : new JobActivity[] {new ElectricianActivity(this), new WindowsActivity(this), new GarbageActivity(this), new CourierActivity(this),
+            new TaxiActivity(this), new BusActivity(this), new MechanicActivity(this), new FisherActivity(this), new FarmerActivity(this), new MinerActivity(this),
+            new LumberjackActivity(this), new BuilderActivity(this), new PostmanActivity(this)}) {
+            acts.put(a.kind(), a);
+        }
         loadAll();
         store = new FJobsData(new File(plugin.getDataFolder(), "fjobs-data.yml"), plugin.getLogger(), cfg.getInt("settings.history-max", 40));
         store.load();
@@ -135,6 +162,12 @@ public final class FJobsModule extends JsonModule implements Listener {
         on("quit", (p, j) -> quit(p));
         on("start", (p, j) -> startShift(p));
         on("end", (p, j) -> endShift(p, "Tura incheiata."));
+        on("panel", (p, j) -> openPanel(p));
+        on("panel_close", (p, j) -> panelViewers.remove(p.getUniqueId()));
+        on("panel_act", this::panelAct);
+        on("opt", this::panelOpt);
+        on("mg_answer", (p, j) -> challenges.answer(p, j));
+        on("mg_cancel", (p, j) -> challenges.cancel(p));
         on("adm_set", this::admSet);
         on("adm_point", this::admPoint);
         on("adm_reload", (p, j) -> {
@@ -164,6 +197,15 @@ public final class FJobsModule extends JsonModule implements Listener {
             }
             store.save(true, null);
         }
+        for (JobActivity a : acts.values()) {
+            try {
+                a.shutdown();
+            } catch (RuntimeException ignored) {
+                // oprire: nu blocam dezactivarea
+            }
+        }
+        acts.clear();
+        panelViewers.clear();
         jobs.clear();
         trips.clear();
         routes.clear();
@@ -191,7 +233,15 @@ public final class FJobsModule extends JsonModule implements Listener {
             FJobDef j = FJobDef.parse(id, s);
             applyOverrides(j);
             jobs.put(j.id, j);
+            recheck(j);
         }
+    }
+
+    /** Recalculeaza daca activitatea proprie a jobului are tot ce-i trebuie (puncte setate). */
+    private void recheck(FJobDef j) {
+        if (!j.custom()) return;
+        JobActivity a = acts.get(j.kind);
+        j.customMissing = a == null ? "tip de activitate necunoscut: " + j.kind : a.missing(j);
     }
 
     private void applyOverrides(FJobDef j) {
@@ -214,6 +264,14 @@ public final class FJobsModule extends JsonModule implements Listener {
             ensureDelivery(j);
             j.delivery.drops.clear();
             FJobDef.readPoints(o.getMapList("drops"), j.delivery.drops);
+        }
+        ConfigurationSection os = o.getConfigurationSection("stations");
+        if (os != null) {
+            for (String k : os.getKeys(false)) {
+                List<FJobDef.Point> l = new ArrayList<>();
+                FJobDef.readPoints(os.getMapList(k), l);
+                j.stations.put(k, l);
+            }
         }
         if (o.contains("route")) {
             ensureRoute(j);
@@ -431,6 +489,14 @@ public final class FJobsModule extends JsonModule implements Listener {
         pr.dirty = true;
         trips.remove(p.getUniqueId());
         routes.remove(p.getUniqueId());
+        JobActivity act = actOf(j);
+        if (act != null) {
+            try {
+                act.start(p, j);
+            } catch (RuntimeException ex) {
+                actError("start", j, ex);
+            }
+        }
         msg(p, true, "Tura a inceput. Spor!");
         plugin.notifications().send(p, NotifyModule.Type.JOB, "Tura inceputa", j.name);
         sendData(p, false);
@@ -450,6 +516,14 @@ public final class FJobsModule extends JsonModule implements Listener {
         long now = System.currentTimeMillis();
         long sec = Math.max(0, (now - pr.shiftStart) / 1000);
         FJobDef j = jobs.get(pr.job);
+        JobActivity endAct = actOf(j);
+        if (endAct != null) {
+            try {
+                endAct.end(p, j);
+            } catch (RuntimeException ex) {
+                actError("end", j, ex);
+            }
+        }
         double earned = pr.shiftEarned;
         // bonus de performanta: castig/ora peste tinta, dupa un minim de timp lucrat
         double bonus = 0;
@@ -542,7 +616,12 @@ public final class FJobsModule extends JsonModule implements Listener {
     private FJobDef working(Player p, FJobsData.Profile pr, String activity) {
         if (pr == null || !pr.inShift() || creative(p)) return null;
         FJobDef jd = jobs.get(pr.job);
-        if (jd == null || !jd.active || jd.status() != FJobDef.Status.READY || !activity.equals(jd.activity)) return null;
+        if (jd == null || !jd.active || jd.status() != FJobDef.Status.READY) return null;
+        if ("custom".equals(activity)) {
+            if (!jd.custom() || !acts.containsKey(jd.kind)) return null;
+        } else if (!activity.equals(jd.activity) || jd.custom()) {
+            return null;
+        }
         if (cfg.getBoolean("settings.no-fly", true) && p.isFlying()) return null;
         return jd;
     }
@@ -586,6 +665,15 @@ public final class FJobsModule extends JsonModule implements Listener {
     public void onBreak(BlockBreakEvent e) {
         Player p = e.getPlayer();
         FJobsData.Profile pr = store.peek(p.getUniqueId());
+        FJobDef cj = working(p, pr, "custom");
+        if (cj != null) {
+            try {
+                acts.get(cj.kind).onBreak(p, cj, e);
+            } catch (RuntimeException ex) {
+                actError("break", cj, ex);
+            }
+            return;
+        }
         FJobDef jd = working(p, pr, "rules");
         if (jd == null || !jd.rules.handles("break")) return;
         Block b = e.getBlock();
@@ -612,6 +700,15 @@ public final class FJobsModule extends JsonModule implements Listener {
         placed.mark(key, now);   // anti-farm: blocurile puse de jucatori nu platesc la spargere, iar repunerea pe aceeasi pozitie nu plateste
         Player p = e.getPlayer();
         FJobsData.Profile pr = store.peek(p.getUniqueId());
+        FJobDef cj = working(p, pr, "custom");
+        if (cj != null) {
+            try {
+                acts.get(cj.kind).onPlace(p, cj, e);
+            } catch (RuntimeException ex) {
+                actError("place", cj, ex);
+            }
+            return;
+        }
         FJobDef jd = working(p, pr, "rules");
         if (jd == null || already || !jd.rules.handles("place")) return;
         JobRules.Rule r = jd.rules.find("place", b.getType().name());
@@ -623,6 +720,15 @@ public final class FJobsModule extends JsonModule implements Listener {
         if (e.getState() != PlayerFishEvent.State.CAUGHT_FISH) return;
         Player p = e.getPlayer();
         FJobsData.Profile pr = store.peek(p.getUniqueId());
+        FJobDef cj = working(p, pr, "custom");
+        if (cj != null) {
+            try {
+                acts.get(cj.kind).onFish(p, cj, e);
+            } catch (RuntimeException ex) {
+                actError("fish", cj, ex);
+            }
+            return;
+        }
         FJobDef jd = working(p, pr, "rules");
         Entity c = e.getCaught();
         if (jd == null || !(c instanceof Item) || !jd.rules.handles("fish")) return;
@@ -634,6 +740,15 @@ public final class FJobsModule extends JsonModule implements Listener {
     public void onInteract(PlayerInteractEvent e) {
         if (e.getAction() != Action.RIGHT_CLICK_BLOCK || e.getHand() != EquipmentSlot.HAND || e.getClickedBlock() == null) return;
         Player p = e.getPlayer();
+        FJobDef cj = customJob(p);
+        if (cj != null) {
+            try {
+                acts.get(cj.kind).onInteract(p, cj, e);
+            } catch (RuntimeException ex) {
+                actError("interact", cj, ex);
+            }
+            return;
+        }
         if (!e.getClickedBlock().getType().name().equals(cfg.getString("settings.trash-block", "CAULDRON"))) return;
         FJobsData.Profile pr = store.peek(p.getUniqueId());
         FJobDef jd = working(p, pr, "rules");
@@ -674,7 +789,37 @@ public final class FJobsModule extends JsonModule implements Listener {
             if (jd == null || !jd.active) continue;
             if ("delivery".equals(jd.activity)) tickDelivery(p, pr, jd, now);
             else if ("route".equals(jd.activity)) tickRoute(p, pr, jd, now);
+            else if (jd.custom() && jd.status() == FJobDef.Status.READY) {
+                JobActivity a = acts.get(jd.kind);
+                if (a != null && !(cfg.getBoolean("settings.no-fly", true) && p.isFlying())) {
+                    try {
+                        a.tick(p, jd, now);
+                    } catch (RuntimeException ex) {
+                        actError("tick", jd, ex);
+                    }
+                }
+            }
         }
+        if (challenges != null) challenges.tick(now);
+    }
+
+    private JobActivity actOf(FJobDef j) {
+        return j != null && j.custom() ? acts.get(j.kind) : null;
+    }
+
+    private void actError(String where, FJobDef j, RuntimeException ex) {
+        long now = System.currentTimeMillis();
+        if (now - lastActErr > 5000) {
+            lastActErr = now;
+            plugin.getLogger().warning("FJobs: eroare in " + where + " la jobul " + (j == null ? "?" : j.id) + ": " + ex);
+            ex.printStackTrace();
+        }
+    }
+
+    /** Jobul propriu (kind) in care jucatorul e acum in tura, sau null. */
+    private FJobDef customJob(Player p) {
+        FJobsData.Profile pr = store.peek(p.getUniqueId());
+        return working(p, pr, "custom");
     }
 
     private void tickDelivery(Player p, FJobsData.Profile pr, FJobDef jd, long now) {
@@ -844,6 +989,21 @@ public final class FJobsModule extends JsonModule implements Listener {
                 e.addProperty("drops", j.delivery.drops.size());
             }
             if (j.route != null) e.addProperty("route", j.route.points.size());
+            if (j.custom()) {
+                e.addProperty("kind", j.kind);
+                JobActivity ka = acts.get(j.kind);
+                JsonArray sk = new JsonArray();
+                if (ka != null) {
+                    for (String[] k : ka.stationKinds()) {
+                        JsonObject so = new JsonObject();
+                        so.addProperty("k", k[0]);
+                        so.addProperty("label", k[1]);
+                        so.addProperty("n", j.stationList(k[0]).size());
+                        sk.add(so);
+                    }
+                }
+                e.add("stations", sk);
+            }
             JsonArray ts = new JsonArray();
             for (String t : j.tasks) ts.add(t);
             e.add("tasks", ts);
@@ -887,7 +1047,8 @@ public final class FJobsModule extends JsonModule implements Listener {
         }
     }
 
-    private void msg(Player p, boolean ok, String text) {
+    @Override
+    public void msg(Player p, boolean ok, String text) {
         JsonObject o = new JsonObject();
         o.addProperty("ok", ok);
         o.addProperty("text", text);
@@ -995,6 +1156,9 @@ public final class FJobsModule extends JsonModule implements Listener {
             ensureRoute(jd);
             list = jd.route.points;
             key = "route";
+        } else if (jd.custom() && stationKindOk(jd, kind)) {
+            list = jd.stations.computeIfAbsent(kind, k -> new ArrayList<>());
+            key = "stations." + kind;
         } else {
             msg(p, false, "Tip de punct necunoscut.");
             return;
@@ -1006,7 +1170,9 @@ public final class FJobsModule extends JsonModule implements Listener {
             }
             FJobDef.Point pt = new FJobDef.Point();
             String nm = str(j, "name", "").trim().replaceAll("[^\\p{L}\\p{N} _.-]", "");
-            pt.name = nm.isEmpty() ? "Punct " + (list.size() + 1) : nm.substring(0, Math.min(32, nm.length()));
+            if (!nm.isEmpty()) pt.name = nm.substring(0, Math.min(40, nm.length()));
+            else if (jd.custom() && key.startsWith("stations.")) pt.name = stationName(jd, kind, Math.max(1, Math.min(99, integer(j, "group", 1))), list);
+            else pt.name = "Punct " + (list.size() + 1);
             pt.world = p.getWorld().getName();
             pt.x = p.getLocation().getX();
             pt.y = p.getLocation().getY();
@@ -1019,6 +1185,12 @@ public final class FJobsModule extends JsonModule implements Listener {
                 return;
             }
             list.remove(idx);
+        } else if ("pop".equals(op)) {
+            if (list.isEmpty()) {
+                msg(p, false, "Nu sunt puncte de sters.");
+                return;
+            }
+            list.remove(list.size() - 1);
         } else if ("clear".equals(op)) {
             list.clear();
         } else {
@@ -1029,9 +1201,225 @@ public final class FJobsModule extends JsonModule implements Listener {
         saveOver();
         routes.clear();
         trips.clear();
+        recheck(jd);
         plugin.getLogger().info("[fjobs] " + p.getName() + " " + op + " " + key + " la " + jd.id + " (acum " + list.size() + ")");
         msg(p, true, jd.name + ": " + key + " = " + list.size() + " puncte.");
         pushToViewers();
+    }
+
+    /** Numele implicit al unui punct: tipar din fjobs.yml (station-names.<tip>) sau cel implicit; {g} = grupul ales, {n} = numarul in grup. */
+    private String stationName(FJobDef jd, String kind, int group, List<FJobDef.Point> list) {
+        Map<String, String> def = new HashMap<>();
+        def.put("panel", "Tablou {n}");
+        def.put("platform", "Cladire {g} - platforma");
+        def.put("window", "Cladire {g} - geam {n}");
+        def.put("bin", "Ruta {g} - container {n}");
+        def.put("truck", "Camion {n}");
+        def.put("depot", "Depozit {n}");
+        def.put("address", "Adresa {n}");
+        def.put("stand", "Statie taxi {n}");
+        def.put("destination", "Destinatie {n}");
+        def.put("stop", "Linia {g} - statia {n}");
+        def.put("bay", "Box {n}");
+        def.put("parts", "Magazin piese {n}");
+        def.put("spot", "Loc pescuit {n}");
+        def.put("market", "Piata {n}");
+        def.put("plot", "Lot {n}");
+        def.put("zone", "Zona {n}");
+        def.put("forest", "Padure {n}");
+        def.put("site", "Santier {n}");
+        def.put("supply", "Depozit materiale {n}");
+        def.put("post", "Oficiu postal {n}");
+        def.put("mailbox", "Strada {g} - cutia {n}");
+        String pat = jd.cs("station-names." + kind, def.getOrDefault(kind, "Punct {n}"));
+        String base = pat.replace("{g}", String.valueOf(group));
+        if (!base.contains("{n}")) return base;
+        String prefix = base.substring(0, base.indexOf("{n}"));
+        int n = 1;
+        for (FJobDef.Point q : list) if (q.name.startsWith(prefix)) n++;
+        return base.replace("{n}", String.valueOf(n));
+    }
+
+    private boolean stationKindOk(FJobDef jd, String kind) {
+        JobActivity a = acts.get(jd.kind);
+        if (a == null) return false;
+        for (String[] k : a.stationKinds()) if (k[0].equals(kind)) return true;
+        return false;
+    }
+
+    // ------------------------------------------------------------------ panoul jobului + optiuni
+
+    private void openPanel(Player p) {
+        FJobsData.Profile pr = prof(p);
+        FJobDef jd = pr.job.isEmpty() ? null : jobs.get(pr.job);
+        JobActivity a = actOf(jd);
+        if (a == null) {
+            msg(p, false, "Jobul tau nu are panou dedicat.");
+            return;
+        }
+        panelViewers.add(p.getUniqueId());
+        sendPanel(p, jd, a);
+        sendProf(p, pr);
+    }
+
+    private void sendPanel(Player p, FJobDef jd, JobActivity a) {
+        try {
+            JsonObject o = a.panel(p, jd);
+            o.addProperty("ready", jd.status() == FJobDef.Status.READY);
+            o.addProperty("inShift", prof(p).inShift());
+            o.addProperty("note", jd.statusNote());
+            send(p, "panel", o);
+        } catch (RuntimeException ex) {
+            actError("panel", jd, ex);
+        }
+    }
+
+    private void panelAct(Player p, JsonObject j) {
+        if (throttled(p)) return;
+        FJobsData.Profile pr = prof(p);
+        FJobDef jd = pr.job.isEmpty() ? null : jobs.get(pr.job);
+        JobActivity a = actOf(jd);
+        if (a == null) return;
+        if (!pr.inShift()) {
+            msg(p, false, "Porneste tura ca sa folosesti aceasta actiune.");
+            return;
+        }
+        try {
+            a.action(p, jd, str(j, "act", ""), j);
+        } catch (RuntimeException ex) {
+            actError("action", jd, ex);
+        }
+        if (panelViewers.contains(p.getUniqueId())) sendPanel(p, jd, a);
+    }
+
+    private void panelOpt(Player p, JsonObject j) {
+        if (throttled(p)) return;
+        FJobsData.Profile pr = prof(p);
+        FJobDef jd = pr.job.isEmpty() ? null : jobs.get(pr.job);
+        JobActivity a = actOf(jd);
+        if (a == null) return;
+        try {
+            a.setOption(p, jd, str(j, "key", ""), str(j, "value", ""));
+        } catch (RuntimeException ex) {
+            actError("option", jd, ex);
+        }
+        if (panelViewers.contains(p.getUniqueId())) sendPanel(p, jd, a);
+    }
+
+    // ------------------------------------------------------------------ FJobsApi (folosit de activitati)
+
+    @Override
+    public FlowCityBridge plugin() {
+        return plugin;
+    }
+
+    @Override
+    public YamlConfiguration cfg() {
+        return cfg;
+    }
+
+    @Override
+    public java.util.Random rnd() {
+        return rnd;
+    }
+
+    @Override
+    public int jobLevel(Player p, String jobId) {
+        return jobLevel(prof(p), jobId);
+    }
+
+    @Override
+    public double pay(Player p, FJobDef jd, double rawPay, long rawXp, boolean mission) {
+        FJobsData.Profile pr = store.peek(p.getUniqueId());
+        if (pr == null || !pr.inShift() || !jd.id.equals(pr.job) || !jd.active) return -1;
+        if (!mission && rawPay > 0 && jd.limitPerMinute > 0) {
+            long now = System.currentTimeMillis();
+            RateWindow w = rates.computeIfAbsent(p.getUniqueId(), k -> new HashMap<>()).computeIfAbsent(jd.id, k -> new RateWindow(jd.limitPerMinute, 60_000L));
+            if (!w.tryAcquire(now)) {
+                if (w.firstBlock()) p.sendMessage("§eAi atins limita de castig pe minut pentru acest job. Mai asteapta putin.");
+                return -1;
+            }
+        }
+        return payOut(p, pr, jd, Math.max(0, rawPay), Math.max(0, rawXp), mission);
+    }
+
+    @Override
+    public List<FJobDef.Point> stations(FJobDef jd, String kind) {
+        return jd.stationList(kind);
+    }
+
+    @Override
+    public void toast(Player p, String title, String text) {
+        plugin.notifications().send(p, NotifyModule.Type.JOB, title, text);
+    }
+
+    @Override
+    public void hud(Player p, JsonObject hud) {
+        send(p, "hud", hud);
+    }
+
+    @Override
+    public void gps(Player p, FJobDef.Point pt) {
+        if (pt != null) gpsTo(p, pt.x, pt.z, pt.name);
+    }
+
+    @Override
+    public boolean isPlaced(Block b) {
+        return placed.contains(PlacedSet.key(b.getWorld().getName(), b.getX(), b.getY(), b.getZ()), System.currentTimeMillis());
+    }
+
+    @Override
+    public Challenges challenges() {
+        return challenges;
+    }
+
+    @Override
+    public String opt(Player p, FJobDef jd, String key, String def) {
+        String v = prof(p).opts.get(jd.id + "." + key);
+        return v == null ? def : v;
+    }
+
+    @Override
+    public void setOpt(Player p, FJobDef jd, String key, String value) {
+        FJobsData.Profile pr = prof(p);
+        pr.opts.put(jd.id + "." + key, value);
+        pr.dirty = true;
+    }
+
+    @Override
+    public long counter(Player p, String key) {
+        Long v = prof(p).counters.get(key);
+        return v == null ? 0 : v;
+    }
+
+    @Override
+    public void addCounter(Player p, String key, long delta) {
+        FJobsData.Profile pr = prof(p);
+        long v = Math.max(0, pr.counters.getOrDefault(key, 0L) + delta);
+        if (v == 0) pr.counters.remove(key);
+        else pr.counters.put(key, v);
+        pr.dirty = true;
+    }
+
+    @Override
+    public void clearCounters(Player p, String prefix) {
+        FJobsData.Profile pr = prof(p);
+        pr.counters.keySet().removeIf(k -> k.startsWith(prefix));
+        pr.dirty = true;
+    }
+
+    @Override
+    public FJobDef working(Player p) {
+        return customJob(p);
+    }
+
+    @Override
+    public void refreshPanel(Player p) {
+        if (!panelViewers.contains(p.getUniqueId())) return;
+        FJobsData.Profile pr = store.peek(p.getUniqueId());
+        FJobDef jd = pr == null || pr.job.isEmpty() ? null : jobs.get(pr.job);
+        JobActivity a = actOf(jd);
+        if (a != null) sendPanel(p, jd, a);
     }
 
     // ------------------------------------------------------------------ comenzi (doar deschiderea; administrarea e in GUI)
@@ -1075,11 +1463,20 @@ public final class FJobsModule extends JsonModule implements Listener {
         rates.remove(p.getUniqueId());
         lastAction.remove(p.getUniqueId());
         warnedLevel.remove(p.getUniqueId());
+        panelViewers.remove(p.getUniqueId());
         FJobsData.Profile pr = store.peek(p.getUniqueId());
         if (pr != null) {
             if (pr.inShift()) closeShift(p, pr, false, null);
             pr.loadedOnline = false;
         }
+        for (JobActivity a : acts.values()) {
+            try {
+                a.quit(p);
+            } catch (RuntimeException ex) {
+                actError("quit", null, ex);
+            }
+        }
+        if (challenges != null) challenges.drop(p);
     }
 
     public static JsonObject hud(Player p) {

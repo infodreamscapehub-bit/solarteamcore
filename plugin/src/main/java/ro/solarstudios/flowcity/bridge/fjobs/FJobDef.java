@@ -70,7 +70,11 @@ public final class FJobDef {
     public String requiresNote = "";
     public double payMultiplier = 1.0;
     public int limitPerMinute = 0;
-    public String activity = "none";      // rules | delivery | route | external | none
+    public String activity = "none";      // rules | delivery | route | external | none | custom (gameplay propriu, vezi "kind")
+    public String kind = "";              // electrician | windows | garbage | courier | taxi | bus | mechanic | fisher | farmer | miner | lumberjack | builder | postman
+    public org.bukkit.configuration.ConfigurationSection conf;   // sectiunea bruta din fjobs.yml (parametri ai activitatii)
+    public final Map<String, List<Point>> stations = new java.util.LinkedHashMap<>();   // puncte setate de admin, pe tip
+    public String customMissing = null;   // setat de modul: null = activitatea proprie e gata, altfel motivul "in pregatire"
     public String external = "";          // taxi | mecanic | politie | ems ...
     public String externalNote = "";
     public List<String> tasks = new ArrayList<>();
@@ -86,7 +90,33 @@ public final class FJobDef {
         return v == null ? 0 : v;
     }
 
+    public boolean custom() {
+        return !kind.isEmpty();
+    }
+
+    public List<Point> stationList(String k) {
+        List<Point> l = stations.get(k);
+        return l == null ? java.util.Collections.<Point>emptyList() : l;
+    }
+
+    public double cd(String path, double def) {
+        return conf == null ? def : conf.getDouble(path, def);
+    }
+
+    public int ci(String path, int def) {
+        return conf == null ? def : conf.getInt(path, def);
+    }
+
+    public String cs(String path, String def) {
+        return conf == null ? def : conf.getString(path, def);
+    }
+
+    public boolean cb(String path, boolean def) {
+        return conf == null ? def : conf.getBoolean(path, def);
+    }
+
     public Status status() {
+        if (custom()) return customMissing == null ? Status.READY : Status.PREPARING;
         if ("external".equals(activity)) return Status.EXTERNAL;
         if ("rules".equals(activity) && rules.size() > 0) return Status.READY;
         if ("delivery".equals(activity) && delivery != null && !delivery.pickups.isEmpty() && !delivery.drops.isEmpty()) return Status.READY;
@@ -95,6 +125,7 @@ public final class FJobDef {
     }
 
     public String statusNote() {
+        if (custom() && customMissing != null) return "In pregatire: " + customMissing;
         switch (status()) {
             case READY:
                 return "";
@@ -131,6 +162,16 @@ public final class FJobDef {
         j.external = s.getString("external", "");
         j.externalNote = s.getString("external-note", "");
         j.tasks = new ArrayList<>(s.getStringList("tasks"));
+        j.kind = s.getString("kind", "").toLowerCase(Locale.ROOT);
+        j.conf = s;
+        ConfigurationSection sts = s.getConfigurationSection("stations");
+        if (sts != null) {
+            for (String k : sts.getKeys(false)) {
+                List<Point> l = new ArrayList<>();
+                readPoints(sts.getMapList(k), l);
+                j.stations.put(k, l);
+            }
+        }
         for (Map<?, ?> m : s.getMapList("rules")) {
             Object ev = m.get("event");
             Object mats = m.get("materials");

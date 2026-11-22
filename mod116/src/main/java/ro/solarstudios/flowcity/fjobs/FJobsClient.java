@@ -20,6 +20,10 @@ public final class FJobsClient extends JsonClientModule {
     private static KeyBinding key;
     /** Ultimul pachet "data" primit (profil, joburi, istoric). */
     static JsonObject data;
+    /** Ultimul panou de job primit (obiective, statistici, butoane). */
+    static JsonObject panel;
+    private static boolean wantPanel;
+    private static KeyBinding panelKey;
 
     private FJobsClient() {
         on("open", d -> {
@@ -27,6 +31,25 @@ public final class FJobsClient extends JsonClientModule {
             if (!(mc.screen instanceof FJobsScreen)) mc.setScreen(new FJobsScreen());
         });
         on("data", d -> data = d);
+        on("hud", FJobsHud::apply);
+        on("panel", d -> {
+            panel = d;
+            Minecraft mc = Minecraft.getInstance();
+            if (wantPanel && !(mc.screen instanceof FJobsPanelScreen)) {
+                wantPanel = false;
+                mc.setScreen(new FJobsPanelScreen());
+            }
+        });
+        on("mg_open", d -> {
+            Minecraft mc = Minecraft.getInstance();
+            FJobsMiniGameScreen s = new FJobsMiniGameScreen(d);
+            FJobsMiniGameScreen.current = s;
+            mc.setScreen(s);
+        });
+        on("mg_result", d -> {
+            FJobsMiniGameScreen cur = FJobsMiniGameScreen.current;
+            if (cur != null) cur.result(d);
+        });
         on("prof", d -> {
             if (data != null) data.add("me", d);
         });
@@ -47,17 +70,29 @@ public final class FJobsClient extends JsonClientModule {
     @Override
     public void onLogout() {
         data = null;
+        panel = null;
+        wantPanel = false;
+        FJobsHud.clear();
     }
 
     public static void register() {
         instance = new FJobsClient();
         ClientModules.register(instance);
         MinecraftForge.EVENT_BUS.register(new Events());
+        MinecraftForge.EVENT_BUS.register(new FJobsHud.Events());
     }
 
     public static void registerKeys(RegisterKeyMappingsEvent e) {
         key = new KeyBinding("key.flowcity.fjobs", GLFW.GLFW_KEY_J, "key.categories.flowcity");
         e.register(key);
+        panelKey = new KeyBinding("key.flowcity.fjobs_panel", GLFW.GLFW_KEY_UNKNOWN, "key.categories.flowcity");
+        e.register(panelKey);
+    }
+
+    /** Cere panoul jobului curent (serverul raspunde cu "panel"; ecranul se deschide la raspuns). */
+    public static void openPanel() {
+        wantPanel = true;
+        request("panel", new JsonObject());
     }
 
     /** Cere datele si deschide Job Center (serverul raspunde cu "open" + "data"; daca modul lipseste, nu se intampla nimic). */
@@ -83,6 +118,9 @@ public final class FJobsClient extends JsonClientModule {
             if (mc.player == null) return;
             while (key.consumeClick()) {
                 if (mc.screen == null) open();
+            }
+            while (panelKey != null && panelKey.consumeClick()) {
+                if (mc.screen == null) openPanel();
             }
         }
     }

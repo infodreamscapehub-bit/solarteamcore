@@ -50,6 +50,8 @@ public final class FJobsData {
         public final Map<String, Integer> shifts = new HashMap<>();
         public final Map<String, Integer> missions = new HashMap<>();
         public final Set<String> rewarded = new HashSet<>();   // "job:nivel" deja incasate
+        public final Map<String, String> opts = new HashMap<>();      // optiuni per job ("job.cheie" -> valoare), ex. dificultatea
+        public final Map<String, Long> counters = new HashMap<>();    // contoare persistente ale activitatilor (capturi, productie, alocatii de predare)
         public final List<Entry> history = new ArrayList<>();
         public boolean dirty;
         public boolean loadedOnline;
@@ -113,6 +115,10 @@ public final class FJobsData {
             readInt(s.getConfigurationSection("shifts"), p.shifts);
             readInt(s.getConfigurationSection("missions"), p.missions);
             p.rewarded.addAll(s.getStringList("rewarded"));
+            ConfigurationSection os = s.getConfigurationSection("opts");
+            if (os != null) for (String k : os.getKeys(false)) p.opts.put(k.replace('~', '.'), os.getString(k, ""));
+            ConfigurationSection cs = s.getConfigurationSection("counters");
+            if (cs != null) for (String k : cs.getKeys(false)) p.counters.put(k.replace('~', '.'), cs.getLong(k));
             for (Map<?, ?> m : s.getMapList("history")) {
                 Entry e = new Entry();
                 e.at = m.get("at") instanceof Number ? ((Number) m.get("at")).longValue() : 0;
@@ -216,6 +222,8 @@ public final class FJobsData {
             for (Map.Entry<String, Integer> e : p.shifts.entrySet()) y.set(b + "shifts." + e.getKey(), e.getValue());
             for (Map.Entry<String, Integer> e : p.missions.entrySet()) y.set(b + "missions." + e.getKey(), e.getValue());
             y.set(b + "rewarded", new ArrayList<>(p.rewarded));
+            for (Map.Entry<String, String> e : p.opts.entrySet()) y.set(b + "opts." + e.getKey().replace('.', '~'), e.getValue());
+            for (Map.Entry<String, Long> e : p.counters.entrySet()) if (e.getValue() != 0) y.set(b + "counters." + e.getKey().replace('.', '~'), e.getValue());
             List<Map<String, Object>> hs = new ArrayList<>();
             for (Entry e : p.history) {
                 Map<String, Object> m = new LinkedHashMap<>();

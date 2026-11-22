@@ -44,118 +44,277 @@ jobs:
     name: "Miner"
     icon: pickaxe
     group: "Resurse"
-    desc: "Sparge minereuri in mina si primesti bani si XP."
+    desc: "Zone de minerit, spaca potrivita per minereu, resurse predate la depozit, contracte de colectare."
     difficulty: "Mediu"
     est-pay: 900
     est-minutes: 30
-    limit-per-minute: 40
-    tasks: ["Incepe tura", "Mergi in mina si sparge minereuri", "Minereurile rare se platesc mai bine"]
-    activity: rules
-    rules:
-      - {event: break, materials: [COAL_ORE], pay: 1.5, xp: 3}
-      - {event: break, materials: [IRON_ORE, NETHER_QUARTZ_ORE, NETHER_GOLD_ORE], pay: 3, xp: 5}
-      - {event: break, materials: [GOLD_ORE, LAPIS_ORE, REDSTONE_ORE], pay: 4, xp: 6, min-level: 3}
-      - {event: break, materials: [DIAMOND_ORE, EMERALD_ORE], pay: 8, xp: 12, min-level: 8}
-      - {event: break, materials: [ANCIENT_DEBRIS], pay: 15, xp: 20, min-level: 15}
+    limit-per-minute: 60
+    tasks: ["Incepe tura", "Mergi in zona de minerit cu spaca potrivita", "Sparge minereuri (alocatie la predare)", "Preda resursele la depozit (click dreapta)"]
+    activity: custom
+    kind: miner
+    levels:                       # dificultati alese din panoul jobului (pay/xp = multiplicatori, size = marimea sarcinii, seconds = timp pe mini-joc)
+      usor:  {name: "Usor",  min-level: 0, pay: 1.0, xp: 1.0, size: 3, seconds: 75, attempts: 3}
+      mediu: {name: "Mediu", min-level: 3, pay: 1.5, xp: 1.4, size: 4, seconds: 55, attempts: 3}
+      greu:  {name: "Greu",  min-level: 7, pay: 2.2, xp: 2.0, size: 6, seconds: 40, attempts: 2}
+    zone-radius: 40
+    zone-height: 70
+    depot-radius: 6
+    contract-minutes: 15
+    contract-per-size: 6
+    contract-bonus: 40
+    contract-xp: 14
+    contract-max-price: 8
+    xp-per-item: 1.0
+    ores:                         # bloc: {drop, tier (treapta minima spaca: 0 lemn/aur,1 piatra,2 fier,3 diamant,4 netherite), xp, min-level, price (per bucata predata)}
+      COAL_ORE:     {drop: COAL, tier: 0, xp: 2, min-level: 0, price: 1.8}
+      IRON_ORE:     {drop: IRON_ORE, tier: 1, xp: 3, min-level: 0, price: 3.0}
+      REDSTONE_ORE: {drop: REDSTONE, tier: 2, xp: 3, min-level: 2, price: 1.2}
+      LAPIS_ORE:    {drop: LAPIS_LAZULI, tier: 1, xp: 3, min-level: 2, price: 1.6}
+      GOLD_ORE:     {drop: GOLD_ORE, tier: 2, xp: 5, min-level: 4, price: 5.0}
+      DIAMOND_ORE:  {drop: DIAMOND, tier: 2, xp: 9, min-level: 7, price: 18.0}
+      EMERALD_ORE:  {drop: EMERALD, tier: 2, xp: 9, min-level: 9, price: 22.0}
+    # stations:
+    #   zone:  [{name: "Mina Nord", world: world, x: 300, y: 40, z: -100}]                  # EXEMPLU dezactivat
+    #   depot: [{name: "Depozit minereu", world: world, x: 280, y: 64, z: -90}]
   lumberjack:
     name: "Taietor de lemne"
     icon: axe
     group: "Resurse"
-    desc: "Taie copaci si primesti plata pe bustean."
+    desc: "Identifici copaci naturali in padure, ii tai intregi cu securea, duci lemnul la depozit; contracte pe specie."
     difficulty: "Usor"
     est-pay: 700
     est-minutes: 30
-    limit-per-minute: 50
-    tasks: ["Incepe tura", "Taie copaci cu toporul", "Planteaza butasi dupa taiere"]
-    activity: rules
-    rules:
-      - {event: break, materials: ["*_LOG", "*_STEM"], pay: 1.2, xp: 2}
-      - {event: break, materials: [DARK_OAK_LOG, JUNGLE_LOG, ACACIA_LOG], pay: 1.8, xp: 3}
+    limit-per-minute: 60
+    tasks: ["Incepe tura", "Mergi in zona de padure cu securea", "Taie copaci naturali", "Preda lemnul la depozit (click dreapta)"]
+    activity: custom
+    kind: lumberjack
+    levels:                       # dificultati alese din panoul jobului (pay/xp = multiplicatori, size = marimea sarcinii, seconds = timp pe mini-joc)
+      usor:  {name: "Usor",  min-level: 0, pay: 1.0, xp: 1.0, size: 3, seconds: 75, attempts: 3}
+      mediu: {name: "Mediu", min-level: 3, pay: 1.5, xp: 1.4, size: 4, seconds: 55, attempts: 3}
+      greu:  {name: "Greu",  min-level: 7, pay: 2.2, xp: 2.0, size: 6, seconds: 40, attempts: 2}
+    forest-radius: 60
+    depot-radius: 6
+    max-logs-per-tree: 48
+    xp-per-log: 1.5
+    sapling-pay: 1.5
+    sapling-xp: 1
+    contract-minutes: 15
+    contract-per-size: 6
+    contract-bonus: 40
+    contract-xp: 14
+    xp-per-item: 1.0
+    woods:                        # lemn -> pret per butuc predat
+      OAK_LOG: 2.2
+      SPRUCE_LOG: 2.2
+      BIRCH_LOG: 2.4
+      JUNGLE_LOG: 3.0
+      ACACIA_LOG: 2.8
+      DARK_OAK_LOG: 3.2
+    # stations:
+    #   forest: [{name: "Padurea Nord", world: world, x: -200, y: 70, z: 150}]               # EXEMPLU dezactivat
+    #   depot:  [{name: "Depozit lemn", world: world, x: -150, y: 64, z: 100}]
   fisher:
     name: "Pescar"
     icon: fish
     group: "Resurse"
-    desc: "Pescuieste pesti si obiecte rare cu undita."
+    desc: "Sistem de capturi: specii dupa apa/ora/nivel/undita, pesti care pot scapa, cos cu limita, vanzare la piata."
     difficulty: "Usor"
     est-pay: 600
     est-minutes: 30
-    limit-per-minute: 12
-    tasks: ["Incepe tura", "Mergi la apa cu o undita", "Fiecare captura se plateste"]
-    activity: rules
-    rules:
-      - {event: fish, materials: [COD, SALMON], pay: 3, xp: 5}
-      - {event: fish, materials: [TROPICAL_FISH, PUFFERFISH], pay: 6, xp: 8}
-      - {event: fish, materials: [NAUTILUS_SHELL, NAME_TAG, SADDLE, ENCHANTED_BOOK, BOW, FISHING_ROD], pay: 12, xp: 15, min-level: 5}
+    tasks: ["Incepe tura", "Pescuieste cu undita (loc de pescuit = bonus)", "Vinde captura la piata"]
+    activity: custom
+    kind: fisher
+    levels:                       # dificultati alese din panoul jobului (pay/xp = multiplicatori, size = marimea sarcinii, seconds = timp pe mini-joc)
+      usor:  {name: "Usor",  min-level: 0, pay: 1.0, xp: 1.0, size: 3, seconds: 75, attempts: 3}
+      mediu: {name: "Mediu", min-level: 3, pay: 1.5, xp: 1.4, size: 4, seconds: 55, attempts: 3}
+      greu:  {name: "Greu",  min-level: 7, pay: 2.2, xp: 2.0, size: 6, seconds: 40, attempts: 2}
+    require-spot: false           # true = prinzi doar in locurile de pescuit setate
+    spot-radius: 25
+    market-radius: 6
+    max-stock-kg: 60              # limita cosului (kg); vinde ca sa continui
+    catch-xp: 3
+    sell-xp: 1
+    fish:                         # specii: water ocean|fresh|any, time day|night|any, weight = frecventa, fight = sansa de a scapa (scade cu treapta undita)
+      sardine:  {name: "Sardina", min-g: 60, max-g: 220, price-per-kg: 7.0, weight: 40, water: ocean}
+      mackerel: {name: "Macrou", min-g: 250, max-g: 900, price-per-kg: 7.5, weight: 32, water: ocean}
+      cod:      {name: "Cod", min-g: 800, max-g: 6000, price-per-kg: 8.5, weight: 22, min-level: 2, min-rod: 1, fight: 0.1, water: ocean}
+      tuna:     {name: "Ton", min-g: 4000, max-g: 30000, price-per-kg: 14.0, weight: 8, min-level: 5, min-rod: 2, fight: 0.3, spot-only: true, water: ocean, time: day}
+      carp:     {name: "Crap", min-g: 800, max-g: 5000, price-per-kg: 6.0, weight: 38, fight: 0.05, water: fresh}
+      trout:    {name: "Pastrav", min-g: 300, max-g: 1800, price-per-kg: 9.0, weight: 24, min-level: 1, fight: 0.1, water: fresh, time: day}
+      pike:     {name: "Stiuca", min-g: 1200, max-g: 8000, price-per-kg: 9.5, weight: 16, min-level: 3, min-rod: 1, fight: 0.18, water: fresh}
+      catfish:  {name: "Somn", min-g: 4000, max-g: 30000, price-per-kg: 7.0, weight: 10, min-level: 4, min-rod: 2, fight: 0.25, water: fresh, time: night}
+      sturgeon: {name: "Nisetru", min-g: 8000, max-g: 60000, price-per-kg: 38.0, weight: 3, min-level: 8, min-rod: 3, fight: 0.4, spot-only: true, water: any}
+    # stations:
+    #   market: [{name: "Piata de peste", world: world, x: 0, y: 64, z: 0}]                 # EXEMPLU dezactivat
+    #   spot:   [{name: "Lac - ponton", world: world, x: 40, y: 63, z: 20}]
   farmer:
     name: "Fermier"
     icon: wheat
     group: "Resurse"
-    desc: "Recolteaza culturi coapte."
+    desc: "Planteaza, uda cu galeata, recolteaza culturi mature in loturi si vinde la piata (calitate + transport)."
     difficulty: "Usor"
     est-pay: 650
     est-minutes: 30
     limit-per-minute: 60
-    tasks: ["Incepe tura", "Recolteaza doar culturile coapte", "Replanteaza ca sa ai de lucru"]
-    activity: rules
-    rules:
-      - {event: break, materials: [WHEAT, CARROTS, POTATOES, BEETROOTS, NETHER_WART], mature: true, placed-check: false, pay: 1.2, xp: 2}
-      - {event: break, materials: [PUMPKIN, MELON], pay: 2.5, xp: 3}
-      - {event: break, materials: [SWEET_BERRY_BUSH, COCOA], mature: true, placed-check: false, pay: 1.5, xp: 2}
+    tasks: ["Incepe tura", "Planteaza in lot", "Uda culturile (galeata cu apa, click dreapta pe pamant)", "Recolteaza cultura coapta", "Vinde la piata"]
+    activity: custom
+    kind: farmer
+    levels:                       # dificultati alese din panoul jobului (pay/xp = multiplicatori, size = marimea sarcinii, seconds = timp pe mini-joc)
+      usor:  {name: "Usor",  min-level: 0, pay: 1.0, xp: 1.0, size: 3, seconds: 75, attempts: 3}
+      mediu: {name: "Mediu", min-level: 3, pay: 1.5, xp: 1.4, size: 4, seconds: 55, attempts: 3}
+      greu:  {name: "Greu",  min-level: 7, pay: 2.2, xp: 2.0, size: 6, seconds: 40, attempts: 2}
+    plot-radius: 16
+    depot-radius: 6
+    water-radius: 2
+    water-seconds: 150            # cat tine o cultura "udata" (calitate)
+    water-pay: 0.25
+    water-xp: 0.3
+    water-bonus: 0.25             # +25% pret pentru produsele udate
+    transport-per-100m: 0.04      # +4% pret la 100 m de la lot la piata
+    transport-max: 0.25
+    contract-minutes: 15
+    contract-per-size: 6
+    contract-bonus: 40
+    contract-xp: 14
+    contract-max-price: 8
+    xp-per-item: 1.0
+    crops:                        # bloc de cultura: {product, price (per bucata), xp, plant-pay}
+      WHEAT:     {product: WHEAT, price: 1.6, xp: 2, plant-pay: 0.2}
+      CARROTS:   {product: CARROT, price: 1.4, xp: 2, plant-pay: 0.2}
+      POTATOES:  {product: POTATO, price: 1.4, xp: 2, plant-pay: 0.2}
+      BEETROOTS: {product: BEETROOT, price: 1.8, xp: 2, plant-pay: 0.2}
+    # stations:
+    #   plot:   [{name: "Ferma Nord", world: world, x: 200, y: 64, z: 100}]                 # EXEMPLU dezactivat
+    #   market: [{name: "Piata", world: world, x: 0, y: 64, z: 0}]
   garbage:
     name: "Gunoier"
     icon: trash
     group: "Servicii"
-    desc: "Strange gunoiul din oras: click dreapta cu obiectul pe un cos (cazan)."
+    desc: "Rute predefinite: aduni sacii din containere, ridici containerele grele, incarci camionul si descarci la depozit."
     difficulty: "Usor"
     est-pay: 500
     est-minutes: 25
-    limit-per-minute: 40
-    tasks: ["Incepe tura", "Strange gunoi (oase, bete, hartie...)", "Click dreapta pe un cos cu gunoiul in mana"]
-    activity: rules
-    rules:
-      - {event: trash, materials: [ROTTEN_FLESH, STICK, BONE, STRING, SPIDER_EYE, PAPER, GLASS_BOTTLE, LEATHER, FEATHER, BOWL, POISONOUS_POTATO], pay: 0.5, xp: 1}
-      - {event: trash, materials: [GUNPOWDER, SLIME_BALL, INK_SAC, FLINT], pay: 1.0, xp: 2}
+    limit-per-minute: 60
+    tasks: ["Incepe tura", "Mergi pe ruta si aduna sacii (click dreapta)", "Containere grele: tine SHIFT", "Incarca camionul, apoi descarca la depozit"]
+    activity: custom
+    kind: garbage
+    levels:                       # dificultati alese din panoul jobului (pay/xp = multiplicatori, size = marimea sarcinii, seconds = timp pe mini-joc)
+      usor:  {name: "Usor",  min-level: 0, pay: 1.0, xp: 1.0, size: 3, seconds: 75, attempts: 3}
+      mediu: {name: "Mediu", min-level: 3, pay: 1.5, xp: 1.4, size: 4, seconds: 55, attempts: 3}
+      greu:  {name: "Greu",  min-level: 7, pay: 2.2, xp: 2.0, size: 6, seconds: 40, attempts: 2}
+    bags-per-bin: 2               # maxim saci per container (+1 la dificultati mari)
+    heavy-chance: 0.2             # sansa ca un container sa fie greu (3 saci, ridicare cu SHIFT)
+    lift-seconds: 3
+    carry-capacity: 4             # saci in mana
+    truck-capacity: 18
+    slow-when-carrying: true
+    bin-radius: 3.5
+    truck-radius: 6
+    depot-radius: 6
+    take-cooldown-ms: 600
+    bag-pay: 3.0
+    bag-xp: 1
+    route-bonus: 25               # bonus de ruta completa, dupa timp
+    route-xp: 10
+    par-seconds-per-bag: 9
+    # stations:                   # "bin" cu prefix comun = o ruta (ex. "Ruta 1 - Str. Florilor 3"); plus un "truck" si un "depot"
+    #   bin:   [{name: "Ruta 1 - Str. Florilor 3", world: world, x: 10, y: 64, z: 10}]   # EXEMPLU dezactivat
+    #   truck: [{name: "Camion", world: world, x: 0, y: 64, z: 0}]
+    #   depot: [{name: "Depozit", world: world, x: 50, y: 64, z: 50}]
   builder:
     name: "Constructor"
     icon: hammer
     group: "Constructii"
-    desc: "Construieste cu materiale de santier. Platesti la fiecare bloc pus (anti-farm: aceeasi pozitie nu se plateste de doua ori)."
+    desc: "Misiuni la santiere: iei materiale marcate, construiesti sau repari, primesti bonus de finalizare."
     difficulty: "Mediu"
     est-pay: 800
     est-minutes: 40
-    limit-per-minute: 40
-    tasks: ["Incepe tura", "Pune caramida, beton si piatra", "Nu merge repunerea pe aceeasi pozitie"]
-    activity: rules
-    rules:
-      - {event: place, materials: [BRICKS, STONE_BRICKS, "*_CONCRETE", SMOOTH_STONE, POLISHED_ANDESITE, POLISHED_DIORITE, POLISHED_GRANITE], pay: 1.0, xp: 1}
-      - {event: place, materials: ["*_TERRACOTTA", QUARTZ_BLOCK, SMOOTH_QUARTZ, IRON_BARS, GLASS_PANE], pay: 1.5, xp: 2, min-level: 3}
+    limit-per-minute: 60
+    tasks: ["Incepe tura", "Ia materialele de la depozit", "Construieste sau repara la santier", "Termina obiectivul"]
+    activity: custom
+    kind: builder
+    levels:                       # dificultati alese din panoul jobului (pay/xp = multiplicatori, size = marimea sarcinii, seconds = timp pe mini-joc)
+      usor:  {name: "Usor",  min-level: 0, pay: 1.0, xp: 1.0, size: 2, seconds: 75, attempts: 3}
+      mediu: {name: "Mediu", min-level: 3, pay: 1.5, xp: 1.4, size: 3, seconds: 55, attempts: 3}
+      greu:  {name: "Greu",  min-level: 7, pay: 2.2, xp: 2.0, size: 5, seconds: 40, attempts: 2}
+    site-radius: 14
+    supply-radius: 5
+    blocks-per-size: 8
+    spare: 0.15                    # materiale in plus la depozit (15%)
+    repair-chance: 0.5            # sansa unei misiuni de reparatie (doar daca santierul are blocuri crapate)
+    repair-blocks: [CRACKED_STONE_BRICKS, CRACKED_NETHER_BRICKS, CRACKED_POLISHED_BLACKSTONE_BRICKS]
+    repair-with: STONE_BRICKS
+    materials: [STONE_BRICKS, BRICKS, OAK_PLANKS, COBBLESTONE, SMOOTH_STONE]
+    block-pay: 1.2
+    block-xp: 0.6
+    complete-bonus: 45
+    complete-xp: 14
+    par-seconds-per-block: 6
+    mission-timeout-seconds: 900
+    # stations:
+    #   site:   [{name: "Santier Centru", world: world, x: 60, y: 64, z: 60}]               # EXEMPLU dezactivat
+    #   supply: [{name: "Depozit materiale", world: world, x: 40, y: 64, z: 40}]
   electrician:
     name: "Electrician"
     icon: bolt
     group: "Servicii"
-    desc: "Instaleaza instalatii: redstone, lampi, butoane."
+    desc: "Interventii la tablouri electrice: diagnostic, apoi reparatie prin mini-jocuri (siguranta, cablaj, suprasarcina, circuit nou)."
     difficulty: "Mediu"
     est-pay: 750
     est-minutes: 30
     limit-per-minute: 30
-    tasks: ["Incepe tura", "Instaleaza redstone, lampi si repetitoare", "Plata pe fiecare instalatie"]
-    activity: rules
-    rules:
-      - {event: place, materials: [REDSTONE_WIRE, REDSTONE_TORCH, REPEATER, COMPARATOR], pay: 1.0, xp: 1}
-      - {event: place, materials: [REDSTONE_LAMP, LEVER, "*_BUTTON", "*_PRESSURE_PLATE", OBSERVER, DAYLIGHT_DETECTOR], pay: 2.0, xp: 2}
-
+    tasks: ["Incepe tura si asteapta o comanda", "Mergi la tablou (GPS) si da click dreapta pe el", "Diagnosticheaza defectul", "Repara cu mini-jocul potrivit"]
+    activity: custom
+    kind: electrician
+    levels:                       # dificultati alese din panoul jobului (pay/xp = multiplicatori, size = marimea sarcinii, seconds = timp pe mini-joc)
+      usor:  {name: "Usor",  min-level: 0, pay: 1.0, xp: 1.0, size: 2, seconds: 75, attempts: 3}
+      mediu: {name: "Mediu", min-level: 3, pay: 1.5, xp: 1.4, size: 3, seconds: 55, attempts: 3}
+      greu:  {name: "Greu",  min-level: 7, pay: 2.2, xp: 2.0, size: 5, seconds: 40, attempts: 2}
+    order-timeout-seconds: 360    # comanda expira
+    order-delay-seconds: 6        # pauza pana la comanda urmatoare
+    panel-cooldown-seconds: 90    # acelasi tablou nu mai e dat imediat
+    fail-lock-seconds: 120        # tabloul se blocheaza dupa esec
+    interact-radius: 3.5
+    faults:                       # defecte (pay/xp de baza, min-level = nivel de job necesar)
+      fuse:     {name: "Siguranta arsa", pay: 30, xp: 10, min-level: 0, symptom: "Tabloul nu mai da curent; indicatorul F2 e stins."}
+      wire:     {name: "Cablu desprins", pay: 40, xp: 14, min-level: 0, symptom: "Tensiune instabila; un fir atarna in dreptul clemei."}
+      overload: {name: "Suprasarcina", pay: 55, xp: 18, min-level: 3, symptom: "Intrerupatorul general declanseaza la scurt timp dupa resetare."}
+      install:  {name: "Circuit nou de conectat", pay: 80, xp: 26, min-level: 6, symptom: "Circuit nou, neracordat; trebuie conectate toate liniile."}
+    # stations:                   # se seteaza din joc (Administrare -> job -> puncte), nu manual
+    #   panel:
+    #     - {name: "Tablou Primarie", world: world, x: 100, y: 64, z: 100}   # EXEMPLU dezactivat
   # ---------------------------- CIVILE: livrari (functionale dupa ce adminul seteaza punctele) ----------------------------
   courier:
     name: "Curier"
     icon: box
     group: "Transport"
-    desc: "Ridici colete de la depozit si le duci la adresele din oras."
+    desc: "Ridici colete fizice de la depozit, le duci la adrese diferite si verifici destinatarul. Cronometru optional cu bonus de livrare rapida."
     difficulty: "Mediu"
     est-pay: 1000
     est-minutes: 30
-    tasks: ["Incepe tura", "Mergi la un depozit", "Primesti adresa si o vezi pe GPS", "Livreaza coletul"]
-    activity: delivery
-    delivery: {item: "coletul", radius: 4, base-pay: 12, per-100m: 5, xp: 6, max-speed: 30}
+    limit-per-minute: 80
+    tasks: ["Incepe tura", "Click dreapta la depozit pentru un lot de colete", "Livreaza la adrese (GPS)", "Verifica destinatarul de pe eticheta"]
+    activity: custom
+    kind: courier
+    levels:                       # dificultati alese din panoul jobului (pay/xp = multiplicatori, size = marimea sarcinii, seconds = timp pe mini-joc)
+      usor:  {name: "Usor",  min-level: 0, pay: 1.0, xp: 1.0, size: 2, seconds: 75, attempts: 3}
+      mediu: {name: "Mediu", min-level: 3, pay: 1.5, xp: 1.4, size: 3, seconds: 55, attempts: 3}
+      greu:  {name: "Greu",  min-level: 7, pay: 2.2, xp: 2.0, size: 5, seconds: 40, attempts: 2}
+    depot-radius: 5
+    address-radius: 4
+    min-distance: 40              # distanta minima depozit -> adresa
+    base-pay: 12
+    per-100m: 5
+    xp: 6
+    max-speed: 30                 # m/s: livrari mai rapide decat atat nu se platesc (teleportari)
+    fast-bonus-max: 0.5           # bonus maxim de livrare rapida (cu cronometrul pornit)
+    deadline-base-seconds: 45
+    deadline-seconds-per-100m: 14
+    expire-after-seconds: 180     # dupa termen, coletul expira dupa atat
+    recipients: ["Ion Popescu", "Maria Ionescu", "Andrei Dumitru", "Elena Stan", "Vlad Marin", "Ana Radu", "Mihai Georgescu", "Ioana Matei"]
+    # stations:
+    #   depot:   [{name: "Depozit colete", world: world, x: 0, y: 64, z: 0}]            # EXEMPLU dezactivat
+    #   address: [{name: "Str. Florilor 12", world: world, x: 120, y: 64, z: 30}]       # minim 2 adrese
   food_delivery:
     name: "Livrator de mancare"
     icon: pizza
@@ -171,13 +330,31 @@ jobs:
     name: "Postas"
     icon: mail
     group: "Transport"
-    desc: "Distribui corespondenta de la oficiul postal."
+    desc: "Ridici corespondenta, o sortezi pe strazi (mini-joc), o duci pe jos la cutii postale; scrisorile recomandate cer verificare."
     difficulty: "Usor"
     est-pay: 750
     est-minutes: 30
-    tasks: ["Incepe tura", "Ridica corespondenta de la posta", "Du-o la destinatari"]
-    activity: delivery
-    delivery: {item: "corespondenta", radius: 4, base-pay: 7, per-100m: 4, xp: 4, max-speed: 30}
+    limit-per-minute: 80
+    tasks: ["Incepe tura", "Click dreapta la oficiul postal", "Sorteaza scrisorile pe strazi", "Depune la cutii postale"]
+    activity: custom
+    kind: postman
+    levels:                       # dificultati alese din panoul jobului (pay/xp = multiplicatori, size = marimea sarcinii, seconds = timp pe mini-joc)
+      usor:  {name: "Usor",  min-level: 0, pay: 1.0, xp: 1.0, size: 2, seconds: 75, attempts: 3}
+      mediu: {name: "Mediu", min-level: 3, pay: 1.5, xp: 1.4, size: 3, seconds: 55, attempts: 3}
+      greu:  {name: "Greu",  min-level: 7, pay: 2.2, xp: 2.0, size: 5, seconds: 40, attempts: 2}
+    post-radius: 5
+    mailbox-radius: 3.5
+    registered-chance: 0.25
+    registered-bonus: 0.6
+    letter-pay: 5
+    letter-xp: 2
+    complete-bonus: 35
+    complete-xp: 12
+    par-seconds-per-letter: 25
+    bag-delay-seconds: 8
+    # stations:                   # "mailbox" cu prefix comun = o strada (ex. "Str. Florilor - nr 3"), minim 2 strazi
+    #   post:    [{name: "Oficiul postal", world: world, x: 0, y: 64, z: 0}]                # EXEMPLU dezactivat
+    #   mailbox: [{name: "Str. Florilor - nr 3", world: world, x: 20, y: 64, z: 5}]
   trucker:
     name: "Camionagiu"
     icon: truck
@@ -218,24 +395,61 @@ jobs:
     name: "Sofer de autobuz"
     icon: bus
     group: "Transport"
-    desc: "Parcurgi traseul liniei, oprind in fiecare statie."
+    desc: "Linii cu statii in ordine: opresti, pasagerii urca/coboara, respecti orarul pentru bonus."
     difficulty: "Mediu"
     est-pay: 900
     est-minutes: 30
-    tasks: ["Incepe tura", "Mergi la prima statie", "Opreste la fiecare statie in ordine", "Ruta se reia automat"]
-    activity: route
-    route: {label: "statie", radius: 5, pay-per-point: 8, xp-per-point: 3, complete-bonus: 30, complete-xp: 12, min-seconds-per-point: 10}
+    limit-per-minute: 80
+    tasks: ["Incepe tura", "Mergi la capatul liniei", "Opreste in fiecare statie, in ordine", "Respecta orarul pentru bonus"]
+    activity: custom
+    kind: bus
+    levels:                       # dificultati alese din panoul jobului (pay/xp = multiplicatori, size = marimea sarcinii, seconds = timp pe mini-joc)
+      usor:  {name: "Usor",  min-level: 0, pay: 1.0, xp: 1.0, size: 2, seconds: 75, attempts: 3}
+      mediu: {name: "Mediu", min-level: 3, pay: 1.5, xp: 1.4, size: 3, seconds: 55, attempts: 3}
+      greu:  {name: "Greu",  min-level: 7, pay: 2.2, xp: 2.0, size: 5, seconds: 40, attempts: 2}
+    require-vehicle: false
+    stop-radius: 6
+    dwell-seconds: 3
+    grace-seconds: 15             # toleranta orarului (+/-)
+    scheduled-speed: 9            # m/s folosit pentru a calcula orarul
+    capacity: 24
+    fare: 2.0                     # per pasager urcat
+    stop-xp: 2
+    schedule-bonus: 8             # per statie la timp
+    complete-bonus: 30            # x1.5 daca nu ai sarit statii
+    complete-xp: 12
+    # stations:                   # "stop" cu prefix comun = o linie, in ordinea adaugarii (ex. "Linia 1 - Piata", "Linia 1 - Gara")
+    #   stop: [{name: "Linia 1 - Piata", world: world, x: 0, y: 64, z: 0}]                # EXEMPLU dezactivat
   window_washer:
     name: "Spalator de geamuri"
     icon: window
     group: "Servicii"
-    desc: "Treci pe la cladirile de pe lista si speli geamurile."
+    desc: "Urci pe platforma unei cladiri si speli ferestrele murdare, una cate una, cu racleta."
     difficulty: "Usor"
     est-pay: 600
     est-minutes: 25
-    tasks: ["Incepe tura", "Mergi la cladirea indicata", "Treci la urmatoarea"]
-    activity: route
-    route: {label: "cladire", radius: 4, pay-per-point: 6, xp-per-point: 3, complete-bonus: 20, complete-xp: 8, min-seconds-per-point: 8}
+    tasks: ["Incepe tura (primesti racleta)", "Urca pe platforma cladirii", "Click dreapta pe geam ca sa-l speli", "Termina toate ferestrele"]
+    activity: custom
+    kind: windows
+    levels:                       # dificultati alese din panoul jobului (pay/xp = multiplicatori, size = marimea sarcinii, seconds = timp pe mini-joc)
+      usor:  {name: "Usor",  min-level: 0, pay: 1.0, xp: 1.0, size: 2, seconds: 75, attempts: 3}
+      mediu: {name: "Mediu", min-level: 3, pay: 1.5, xp: 1.4, size: 3, seconds: 55, attempts: 3}
+      greu:  {name: "Greu",  min-level: 7, pay: 2.2, xp: 2.0, size: 5, seconds: 40, attempts: 2}
+    tool: SPONGE                  # unealta primita la inceputul turei
+    dirt-min: 55                  # murdaria initiala a unei ferestre: intre dirt-min si 100 (%)
+    stroke: 25                    # cat curata o miscare (%)
+    stroke-cooldown-ms: 280
+    window-radius: 4              # cat de aproape de punctul ferestrei trebuie sa fie geamul lovit
+    platform-radius: 5            # raza platformei de lucru
+    rain-dirt: 6                  # cat se murdareste o fereastra neterminata la fiecare 15 s de ploaie (0 = oprit)
+    window-pay: 14                # plata pe fereastra (proportionala cu murdaria indepartata)
+    window-xp: 3
+    complete-bonus: 40            # bonus cladire (pentru 3 ferestre), dupa timp
+    complete-xp: 12
+    par-seconds-per-stroke: 2.4   # timpul-tinta pentru nota S/A/B/C
+    # stations:                   # nume cu prefix comun = o cladire (ex. "Bloc A - platforma", "Bloc A - geam 1")
+    #   platform: [{name: "Bloc A - platforma", world: world, x: 0, y: 70, z: 0}]     # EXEMPLU dezactivat
+    #   window:   [{name: "Bloc A - geam 1", world: world, x: 0, y: 72, z: 2}]        # EXEMPLU dezactivat
   firefighter:
     name: "Pompier"
     icon: flame
@@ -276,28 +490,73 @@ jobs:
     icon: taxi
     category: special
     group: "Transport"
-    desc: "Preiei curse prin sistemul de taxi al serverului."
+    desc: "Primesti comenzi, ridici pasageri reali, ii duci la destinatii aleatorii; aparatul numara distanta parcursa."
     difficulty: "Mediu"
     est-pay: 1100
     est-minutes: 40
+    limit-per-minute: 80
     requires-permission: "flowcity.taxi.driver"
     requires-note: "Necesita licenta/permisiunea de taximetrist (flowcity.taxi.driver)."
-    tasks: ["Preiei curse din aplicatia de taxi", "Plata o gestioneaza sistemul de taxi"]
-    activity: external
-    external: taxi
-    external-note: "Lucrezi prin sistemul de taxi (comanda din telefon/aplicatie). Castigurile nu sunt urmarite aici."
+    tasks: ["Incepe tura", "Accepta o comanda din panou (sau click dreapta la statie)", "Ridica pasagerul", "Du-l la destinatie"]
+    activity: custom
+    kind: taxi
+    levels:                       # dificultati alese din panoul jobului (pay/xp = multiplicatori, size = marimea sarcinii, seconds = timp pe mini-joc)
+      usor:  {name: "Usor",  min-level: 0, pay: 1.0, xp: 1.0, size: 2, seconds: 75, attempts: 3}
+      mediu: {name: "Mediu", min-level: 3, pay: 1.5, xp: 1.4, size: 3, seconds: 55, attempts: 3}
+      greu:  {name: "Greu",  min-level: 7, pay: 2.2, xp: 2.0, size: 5, seconds: 40, attempts: 2}
+    require-vehicle: false        # true = trebuie sa fii intr-un vehicul Bukkit (vezi README: masinile din mod pot sa nu fie detectate)
+    offer-interval-seconds: 20
+    offer-ttl-seconds: 60
+    min-distance: 80
+    stand-radius: 6
+    pickup-radius: 5
+    dropoff-radius: 6
+    board-seconds: 2
+    pickup-timeout-seconds: 240
+    start-fare: 8
+    per-100m: 6
+    xp: 8
+    max-speed: 40                 # m/s: deplasarile mai mari pe secunda nu se numara (teleportari)
+    min-route-ratio: 0.6          # distanta parcursa minima fata de linia dreapta
+    max-route-ratio: 1.6          # distanta maxima platita fata de linia dreapta
+    expected-speed: 11
+    patience: 2.2
+    fast-tip: 0.15
+    # stations:
+    #   stand:       [{name: "Statie Gara", world: world, x: 0, y: 64, z: 0}]            # EXEMPLU dezactivat
+    #   destination: [{name: "Aeroport", world: world, x: 500, y: 64, z: 200}]           # minim 2
   mechanic:
     name: "Mecanic"
     icon: wrench
     group: "Servicii"
-    desc: "Repari si tunezi masini prin sistemul de mecanic."
+    desc: "Comenzi la boxe: diagnostic, cumperi piesa, o montezi printr-un mini-joc; plus revizii."
     difficulty: "Mediu"
     est-pay: 1000
     est-minutes: 40
-    tasks: ["Preiei lucrari din sistemul de mecanic", "Plata o gestioneaza sistemul de mecanic"]
-    activity: external
-    external: mecanic
-    external-note: "Lucrezi prin sistemul de mecanic al serverului. Castigurile nu sunt urmarite aici."
+    limit-per-minute: 40
+    tasks: ["Incepe tura", "Mergi la box (GPS) si diagnosticheaza", "Cumpara piesa de la magazin", "Monteaza piesa la box"]
+    activity: custom
+    kind: mechanic
+    levels:                       # dificultati alese din panoul jobului (pay/xp = multiplicatori, size = marimea sarcinii, seconds = timp pe mini-joc)
+      usor:  {name: "Usor",  min-level: 0, pay: 1.0, xp: 1.0, size: 2, seconds: 75, attempts: 3}
+      mediu: {name: "Mediu", min-level: 3, pay: 1.5, xp: 1.4, size: 3, seconds: 55, attempts: 3}
+      greu:  {name: "Greu",  min-level: 7, pay: 2.2, xp: 2.0, size: 5, seconds: 40, attempts: 2}
+    order-timeout-seconds: 480
+    order-delay-seconds: 6
+    service-chance: 0.25          # sansa unei revizii (fara piesa)
+    service-pay: 35
+    service-xp: 9
+    parts-at-bay: false           # true = piesa se cumpara direct la box (nu e nevoie de magazin)
+    bay-radius: 4
+    parts-radius: 4
+    components:                   # cost = piesa (platit de jucator), pay = plata lucrarii, game = wires | seq
+      spark:      {name: "Bujii uzate", part: "Set bujii", cost: 12, pay: 45, xp: 12, min-level: 0, game: seq, symptom: "Motorul trepideaza si porneste greu."}
+      battery:    {name: "Baterie descarcata", part: "Baterie noua", cost: 25, pay: 55, xp: 14, min-level: 0, game: wires, symptom: "Farurile slabe, rotitele de pornire abia se aud."}
+      brakes:     {name: "Placute de frana uzate", part: "Set placute", cost: 30, pay: 70, xp: 18, min-level: 3, game: seq, symptom: "Frana scartaie si distanta de franare a crescut."}
+      alternator: {name: "Alternator defect", part: "Alternator", cost: 55, pay: 110, xp: 26, min-level: 6, game: wires, symptom: "Bateria se descarca in mers, martorul de incarcare e aprins."}
+    # stations:
+    #   bay:   [{name: "Box 1", world: world, x: 0, y: 64, z: 0}]                          # EXEMPLU dezactivat
+    #   parts: [{name: "Magazin piese", world: world, x: 10, y: 64, z: 0}]
   doctor:
     name: "Medic"
     icon: cross
