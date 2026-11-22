@@ -158,6 +158,7 @@ categories:
     to: "#9BCDFF"
     commands:
       - {usage: "/gps", desc: "Deschide harta GPS (locații, zone, navigare). Tasta M sau .gps în chat. Adminii: buton EDITOR HARTĂ", perm: ""}
+      - {usage: "/gps (EDITOR HARTĂ > DRUMURI)", desc: "Adminii desenează rețeaua de drumuri (sau o scanează după blocuri); fără ea GPS-ul merge în linie dreaptă, cu ea urmează străzile cu viraje și nume de stradă", perm: "flowcity.gps.admin"}
       - {usage: "/gps cancel", desc: "Anulează navigarea activă", perm: ""}
       - {usage: "/gps categorii", desc: "Lista categoriilor de locații", perm: ""}
       - {usage: "/gps lista [CATEGORIE]", desc: "Listează locațiile cu id-urile lor", perm: "flowcity.gps.admin"}

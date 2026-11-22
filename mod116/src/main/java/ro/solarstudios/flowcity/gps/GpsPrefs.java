@@ -26,7 +26,14 @@ public final class GpsPrefs {
     public static boolean grid;
     /** In editor: afiseaza si elementele dezactivate (estompate). */
     public static boolean showDisabled = true;
+    /** Anunturi sonore + mesaj la viraje (GPS pe drumuri). */
+    public static boolean navSound = true;
     private static boolean loaded;
+
+    static {
+        // reteaua de drumuri e ascunsa implicit pe harta jucatorilor (se vede doar traseul)
+        hiddenLayers.add("roads");
+    }
 
     public static boolean layerOn(String id) {
         return !hiddenLayers.contains(id);
@@ -54,6 +61,8 @@ public final class GpsPrefs {
             if (o.has("zoom")) zoom = o.get("zoom").getAsFloat();
             hiddenLayers.clear();
             if (o.has("layersOff") && o.get("layersOff").isJsonArray()) for (JsonElement e : o.getAsJsonArray("layersOff")) hiddenLayers.add(e.getAsString());
+            if (!o.has("roadsInit")) hiddenLayers.add("roads");
+            if (o.has("navSound")) navSound = o.get("navSound").getAsBoolean();
             if (o.has("grid")) grid = o.get("grid").getAsBoolean();
             if (o.has("showDisabled")) showDisabled = o.get("showDisabled").getAsBoolean();
         } catch (IOException | RuntimeException ignored) {
@@ -72,6 +81,8 @@ public final class GpsPrefs {
             JsonArray lo = new JsonArray();
             for (String l : hiddenLayers) lo.add(l);
             o.add("layersOff", lo);
+            o.addProperty("roadsInit", true);
+            o.addProperty("navSound", navSound);
             o.addProperty("grid", grid);
             o.addProperty("showDisabled", showDisabled);
             Files.write(file(), o.toString().getBytes(StandardCharsets.UTF_8));

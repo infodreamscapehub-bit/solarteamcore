@@ -36,6 +36,20 @@ public final class GpsClient extends JsonClientModule {
             Minecraft mc = Minecraft.getInstance();
             if (mc.screen instanceof MapEditorScreen) ((MapEditorScreen) mc.screen).onResult(str(d, "op", ""), bool(d, "ok", false), str(d, "msg", ""));
         });
+        on("roads", d -> {
+            int r0 = RoadNet.revision;
+            RoadNet.onRoads(d);
+            Minecraft mc = Minecraft.getInstance();
+            if (RoadNet.revision != r0 && mc.screen instanceof MapEditorScreen) ((MapEditorScreen) mc.screen).roadsChanged();
+        });
+        on("scanprog", d -> {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.screen instanceof MapEditorScreen) ((MapEditorScreen) mc.screen).scanProgress((int) num(d, "pct", 0));
+        });
+        on("scanres", d -> {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.screen instanceof MapEditorScreen) ((MapEditorScreen) mc.screen).scanResult(d);
+        });
         on("open", d -> wantOpen = true);
         on("set", d -> GpsNav.set("srv", str(d, "name", "Destinație"), num(d, "x", 0), num(d, "z", 0), str(d, "dim", "minecraft:overworld"), 0xFF4DA3FF));
         on("cancel", d -> GpsNav.clear());
@@ -49,6 +63,7 @@ public final class GpsClient extends JsonClientModule {
     @Override
     public void onLogout() {
         GpsData.clear();
+        RoadNet.clear();
         GpsNav.clear();
         GpsMap.shutdown();
         wantOpen = false;

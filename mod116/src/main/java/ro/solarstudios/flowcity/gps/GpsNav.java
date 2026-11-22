@@ -5,7 +5,7 @@ import net.minecraft.client.audio.SimpleSound;
 import net.minecraft.util.SoundEvents;
 import net.minecraft.util.text.StringTextComponent;
 
-/** Destinatia GPS activa: directie directa + distanta + ETA. Fara ruta pe strazi (vezi {@link RouteProvider}). */
+/** Destinatia GPS activa: traseu pe drumuri (daca exista reteaua, vezi {@link RoadRouteProvider}) sau directie directa, distanta + ETA. */
 public final class GpsNav {
     private GpsNav() {}
 
@@ -17,7 +17,7 @@ public final class GpsNav {
     public static String dim = "minecraft:overworld";
     public static int color = 0xFF4DA3FF;
     public static long since;
-    public static RouteProvider route = RouteProvider.STRAIGHT;
+    public static RouteProvider route = RoadRouteProvider.I;
 
     private static double lastX;
     private static double lastZ;
@@ -37,6 +37,7 @@ public final class GpsNav {
         GpsNav.active = true;
         lastAt = 0;
         speed = 0;
+        RoadRouteProvider.I.reset();
         Minecraft mc = Minecraft.getInstance();
         if (mc.player != null) mc.getSoundManager().play(SimpleSound.forUI(SoundEvents.EXPERIENCE_ORB_PICKUP, 1.2f));
     }
@@ -44,6 +45,7 @@ public final class GpsNav {
     public static void clear() {
         active = false;
         id = "";
+        RoadRouteProvider.I.reset();
     }
 
     public static boolean isTarget(String locId) {
@@ -58,9 +60,17 @@ public final class GpsNav {
         return Math.sqrt(dx * dx + dz * dz);
     }
 
+    /** Distanta de parcurs: pe drumuri (daca traseul urmeaza strazile), altfel in linie dreapta; -1 daca nu exista. */
+    public static double travelDistance(Minecraft mc) {
+        double d = distance(mc);
+        if (d < 0) return d;
+        double r = RoadRouteProvider.I.remaining();
+        return r >= 0 ? r : d;
+    }
+
     /** Timpul estimat in secunde (pe jos ~5 blocuri/s, cu vehicul ~13, sau viteza reala daca e mai mare). */
     public static double etaSeconds(Minecraft mc) {
-        double d = distance(mc);
+        double d = travelDistance(mc);
         if (d < 0 || mc.player == null) return -1;
         double base = mc.player.getRootVehicle() != mc.player ? 13.0 : 5.0;
         return d / Math.max(base, speed);
@@ -97,6 +107,7 @@ public final class GpsNav {
             lastX = mc.player.getX();
             lastZ = mc.player.getZ();
         }
+        RoadRouteProvider.I.tick(mc);
         if (++tickN % 5 != 0) return;
         double d = distance(mc);
         if (d >= 0 && d <= GpsData.arrive) {

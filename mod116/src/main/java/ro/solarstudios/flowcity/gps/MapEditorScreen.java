@@ -26,7 +26,8 @@ public final class MapEditorScreen extends FlowScreen {
     private static final int T_ICON = 2;
     private static final int T_CAT = 3;
     private static final int T_LAY = 4;
-    private static final String[] TABS = {"LOCAȚII", "ZONE", "ICONIȚE", "CATEG.", "STRATURI"};
+    static final int T_ROAD = 5;
+    private static final String[] TABS = {"LOCAȚII", "ZONE", "ICONIȚE", "CATEG.", "STRATURI", "DRUMURI"};
     private static final String[] PALETTE = {
         "#4DA3FF", "#8B7BFF", "#2FBF71", "#E5484D", "#F5A524", "#35C6E0", "#FF8FB1", "#C9D4E4", "#F0584C", "#62D98F", "#C792FF", "#FFC857"
     };
@@ -35,6 +36,7 @@ public final class MapEditorScreen extends FlowScreen {
     private static final int D_LOC = 2;
     private static final int D_VERT = 3;
     private static final int D_ZONE = 4;
+    private static final int D_NODE = 5;
 
     /** Ciorna unei locatii in editare (textul nume/descriere/X/Z sta in campurile de text). */
     private static final class DLoc {
@@ -84,25 +86,25 @@ public final class MapEditorScreen extends FlowScreen {
     }
 
     // camera
-    private double camX;
-    private double camZ;
+    double camX;
+    double camZ;
     private double tgtX;
     private double tgtZ;
     private boolean anim;
-    private float zoom;
+    float zoom;
     private long lastNs;
     private final long born = System.currentTimeMillis();
 
     // layout
     private float panelX;
     private float panelW;
-    private float areaRight;
-    private float mapCx;
-    private float mapCy;
-    private float formLimit;
+    float areaRight;
+    float mapCx;
+    float mapCy;
+    float formLimit;
 
     // stare
-    private int tab = T_LOC;
+    int tab = T_LOC;
     private int iconReturn = -1;
     private DLoc dLoc;
     private DZone dZone;
@@ -111,7 +113,7 @@ public final class MapEditorScreen extends FlowScreen {
     private boolean loading;
     private boolean dirtyLists = true;
     private boolean reloadPending;
-    private boolean pending;
+    boolean pending;
     private long pendingUntil;
     private String note = "";
     private boolean noteOk = true;
@@ -153,6 +155,8 @@ public final class MapEditorScreen extends FlowScreen {
     private final TextFieldWidget fZ = field("Z", 11, s -> xzTyped());
     private final TextFieldWidget fHex = field("#RRGGBB", 7, this::hexTyped);
     private final TextFieldWidget fGroup = field("Grup (filtru)", 24, null);
+    final TextFieldWidget fStreet = field("Nume stradă", 32, null);
+    private final RoadEditor road = new RoadEditor(this);
 
     public MapEditorScreen(double cx, double cz, float zoom) {
         super("Editor hartă", 520, 290);
@@ -190,6 +194,8 @@ public final class MapEditorScreen extends FlowScreen {
                 l.add(fName);
                 l.add(fDesc);
             }
+        } else if (tab == T_ROAD) {
+            l.add(fStreet);
         } else if (tab == T_CAT) {
             if (dCat == null) {
                 l.add(fSearch);
@@ -217,6 +223,10 @@ public final class MapEditorScreen extends FlowScreen {
     }
 
     private void back() {
+        if (road.dirty && modalText == null) {
+            confirm("Ai modificări nesalvate la drumuri. Ieși?", "DA, IEȘI", () -> Minecraft.getInstance().setScreen(new GpsScreen()));
+            return;
+        }
         Minecraft.getInstance().setScreen(new GpsScreen());
     }
 
@@ -249,6 +259,10 @@ public final class MapEditorScreen extends FlowScreen {
     public void onResult(String op, boolean ok, String msg) {
         pending = false;
         say(msg, ok);
+        if (op.startsWith("road.") || op.startsWith("scan.")) {
+            road.onResult(op, ok, msg);
+            return;
+        }
         if (!ok) return;
         if (op.endsWith(".add") || op.endsWith(".del")) {
             if (op.startsWith("loc.")) dLoc = null;
@@ -261,13 +275,13 @@ public final class MapEditorScreen extends FlowScreen {
         dirtyLists = true;
     }
 
-    private void say(String s, boolean ok) {
+    void say(String s, boolean ok) {
         note = s;
         noteOk = ok;
         noteUntil = System.currentTimeMillis() + 3200;
     }
 
-    private void send(String op, JsonObject o) {
+    void send(String op, JsonObject o) {
         long now = System.currentTimeMillis();
         if (pending && now < pendingUntil) {
             say("Se așteaptă răspunsul serverului…", false);
@@ -278,12 +292,40 @@ public final class MapEditorScreen extends FlowScreen {
         GpsClient.sendEdit(op, o);
     }
 
-    private void confirm(String text, Runnable yes) {
-        modalText = text;
-        modalYes = yes;
+    void confirm(String text, Runnable yes) {
+        confirm(text, "DA, ȘTERGE", yes);
     }
 
-    private String dim() {
+    void confirm(String text, String yesLabel, Runnable yes) {
+        modalText = text;
+        modalYes = yes;
+        modalYesLabel = yesLabel;
+    }
+
+    private String modalYesLabel = "DA, ȘTERGE";
+
+    GpsData.Loc locNear(float mx, float my) {
+        return locAt(mx, my);
+    }
+
+    boolean overPanelPublic(double mx, double my) {
+        return overPanel(mx, my);
+    }
+
+    /** Reteaua de pe server s-a schimbat. */
+    public void roadsChanged() {
+        road.liveChanged();
+    }
+
+    public void scanProgress(int pct) {
+        road.scanProgress(pct);
+    }
+
+    public void scanResult(JsonObject o) {
+        road.scanResult(o);
+    }
+
+    String dim() {
         return GpsData.dimOf(Minecraft.getInstance());
     }
 
@@ -604,23 +646,23 @@ public final class MapEditorScreen extends FlowScreen {
 
     // ------------------------------------------------------------------ transformari
 
-    private float sx(double wx) {
+    float sx(double wx) {
         return (float) (mapCx + (wx - camX) * zoom);
     }
 
-    private float sy(double wz) {
+    float sy(double wz) {
         return (float) (mapCy + (wz - camZ) * zoom);
     }
 
-    private double wx(double sx) {
+    double wx(double sx) {
         return camX + (sx - mapCx) / zoom;
     }
 
-    private double wz(double sy) {
+    double wz(double sy) {
         return camZ + (sy - mapCy) / zoom;
     }
 
-    private void hitF(float x, float y, float w, float h, Runnable r) {
+    void hitF(float x, float y, float w, float h, Runnable r) {
         hit(Math.round(x), Math.round(y), Math.max(1, Math.round(w)), Math.max(1, Math.round(h)), r);
     }
 
@@ -630,7 +672,7 @@ public final class MapEditorScreen extends FlowScreen {
         return 1f - u * u * u;
     }
 
-    private static String clip(String s, float size, boolean xl, float maxW) {
+    static String clip(String s, float size, boolean xl, float maxW) {
         if (s == null) return "";
         if (Gfx.width(s, size, xl) <= maxW) return s;
         String t = s;
@@ -683,6 +725,8 @@ public final class MapEditorScreen extends FlowScreen {
                 float dx = sx(dLoc.x) - (float) mx;
                 float dy = sy(dLoc.z) - (float) my;
                 if (dx * dx + dy * dy < 14f * 14f) dragKind = D_LOC;
+            } else if (tab == T_ROAD) {
+                if (road.press(mx, my)) dragKind = D_NODE;
             } else if (tab == T_ZONE && dZone != null && dZone.closed) {
                 int v = vertAt((float) mx, (float) my);
                 if (v >= 0) {
@@ -706,6 +750,10 @@ public final class MapEditorScreen extends FlowScreen {
             return true;
         }
         if (button == 1 && !overPanel(mx, my)) {
+            if (tab == T_ROAD) {
+                road.rightClick(mx, my);
+                return true;
+            }
             if (tab == T_ZONE && dZone != null) {
                 if (!dZone.closed) {
                     if (!dZone.pts.isEmpty()) {
@@ -744,6 +792,8 @@ public final class MapEditorScreen extends FlowScreen {
                     dLoc.z = Math.round(wz(my));
                     setField(fX, String.valueOf(Math.round(dLoc.x)));
                     setField(fZ, String.valueOf(Math.round(dLoc.z)));
+                } else if (dragKind == D_NODE) {
+                    road.drag(mx, my);
                 } else if (dragKind == D_VERT && dZone != null && dragIdx >= 0 && dragIdx < dZone.pts.size()) {
                     double[] p = dZone.pts.get(dragIdx);
                     p[0] = Math.round(wx(mx));
@@ -774,6 +824,7 @@ public final class MapEditorScreen extends FlowScreen {
         }
         if (pressMap && button == 0) {
             pressMap = false;
+            if (dragKind == D_NODE) road.release();
             if (!moved && modalText == null) mapClick((float) mx, (float) my);
             dragKind = D_NONE;
             return true;
@@ -782,6 +833,10 @@ public final class MapEditorScreen extends FlowScreen {
     }
 
     private void mapClick(float mx, float my) {
+        if (tab == T_ROAD) {
+            road.click(mx, my);
+            return;
+        }
         if (tab == T_LOC) {
             if (placing) {
                 newLocAt(wx(mx), wz(my));
@@ -892,6 +947,7 @@ public final class MapEditorScreen extends FlowScreen {
             else if (tab == T_ZONE) scrollZone = Math.max(0, scrollZone + d);
             else if (tab == T_CAT) scrollCat = Math.max(0, scrollCat + d);
             else if (tab == T_ICON) scrollIcon = Math.max(0, scrollIcon + (d > 0 ? 1 : -1));
+            else if (tab == T_ROAD) road.scrollBy(d * 14);
         } else {
             zoomBy(delta > 0 ? 1.2f : 1f / 1.2f, (float) mx, (float) my);
         }
@@ -910,7 +966,9 @@ public final class MapEditorScreen extends FlowScreen {
             return true;
         }
         if (!fieldFocused) {
+            if (tab == T_ROAD && road.key(key, mods)) return true;
             if (key == GLFW.GLFW_KEY_ESCAPE) {
+                if (tab == T_ROAD && road.escape()) return true;
                 if (placing || dLoc != null || dZone != null || dCat != null) {
                     clearDrafts();
                 } else {
@@ -975,6 +1033,7 @@ public final class MapEditorScreen extends FlowScreen {
         g.fillGradient(0, 0, width, 60, 0xAA070F1C, 0x00070F1C);
         g.fillGradient(0, height - 70, width, height, 0x00070F1C, 0xAA070F1C);
         drawZones(g);
+        road.drawMap(g, mx, my, t);
         drawLocs(g, t);
         drawPlayer(g, mc, t);
         drawMapUi(g, mc, mx, my);
@@ -1108,7 +1167,7 @@ public final class MapEditorScreen extends FlowScreen {
 
     // ------------------------------------------------------------------ butoane
 
-    private void btn(GuiGraphics g, String label, float x, float y, float w, float h, int style, int mx, int my, Runnable r) {
+    void btn(GuiGraphics g, String label, float x, float y, float w, float h, int style, int mx, int my, Runnable r) {
         boolean disabled = style == 3;
         boolean hov = !disabled && Sk.in(mx, my, x, y, w, h);
         int bg;
@@ -1141,7 +1200,7 @@ public final class MapEditorScreen extends FlowScreen {
         hitF(x, y, s, s, r);
     }
 
-    private void fld(GuiGraphics g, TextFieldWidget f, float x, float y, float w, float h, int mx, int my) {
+    void fld(GuiGraphics g, TextFieldWidget f, float x, float y, float w, float h, int mx, int my) {
         if (y + h > formLimit) {
             f.x = -1000;
             f.y = -1000;
@@ -1156,12 +1215,12 @@ public final class MapEditorScreen extends FlowScreen {
         hitF(x, y, w, h, () -> focus(f, true));
     }
 
-    private void label(GuiGraphics g, String s, float x, float y) {
+    void label(GuiGraphics g, String s, float x, float y) {
         if (y > formLimit) return;
         Gfx.text(g, s, x, y + 7f, 6.6f, Sk.MUTED, 0, true, 1f);
     }
 
-    private void toggle(GuiGraphics g, String label, float x, float y, float w, boolean on, int mx, int my, Runnable r) {
+    void toggle(GuiGraphics g, String label, float x, float y, float w, boolean on, int mx, int my, Runnable r) {
         if (y + 22f > formLimit) return;
         boolean hv = Sk.in(mx, my, x, y, w, 22);
         if (hv) Sk.slant(g, x, y, w, 22, 5f, 0xFF1B2E47);
@@ -1179,7 +1238,7 @@ public final class MapEditorScreen extends FlowScreen {
         else Gfx.poly(g, new float[] {cx - 4f, cy, cx + 3f, cy - 5f, cx + 3f, cy + 5f}, color);
     }
 
-    private void selector(GuiGraphics g, String title, String value, float x, float y, float w, int mx, int my, Runnable prev, Runnable next) {
+    void selector(GuiGraphics g, String title, String value, float x, float y, float w, int mx, int my, Runnable prev, Runnable next) {
         if (y + 32f > formLimit) return;
         label(g, title, x, y);
         float by = y + 10f;
@@ -1258,6 +1317,7 @@ public final class MapEditorScreen extends FlowScreen {
         // indicii contextuale
         String hint = null;
         if (placing) hint = "Click pe hartă pentru a alege punctul locației (ESC: renunță)";
+        else if (tab == T_ROAD) hint = road.hint();
         else if (tab == T_ZONE && dZone != null && !dZone.closed) hint = "Click: adaugă punct  ·  click pe primul punct (verde): închide  ·  click dreapta: șterge ultimul";
         else if (tab == T_ZONE && dZone != null) hint = "Trage punctele sau zona  ·  click pe + : punct nou  ·  click dreapta pe punct: șterge";
         else if (tab == T_LOC && dLoc != null) hint = dLoc.isNew ? "Click pe hartă mută punctul  ·  trage marcajul pentru a-l muta" : "Trage marcajul ca să muți locația, apoi SALVEAZĂ";
@@ -1324,6 +1384,9 @@ public final class MapEditorScreen extends FlowScreen {
                 break;
             case T_ICON:
                 drawIconTab(g, cx, cy, cw, bottom, mx, my);
+                break;
+            case T_ROAD:
+                road.drawPanel(g, cx, cy, cw, bottom, mx, my);
                 break;
             case T_CAT:
                 if (dCat == null) drawCatList(g, cx, cy, cw, bottom, mx, my);
@@ -1776,7 +1839,7 @@ public final class MapEditorScreen extends FlowScreen {
             modalText = null;
             modalYes = null;
         });
-        btn(g, "DA, ȘTERGE", x + w - 160, y + h - 48, 140, 34, 2, mx, my, () -> {
+        btn(g, modalYesLabel, x + w - 160, y + h - 48, 140, 34, 2, mx, my, () -> {
             Runnable r = modalYes;
             modalText = null;
             modalYes = null;

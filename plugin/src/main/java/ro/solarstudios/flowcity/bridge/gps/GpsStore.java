@@ -41,6 +41,9 @@ final class GpsStore {
     static final int MAX_ICONS = 200;
     static final int MAX_PTS = 96;
     static final int BACKUPS = 15;
+    static final int MAX_ROAD_NODES = 30000;
+    static final int MAX_ROAD_EDGES = 60000;
+    static final int MAX_ROAD_NAMES = 2000;
 
     static final class Loc {
         String id = "";
@@ -142,6 +145,14 @@ final class GpsStore {
         double zoom = 1.2;
     }
 
+    /** Reteaua de drumuri (GPS pe strazi). nodes: {id, x, z}; edges: {a, b, flags(bit0 = sens unic a->b), indexNume(-1 = fara)}. */
+    static final class RoadFile {
+        long ver;
+        int[][] nodes = new int[0][];
+        int[][] edges = new int[0][];
+        String[] names = new String[0];
+    }
+
     private final File dir;
     private final File backups;
     private final Logger log;
@@ -154,6 +165,8 @@ final class GpsStore {
     final List<String> groups = new ArrayList<>();
     JsonArray icons = new JsonArray();
     Settings settings = new Settings();
+    RoadFile roads = new RoadFile();
+    private final Gson compact = new Gson();
 
     GpsStore(File pluginDir, Logger log) {
         this.dir = new File(pluginDir, "gps");
@@ -205,6 +218,82 @@ final class GpsStore {
         settings.zoom = clamp(settings.zoom, 0.2, 6, 1.2);
         JsonArray ic = readIcons();
         icons = ic;
+        roads = fixRoads(read("roads.json", RoadFile.class));
+    }
+
+    /** Valideaza o retea: noduri unice si in limite, muchii valide fara duplicate/bucle, nume taiate. Niciodata null. */
+    static RoadFile fixRoads(RoadFile f) {
+        RoadFile o = new RoadFile();
+        if (f == null) return o;
+        o.ver = Math.max(0, f.ver);
+        java.util.Set<Integer> ids = new java.util.HashSet<>();
+        List<int[]> nl = new ArrayList<>();
+        if (f.nodes != null) {
+            for (int[] n : f.nodes) {
+                if (n == null || n.length < 3 || n[0] < 0 || Math.abs(n[1]) > 30000000 || Math.abs(n[2]) > 30000000) continue;
+                if (nl.size() >= MAX_ROAD_NODES || !ids.add(n[0])) continue;
+                nl.add(new int[] {n[0], n[1], n[2]});
+            }
+        }
+        List<String> nm = new ArrayList<>();
+        if (f.names != null) {
+            for (String s : f.names) {
+                if (nm.size() >= MAX_ROAD_NAMES) break;
+                nm.add(cut(s == null ? "" : s.trim(), 32));
+            }
+        }
+        java.util.Set<Long> seen = new java.util.HashSet<>();
+        List<int[]> el = new ArrayList<>();
+        if (f.edges != null) {
+            for (int[] e : f.edges) {
+                if (e == null || e.length < 2 || e[0] == e[1] || !ids.contains(e[0]) || !ids.contains(e[1])) continue;
+                if (el.size() >= MAX_ROAD_EDGES) break;
+                long key = ((long) Math.min(e[0], e[1]) << 32) | (Math.max(e[0], e[1]) & 0xFFFFFFFFL);
+                if (!seen.add(key)) continue;
+                int flags = e.length > 2 ? (e[2] & 1) : 0;
+                int name = e.length > 3 && e[3] >= 0 && e[3] < nm.size() ? e[3] : -1;
+                el.add(new int[] {e[0], e[1], flags, name});
+            }
+        }
+        o.nodes = nl.toArray(new int[0][]);
+        o.edges = el.toArray(new int[0][]);
+        o.names = nm.toArray(new String[0]);
+        return o;
+    }
+
+    /** Numarul de componente conexe ale retelei (noduri izolate inclusiv). */
+    static int components(RoadFile r) {
+        Map<Integer, Integer> idx = new HashMap<>();
+        for (int i = 0; i < r.nodes.length; i++) idx.put(r.nodes[i][0], i);
+        int[] par = new int[r.nodes.length];
+        for (int i = 0; i < par.length; i++) par[i] = i;
+        for (int[] e : r.edges) {
+            Integer a = idx.get(e[0]);
+            Integer b = idx.get(e[1]);
+            if (a == null || b == null) continue;
+            int ra = a;
+            while (par[ra] != ra) ra = par[ra] = par[par[ra]];
+            int rb = b;
+            while (par[rb] != rb) rb = par[rb] = par[par[rb]];
+            if (ra != rb) par[ra] = rb;
+        }
+        int c = 0;
+        for (int i = 0; i < par.length; i++) if (par[i] == i) c++;
+        return c;
+    }
+
+    /** Readuce ultima versiune salvata anterior (cea mai noua copie din backup). */
+    boolean restoreRoads() {
+        for (File b : backupsFor("roads.json")) {
+            RoadFile r = tryParse(b, RoadFile.class);
+            if (r == null) continue;
+            RoadFile fixed = fixRoads(r);
+            fixed.ver = roads.ver + 1;
+            roads = fixed;
+            saveRoads(true);
+            return true;
+        }
+        return false;
     }
 
     private static double clamp(double v, double lo, double hi, double def) {
@@ -472,6 +561,10 @@ final class GpsStore {
 
     void saveSettings(boolean force) {
         write("map_settings.json", gson.toJson(settings), force);
+    }
+
+    void saveRoads(boolean force) {
+        write("roads.json", compact.toJson(roads), force);
     }
 
     void saveIcons(boolean force) {

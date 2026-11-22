@@ -561,6 +561,10 @@ public final class GpsScreen extends FlowScreen {
         GpsMap.draw(g, camX, camZ, zoom, mapCx, mapCy, width, height, open);
         g.fillGradient(0, 0, width, 46, 0x66070F1C, 0x00070F1C);
         if (showZones) drawZones(g);
+        if (GpsPrefs.layerOn("roads") && RoadNet.hasRoads()) {
+            RoadDraw.network(g, RoadNet.live, camX, camZ, zoom, mapCx, mapCy, width, height, 0x887F93AD, Math.max(1.2f, Math.min(3f, zoom * 1.4f)), zoom >= 0.9f, null);
+            RoadDraw.names(g, RoadNet.live, camX, camZ, zoom, mapCx, mapCy, width, height);
+        }
         drawRoute(g, t);
         GpsData.Loc hover = drawMarkers(g, mc, mx, my, t);
         drawPlayer(g, mc, t);
@@ -670,6 +674,16 @@ public final class GpsScreen extends FlowScreen {
                 float d1 = Math.min(len, s + 9f);
                 if (d1 <= d0) continue;
                 Gfx.line(g, x0 + ux * d0, y0 + uy * d0, x0 + ux * d1, y0 + uy * d1, 3f, 0xFFBFE0FF);
+            }
+        }
+        if (GpsNav.route.roads()) {
+            for (RoadRouteProvider.Step st : RoadRouteProvider.I.steps()) {
+                if (st.turn == 9) continue;
+                float x = sx(st.x);
+                float y = sy(st.z);
+                if (x < -10 || y < -10 || x > width + 10 || y > height + 10) continue;
+                Gfx.disc(g, x, y, 4.4f, 0xFF0A1220);
+                Gfx.disc(g, x, y, 3f, 0xFFBFE0FF);
             }
         }
     }
@@ -908,14 +922,15 @@ public final class GpsScreen extends FlowScreen {
     /** Straturile hartii, comutabile independent (se retin local). */
     static final String[][] LAYERS = {
         {"locations", "Locații"}, {"legal", "Zone legale"}, {"illegal", "Zone ilegale"}, {"special", "Zone speciale"},
-        {"police", "Poliție"}, {"hospital", "Spitale"}, {"shop", "Magazine"}, {"waypoints", "Waypoint-uri"}, {"other", "Alte categorii"}
+        {"police", "Poliție"}, {"hospital", "Spitale"}, {"shop", "Magazine"}, {"waypoints", "Waypoint-uri"}, {"other", "Alte categorii"},
+        {"roads", "Rețea de drumuri"}
     };
 
     private void drawLayers(GuiGraphics g, int mx, int my) {
         if (!layersOpen) return;
         float w = 214f;
         float rowH = 26f;
-        float h = LAYERS.length * rowH + 40f;
+        float h = (LAYERS.length + 1) * rowH + 40f;
         float x = M;
         float y = M + 48f + (menuOpen ? 6f * 32f + 20f : 0f);
         box(g, x, y, w, h, 14f, 0xF40A1220, 0xFF2A3A55);
@@ -938,6 +953,19 @@ public final class GpsScreen extends FlowScreen {
                 dirty = true;
             });
         }
+        float ry = y + 30f + LAYERS.length * rowH;
+        boolean snd = GpsPrefs.navSound;
+        if (Sk.in(mx, my, x + 4, ry, w - 8, rowH - 2)) Gfx.rrect(g, x + 4, ry, w - 8, rowH - 2, 8f, 0xFF1B2E47);
+        Gfx.rrect(g, x + 14, ry + 5, 14, 14, 3, snd ? Sk.ACC : 0xFF22344D);
+        if (snd) {
+            Gfx.line(g, x + 17, ry + 12, x + 20.5f, ry + 15.5f, 1.8f, 0xFF061426);
+            Gfx.line(g, x + 20.5f, ry + 15.5f, x + 26, ry + 8, 1.8f, 0xFF061426);
+        }
+        Gfx.text(g, "Sunete la viraje", x + 38, ry + 16.5f, 8.6f, snd ? Sk.WHITE : Sk.MUTED, 0, true, 0f);
+        hitF(x + 4, ry, w - 8, rowH - 2, () -> {
+            GpsPrefs.navSound = !GpsPrefs.navSound;
+            GpsPrefs.save();
+        });
     }
 
     private void drawCard(GuiGraphics g, Minecraft mc, int mx, int my) {
@@ -957,11 +985,15 @@ public final class GpsScreen extends FlowScreen {
         box(g, x, y, w, h, 15f, 0xF00A1220, 0xFF2A3A55);
         Gfx.rrect(g, x + 8, y + 12, 3.5f, h - 24, 1.7f, GpsNav.color);
         Gfx.text(g, "RUTĂ ACTIVĂ", x + 22, y + 19, 6.6f, Sk.ACC, 0, true, 1.4f);
-        Gfx.text(g, GpsNav.route.roads() ? "pe străzi" : "direcție directă", x + 22 + Gfx.width("RUTĂ ACTIVĂ", 6.6f, true) + 14f, y + 19, 6.6f, Sk.MUTED, 0);
+        Gfx.text(g, RoadRouteProvider.I.statusText(), x + 22 + Gfx.width("RUTĂ ACTIVĂ", 6.6f, true) + 14f, y + 19, 6.6f, Sk.MUTED, 0);
         Gfx.text(g, clip(GpsNav.name, 10.5f, true, w - 190f), x + 22, y + 38, 10.5f, Sk.WHITE, 0, true, 0f);
-        double d = GpsNav.distance(mc);
+        double d = GpsNav.travelDistance(mc);
         String info = d < 0 ? "în altă lume" : GpsNav.fmtDist(d) + "  ·  ~" + GpsNav.fmtEta(GpsNav.etaSeconds(mc));
-        Gfx.text(g, info, x + 22, y + 58, 9f, 0xFFC9D4E4, 0, true, 0f);
+        RoadRouteProvider.Step nx = RoadRouteProvider.I.next();
+        if (nx != null && d >= 0) {
+            info += "  ·  " + (nx.turn == 9 ? "sosire" : "în " + GpsNav.fmtDist(RoadRouteProvider.I.nextDist()) + ": " + nx.text().replace("Virează ", "").replace("Întoarce-te", "întoarcere"));
+        }
+        Gfx.text(g, clip(info, 9f, true, w - 190f), x + 22, y + 58, 9f, 0xFFC9D4E4, 0, true, 0f);
         // buton "Anulare GPS" (pastila cu X rosu)
         float bw = 138f;
         float bh = 34f;

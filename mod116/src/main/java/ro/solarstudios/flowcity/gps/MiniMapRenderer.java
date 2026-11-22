@@ -196,7 +196,8 @@ public final class MiniMapRenderer {
 
             if (MiniMapSettings.showZones && !MiniMapSettings.lowPerf) drawZones(g, mc, op);
             if (MiniMapSettings.showLocations) drawLocs(g, mc);
-            drawWaypoint(g, mc);
+            drawRoute(g, mc);
+        drawWaypoint(g, mc);
             drawPlayer(g, yaw);
             drawFrame(g, size, circle);
             if (MiniMapSettings.showCompass) drawCompass(g, size, circle);
@@ -260,10 +261,35 @@ public final class MiniMapRenderer {
         }
     }
 
+    /** Traseul pe drumuri (decupat pe masca minimap-ului), sub waypoint. */
+    private static void drawRoute(GuiGraphics g, Minecraft mc) {
+        if (!GpsNav.active || !MiniMapSettings.showWaypoint || !GpsPrefs.layerOn("waypoints") || !GpsNav.route.roads()) return;
+        if (!GpsNav.dim.equals(GpsData.dimOf(mc))) return;
+        List<double[]> path = GpsNav.route.path(mc.player.getX(), mc.player.getZ(), GpsNav.x, GpsNav.z);
+        int max = Math.min(path.size() - 1, 400);
+        int col = (GpsNav.color & 0xFFFFFF) | 0xE0000000;
+        for (int i = 0; i < max; i++) {
+            project(path.get(i)[0], path.get(i)[1]);
+            float ax = outX;
+            float ay = outY;
+            project(path.get(i + 1)[0], path.get(i + 1)[1]);
+            if (!MiniMapClip.clipSegment(clip, clipN, ax, ay, outX, outY)) continue;
+            float bx = outX;
+            float by = outY;
+            float x0 = ax + (bx - ax) * MiniMapClip.t0;
+            float y0 = ay + (by - ay) * MiniMapClip.t0;
+            float x1 = ax + (bx - ax) * MiniMapClip.t1;
+            float y1 = ay + (by - ay) * MiniMapClip.t1;
+            Gfx.line(g, x0, y0, x1, y1, 4.2f, 0xB0081018);
+            Gfx.line(g, x0, y0, x1, y1, 2.4f, col);
+        }
+    }
+
     private static void drawWaypoint(GuiGraphics g, Minecraft mc) {
         if (!GpsNav.active || !MiniMapSettings.showWaypoint || !GpsPrefs.layerOn("waypoints")) return;
         double d = GpsNav.distance(mc);
         if (d < 0) return;
+        d = GpsNav.travelDistance(mc);
         project(GpsNav.x, GpsNav.z);
         float px = outX;
         float py = outY;

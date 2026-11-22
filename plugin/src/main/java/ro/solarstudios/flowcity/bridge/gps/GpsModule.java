@@ -7,11 +7,17 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
+import org.bukkit.World;
+import org.bukkit.block.Block;
+import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -32,6 +38,9 @@ public final class GpsModule extends JsonModule {
     private static final String OVERWORLD = GpsStore.OVERWORLD;
 
     private GpsStore store;
+    private final Map<UUID, RoadBuf> roadBufs = new HashMap<>();
+    private final Map<UUID, Long> lastRoadOp = new HashMap<>();
+    private Scan scan;
     private final Map<UUID, Long> lastEdit = new HashMap<>();
     private String okMsg = "";
 
@@ -47,12 +56,27 @@ public final class GpsModule extends JsonModule {
         load();
         on("request", (p, j) -> send(p, "config", build(p)));
         on("edit", this::edit);
+        on("roads.req", (p, j) -> {
+            if (((long) num(j, "ver", -1)) != store.roads.ver) sendRoads(p);
+        });
         Commands.register(plugin, "gps", "flowcity.gps.use", (s, c, l, a) -> command(s, a), (s, c, l, a) -> complete(s, a), "harta");
     }
 
     @Override
     public void onClientReady(Player p) {
         send(p, "config", build(p));
+        sendRoads(p);
+    }
+
+    @Override
+    public void onQuit(Player p) {
+        roadBufs.remove(p.getUniqueId());
+        if (scan != null && scan.owner.equals(p.getUniqueId())) stopScan();
+    }
+
+    @Override
+    public void disable() {
+        stopScan();
     }
 
     private void load() {
@@ -163,6 +187,10 @@ public final class GpsModule extends JsonModule {
         if (!isAdmin(p)) {
             plugin.getLogger().warning("[GPS] " + p.getName() + " a incercat '" + op + "' fara permisiunea " + PERM_ADMIN + ".");
             reply(p, op, false, "Nu ai permisiunea.");
+            return;
+        }
+        if (op.startsWith("road.") || op.startsWith("scan.")) {
+            roadOp(p, j, op);
             return;
         }
         long now = System.currentTimeMillis();
@@ -486,6 +514,329 @@ public final class GpsModule extends JsonModule {
             default:
                 return "Operație necunoscută.";
         }
+    }
+
+
+    // ------------------------------------------------------------------ retea de drumuri (GPS pe strazi)
+
+    private static final class RoadBuf {
+        int expN;
+        int expE;
+        final List<int[]> nodes = new ArrayList<>();
+        final List<int[]> edges = new ArrayList<>();
+        final List<String> names = new ArrayList<>();
+    }
+
+    /** Trimite reteaua unui jucator, in bucati (mesajele serverului sunt limitate). */
+    private void sendRoads(Player p) {
+        GpsStore.RoadFile r = store.roads;
+        final int ch = 2000;
+        int parts = Math.max(1, Math.max((r.nodes.length + ch - 1) / ch, (r.edges.length + ch - 1) / ch));
+        for (int i = 0; i < parts; i++) {
+            JsonObject o = new JsonObject();
+            o.addProperty("ver", r.ver);
+            o.addProperty("part", i);
+            o.addProperty("parts", parts);
+            JsonArray n = new JsonArray();
+            for (int k = i * ch; k < Math.min(r.nodes.length, (i + 1) * ch); k++) {
+                n.add(r.nodes[k][0]);
+                n.add(r.nodes[k][1]);
+                n.add(r.nodes[k][2]);
+            }
+            o.add("n", n);
+            JsonArray e = new JsonArray();
+            for (int k = i * ch; k < Math.min(r.edges.length, (i + 1) * ch); k++) {
+                e.add(r.edges[k][0]);
+                e.add(r.edges[k][1]);
+                e.add(r.edges[k][2]);
+                e.add(r.edges[k][3]);
+            }
+            o.add("e", e);
+            if (i == 0) {
+                JsonArray nm = new JsonArray();
+                for (String s : r.names) nm.add(s);
+                o.add("names", nm);
+            }
+            send(p, "roads", o);
+        }
+    }
+
+    private void pushRoads() {
+        for (Player p : Bukkit.getOnlinePlayers()) sendRoads(p);
+    }
+
+    private void roadOp(Player p, JsonObject j, String op) {
+        long now = System.currentTimeMillis();
+        boolean chunk = op.equals("road.nodes") || op.equals("road.edges") || op.equals("road.begin");
+        Long last = lastRoadOp.get(p.getUniqueId());
+        if (!chunk && last != null && now - last < 150L) {
+            reply(p, op, false, "Prea repede, mai încearcă o dată.");
+            return;
+        }
+        if (!chunk) lastRoadOp.put(p.getUniqueId(), now);
+        try {
+            switch (op) {
+                case "road.begin": {
+                    RoadBuf b = new RoadBuf();
+                    b.expN = integer(j, "nodes", 0);
+                    b.expE = integer(j, "edges", 0);
+                    if (b.expN < 0 || b.expN > GpsStore.MAX_ROAD_NODES || b.expE < 0 || b.expE > GpsStore.MAX_ROAD_EDGES) {
+                        reply(p, op, false, "Rețea prea mare (max " + GpsStore.MAX_ROAD_NODES + " noduri, " + GpsStore.MAX_ROAD_EDGES + " segmente).");
+                        return;
+                    }
+                    if (j.has("names") && j.get("names").isJsonArray()) {
+                        for (JsonElement e : j.getAsJsonArray("names")) {
+                            if (b.names.size() >= GpsStore.MAX_ROAD_NAMES) break;
+                            b.names.add(GpsStore.cut(e.getAsString().trim(), 32));
+                        }
+                    }
+                    roadBufs.put(p.getUniqueId(), b);
+                    return;
+                }
+                case "road.nodes":
+                case "road.edges": {
+                    RoadBuf b = roadBufs.get(p.getUniqueId());
+                    if (b == null) {
+                        reply(p, op, false, "Trimitere fără început, reîncearcă.");
+                        return;
+                    }
+                    if (!j.has("a") || !j.get("a").isJsonArray()) return;
+                    JsonArray a = j.getAsJsonArray("a");
+                    if (op.equals("road.nodes")) {
+                        for (int i = 0; i + 2 < a.size(); i += 3) {
+                            if (b.nodes.size() >= GpsStore.MAX_ROAD_NODES) break;
+                            b.nodes.add(new int[] {a.get(i).getAsInt(), a.get(i + 1).getAsInt(), a.get(i + 2).getAsInt()});
+                        }
+                    } else {
+                        for (int i = 0; i + 3 < a.size(); i += 4) {
+                            if (b.edges.size() >= GpsStore.MAX_ROAD_EDGES) break;
+                            b.edges.add(new int[] {a.get(i).getAsInt(), a.get(i + 1).getAsInt(), a.get(i + 2).getAsInt(), a.get(i + 3).getAsInt()});
+                        }
+                    }
+                    return;
+                }
+                case "road.commit": {
+                    RoadBuf b = roadBufs.remove(p.getUniqueId());
+                    if (b == null || b.nodes.size() != b.expN || b.edges.size() != b.expE) {
+                        reply(p, op, false, "Date incomplete (rețeaua nu a ajuns întreagă). Nimic nu s-a salvat, reîncearcă.");
+                        return;
+                    }
+                    GpsStore.RoadFile f = new GpsStore.RoadFile();
+                    f.nodes = b.nodes.toArray(new int[0][]);
+                    f.edges = b.edges.toArray(new int[0][]);
+                    f.names = b.names.toArray(new String[0]);
+                    GpsStore.RoadFile fixed = GpsStore.fixRoads(f);
+                    fixed.ver = store.roads.ver + 1;
+                    store.roads = fixed;
+                    store.saveRoads(true);
+                    int comp = GpsStore.components(fixed);
+                    String msg = "Rețea salvată: " + fixed.nodes.length + " noduri, " + fixed.edges.length + " segmente"
+                        + (comp > 1 ? " (" + comp + " componente separate: rutele nu trec între ele)." : ".");
+                    plugin.getLogger().info("[GPS] " + p.getName() + " a salvat reteaua de drumuri: " + msg);
+                    reply(p, op, true, msg);
+                    pushRoads();
+                    return;
+                }
+                case "road.clear": {
+                    GpsStore.RoadFile f = new GpsStore.RoadFile();
+                    f.ver = store.roads.ver + 1;
+                    store.roads = f;
+                    store.saveRoads(true);
+                    plugin.getLogger().info("[GPS] " + p.getName() + " a sters reteaua de drumuri.");
+                    reply(p, op, true, "Rețeaua de drumuri a fost ștearsă (backup păstrat, vezi ANULEAZĂ ULTIMA SALVARE).");
+                    pushRoads();
+                    return;
+                }
+                case "road.restore": {
+                    if (!store.restoreRoads()) {
+                        reply(p, op, false, "Nu există niciun backup al rețelei.");
+                        return;
+                    }
+                    plugin.getLogger().info("[GPS] " + p.getName() + " a restaurat reteaua de drumuri din backup.");
+                    reply(p, op, true, "Restaurat: " + store.roads.nodes.length + " noduri, " + store.roads.edges.length + " segmente.");
+                    pushRoads();
+                    return;
+                }
+                case "scan.cancel": {
+                    if (scan != null && scan.owner.equals(p.getUniqueId())) {
+                        stopScan();
+                        reply(p, op, true, "Scanare oprită.");
+                    } else {
+                        reply(p, op, true, "Nicio scanare activă.");
+                    }
+                    return;
+                }
+                case "scan.start": {
+                    startScan(p, j);
+                    return;
+                }
+                default:
+                    reply(p, op, false, "Operație necunoscută.");
+            }
+        } catch (RuntimeException e) {
+            roadBufs.remove(p.getUniqueId());
+            plugin.getLogger().warning("[GPS] Eroare la '" + op + "' de la " + p.getName() + ": " + e);
+            reply(p, op, false, "Date invalide sau eroare internă (vezi consola).");
+        }
+    }
+
+    // ------------------------------------------------------------------ scanare drumuri (previzualizare, nu salveaza nimic)
+
+    private static final int SCAN_BUDGET = 1200;
+    private static final int SCAN_MAX_CELLS = 250000;
+    private static final int SCAN_MAX_NODES = 8000;
+
+    private final class Scan {
+        UUID owner;
+        World world;
+        int x0;
+        int z0;
+        int nx;
+        int nz;
+        int step;
+        Set<Material> mats = new HashSet<>();
+        byte[] road;
+        int cursor;
+        int loaded;
+        long lastProg;
+        boolean working;
+        BukkitTask task;
+    }
+
+    private void startScan(Player p, JsonObject j) {
+        if (scan != null) {
+            reply(p, "scan.start", false, "O scanare rulează deja" + (scan.owner.equals(p.getUniqueId()) ? " (oprește-o întâi)." : " (alt admin)."));
+            return;
+        }
+        if (p.getWorld().getEnvironment() != World.Environment.NORMAL) {
+            reply(p, "scan.start", false, "Rețeaua de drumuri se scanează doar în Overworld.");
+            return;
+        }
+        double ax = num(j, "x1", Double.NaN);
+        double az = num(j, "z1", Double.NaN);
+        double bx = num(j, "x2", Double.NaN);
+        double bz = num(j, "z2", Double.NaN);
+        if (!coord(ax) || !coord(az) || !coord(bx) || !coord(bz)) {
+            reply(p, "scan.start", false, "Zonă invalidă.");
+            return;
+        }
+        int step = Math.max(2, Math.min(8, integer(j, "step", 3)));
+        Scan s = new Scan();
+        s.owner = p.getUniqueId();
+        s.world = p.getWorld();
+        s.step = step;
+        s.x0 = (int) Math.floor(Math.min(ax, bx));
+        s.z0 = (int) Math.floor(Math.min(az, bz));
+        int x1 = (int) Math.floor(Math.max(ax, bx));
+        int z1 = (int) Math.floor(Math.max(az, bz));
+        s.nx = (x1 - s.x0) / step + 1;
+        s.nz = (z1 - s.z0) / step + 1;
+        if ((long) s.nx * s.nz > SCAN_MAX_CELLS) {
+            reply(p, "scan.start", false, "Zona e prea mare pentru pasul " + step + " (max ~" + (int) Math.sqrt((double) SCAN_MAX_CELLS) * step + "×" + (int) Math.sqrt((double) SCAN_MAX_CELLS) * step + " blocuri). Micșorează zona sau mărește pasul.");
+            return;
+        }
+        if (j.has("blocks") && j.get("blocks").isJsonArray()) {
+            for (JsonElement e : j.getAsJsonArray("blocks")) {
+                if (s.mats.size() >= 24) break;
+                Material m = Material.matchMaterial(e.getAsString());
+                if (m != null && m.isBlock()) s.mats.add(m);
+            }
+        }
+        if (s.mats.isEmpty()) {
+            reply(p, "scan.start", false, "Alege cel puțin un tip de bloc pentru drum.");
+            return;
+        }
+        s.road = new byte[s.nx * s.nz];
+        scan = s;
+        s.task = Bukkit.getScheduler().runTaskTimer(plugin, () -> scanTick(s), 1L, 1L);
+        reply(p, "scan.start", true, "Scanare pornită: " + s.nx * s.nz + " puncte (doar chunk-uri încărcate).");
+    }
+
+    private void stopScan() {
+        Scan s = scan;
+        scan = null;
+        if (s != null && s.task != null) s.task.cancel();
+    }
+
+    private void scanTick(Scan s) {
+        if (scan != s || s.working) return;
+        Player p = Bukkit.getPlayer(s.owner);
+        if (p == null) {
+            stopScan();
+            return;
+        }
+        int total = s.nx * s.nz;
+        for (int k = 0; k < SCAN_BUDGET && s.cursor < total; k++) {
+            int idx = s.cursor++;
+            int x = s.x0 + (idx % s.nx) * s.step;
+            int z = s.z0 + (idx / s.nx) * s.step;
+            if (!s.world.isChunkLoaded(x >> 4, z >> 4)) continue;
+            s.loaded++;
+            Block b = s.world.getHighestBlockAt(x, z);
+            if (s.mats.contains(b.getType()) || s.mats.contains(b.getRelative(0, -1, 0).getType())) s.road[idx] = 1;
+        }
+        long now = System.currentTimeMillis();
+        if (s.cursor < total) {
+            if (now - s.lastProg > 400) {
+                s.lastProg = now;
+                JsonObject o = new JsonObject();
+                o.addProperty("pct", (int) (100L * s.cursor / total));
+                send(p, "scanprog", o);
+            }
+            return;
+        }
+        s.working = true;
+        if (s.task != null) s.task.cancel();
+        final int loaded = s.loaded;
+        final int totalCells = total;
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            RoadScan.Result r;
+            try {
+                r = RoadScan.extract(s.road, s.nx, s.nz, s.x0, s.z0, s.step);
+            } catch (RuntimeException e) {
+                r = null;
+            }
+            final RoadScan.Result res = r;
+            Bukkit.getScheduler().runTask(plugin, () -> finishScan(s, res, loaded, totalCells));
+        });
+    }
+
+    private void finishScan(Scan s, RoadScan.Result r, int loaded, int total) {
+        if (scan != s) return;
+        scan = null;
+        Player p = Bukkit.getPlayer(s.owner);
+        if (p == null) return;
+        if (r == null) {
+            reply(p, "scan.start", false, "Eroare la scanare (vezi consola).");
+            return;
+        }
+        if (r.nodes.size() > SCAN_MAX_NODES) {
+            reply(p, "scan.start", false, "Rezultat prea mare (" + r.nodes.size() + " noduri). Micșorează zona sau mărește pasul.");
+            return;
+        }
+        final int ch = 2000;
+        int parts = Math.max(1, Math.max((r.nodes.size() + ch - 1) / ch, (r.edges.size() + ch - 1) / ch));
+        int pctLoaded = total == 0 ? 0 : (int) (100L * loaded / total);
+        for (int i = 0; i < parts; i++) {
+            JsonObject o = new JsonObject();
+            o.addProperty("part", i);
+            o.addProperty("parts", parts);
+            o.addProperty("loaded", pctLoaded);
+            JsonArray n = new JsonArray();
+            for (int k = i * ch; k < Math.min(r.nodes.size(), (i + 1) * ch); k++) {
+                n.add(r.nodes.get(k)[0]);
+                n.add(r.nodes.get(k)[1]);
+            }
+            o.add("n", n);
+            JsonArray e = new JsonArray();
+            for (int k = i * ch; k < Math.min(r.edges.size(), (i + 1) * ch); k++) {
+                e.add(r.edges.get(k)[0]);
+                e.add(r.edges.get(k)[1]);
+            }
+            o.add("e", e);
+            send(p, "scanres", o);
+        }
+        plugin.getLogger().info("[GPS] Scanare drumuri pentru " + p.getName() + ": " + r.nodes.size() + " noduri, " + r.edges.size() + " segmente, " + pctLoaded + "% din zona era incarcata.");
     }
 
     // ------------------------------------------------------------------ comenzi (optional)
