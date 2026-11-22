@@ -348,7 +348,7 @@ public final class PhoneScreen extends FlowScreen {
             case 3: HypeClient.request("atm_req", new JsonObject()); go(Page.BANK); break;
             case 4: NewsClient.requestList(); mc.setScreen(new NewsScreen()); break;
             case 5: NotifyClient.requestHistory(false); mc.setScreen(new NotifyScreen()); break;
-            case 6: HypeClient.request("jobs_req", new JsonObject()); mc.setScreen(new JobsScreen()); break;
+            case 6: ro.solarstudios.flowcity.fjobs.FJobsClient.open(); break;
             case 7: WheelClient.requestInfo(); mc.setScreen(new WheelScreen()); break;
             default: go(Page.SETTINGS); break;
         }

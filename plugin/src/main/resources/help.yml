@@ -41,9 +41,8 @@ categories:
     color: "#5FDC8F"
     to: "#2FD5D0"
     commands:
-      - {usage: "/job", desc: "Deschide meniul de joburi", perm: "flowcity.hype.job"}
-      - {usage: "/job select <id>", desc: "Alegi un job", perm: "flowcity.hype.job"}
-      - {usage: "/job leave", desc: "Părăsești jobul curent", perm: "flowcity.hype.job"}
+      - {usage: "/fjobs", desc: "Deschide Job Center (și tasta J)", perm: "flowcity.fjobs.use"}
+      - {usage: "/fjobs open <jucător>", desc: "Deschide Job Center pentru un jucător (NPC)", perm: "flowcity.fjobs.admin"}
       - {usage: "/roata", desc: "Roata norocului (o poți învârti periodic)", perm: "flowcity.hype.wheel"}
 
   - key: personaj

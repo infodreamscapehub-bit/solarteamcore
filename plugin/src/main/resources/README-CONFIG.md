@@ -60,3 +60,13 @@ comenzile `/slash`, cifrele si diacriticele raman neschimbate. Pune `false` ca s
 - `gps.yml`: setari, `groups` (filtrele din panou), `categories`, `locations`, `zones` (poligon `points: [[x,z],...]` sau dreptunghi `x1/z1/x2/z2`, `type: LEGAL|ILEGAL`). Exemplele sunt dezactivate (`enabled: false`).
 - Comenzi staff (`flowcity.gps.admin`, implicit op): `/gps lista [CAT]`, `/gps adauga <CAT> <nume>` (la pozitia ta), `/gps muta <id>`, `/gps sterge <id>`, `/gps activeaza|dezactiveaza <id>`, `/gps set <jucator> <x> <z> [nume]`, `/gps reload`. Modificarile din comenzi se salveaza in `gps-data.yml` (peste `gps.yml`, comentariile din `gps.yml` raman).
 - Garajele si benzinariile create cu `/garaj` si `/benzinarie` apar automat pe harta (categoriile GARAJ si BENZINARIE), fara sa fie adaugate in `gps.yml`.
+
+## FlowCity Jobs (Job Center) - fjobs.yml
+- Se deschide cu `/fjobs`, tasta **J** (configurabila in Controls > FlowCity) sau aplicatia Joburi din telefon. Pentru NPC: `/npc command add fjobs open <p> -c` (ruleaza din consola, ca la magazin).
+- Toata logica (angajare, tura, plata, XP, niveluri) ruleaza pe server. Clientul trimite doar intentii.
+- `fjobs.yml` = setari + cele 25 de joburi (`activity`: `rules` = evenimente Bukkit cu plata per material, `delivery` = ridicare/livrare, `route` = checkpoint-uri, `external` = alt sistem, `none` = in pregatire).
+- Status calculat automat: FUNCTIONAL, SISTEM EXTERN, IN PREGATIRE. Joburile de tip `delivery`/`route` devin functionale cand adminul seteaza punctele (Job Center > job > ADMINISTRARE > +RIDICARE / +LIVRARE / +CHECKPOINT, stand in locul dorit).
+- Modificarile din GUI (flowcity.fjobs.admin) se salveaza in `fjobs-admin.yml` si suprascriu `fjobs.yml`; progresul jucatorilor e in `fjobs-data.yml` (scriere atomica + `.bak`).
+- Joburile speciale (taxi, medic, politist) cer permisiunea facțiunii (`flowcity.taxi.driver`, `flowcity.ems.officer`, `flowcity.politie.officer`); instructorii si benzinaria cer permisiuni proprii (`flowcity.fjobs.instructor.auto|zbor`, `flowcity.fjobs.benzinarie`) si sunt "in pregatire".
+- Motorul vechi din `hype.yml` (`jobs.*`) e oprit implicit (`jobs.enabled: false`) ca sa nu se plateasca de doua ori; HUD-ul arata jobul/nivelul/XP din FJobs. Progresul vechi NU se migreaza.
+- Permisiuni: `flowcity.fjobs.use` (implicit toti), `flowcity.fjobs.admin` (OP), `flowcity.fjobs.premium` (+ `settings.premium-enabled: true`).

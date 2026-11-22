@@ -1,0 +1,369 @@
+# ===========================================================================
+# FlowCity Jobs (FJobs) - Job Center. Se editeaza aici; din joc (cu flowcity.fjobs.admin)
+# adminii pot schimba din GUI: activ/premium/salariu estimat/nivel/locuri/multiplicator si
+# punctele de livrare/ruta. Modificarile din GUI se salveaza in fjobs-admin.yml (suprascriu acest fisier).
+#
+# Statusuri (calculate automat, nimic nu e simulat):
+#   FUNCTIONAL  = are logica reala (rules / delivery cu puncte / route cu puncte)
+#   EXTERN      = se lucreaza in alt sistem (taxi, politie, EMS...); FJobs tine doar angajarea
+#   IN PREGATIRE= nu are inca logica (sau lipsesc punctele setate de admin) -> nu se poate lua
+# Ca sa activezi un job de tip delivery/route: du-te in joc la locul dorit, deschide Job Center
+# -> Administrare -> job -> "Adauga punct aici".
+# ===========================================================================
+settings:
+  xp-base: 100               # XP pentru nivelul 1 -> 2 al unui job
+  xp-growth: 1.35
+  max-level: 50
+  bonus-per-level: 0.03      # +3% plata pe nivel de job
+  change-cooldown-minutes: 30
+  max-shift-minutes: 120     # tura se inchide automat dupa atat
+  premium-enabled: false     # joburile premium se pot lua doar cu flowcity.fjobs.premium si doar daca e true
+  placed-ttl-minutes: 180    # anti-farm: blocuri puse de jucatori
+  placed-max: 60000
+  trash-block: CAULDRON      # Gunoier: click dreapta cu un obiect pe acest bloc
+  no-fly: true
+  history-max: 40
+  gps-integration: true      # trimite destinatia in GPS (/gps set) pentru livrari si rute
+  profile-xp-base: 150       # nivelul profesional global (toate joburile)
+  profile-xp-growth: 1.3
+  profile-max-level: 100
+  shift-bonus:               # bonus de performanta la finalul turei
+    min-minutes: 10
+    per-hour-target: 300     # castig/ora necesar
+    percent: 10
+  level-rewards:             # bani la atingerea nivelului unui job (o singura data per job)
+    5: 100
+    10: 300
+    20: 800
+    30: 1500
+    50: 5000
+
+jobs:
+  # ---------------------------- CIVILE: activitate cu reguli (functionale) ----------------------------
+  miner:
+    name: "Miner"
+    icon: pickaxe
+    group: "Resurse"
+    desc: "Sparge minereuri in mina si primesti bani si XP."
+    difficulty: "Mediu"
+    est-pay: 900
+    est-minutes: 30
+    limit-per-minute: 40
+    tasks: ["Incepe tura", "Mergi in mina si sparge minereuri", "Minereurile rare se platesc mai bine"]
+    activity: rules
+    rules:
+      - {event: break, materials: [COAL_ORE], pay: 1.5, xp: 3}
+      - {event: break, materials: [IRON_ORE, NETHER_QUARTZ_ORE, NETHER_GOLD_ORE], pay: 3, xp: 5}
+      - {event: break, materials: [GOLD_ORE, LAPIS_ORE, REDSTONE_ORE], pay: 4, xp: 6, min-level: 3}
+      - {event: break, materials: [DIAMOND_ORE, EMERALD_ORE], pay: 8, xp: 12, min-level: 8}
+      - {event: break, materials: [ANCIENT_DEBRIS], pay: 15, xp: 20, min-level: 15}
+  lumberjack:
+    name: "Taietor de lemne"
+    icon: axe
+    group: "Resurse"
+    desc: "Taie copaci si primesti plata pe bustean."
+    difficulty: "Usor"
+    est-pay: 700
+    est-minutes: 30
+    limit-per-minute: 50
+    tasks: ["Incepe tura", "Taie copaci cu toporul", "Planteaza butasi dupa taiere"]
+    activity: rules
+    rules:
+      - {event: break, materials: ["*_LOG", "*_STEM"], pay: 1.2, xp: 2}
+      - {event: break, materials: [DARK_OAK_LOG, JUNGLE_LOG, ACACIA_LOG], pay: 1.8, xp: 3}
+  fisher:
+    name: "Pescar"
+    icon: fish
+    group: "Resurse"
+    desc: "Pescuieste pesti si obiecte rare cu undita."
+    difficulty: "Usor"
+    est-pay: 600
+    est-minutes: 30
+    limit-per-minute: 12
+    tasks: ["Incepe tura", "Mergi la apa cu o undita", "Fiecare captura se plateste"]
+    activity: rules
+    rules:
+      - {event: fish, materials: [COD, SALMON], pay: 3, xp: 5}
+      - {event: fish, materials: [TROPICAL_FISH, PUFFERFISH], pay: 6, xp: 8}
+      - {event: fish, materials: [NAUTILUS_SHELL, NAME_TAG, SADDLE, ENCHANTED_BOOK, BOW, FISHING_ROD], pay: 12, xp: 15, min-level: 5}
+  farmer:
+    name: "Fermier"
+    icon: wheat
+    group: "Resurse"
+    desc: "Recolteaza culturi coapte."
+    difficulty: "Usor"
+    est-pay: 650
+    est-minutes: 30
+    limit-per-minute: 60
+    tasks: ["Incepe tura", "Recolteaza doar culturile coapte", "Replanteaza ca sa ai de lucru"]
+    activity: rules
+    rules:
+      - {event: break, materials: [WHEAT, CARROTS, POTATOES, BEETROOTS, NETHER_WART], mature: true, placed-check: false, pay: 1.2, xp: 2}
+      - {event: break, materials: [PUMPKIN, MELON], pay: 2.5, xp: 3}
+      - {event: break, materials: [SWEET_BERRY_BUSH, COCOA], mature: true, placed-check: false, pay: 1.5, xp: 2}
+  garbage:
+    name: "Gunoier"
+    icon: trash
+    group: "Servicii"
+    desc: "Strange gunoiul din oras: click dreapta cu obiectul pe un cos (cazan)."
+    difficulty: "Usor"
+    est-pay: 500
+    est-minutes: 25
+    limit-per-minute: 40
+    tasks: ["Incepe tura", "Strange gunoi (oase, bete, hartie...)", "Click dreapta pe un cos cu gunoiul in mana"]
+    activity: rules
+    rules:
+      - {event: trash, materials: [ROTTEN_FLESH, STICK, BONE, STRING, SPIDER_EYE, PAPER, GLASS_BOTTLE, LEATHER, FEATHER, BOWL, POISONOUS_POTATO], pay: 0.5, xp: 1}
+      - {event: trash, materials: [GUNPOWDER, SLIME_BALL, INK_SAC, FLINT], pay: 1.0, xp: 2}
+  builder:
+    name: "Constructor"
+    icon: hammer
+    group: "Constructii"
+    desc: "Construieste cu materiale de santier. Platesti la fiecare bloc pus (anti-farm: aceeasi pozitie nu se plateste de doua ori)."
+    difficulty: "Mediu"
+    est-pay: 800
+    est-minutes: 40
+    limit-per-minute: 40
+    tasks: ["Incepe tura", "Pune caramida, beton si piatra", "Nu merge repunerea pe aceeasi pozitie"]
+    activity: rules
+    rules:
+      - {event: place, materials: [BRICKS, STONE_BRICKS, "*_CONCRETE", SMOOTH_STONE, POLISHED_ANDESITE, POLISHED_DIORITE, POLISHED_GRANITE], pay: 1.0, xp: 1}
+      - {event: place, materials: ["*_TERRACOTTA", QUARTZ_BLOCK, SMOOTH_QUARTZ, IRON_BARS, GLASS_PANE], pay: 1.5, xp: 2, min-level: 3}
+  electrician:
+    name: "Electrician"
+    icon: bolt
+    group: "Servicii"
+    desc: "Instaleaza instalatii: redstone, lampi, butoane."
+    difficulty: "Mediu"
+    est-pay: 750
+    est-minutes: 30
+    limit-per-minute: 30
+    tasks: ["Incepe tura", "Instaleaza redstone, lampi si repetitoare", "Plata pe fiecare instalatie"]
+    activity: rules
+    rules:
+      - {event: place, materials: [REDSTONE_WIRE, REDSTONE_TORCH, REPEATER, COMPARATOR], pay: 1.0, xp: 1}
+      - {event: place, materials: [REDSTONE_LAMP, LEVER, "*_BUTTON", "*_PRESSURE_PLATE", OBSERVER, DAYLIGHT_DETECTOR], pay: 2.0, xp: 2}
+
+  # ---------------------------- CIVILE: livrari (functionale dupa ce adminul seteaza punctele) ----------------------------
+  courier:
+    name: "Curier"
+    icon: box
+    group: "Transport"
+    desc: "Ridici colete de la depozit si le duci la adresele din oras."
+    difficulty: "Mediu"
+    est-pay: 1000
+    est-minutes: 30
+    tasks: ["Incepe tura", "Mergi la un depozit", "Primesti adresa si o vezi pe GPS", "Livreaza coletul"]
+    activity: delivery
+    delivery: {item: "coletul", radius: 4, base-pay: 12, per-100m: 5, xp: 6, max-speed: 30}
+  food_delivery:
+    name: "Livrator de mancare"
+    icon: pizza
+    group: "Transport"
+    desc: "Ia comanda de la restaurant si o duci clientului cat mai repede."
+    difficulty: "Usor"
+    est-pay: 850
+    est-minutes: 30
+    tasks: ["Incepe tura", "Intra in restaurant", "Du comanda la adresa", "Primesti plata pe distanta"]
+    activity: delivery
+    delivery: {item: "comanda", radius: 4, base-pay: 8, per-100m: 4, xp: 5, max-speed: 30}
+  postman:
+    name: "Postas"
+    icon: mail
+    group: "Transport"
+    desc: "Distribui corespondenta de la oficiul postal."
+    difficulty: "Usor"
+    est-pay: 750
+    est-minutes: 30
+    tasks: ["Incepe tura", "Ridica corespondenta de la posta", "Du-o la destinatari"]
+    activity: delivery
+    delivery: {item: "corespondenta", radius: 4, base-pay: 7, per-100m: 4, xp: 4, max-speed: 30}
+  trucker:
+    name: "Camionagiu"
+    icon: truck
+    group: "Transport"
+    desc: "Transporti marfa intre depozite, pe distante lungi."
+    difficulty: "Greu"
+    est-pay: 1400
+    est-minutes: 45
+    min-level: 3
+    tasks: ["Incepe tura", "Ridica marfa de la terminal", "Condu pana la depozitul indicat"]
+    activity: delivery
+    delivery: {item: "marfa", radius: 6, base-pay: 40, per-100m: 6, xp: 12, max-speed: 40}
+  dock_worker:
+    name: "Muncitor portuar"
+    icon: anchor
+    group: "Transport"
+    desc: "Muta containere intre cheu si depozitele portului."
+    difficulty: "Mediu"
+    est-pay: 950
+    est-minutes: 35
+    tasks: ["Incepe tura", "Ridica containerul de la cheu", "Du-l la depozitul portului"]
+    activity: delivery
+    delivery: {item: "containerul", radius: 5, base-pay: 20, per-100m: 5, xp: 8, max-speed: 30}
+  cargo_handler:
+    name: "Manipulant marfa"
+    icon: pallet
+    group: "Transport"
+    desc: "Muti paleti intre rampele unui depozit."
+    difficulty: "Usor"
+    est-pay: 700
+    est-minutes: 30
+    tasks: ["Incepe tura", "Ia paletul de la rampa de incarcare", "Du-l la rampa indicata"]
+    activity: delivery
+    delivery: {item: "paletul", radius: 4, base-pay: 10, per-100m: 4, xp: 5, max-speed: 30}
+
+  # ---------------------------- CIVILE: rute cu checkpoint-uri (functionale dupa ce adminul seteaza punctele) ----------------------------
+  bus_driver:
+    name: "Sofer de autobuz"
+    icon: bus
+    group: "Transport"
+    desc: "Parcurgi traseul liniei, oprind in fiecare statie."
+    difficulty: "Mediu"
+    est-pay: 900
+    est-minutes: 30
+    tasks: ["Incepe tura", "Mergi la prima statie", "Opreste la fiecare statie in ordine", "Ruta se reia automat"]
+    activity: route
+    route: {label: "statie", radius: 5, pay-per-point: 8, xp-per-point: 3, complete-bonus: 30, complete-xp: 12, min-seconds-per-point: 10}
+  window_washer:
+    name: "Spalator de geamuri"
+    icon: window
+    group: "Servicii"
+    desc: "Treci pe la cladirile de pe lista si speli geamurile."
+    difficulty: "Usor"
+    est-pay: 600
+    est-minutes: 25
+    tasks: ["Incepe tura", "Mergi la cladirea indicata", "Treci la urmatoarea"]
+    activity: route
+    route: {label: "cladire", radius: 4, pay-per-point: 6, xp-per-point: 3, complete-bonus: 20, complete-xp: 8, min-seconds-per-point: 8}
+  firefighter:
+    name: "Pompier"
+    icon: flame
+    group: "Urgente"
+    desc: "Patrulezi punctele de inspectie ale oraselului (prevenire incendii)."
+    difficulty: "Mediu"
+    est-pay: 900
+    est-minutes: 30
+    tasks: ["Incepe tura", "Inspecteaza fiecare punct", "Bonus la finalizarea patrulei"]
+    activity: route
+    route: {label: "punct de inspectie", radius: 5, pay-per-point: 8, xp-per-point: 4, complete-bonus: 30, complete-xp: 14, min-seconds-per-point: 10}
+  lifeguard:
+    name: "Salvamar"
+    icon: lifebuoy
+    group: "Urgente"
+    desc: "Supraveghezi plajele, trecand prin posturile de salvare."
+    difficulty: "Mediu"
+    est-pay: 800
+    est-minutes: 30
+    tasks: ["Incepe tura", "Mergi la fiecare post de salvare", "Patrula se reia"]
+    activity: route
+    route: {label: "post de salvare", radius: 5, pay-per-point: 7, xp-per-point: 3, complete-bonus: 25, complete-xp: 10, min-seconds-per-point: 10}
+  sanitation:
+    name: "Agent de salubritate"
+    icon: broom
+    group: "Servicii"
+    desc: "Curati strazile mergand prin punctele de pe ruta de salubrizare."
+    difficulty: "Usor"
+    est-pay: 550
+    est-minutes: 25
+    tasks: ["Incepe tura", "Mergi la fiecare punct de pe ruta", "Bonus la capat de ruta"]
+    activity: route
+    route: {label: "punct de salubrizare", radius: 4, pay-per-point: 5, xp-per-point: 2, complete-bonus: 15, complete-xp: 6, min-seconds-per-point: 8}
+
+  # ---------------------------- SPECIALE ----------------------------
+  taxi:
+    name: "Taximetrist"
+    icon: taxi
+    category: special
+    group: "Transport"
+    desc: "Preiei curse prin sistemul de taxi al serverului."
+    difficulty: "Mediu"
+    est-pay: 1100
+    est-minutes: 40
+    requires-permission: "flowcity.taxi.driver"
+    requires-note: "Necesita licenta/permisiunea de taximetrist (flowcity.taxi.driver)."
+    tasks: ["Preiei curse din aplicatia de taxi", "Plata o gestioneaza sistemul de taxi"]
+    activity: external
+    external: taxi
+    external-note: "Lucrezi prin sistemul de taxi (comanda din telefon/aplicatie). Castigurile nu sunt urmarite aici."
+  mechanic:
+    name: "Mecanic"
+    icon: wrench
+    group: "Servicii"
+    desc: "Repari si tunezi masini prin sistemul de mecanic."
+    difficulty: "Mediu"
+    est-pay: 1000
+    est-minutes: 40
+    tasks: ["Preiei lucrari din sistemul de mecanic", "Plata o gestioneaza sistemul de mecanic"]
+    activity: external
+    external: mecanic
+    external-note: "Lucrezi prin sistemul de mecanic al serverului. Castigurile nu sunt urmarite aici."
+  doctor:
+    name: "Medic"
+    icon: cross
+    category: special
+    group: "Urgente"
+    desc: "Salvezi vieti prin sistemul EMS."
+    difficulty: "Greu"
+    est-pay: 1300
+    est-minutes: 45
+    requires-permission: "flowcity.ems.officer"
+    requires-note: "Necesita facțiunea EMS (flowcity.ems.officer), acordata de conducere."
+    tasks: ["Raspunzi la apeluri EMS", "Foloseste sistemul EMS pentru tratamente"]
+    activity: external
+    external: ems
+    external-note: "Lucrezi prin sistemul EMS. Castigurile nu sunt urmarite aici."
+  police:
+    name: "Politist"
+    icon: shield
+    category: special
+    group: "Urgente"
+    desc: "Aperi ordinea publica prin sistemul de politie."
+    difficulty: "Greu"
+    est-pay: 1300
+    est-minutes: 45
+    requires-permission: "flowcity.politie.officer"
+    requires-note: "Necesita facțiunea Politie (flowcity.politie.officer), acordata de conducere."
+    tasks: ["Patrulezi si raspunzi la apeluri", "Foloseste MDT si sistemul de politie"]
+    activity: external
+    external: politie
+    external-note: "Lucrezi prin sistemul de politie/MDT. Castigurile nu sunt urmarite aici."
+  driving_instructor:
+    name: "Instructor auto"
+    icon: steering
+    category: special
+    group: "Educatie"
+    desc: "Instruiesti elevi pentru examenul de conducere."
+    difficulty: "Mediu"
+    est-pay: 1000
+    est-minutes: 40
+    requires-permission: "flowcity.fjobs.instructor.auto"
+    requires-note: "Necesita permisiunea de instructor auto."
+    tasks: ["In pregatire: logica de scoala auto nu este implementata inca"]
+    activity: none
+  flight_instructor:
+    name: "Instructor de zbor"
+    icon: plane
+    category: special
+    group: "Educatie"
+    desc: "Instruiesti viitori piloti."
+    difficulty: "Greu"
+    est-pay: 1400
+    est-minutes: 45
+    requires-permission: "flowcity.fjobs.instructor.zbor"
+    requires-note: "Necesita permisiunea de instructor de zbor."
+    tasks: ["In pregatire: logica de scoala de zbor nu este implementata inca"]
+    activity: none
+  gas_station:
+    name: "Angajat benzinarie"
+    icon: fuel
+    category: special
+    group: "Servicii"
+    desc: "Servesti clientii la benzinarie."
+    difficulty: "Usor"
+    est-pay: 650
+    est-minutes: 30
+    requires-permission: "flowcity.fjobs.benzinarie"
+    requires-note: "Necesita angajare aprobata de conducere."
+    tasks: ["In pregatire: sistemul de benzinarie nu este implementat inca"]
+    activity: none

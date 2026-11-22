@@ -382,9 +382,18 @@ public final class HypeModule extends JsonModule implements Listener {
         o.addProperty("id", plugin.ids().idOf(u));
         o.addProperty("online", Bukkit.getOnlinePlayers().size());
         o.addProperty("playMin", p.getStatistic(Statistic.PLAY_ONE_MINUTE) / 1200);
-        JobDef jd = d.job == null ? null : jobs.get(d.job);
+        JobDef jd = d.job == null || !jobsOn() ? null : jobs.get(d.job);
         o.addProperty("job", jd == null ? "" : jd.name);
         int max = cfg.getInt("jobs.max-level", 50);
+        if (!jobsOn()) {
+            JsonObject fj = ro.solarstudios.flowcity.bridge.fjobs.FJobsModule.hud(p);
+            if (fj != null) {
+                o.addProperty("job", fj.get("job").getAsString());
+                o.addProperty("level", fj.get("level").getAsInt());
+                o.addProperty("xp", fj.get("xp").getAsLong());
+                o.addProperty("xpNeed", fj.get("xpNeed").getAsLong());
+            }
+        }
         if (jd != null) {
             int lvl = levelOf(d, jd.id);
             double base = cfg.getDouble("jobs.xp-base", 100);
@@ -542,7 +551,7 @@ public final class HypeModule extends JsonModule implements Listener {
             return;
         }
         // Gunoier: click dreapta cu un obiect pe cazan
-        if (b.getType().name().equals(cfg.getString("jobs.trash-block", "CAULDRON"))) {
+        if (jobsOn() && b.getType().name().equals(cfg.getString("jobs.trash-block", "CAULDRON"))) {
             PlayerData d = dataOf(p);
             JobDef jd = d == null || d.job == null ? null : jobs.get(d.job);
             ItemStack it = e.getItem();
@@ -624,6 +633,7 @@ public final class HypeModule extends JsonModule implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBreak(BlockBreakEvent e) {
+        if (!jobsOn()) return;
         Player p = e.getPlayer();
         PlayerData d = dataOf(p);
         Block b = e.getBlock();
@@ -645,6 +655,7 @@ public final class HypeModule extends JsonModule implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlace(BlockPlaceEvent e) {
+        if (!jobsOn()) return;
         Block b = e.getBlockPlaced();
         long now = System.currentTimeMillis();
         String key = PlacedSet.key(b.getWorld().getName(), b.getX(), b.getY(), b.getZ());
@@ -660,6 +671,7 @@ public final class HypeModule extends JsonModule implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onFish(PlayerFishEvent e) {
+        if (!jobsOn()) return;
         if (e.getState() != PlayerFishEvent.State.CAUGHT_FISH) return;
         Player p = e.getPlayer();
         PlayerData d = dataOf(p);
@@ -863,7 +875,7 @@ public final class HypeModule extends JsonModule implements Listener {
         Commands.permission("flowcity.hype.admin", "Administrare Hype", PermissionDefault.OP);
 
         Commands.register(plugin, "atm", "flowcity.hype.atm", (s, c, l, a) -> playerOnly(s, p -> atmCommand(p, a)), null);
-        Commands.register(plugin, "job", "flowcity.hype.job", (s, c, l, a) -> playerOnly(s, p -> jobCommand(p, a)),
+        if (jobsOn()) Commands.register(plugin, "job", "flowcity.hype.job", (s, c, l, a) -> playerOnly(s, p -> jobCommand(p, a)),
             (s, c, l, a) -> a.length == 1 ? Commands.filter(java.util.Arrays.asList("select", "leave", "list"), a[0])
                 : a.length == 2 && "select".equalsIgnoreCase(a[0]) ? Commands.filter(new ArrayList<>(jobs.keySet()), a[1])
                 : new ArrayList<String>(), "joburi");
@@ -911,7 +923,13 @@ public final class HypeModule extends JsonModule implements Listener {
         return dx * dx + dz * dz <= radius * radius && Math.abs(dy) <= 6;
     }
 
+    /** Motorul vechi de joburi (hype.yml jobs.*) e inlocuit de FJobs; ramane doar daca jobs.enabled: true. */
+    private boolean jobsOn() {
+        return cfg.getBoolean("jobs.enabled", true);
+    }
+
     private void tickDelivery() {
+        if (!jobsOn()) return;
         for (Player p : Bukkit.getOnlinePlayers()) {
             PlayerData d = data.get(p.getUniqueId());
             if (d == null || !d.loaded) continue;

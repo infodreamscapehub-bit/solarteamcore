@@ -28,7 +28,7 @@ public final class HypeClient extends JsonClientModule {
         on("msg", d -> notice(str(d, "text", ""), bool(d, "ok", true)));
         on("earn", d -> HypeState.popup("+$" + ro.solarstudios.flowcity.client.ui.Ui.money(num(d, "pay", 0)) + "  +" + integer(d, "xp", 0) + " XP"));
         on("open", d -> {
-            if ("jobs".equals(str(d, "screen", ""))) Minecraft.getInstance().setScreen(new JobsScreen());
+            if ("jobs".equals(str(d, "screen", ""))) ro.solarstudios.flowcity.fjobs.FJobsClient.open();
         });
         on("hud_toggle", d -> {
             if ("xmas".equals(str(d, "mode", ""))) {

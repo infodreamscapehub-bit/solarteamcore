@@ -36,6 +36,7 @@ public final class ClientInit {
         ro.solarstudios.flowcity.notify.NotifyClient.register();
         ro.solarstudios.flowcity.mdt.MdtClient.register();
         ro.solarstudios.flowcity.hype.HypeClient.register();
+        ro.solarstudios.flowcity.fjobs.FJobsClient.register();
         ro.solarstudios.flowcity.phone.PhoneClient.register();
         ro.solarstudios.flowcity.cars.client.CarsClient.register();
         ro.solarstudios.flowcity.pay.PayClient.register();
@@ -68,6 +69,7 @@ public final class ClientInit {
         ro.solarstudios.flowcity.phone.PhoneClient.registerKeys(event);
         ro.solarstudios.flowcity.cars.client.GaragesClient.registerKeys(event);
         ro.solarstudios.flowcity.gps.GpsClient.registerKeys(event);
+        ro.solarstudios.flowcity.fjobs.FJobsClient.registerKeys(event);
     }
 
     private static boolean openHudEditor;
