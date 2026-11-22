@@ -1,0 +1,57 @@
+# GPS FlowCity - configuratie. Se reincarca cu /gps reload (si se trimite tuturor jucatorilor cu modul).
+# ATENTIE: ce adaugi/muti/stergi cu comenzile /gps adauga|muta|sterge ... se salveaza in gps-data.yml (peste acest fisier),
+# ca sa-ti pastrezi comentariile de aici. Poti edita oricand locatiile direct aici.
+#
+# Coordonate: x si z (inaltimea nu conteaza). "dimension": minecraft:overworld (implicit), minecraft:the_nether, minecraft:the_end.
+# Navigarea este DIRECTA (sageata + distanta in linie dreapta), nu ruta pe strazi.
+
+settings:
+  arrive-distance: 8      # la cate blocuri de destinatie se considera ca ai ajuns (GPS-ul se opreste)
+  show-zones: true        # zonele RP apar implicit pe harta (jucatorul le poate opri din meniu)
+  default-zoom: 1.2       # zoom initial (pixeli pe bloc)
+
+# Filtrele din panoul LOCATII (chips). "TOATE" si "★" (favorite) exista mereu.
+groups:
+  - "SERVICII"
+  - "MAGAZINE"
+  - "AUTO"
+  - "ALTELE"
+
+# Categorii. icon: mall, bait, city_hall, police, tuning, border, fishing, hospital, bank, atm, fuel, repair, shop, garage, prison, pin
+categories:
+  MALL:         {name: "Mall",          group: "MAGAZINE", icon: mall,      color: "#F5A524"}
+  MOMEALA:      {name: "Momeală",       group: "MAGAZINE", icon: bait,      color: "#35C6E0"}
+  PRIMARIE_1:   {name: "Primărie Sector 1", group: "SERVICII", icon: city_hall, color: "#E8F1FF"}
+  PRIMARIE_2:   {name: "Primărie Sector 2", group: "SERVICII", icon: city_hall, color: "#E8F1FF"}
+  PRIMARIE_3:   {name: "Primărie Sector 3", group: "SERVICII", icon: city_hall, color: "#E8F1FF"}
+  PRIMARIE_4:   {name: "Primărie Sector 4", group: "SERVICII", icon: city_hall, color: "#E8F1FF"}
+  POLITIE:      {name: "Poliție",       group: "SERVICII", icon: police,    color: "#4DA3FF"}
+  TUNING:       {name: "Tuning",        group: "AUTO",     icon: tuning,    color: "#B7C4D6"}
+  VAMA_A:       {name: "Vama A",        group: "SERVICII", icon: border,    color: "#F5A524"}
+  VAMA_B:       {name: "Vama B",        group: "SERVICII", icon: border,    color: "#F5A524"}
+  VAMA_C:       {name: "Vama C",        group: "SERVICII", icon: border,    color: "#F5A524"}
+  PESCUIT:      {name: "Zona Pescuit",  group: "ALTELE",   icon: fishing,   color: "#35C6E0"}
+  SPITAL:       {name: "Spital",        group: "SERVICII", icon: hospital,  color: "#F0584C"}
+  BANCA:        {name: "Bancă",         group: "SERVICII", icon: bank,      color: "#62D98F"}
+  ATM:          {name: "ATM",           group: "SERVICII", icon: atm,       color: "#62D98F"}
+  BENZINARIE:   {name: "Benzinărie",    group: "AUTO",     icon: fuel,      color: "#62D98F"}
+  SERVICE:      {name: "Service Auto",  group: "AUTO",     icon: repair,    color: "#E9A23B"}
+  MAGAZIN:      {name: "Magazine",      group: "MAGAZINE", icon: shop,      color: "#C792FF"}
+  GARAJ:        {name: "Garaj",         group: "AUTO",     icon: garage,    color: "#4DA3FF"}
+  INCHISOARE:   {name: "Închisoare",    group: "SERVICII", icon: prison,    color: "#8A97A8"}
+
+# Locatii. Campuri: id (unic), name, category (cheia din categories), x, z, description, icon/color (optional, suprascriu categoria),
+# enabled (true/false), dimension (optional).
+# Garajele si benzinariile create cu /garaj si /benzinarie apar automat pe harta (nu trebuie adaugate aici).
+# Exemplele de mai jos sunt dezactivate (enabled: false) si au coordonate 0 0: pune-le pe ale tale si schimba enabled in true,
+# sau adauga din joc, de pe pozitia ta: /gps adauga POLITIE Sectia 1
+locations:
+  - {id: exemplu_primarie_1, name: "Primărie Sector 1", category: PRIMARIE_1, x: 0, z: 0, description: "Buletine, certificate și acte", enabled: false}
+  - {id: exemplu_politie_1, name: "Poliție", category: POLITIE, x: 0, z: 0, description: "Secția de poliție", enabled: false}
+  - {id: exemplu_spital_1, name: "Spital", category: SPITAL, x: 0, z: 0, description: "Urgențe și tratament", enabled: false}
+
+# Zone RP: LEGAL (verde) sau ILEGAL (rosu). Poligon: lista de puncte [x, z] (minim 3), sau dreptunghi cu x1/z1/x2/z2.
+# color: optional (#RRGGBB), altfel verde/rosu implicit. Zonele dezactivate (enabled: false) nu se trimit.
+zones:
+  - {id: exemplu_zona_legala, name: "Zona legală - Centru", type: LEGAL, x1: 0, z1: 0, x2: 0, z2: 0, enabled: false}
+  - {id: exemplu_zona_ilegala, name: "Zona ilegală - Port", type: ILEGAL, points: [[0, 0], [0, 0], [0, 0]], enabled: false}

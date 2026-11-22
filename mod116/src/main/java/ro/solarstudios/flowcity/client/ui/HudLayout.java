@@ -113,6 +113,7 @@ public final class HudLayout {
         add("news", "Știri CNN");
         add("prompt", "Mesaj interacțiune");
         add("taxi", "Taximetru");
+        add("gps", "Navigare GPS");
         load();
     }
 
@@ -275,6 +276,8 @@ public final class HudLayout {
                 float w = Math.min(372f, sw - 20f);
                 return new float[] {(sw - w) / 2f, 6f, w, 54f};
             }
+            case "gps":
+                return new float[] {10f, sh / 2f + 40f, 156f, 64f};
             case "taxi":
                 return new float[] {10f, sh / 2f - 34f, 156f, 64f};
             default:

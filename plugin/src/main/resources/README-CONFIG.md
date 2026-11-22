@@ -51,3 +51,12 @@ comenzile `/slash`, cifrele si diacriticele raman neschimbate. Pune `false` ca s
 - Serverul re-verifica permisiunea la fiecare operatie, valideaza datele (itemul trebuie sa existe pe server, daca nu are comenzi), apoi salveaza si retrimite lista tuturor celor care au magazinul deschis. Fiecare modificare apare in consola: `[shop] <jucator> (<magazin>): ...`.
 - Modificarile se salveaza in `shop-data.yml`, care **suprascrie magazinul cu acelasi id** din `shop.yml`; `shop.yml` ramane neatins (cu comentarii). Ca sa revii la varianta din `shop.yml`, sterge magazinul din `shop-data.yml` si da `/shop reload`.
 - Limite: 8 categorii pe magazin, 200 articole pe categorie, 4 permise necesare, 5 comenzi pe articol.
+
+## GPS (harta + navigare)
+
+- Jucatorii: `/gps` sau tasta **M** (schimbabila in Controls > FlowCity) sau `.gps` in chat deschid harta pe tot ecranul: panou LOCATII (cautare, filtre pe categorii, favorite ★), zone RP legale/ilegale, zoom (rotita), drag, click pe marcaj = selectare, **SETEAZA GPS** / **ANULEAZA GPS**. Click dreapta pe harta = punct personalizat. `/gps cancel` anuleaza navigarea.
+- Navigarea este **directa** (sageata + distanta + ETA in HUD, fascicul la destinatie), nu ruta pe strazi. Cardul din HUD (element "Navigare GPS") se muta in editorul de HUD.
+- Harta se deseneaza din lume pe client (chunk-urile incarcate in jurul jucatorului) si se salveaza local (`flowcity/gpsmap/` in folderul jocului), deci jucatorul vede doar ce a explorat sau a avut aproape.
+- `gps.yml`: setari, `groups` (filtrele din panou), `categories`, `locations`, `zones` (poligon `points: [[x,z],...]` sau dreptunghi `x1/z1/x2/z2`, `type: LEGAL|ILEGAL`). Exemplele sunt dezactivate (`enabled: false`).
+- Comenzi staff (`flowcity.gps.admin`, implicit op): `/gps lista [CAT]`, `/gps adauga <CAT> <nume>` (la pozitia ta), `/gps muta <id>`, `/gps sterge <id>`, `/gps activeaza|dezactiveaza <id>`, `/gps set <jucator> <x> <z> [nume]`, `/gps reload`. Modificarile din comenzi se salveaza in `gps-data.yml` (peste `gps.yml`, comentariile din `gps.yml` raman).
+- Garajele si benzinariile create cu `/garaj` si `/benzinarie` apar automat pe harta (categoriile GARAJ si BENZINARIE), fara sa fie adaugate in `gps.yml`.

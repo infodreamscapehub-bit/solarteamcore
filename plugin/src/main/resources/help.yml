@@ -142,6 +142,23 @@ categories:
       - {usage: "/taxi start | stop", desc: "Pornești / oprești cursa (taximetrul)", perm: "flowcity.taxi.driver"}
       - {usage: "/taxi top", desc: "Clasamentul taximetriștilor", perm: ""}
 
+  - key: gps
+    title: "GPS"
+    icon: "◎"
+    color: "#4DA3FF"
+    to: "#9BCDFF"
+    commands:
+      - {usage: "/gps", desc: "Deschide harta GPS (locații, zone, navigare). Tasta M sau .gps în chat", perm: ""}
+      - {usage: "/gps cancel", desc: "Anulează navigarea activă", perm: ""}
+      - {usage: "/gps categorii", desc: "Lista categoriilor de locații", perm: ""}
+      - {usage: "/gps lista [CATEGORIE]", desc: "Listează locațiile cu id-urile lor", perm: "flowcity.gps.admin"}
+      - {usage: "/gps adauga <CATEGORIE> <nume>", desc: "Adaugă o locație la poziția ta", perm: "flowcity.gps.admin"}
+      - {usage: "/gps muta <id>", desc: "Mută o locație la poziția ta", perm: "flowcity.gps.admin"}
+      - {usage: "/gps sterge <id>", desc: "Șterge o locație", perm: "flowcity.gps.admin"}
+      - {usage: "/gps activeaza|dezactiveaza <id>", desc: "Arată / ascunde o locație", perm: "flowcity.gps.admin"}
+      - {usage: "/gps set <jucător> <x> <z> [nume]", desc: "Setează destinația GPS a unui jucător", perm: "flowcity.gps.admin"}
+      - {usage: "/gps reload", desc: "Reîncarcă gps.yml și retrimite harta jucătorilor", perm: "flowcity.gps.admin"}
+
   - key: staff
     title: "Staff"
     icon: "★"

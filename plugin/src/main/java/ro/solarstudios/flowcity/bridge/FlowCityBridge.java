@@ -80,6 +80,7 @@ public final class FlowCityBridge extends JavaPlugin {
         Modules.register(this, new ro.solarstudios.flowcity.bridge.hudeditor.HudEditorModule());
         Modules.register(this, new ro.solarstudios.flowcity.bridge.taxi.TaxiModule());
         Modules.register(this, new ro.solarstudios.flowcity.bridge.garaje.GarajeModule());
+        Modules.register(this, new ro.solarstudios.flowcity.bridge.gps.GpsModule());
         Modules.register(this, new ro.solarstudios.flowcity.bridge.cars.CarsModule());
         Modules.register(this, new ro.solarstudios.flowcity.bridge.permits.PermitsModule());
         Modules.register(this, new ro.solarstudios.flowcity.bridge.shop.ShopModule());
