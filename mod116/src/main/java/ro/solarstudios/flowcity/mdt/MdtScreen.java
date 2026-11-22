@@ -394,8 +394,12 @@ public final class MdtScreen extends FlowScreen {
     protected void draw(GuiGraphics ms, int mx, int my) {
         float open = Math.min(1f, (System.currentTimeMillis() - openedAt) / 260f);
         Sk.background(ms, 0, 0, width, height, open);
-        Ui.rect(ms, px, py, pw, ph, 0xEE0A0B0E);
-        Ui.rect(ms, px - 3, py, 3, ph, Sk.ACC);
+        float pulse = 0.5f + 0.5f * (float) Math.sin(System.currentTimeMillis() / 700.0);
+        Gfx.scrim(ms, px + pw / 2f, py + ph / 2f, pw * 0.62f, ph * 0.62f, Gfx.fade(Sk.ACC, 0.06f + 0.04f * pulse));
+        Sk.cut(ms, px - 1, py - 1, pw + 2, ph + 2, 13f, Gfx.fade(Sk.ACC, 0.55f));
+        Sk.cut(ms, px, py, pw, ph, 12f, 0xF20A121E);
+        Ui.rect(ms, px + 14, py + TOP, pw - 28, 1, Gfx.fade(Sk.ACC, 0.35f));
+        Ui.rect(ms, px - 3, py + 12, 3, ph - 24, Sk.ACC);
         int cx = px + RAIL;
         int cy = py + TOP;
         int cw = pw - RAIL;
@@ -525,6 +529,28 @@ public final class MdtScreen extends FlowScreen {
         return xRight - w - 4;
     }
 
+    /** Fata jucatorului (skin) 10x10, cu strat de palarie; daca nu e online, o iconita goala. */
+    private void face(GuiGraphics ms, String uuid, int x, int y, boolean online) {
+        Ui.rect(ms, x - 1, y - 1, 12, 12, online ? Gfx.fade(Sk.GOOD, 0.8f) : 0xFF2A3547);
+        try {
+            net.minecraft.client.network.play.ClientPlayNetHandler conn = net.minecraft.client.Minecraft.getInstance().getConnection();
+            net.minecraft.client.network.play.NetworkPlayerInfo info = conn == null ? null : conn.getPlayerInfo(java.util.UUID.fromString(uuid));
+            if (info == null) {
+                Ui.rect(ms, x, y, 10, 10, 0xFF182638);
+                Ui.rect(ms, x + 3, y + 2, 4, 4, 0xFF3A4A60);
+                Ui.rect(ms, x + 2, y + 7, 6, 3, 0xFF3A4A60);
+                return;
+            }
+            net.minecraft.client.Minecraft.getInstance().getTextureManager().bind(info.getSkinLocation());
+            com.mojang.blaze3d.systems.RenderSystem.enableTexture();
+            com.mojang.blaze3d.systems.RenderSystem.color4f(1f, 1f, 1f, 1f);
+            net.minecraft.client.gui.AbstractGui.blit(ms.pose(), x, y, 10, 10, 8f, 8f, 8, 8, 64, 64);
+            net.minecraft.client.gui.AbstractGui.blit(ms.pose(), x, y, 10, 10, 40f, 8f, 8, 8, 64, 64);
+        } catch (RuntimeException ex) {
+            Ui.rect(ms, x, y, 10, 10, 0xFF182638);
+        }
+    }
+
     private static String ago(long seconds) {
         if (seconds < 60) return seconds + "s";
         if (seconds < 3600) return (seconds / 60) + "m";
@@ -558,8 +584,8 @@ public final class MdtScreen extends FlowScreen {
             boolean hover = Ui.in(mx, my, cx + 1, y, LIST - 1, rowH);
             if (on) Sk.slant(ms, cx + 4, y + 1, LIST - 8, rowH - 2, 5f, Sk.ACC);
             else if (hover) Sk.slant(ms, cx + 4, y + 1, LIST - 8, rowH - 2, 5f, Sk.ROW_HOT);
-            Ui.rect(ms, cx + 11, y + 9, 4, 4, b(c, "on") ? (on ? DARK : GREEN) : 0xFF3A4455);
-            Ui.text(ms, Ui.clip(s(c, "n"), LIST - 70), cx + 20, y + 8, on ? DARK : INK);
+            face(ms, u, cx + 10, y + 7, b(c, "on"));
+            Ui.text(ms, Ui.clip(s(c, "n"), LIST - 78), cx + 26, y + 8, on ? DARK : INK);
             if (b(c, "w")) pill(ms, "MANDAT", cx + LIST - 5, y + 6, RED);
             else if (i(c, "f") > 0) Ui.textRight(ms, i(c, "f") + " am.", cx + LIST - 6, y + 8, AMBER);
             
@@ -583,8 +609,9 @@ public final class MdtScreen extends FlowScreen {
         }
         boolean wanted = b(d, "w");
         // antet de dosar
-        Gfx.text(ms, Ui.clip(s(d, "n"), dw - 90), dx, cy + 22, 14, INK, 0, true, 0f);
-        Ui.text(ms, "Fisa  #" + shortId(s(d, "u")) + "   " + (b(d, "on") ? "online" : "offline"), dx, cy + 27, FAINT);
+        face(ms, s(d, "u"), dx + 1, cy + 13, b(d, "on"));
+        Gfx.text(ms, Ui.clip(s(d, "n"), dw - 110), dx + 18, cy + 22, 14, INK, 0, true, 0f);
+        Ui.text(ms, "Fisa  #" + shortId(s(d, "u")) + "   " + (b(d, "on") ? "online" : "offline"), dx + 18, cy + 27, FAINT);
         if (wanted) {
             ms.pose().pushPose();
             ms.pose().translate(x0 + w0 - 74, cy + 12, 0);
