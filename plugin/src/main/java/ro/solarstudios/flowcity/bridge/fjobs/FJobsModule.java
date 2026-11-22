@@ -121,6 +121,7 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
     private final Map<UUID, RouteRun> routes = new HashMap<>();
     private final Map<UUID, Map<String, RateWindow>> rates = new HashMap<>();
     private final Map<UUID, Long> lastAction = new HashMap<>();
+    private final Map<UUID, Long> lastOp = new HashMap<>();
     private final Map<UUID, Long> warnedLevel = new HashMap<>();
     private final Set<UUID> viewers = new HashSet<>();
     private final List<BukkitTask> tasks = new ArrayList<>();
@@ -166,6 +167,7 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
         on("panel_close", (p, j) -> panelViewers.remove(p.getUniqueId()));
         on("panel_act", this::panelAct);
         on("opt", this::panelOpt);
+        on("job_op", this::jobOp);
         on("mg_answer", (p, j) -> challenges.answer(p, j));
         on("mg_cancel", (p, j) -> challenges.cancel(p));
         on("adm_set", this::admSet);
@@ -273,6 +275,12 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
                 j.stations.put(k, l);
             }
         }
+        ConfigurationSection oc = o.getConfigurationSection("conf");
+        if (oc != null && j.conf != null) {
+            for (String k : oc.getKeys(true)) {
+                if (!oc.isConfigurationSection(k)) j.conf.set(k, oc.get(k));
+            }
+        }
         if (o.contains("route")) {
             ensureRoute(j);
             j.route.points.clear();
@@ -327,10 +335,6 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
     private int profileLevel(FJobsData.Profile pr) {
         return HypeMath.levelFor(pr.totalXp(), cfg.getDouble("settings.profile-xp-base", 150), cfg.getDouble("settings.profile-xp-growth", 1.3),
             cfg.getInt("settings.profile-max-level", 100));
-    }
-
-    private boolean isAdmin(Player p) {
-        return p.hasPermission(PERM_ADMIN);
     }
 
     private boolean creative(Player p) {
@@ -1292,6 +1296,23 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
         if (panelViewers.contains(p.getUniqueId())) sendPanel(p, jd, a);
     }
 
+    /** Operatie directa a activitatii (mini-jocuri, cumparaturi): fara retrimiterea panoului, cu limita proprie de ritm. Activitatea valideaza tot. */
+    private void jobOp(Player p, JsonObject j) {
+        long now = System.currentTimeMillis();
+        Long last = lastOp.get(p.getUniqueId());
+        if (last != null && now - last < 70) return;
+        lastOp.put(p.getUniqueId(), now);
+        FJobsData.Profile pr = prof(p);
+        FJobDef jd = pr.job.isEmpty() ? null : jobs.get(pr.job);
+        JobActivity a = actOf(jd);
+        if (a == null || !jd.active || creative(p)) return;
+        try {
+            a.action(p, jd, str(j, "act", ""), j);
+        } catch (RuntimeException ex) {
+            actError("op", jd, ex);
+        }
+    }
+
     private void panelOpt(Player p, JsonObject j) {
         if (throttled(p)) return;
         FJobsData.Profile pr = prof(p);
@@ -1409,6 +1430,26 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
     }
 
     @Override
+    public boolean isAdmin(Player p) {
+        return p.hasPermission(PERM_ADMIN);
+    }
+
+    @Override
+    public JsonObject jobInfo(Player p) {
+        return profJson(p, prof(p));
+    }
+
+    @Override
+    public void setConf(FJobDef jd, String path, Object value) {
+        if (jd == null || jd.conf == null || path == null) return;
+        jd.conf.set(path, value);
+        over.set("jobs." + jd.id + ".conf." + path, value);
+        saveOver();
+        recheck(jd);
+        pushToViewers();
+    }
+
+    @Override
     public FJobDef working(Player p) {
         return customJob(p);
     }
@@ -1464,6 +1505,7 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
         lastAction.remove(p.getUniqueId());
         warnedLevel.remove(p.getUniqueId());
         panelViewers.remove(p.getUniqueId());
+        lastOp.remove(p.getUniqueId());
         FJobsData.Profile pr = store.peek(p.getUniqueId());
         if (pr != null) {
             if (pr.inShift()) closeShift(p, pr, false, null);

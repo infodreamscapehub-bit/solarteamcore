@@ -44,7 +44,8 @@ categories:
       - {usage: "/fjobs", desc: "Deschide Job Center (și tasta J)", perm: "flowcity.fjobs.use"}
       - {usage: "/fjobs open <jucător>", desc: "Deschide Job Center pentru un jucător (NPC)", perm: "flowcity.fjobs.admin"}
       - {usage: "Panou job (buton în Job Center)", desc: "Obiectivele, statisticile, dificultatea și recompensele jobului tău civil", perm: ""}
-      - {usage: "Electrician / Mecanic", desc: "Comandă la tablou/box, click dreapta, diagnostic + reparație prin mini-joc", perm: ""}
+      - {usage: "Electrician", desc: "Panou propriu: ÎNCEPE TURĂ, intervenții disponibile (accepți una), mergi la locație, click dreapta pe punct → panou electric cu 4 mini-jocuri (circuit, siguranțe cu multimetru, secvență, calibrare). Echipament real din panou, 6 niveluri (Ucenic → Inginer Electric)", perm: ""}
+      - {usage: "Mecanic", desc: "Comandă la box, click dreapta, diagnostic + reparație prin mini-joc", perm: ""}
       - {usage: "Curier / Poștaș", desc: "Click dreapta la depozit/oficiu, livrezi coletele (iteme) la adrese, verifici destinatarul", perm: ""}
       - {usage: "Gunoier / Spălător geamuri", desc: "Rute cu saci și camion; platformă + racletă cu click dreapta pe geam", perm: ""}
       - {usage: "Taxi / Autobuz", desc: "Comenzi și statii în ordine; aparatul numără distanța parcursă", perm: ""}

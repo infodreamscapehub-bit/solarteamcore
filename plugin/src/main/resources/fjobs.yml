@@ -258,31 +258,161 @@ jobs:
     name: "Electrician"
     icon: bolt
     group: "Servicii"
-    desc: "Interventii la tablouri electrice: diagnostic, apoi reparatie prin mini-jocuri (siguranta, cablaj, suprasarcina, circuit nou)."
+    desc: "Job complet de electrician: oferte de interventii (panouri, retele, generatoare, transformatoare), panou electric cu 4 mini-jocuri, echipament real, 6 niveluri de la Ucenic la Inginer Electric."
     difficulty: "Mediu"
-    est-pay: 750
+    est-pay: 900
     est-minutes: 30
-    limit-per-minute: 30
-    tasks: ["Incepe tura si asteapta o comanda", "Mergi la tablou (GPS) si da click dreapta pe el", "Diagnosticheaza defectul", "Repara cu mini-jocul potrivit"]
+    limit-per-minute: 400
+    tasks: ["Incepe tura si deschide panoul jobului", "Alege o interventie disponibila (ai nevoie de trusa)", "Mergi la locatie (GPS) si da click dreapta pe panou", "Rezolva etapele in panoul electric: circuit, siguranta, secventa, calibrare"]
     activity: custom
     kind: electrician
-    levels:                       # dificultati alese din panoul jobului (pay/xp = multiplicatori, size = marimea sarcinii, seconds = timp pe mini-joc)
-      usor:  {name: "Usor",  min-level: 0, pay: 1.0, xp: 1.0, size: 2, seconds: 75, attempts: 3}
-      mediu: {name: "Mediu", min-level: 3, pay: 1.5, xp: 1.4, size: 3, seconds: 55, attempts: 3}
-      greu:  {name: "Greu",  min-level: 7, pay: 2.2, xp: 2.0, size: 5, seconds: 40, attempts: 2}
-    order-timeout-seconds: 360    # comanda expira
-    order-delay-seconds: 6        # pauza pana la comanda urmatoare
-    panel-cooldown-seconds: 90    # acelasi tablou nu mai e dat imediat
-    fail-lock-seconds: 120        # tabloul se blocheaza dupa esec
-    interact-radius: 3.5
-    faults:                       # defecte (pay/xp de baza, min-level = nivel de job necesar)
-      fuse:     {name: "Siguranta arsa", pay: 30, xp: 10, min-level: 0, symptom: "Tabloul nu mai da curent; indicatorul F2 e stins."}
-      wire:     {name: "Cablu desprins", pay: 40, xp: 14, min-level: 0, symptom: "Tensiune instabila; un fir atarna in dreptul clemei."}
-      overload: {name: "Suprasarcina", pay: 55, xp: 18, min-level: 3, symptom: "Intrerupatorul general declanseaza la scurt timp dupa resetare."}
-      install:  {name: "Circuit nou de conectat", pay: 80, xp: 26, min-level: 6, symptom: "Circuit nou, neracordat; trebuie conectate toate liniile."}
-    # stations:                   # se seteaza din joc (Administrare -> job -> puncte), nu manual
-    #   panel:
-    #     - {name: "Tablou Primarie", world: world, x: 100, y: 64, z: 100}   # EXEMPLU dezactivat
+    # ---- generare oferte
+    max-offers: 5                 # cate interventii disponibile are un electrician odata
+    gen-interval-seconds: 8       # la cate secunde apare o oferta noua
+    offer-ttl-seconds: 420        # oferta dispare daca nu e acceptata
+    run-timeout-seconds: 900      # timp total pentru o interventie acceptata
+    site-cooldown-seconds: 90     # aceeasi locatie nu mai e oferita imediat dupa succes
+    fail-lock-seconds: 120        # ...si dupa esec
+    interact-radius: 4.0          # distanta de la punct pentru click dreapta (mini-jocurile merg pana la raza + 8)
+    stage-retries: 1              # de cate ori poti repeta o etapa esuata, la aceeasi interventie
+    shock-damage: 4               # viata pierduta la esec fara echipament de protectie (nu omoara niciodata)
+    protection-from-diff: 4       # de la ce dificultate e obligatoriu echipamentul de protectie
+    starter:                      # primesti o singura data la prima tura
+      enabled: true
+      trusa: 1
+      siguranta: 2
+      cablu: 2
+    # ---- niveluri profesionale (legate de nivelul jobului; max-diff = dificultatea maxima a interventiilor, pay-bonus = bonus de plata)
+    ranks:
+      ucenic:      {name: "Ucenic",              min-level: 0,  max-diff: 1, pay-bonus: 0.00}
+      junior:      {name: "Electrician Junior",  min-level: 4,  max-diff: 2, pay-bonus: 0.05}
+      electrician: {name: "Electrician",         min-level: 8,  max-diff: 3, pay-bonus: 0.10}
+      senior:      {name: "Electrician Senior",  min-level: 14, max-diff: 4, pay-bonus: 0.15}
+      specialist:  {name: "Specialist Electric", min-level: 22, max-diff: 5, pay-bonus: 0.22}
+      inginer:     {name: "Inginer Electric",    min-level: 32, max-diff: 5, pay-bonus: 0.30}
+    # ---- tipuri de interventii (reward/xp de baza; la dificultate mai mare cresc cu ~35% / ~30% pe treapta)
+    # stages: ordinea etapelor din panoul electric (circuit = conectare prin tragere, fuse = siguranta + multimetru,
+    #         seq = secventa electrica progresiva, calib = calibrare tensiune). needs = material consumat/necesar (id echipament: numar)
+    types:
+      panou:
+        name: "Panou electric defect"
+        symptom: "Tabloul nu mai da curent; semnalizarile sunt stinse."
+        reward: 70
+        xp: 22
+        seconds: 150
+        min-rank: 0
+        min-diff: 1
+        max-diff: 5
+        volt: 230
+        stages: [fuse, circuit]
+        enabled: true
+      retea:
+        name: "Retea electrica intrerupta"
+        symptom: "Un tronson de retea a cazut; cartierul e fara curent."
+        reward: 95
+        xp: 30
+        seconds: 180
+        min-rank: 1
+        min-diff: 1
+        max-diff: 5
+        volt: 400
+        stages: [circuit, calib]
+        enabled: true
+      sigurante:
+        name: "Sigurante arse"
+        symptom: "Sigurantele au sarit dupa o suprasarcina."
+        reward: 55
+        xp: 18
+        seconds: 120
+        min-rank: 0
+        min-diff: 1
+        max-diff: 4
+        volt: 230
+        stages: [fuse, seq]
+        enabled: true
+      cablu:
+        name: "Cablu deteriorat"
+        symptom: "Izolatia cablului e rupta; scurtcircuit intermitent."
+        reward: 85
+        xp: 26
+        seconds: 160
+        min-rank: 1
+        min-diff: 1
+        max-diff: 5
+        volt: 230
+        stages: [circuit, calib]
+        needs: {cablu: 1}
+        enabled: true
+      generator:
+        name: "Generator defect"
+        symptom: "Generatorul porneste si se opreste; tensiunea oscileaza."
+        reward: 120
+        xp: 36
+        seconds: 210
+        min-rank: 2
+        min-diff: 2
+        max-diff: 5
+        volt: 400
+        stages: [seq, calib, fuse]
+        enabled: true
+      transformator:
+        name: "Transformator defect"
+        symptom: "Transformatorul de cartier s-a supraincalzit."
+        reward: 170
+        xp: 52
+        seconds: 260
+        min-rank: 3
+        min-diff: 3
+        max-diff: 5
+        volt: 20000
+        stages: [fuse, circuit, calib, seq]
+        needs: {protectie: 1}
+        enabled: true
+      instalatie:
+        name: "Instalatie electrica avariata"
+        symptom: "Instalatia cladirii e avariata; mai multe circuite nu functioneaza."
+        reward: 140
+        xp: 42
+        seconds: 240
+        min-rank: 2
+        min-diff: 2
+        max-diff: 5
+        volt: 230
+        stages: [circuit, fuse, seq]
+        needs: {cablu: 2}
+        enabled: true
+      iluminat:
+        name: "Defectiune iluminat stradal"
+        symptom: "Stalpii de pe strada nu se mai aprind."
+        reward: 65
+        xp: 20
+        seconds: 140
+        min-rank: 0
+        min-diff: 1
+        max-diff: 4
+        volt: 230
+        stages: [circuit, seq]
+        enabled: true
+    # ---- echipament (se cumpara din panoul jobului; sunt iteme reale cu eticheta, folosite in interventii)
+    # price/pack/min-rank/max se pot schimba din panoul jobului (admin) sau aici; material = material Minecraft al itemului
+    equipment:
+      trusa:      {name: "Trusa electrician",       material: ORANGE_SHULKER_BOX, price: 120, pack: 1, min-rank: 0, max: 1,  desc: "Obligatorie pentru orice interventie."}
+      multimetru: {name: "Multimetru",              material: COMPARATOR,         price: 90,  pack: 1, min-rank: 0, max: 1,  desc: "Masoara siguranta defecta (fara el ghicesti)."}
+      cleste:     {name: "Cleste izolat",           material: SHEARS,             price: 60,  pack: 1, min-rank: 1, max: 1,  desc: "+1 greseala permisa la conectarea circuitelor."}
+      cablu:      {name: "Cablu electric",          material: STRING,             price: 20,  pack: 4, min-rank: 0, max: 16, desc: "Material consumat la cabluri deteriorate si instalatii."}
+      siguranta:  {name: "Siguranta fuzibila",      material: REDSTONE,           price: 15,  pack: 4, min-rank: 0, max: 24, desc: "Se foloseste la inlocuirea sigurantelor arse."}
+      protectie:  {name: "Echipament de protectie", material: GOLDEN_HELMET,      price: 200, pack: 1, min-rank: 2, max: 1,  desc: "Fara soc electric la esec; obligatoriu la tensiune inalta."}
+    station-names:                # numele implicit al punctelor setate de admin
+      panou: "Panou electric {n}"
+      retea: "Retea {n}"
+      sigurante: "Tablou sigurante {n}"
+      cablu: "Cablu {n}"
+      generator: "Generator {n}"
+      transformator: "Transformator {n}"
+      instalatie: "Instalatie {n}"
+      iluminat: "Stalp {n}"
+      panel: "Punct electric {n}"
+    # puncte: Administrare -> Electrician -> puncte (pe tipuri), sau panoul jobului -> Administrare. Un tip fara puncte proprii foloseste punctele "panel".
   # ---------------------------- CIVILE: livrari (functionale dupa ce adminul seteaza punctele) ----------------------------
   courier:
     name: "Curier"

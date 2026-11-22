@@ -9,6 +9,8 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import org.lwjgl.glfw.GLFW;
 import ro.solarstudios.flowcity.client.ClientBridge;
 import ro.solarstudios.flowcity.client.ui.FlowScreen;
+import ro.solarstudios.flowcity.fjobs.elec.ElecClient;
+import ro.solarstudios.flowcity.fjobs.elec.ElecPanelScreen;
 import ro.solarstudios.flowcity.compat.RegisterKeyMappingsEvent;
 import ro.solarstudios.flowcity.hype.HypeState;
 import ro.solarstudios.flowcity.module.ClientModules;
@@ -23,6 +25,7 @@ public final class FJobsClient extends JsonClientModule {
     /** Ultimul panou de job primit (obiective, statistici, butoane). */
     static JsonObject panel;
     private static boolean wantPanel;
+    private static long panelAt;
     private static KeyBinding panelKey;
 
     private FJobsClient() {
@@ -34,12 +37,23 @@ public final class FJobsClient extends JsonClientModule {
         on("hud", FJobsHud::apply);
         on("panel", d -> {
             panel = d;
+            panelAt = System.currentTimeMillis();
             Minecraft mc = Minecraft.getInstance();
-            if (wantPanel && !(mc.screen instanceof FJobsPanelScreen)) {
+            boolean elec = "electrician".equals(str(d, "kind", ""));
+            if (wantPanel && elec && !(mc.screen instanceof ElecPanelScreen)) {
+                wantPanel = false;
+                mc.setScreen(new ElecPanelScreen());
+            } else if (wantPanel && !elec && !(mc.screen instanceof FJobsPanelScreen)) {
                 wantPanel = false;
                 mc.setScreen(new FJobsPanelScreen());
             }
         });
+        // jobul Electrician: panou electric, mini-jocuri, rezultat (serverul decide, clientul doar afiseaza)
+        on("el_board", ElecClient::onBoard);
+        on("el_game", ElecClient::onGame);
+        on("el_gres", ElecClient::onGameResult);
+        on("el_result", ElecClient::onResult);
+        on("el_close", d -> ElecClient.onClose());
         on("mg_open", d -> {
             Minecraft mc = Minecraft.getInstance();
             FJobsMiniGameScreen s = new FJobsMiniGameScreen(d);
@@ -72,6 +86,7 @@ public final class FJobsClient extends JsonClientModule {
         data = null;
         panel = null;
         wantPanel = false;
+        ElecClient.reset();
         FJobsHud.clear();
     }
 
@@ -100,6 +115,26 @@ public final class FJobsClient extends JsonClientModule {
         request("req", new JsonObject());
         Minecraft mc = Minecraft.getInstance();
         if (!(mc.screen instanceof FJobsScreen)) mc.setScreen(new FJobsScreen());
+    }
+
+    /** Panoul jobului primit ultima oara (sau null). */
+    public static JsonObject panelData() {
+        return panel;
+    }
+
+    /** Momentul (ms) la care a venit ultimul panou. */
+    public static long panelAt() {
+        return panelAt;
+    }
+
+    /** Trimite o cerere catre modulul FJobs de pe server. */
+    public static void req(String action, JsonObject o) {
+        request(action, o);
+    }
+
+    /** Operatie a activitatii jobului curent (validata pe server, fara retrimiterea panoului). */
+    public static void requestOp(JsonObject o) {
+        request("job_op", o);
     }
 
     static void request(String action, JsonObject o) {

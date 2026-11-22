@@ -56,6 +56,14 @@ public interface FJobsApi {
     /** Jobul activ in tura cu logica proprie sau null. */
     FJobDef working(Player p);
 
+    boolean isAdmin(Player p);
+
+    /** Profilul jucatorului (nivel de job, XP, banii) ca JSON: jobLevel, jobXp, jobXpNeed, cash. */
+    JsonObject jobInfo(Player p);
+
+    /** Seteaza o valoare din configul jobului si o pastreaza in fjobs-admin.yml (suprascrie fjobs.yml). */
+    void setConf(FJobDef jd, String path, Object value);
+
     /** Retrimite panoul jobului (dupa schimbari de stare). */
     void refreshPanel(Player p);
 }
