@@ -47,6 +47,7 @@ public final class ClientInit {
         ro.solarstudios.flowcity.docs.DocsClient.register();
         ro.solarstudios.flowcity.politie.PolitieClient.register();
         ro.solarstudios.flowcity.hudeditor.HudEditorClient.register();
+        ro.solarstudios.flowcity.cars.client.GarageAdminClient.register();
         ro.solarstudios.flowcity.taxi.TaxiClient.register();
         ro.solarstudios.flowcity.cars.client.GaragesClient.register();
         if (ro.solarstudios.flowcity.cars.CarsCompat.loaded()) ro.solarstudios.flowcity.cars.client.CarHud.register();
@@ -68,6 +69,7 @@ public final class ClientInit {
     }
 
     private static boolean openHudEditor;
+    private static boolean openGarageAdmin;
 
     public static final class Events {
         @SubscribeEvent
@@ -77,6 +79,10 @@ public final class ClientInit {
                 e.setCanceled(true);
                 Minecraft.getInstance().gui.getChat().addRecentChat(e.getMessage());
                 openHudEditor = true;
+            } else if (m.equals(".garaje")) {
+                e.setCanceled(true);
+                Minecraft.getInstance().gui.getChat().addRecentChat(e.getMessage());
+                openGarageAdmin = true;
             } else if (m.equals(".hudstyle") || m.startsWith(".hudstyle ")) {
                 e.setCanceled(true);
                 Minecraft.getInstance().gui.getChat().addRecentChat(e.getMessage());
@@ -137,6 +143,10 @@ public final class ClientInit {
             if (openHudEditor && (mc.screen == null || mc.screen instanceof net.minecraft.client.gui.screen.ChatScreen)) {
                 openHudEditor = false;
                 mc.setScreen(new ro.solarstudios.flowcity.client.ui.HudEditorScreen());
+            }
+            if (openGarageAdmin && (mc.screen == null || mc.screen instanceof net.minecraft.client.gui.screen.ChatScreen)) {
+                openGarageAdmin = false;
+                mc.setScreen(new ro.solarstudios.flowcity.cars.client.GarageAdminScreen());
             }
             if (hudEdit != null) {
                 while (hudEdit.consumeClick()) {

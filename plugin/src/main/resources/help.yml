@@ -176,6 +176,7 @@ categories:
       - {usage: "/payday now [jucător]", desc: "Plătește PayDay-ul imediat unui jucător", perm: "flowcity.payday.admin"}
       - {usage: "/telefon da [jucător]", desc: "Dai un telefon", perm: "flowcity.phone.give"}
       - {usage: "/hudeditor <jucător>", desc: "Deschide editorul de HUD pentru alt jucător", perm: "flowcity.hudeditor.others"}
+      - {usage: "/garaje", desc: "Deschide ecranul de administrare a garajelor (listă, șterge, șterge toate, creează, mută, teleport). Alias /garajeadmin, în chat: .garaje", perm: "flowcity.garaje.admin"}
       - {usage: "/lpsetup", desc: "Creează grupurile LuckPerms de roleplay (o singură dată)", perm: "flowcity.lpsetup"}
       - {usage: "/help reload", desc: "Reîncarcă help.yml", perm: "flowcity.help.admin"}
       - {usage: "/eadmin <info|warn|mute|kick|ban|...> <jucător>", desc: "Moderare", perm: "flowcity.eadmin"}

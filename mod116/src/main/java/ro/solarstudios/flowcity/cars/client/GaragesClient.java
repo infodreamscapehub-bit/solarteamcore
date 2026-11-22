@@ -56,6 +56,7 @@ public final class GaragesClient {
         public String dim;
         public double mx, my, mz, sx, sy, sz;
         public boolean store;
+        public int slots;
         public float r;
         public boolean access;
     }
@@ -121,6 +122,7 @@ public final class GaragesClient {
                     g.my = JsonClientModule.num(j, "my", 0);
                     g.mz = JsonClientModule.num(j, "mz", 0);
                     g.store = JsonClientModule.bool(j, "store", false);
+                    g.slots = JsonClientModule.integer(j, "slots", 0);
                     g.sx = JsonClientModule.num(j, "sx", 0);
                     g.sy = JsonClientModule.num(j, "sy", 0);
                     g.sz = JsonClientModule.num(j, "sz", 0);

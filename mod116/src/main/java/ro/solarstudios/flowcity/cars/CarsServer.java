@@ -51,8 +51,15 @@ public final class CarsServer {
     // ------------------------------------------------------------------ actiuni din interfata
 
     static void handle(ServerPlayerEntity p, String act, int a, int b) {
+        handle(p, act, a, b, "");
+    }
+
+    static void handle(ServerPlayerEntity p, String act, int a, int b, String text) {
         GarageData data = GarageData.get(p.server);
         switch (act) {
+            case "gadmin":
+                gadmin(p, a, b, text);
+                break;
             case "open":
                 openMenu(p, data, data.garage(a), true, "");
                 break;
@@ -604,6 +611,7 @@ public final class CarsServer {
             j.addProperty("my", g.my);
             j.addProperty("mz", g.mz);
             j.addProperty("store", g.hasStore);
+            j.addProperty("slots", g.slots.size());
             j.addProperty("sx", g.sx);
             j.addProperty("sy", g.sy);
             j.addProperty("sz", g.sz);
@@ -912,9 +920,10 @@ public final class CarsServer {
         return 1;
     }
 
-    private static GarageData.Garage create(CommandContext<CommandSource> c, String type, String faction, String name) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
-        ServerPlayerEntity p = c.getSource().getPlayerOrException();
-        GarageData data = GarageData.get(c.getSource().getServer());
+    // ------------------------------------------------------------------ operatii admin garaje (comenzi /garaj + ecranul /garaje)
+
+    static GarageData.Garage createGarage(ServerPlayerEntity p, String type, String faction, String name) {
+        GarageData data = GarageData.get(p.server);
         GarageData.Garage g = data.addGarage();
         g.name = name;
         g.type = type;
@@ -925,6 +934,144 @@ public final class CarsServer {
         g.mz = p.getZ();
         data.setDirty();
         return g;
+    }
+
+    static boolean deleteGarage(MinecraftServer server, int id) {
+        GarageData data = GarageData.get(server);
+        if (data.garage(id) == null) return false;
+        data.removeGarage(id);
+        return true;
+    }
+
+    static int deleteAllGarages(MinecraftServer server) {
+        GarageData data = GarageData.get(server);
+        List<GarageData.Garage> all = new ArrayList<>(data.garages());
+        for (GarageData.Garage g : all) data.removeGarage(g.id);
+        return all.size();
+    }
+
+    static boolean moveGarage(ServerPlayerEntity p, int id) {
+        GarageData data = GarageData.get(p.server);
+        GarageData.Garage g = data.garage(id);
+        if (g == null) return false;
+        g.dim = p.level.dimension().location().toString();
+        g.mx = p.getX();
+        g.my = p.getY();
+        g.mz = p.getZ();
+        data.setDirty();
+        return true;
+    }
+
+    static boolean setStoreHere(ServerPlayerEntity p, int id, float r) {
+        GarageData data = GarageData.get(p.server);
+        GarageData.Garage g = data.garage(id);
+        if (g == null) return false;
+        g.hasStore = true;
+        g.sx = p.getX();
+        g.sy = p.getY();
+        g.sz = p.getZ();
+        g.radius = r;
+        data.setDirty();
+        return true;
+    }
+
+    /** Adauga un loc de spawn unde stai; intoarce numarul de locuri sau -1 daca garajul nu exista. */
+    static int addSlotHere(ServerPlayerEntity p, int id) {
+        GarageData data = GarageData.get(p.server);
+        GarageData.Garage g = data.garage(id);
+        if (g == null) return -1;
+        g.slots.add(new double[] {p.getX(), p.getY(), p.getZ(), p.yRot});
+        data.setDirty();
+        return g.slots.size();
+    }
+
+    /**
+     * Ecranul de administrare (/garaje). op: 0 reimprospatare, 1 sterge (b = garaj), 2 sterge toate, 3 muta aici (b), 4 teleporteaza (b),
+     * 5 creeaza public (text = nume), 6 creeaza pound (text = nume), 7 creeaza factiune (text = "factiune:nume"),
+     * 8 zona de parcare aici (b), 9 loc de spawn aici (b), 10 sterge locurile (b).
+     */
+    private static void gadmin(ServerPlayerEntity p, int op, int id, String text) {
+        if (!p.hasPermissions(2)) {
+            p.displayClientMessage(new StringTextComponent("\u00a7cNu ai permisiunea."), false);
+            return;
+        }
+        GarageData data = GarageData.get(p.server);
+        String res = null;
+        String name = text == null ? "" : text.trim();
+        switch (op) {
+            case 0:
+                syncTo(p, true);
+                return;
+            case 1:
+                res = deleteGarage(p.server, id) ? "Garaj sters (masinile raman ale jucatorilor)." : "Garajul nu exista.";
+                break;
+            case 2:
+                res = deleteAllGarages(p.server) + " garaje sterse (masinile raman ale jucatorilor).";
+                break;
+            case 3:
+                res = moveGarage(p, id) ? "Markerul garajului a fost mutat aici." : "Garajul nu exista.";
+                break;
+            case 4: {
+                GarageData.Garage g = data.garage(id);
+                if (g == null) {
+                    res = "Garajul nu exista.";
+                    break;
+                }
+                ServerWorld w = p.server.getLevel(net.minecraft.util.RegistryKey.create(net.minecraft.util.registry.Registry.DIMENSION_REGISTRY, new ResourceLocation(g.dim)));
+                if (w == null) w = p.getLevel();
+                p.teleportTo(w, g.mx, g.my + 0.5, g.mz, p.yRot, p.xRot);
+                res = "Teleportat la " + g.name + ".";
+                break;
+            }
+            case 5:
+            case 6:
+                if (name.isEmpty()) {
+                    res = "Scrie un nume pentru garaj.";
+                    break;
+                }
+                GarageData.Garage n = createGarage(p, op == 5 ? GarageData.PUBLIC : GarageData.POUND, "", name);
+                res = (op == 5 ? "Garaj #" : "Pound #") + n.id + " creat aici. Seteaza parcarea si locurile din ecran.";
+                break;
+            case 7: {
+                int i = name.indexOf(':');
+                String f = i > 0 ? name.substring(0, i).trim().toLowerCase() : "";
+                String nm = i > 0 ? name.substring(i + 1).trim() : "";
+                if (!f.matches("[a-z0-9_]{1,24}") || nm.isEmpty()) {
+                    res = "Factiune invalida sau nume lipsa.";
+                    break;
+                }
+                GarageData.Garage n2 = createGarage(p, GarageData.FACTION, f, nm);
+                res = "Garaj de factiune #" + n2.id + " (" + f + ") creat. Membrii au tag-ul fc_" + f + ".";
+                break;
+            }
+            case 8:
+                res = setStoreHere(p, id, 4f) ? "Zona de parcare a garajului e aici (raza 4)." : "Garajul nu exista.";
+                break;
+            case 9: {
+                int cnt = addSlotHere(p, id);
+                res = cnt < 0 ? "Garajul nu exista." : "Loc de spawn #" + cnt + " adaugat (masina va fi intoarsa cum privesti acum).";
+                break;
+            }
+            case 10: {
+                GarageData.Garage g = data.garage(id);
+                if (g == null) {
+                    res = "Garajul nu exista.";
+                    break;
+                }
+                g.slots.clear();
+                data.setDirty();
+                res = "Locurile de spawn au fost sterse.";
+                break;
+            }
+            default:
+                break;
+        }
+        if (res != null) p.displayClientMessage(new StringTextComponent("\u00a7b[Garaje] \u00a77" + res), false);
+        syncAll(p.server);
+    }
+
+    private static GarageData.Garage create(CommandContext<CommandSource> c, String type, String faction, String name) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        return createGarage(c.getSource().getPlayerOrException(), type, faction, name);
     }
 
     private static LiteralArgumentBuilder<CommandSource> garajCommand() {
@@ -948,13 +1095,9 @@ public final class CarsServer {
                 .executes(c -> setStore(c, 4f))
                 .then(Commands.argument("raza", FloatArgumentType.floatArg(2, 16)).executes(c -> setStore(c, FloatArgumentType.getFloat(c, "raza"))))))
             .then(Commands.literal("loc").then(Commands.argument("id", IntegerArgumentType.integer(1)).executes(c -> {
-                ServerPlayerEntity p = c.getSource().getPlayerOrException();
-                GarageData data = GarageData.get(c.getSource().getServer());
-                GarageData.Garage g = data.garage(IntegerArgumentType.getInteger(c, "id"));
-                if (g == null) return fail(c, "Garajul nu exista.");
-                g.slots.add(new double[] {p.getX(), p.getY(), p.getZ(), p.yRot});
-                data.setDirty();
-                return ok(c, "Loc de parcare #" + g.slots.size() + " adaugat la " + g.name + " (masina va fi intoarsa cum privesti acum).");
+                int cnt = addSlotHere(c.getSource().getPlayerOrException(), IntegerArgumentType.getInteger(c, "id"));
+                if (cnt < 0) return fail(c, "Garajul nu exista.");
+                return ok(c, "Loc de parcare #" + cnt + " adaugat (masina va fi intoarsa cum privesti acum).");
             })))
             .then(Commands.literal("locuri").then(Commands.argument("id", IntegerArgumentType.integer(1)).then(Commands.literal("sterge").executes(c -> {
                 GarageData data = GarageData.get(c.getSource().getServer());
@@ -965,26 +1108,13 @@ public final class CarsServer {
                 return ok(c, "Locurile de parcare au fost sterse.");
             }))))
             .then(Commands.literal("muta").then(Commands.argument("id", IntegerArgumentType.integer(1)).executes(c -> {
-                ServerPlayerEntity p = c.getSource().getPlayerOrException();
-                GarageData data = GarageData.get(c.getSource().getServer());
-                GarageData.Garage g = data.garage(IntegerArgumentType.getInteger(c, "id"));
-                if (g == null) return fail(c, "Garajul nu exista.");
-                g.dim = p.level.dimension().location().toString();
-                g.mx = p.getX();
-                g.my = p.getY();
-                g.mz = p.getZ();
-                data.setDirty();
+                if (!moveGarage(c.getSource().getPlayerOrException(), IntegerArgumentType.getInteger(c, "id"))) return fail(c, "Garajul nu exista.");
                 return ok(c, "Markerul garajului a fost mutat aici.");
             })))
             .then(Commands.literal("sterge").then(Commands.literal("toate").executes(c -> {
-                GarageData data = GarageData.get(c.getSource().getServer());
-                List<GarageData.Garage> all = new java.util.ArrayList<>(data.garages());
-                for (GarageData.Garage g : all) data.removeGarage(g.id);
-                return ok(c, all.size() + " garaje sterse (masinile raman ale jucatorilor).");
+                return ok(c, deleteAllGarages(c.getSource().getServer()) + " garaje sterse (masinile raman ale jucatorilor).");
             })).then(Commands.argument("id", IntegerArgumentType.integer(1)).executes(c -> {
-                GarageData data = GarageData.get(c.getSource().getServer());
-                if (data.garage(IntegerArgumentType.getInteger(c, "id")) == null) return fail(c, "Garajul nu exista.");
-                data.removeGarage(IntegerArgumentType.getInteger(c, "id"));
+                if (!deleteGarage(c.getSource().getServer(), IntegerArgumentType.getInteger(c, "id"))) return fail(c, "Garajul nu exista.");
                 return ok(c, "Garaj sters (masinile raman ale jucatorilor).");
             })))
             .then(Commands.literal("lista").executes(c -> {
@@ -1049,17 +1179,8 @@ public final class CarsServer {
     }
 
     private static int setStore(CommandContext<CommandSource> c, float r) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
-        ServerPlayerEntity p = c.getSource().getPlayerOrException();
-        GarageData data = GarageData.get(c.getSource().getServer());
-        GarageData.Garage g = data.garage(IntegerArgumentType.getInteger(c, "id"));
-        if (g == null) return fail(c, "Garajul nu exista.");
-        g.hasStore = true;
-        g.sx = p.getX();
-        g.sy = p.getY();
-        g.sz = p.getZ();
-        g.radius = r;
-        data.setDirty();
-        return ok(c, "Zona de parcare a garajului " + g.name + " e aici (raza " + r + ").");
+        if (!setStoreHere(c.getSource().getPlayerOrException(), IntegerArgumentType.getInteger(c, "id"), r)) return fail(c, "Garajul nu exista.");
+        return ok(c, "Zona de parcare a garajului e aici (raza " + r + ").");
     }
 
     private static LiteralArgumentBuilder<CommandSource> carsCommand() {
