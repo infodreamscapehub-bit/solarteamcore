@@ -774,8 +774,9 @@ public final class GpsScreen extends FlowScreen {
         Sk.cut(g, bx, by, 38, 38, 8, menuOpen || hov ? 0xF0223656 : 0xF0081018);
         for (int i = 0; i < 3; i++) Gfx.rrect(g, bx + 10, by + 11 + i * 6, 18, 2.4f, 1, Sk.WHITE);
         hitF(bx, by, 38, 38, () -> menuOpen = !menuOpen);
+        btn(g, "MINIMAP", bx + 46, by, 96, 38, 0, mx, my, () -> mc.setScreen(new MiniMapSettingsScreen()));
         if (GpsData.admin) {
-            btn(g, "EDITOR HARTĂ", bx + 46, by, 132, 38, 0, mx, my, () -> mc.setScreen(new MapEditorScreen(camX, camZ, zoom)));
+            btn(g, "EDITOR HARTĂ", bx + 150, by, 132, 38, 0, mx, my, () -> mc.setScreen(new MapEditorScreen(camX, camZ, zoom)));
         }
         if (menuOpen) {
             String[] items = {

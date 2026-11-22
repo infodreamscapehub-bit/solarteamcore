@@ -23,6 +23,7 @@ public final class GpsClient extends JsonClientModule {
     private static GpsClient instance;
     private static boolean wantOpen;
     private static long lastRequest;
+    private static int lowTick;
 
     private GpsClient() {
         on("config", d -> {
@@ -58,11 +59,13 @@ public final class GpsClient extends JsonClientModule {
         ClientModules.register(instance);
         MinecraftForge.EVENT_BUS.register(new Events());
         MinecraftForge.EVENT_BUS.register(new GpsHud.Events());
+        MiniMapClient.register();
     }
 
     public static void registerKeys(RegisterKeyMappingsEvent e) {
         key = new KeyBinding("key.flowcity.gps", GLFW.GLFW_KEY_M, "key.categories.flowcity");
         e.register(key);
+        MiniMapClient.registerKeys(e);
     }
 
     /** Cere configul de la server (cel mult o data la 5 secunde). */
@@ -100,7 +103,9 @@ public final class GpsClient extends JsonClientModule {
             if (e.phase != TickEvent.Phase.END) return;
             Minecraft mc = Minecraft.getInstance();
             if (mc.player == null || mc.level == null) return;
-            GpsMap.tick(mc, mc.screen instanceof GpsScreen ? 10 : 2);
+            int budget = mc.screen instanceof GpsScreen ? 10 : (MiniMapSettings.lowPerf ? 1 : 2);
+            // mod performanta redusa: scanam harta doar la fiecare al doilea tick
+            if (budget > 1 || (++lowTick & 1) == 0) GpsMap.tick(mc, budget);
             GpsNav.tick(mc);
             if (key != null) {
                 while (key.consumeClick()) {

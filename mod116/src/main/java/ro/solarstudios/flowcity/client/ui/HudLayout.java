@@ -114,6 +114,7 @@ public final class HudLayout {
         add("prompt", "Mesaj interacțiune");
         add("taxi", "Taximetru");
         add("gps", "Navigare GPS");
+        add("minimap", "Minimap GPS");
         load();
     }
 
@@ -276,6 +277,8 @@ public final class HudLayout {
                 float w = Math.min(372f, sw - 20f);
                 return new float[] {(sw - w) / 2f, 6f, w, 54f};
             }
+            case "minimap":
+                return ro.solarstudios.flowcity.gps.MiniMapRenderer.defaults(sw, sh);
             case "gps":
                 return new float[] {10f, sh / 2f + 40f, 156f, 64f};
             case "taxi":

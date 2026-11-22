@@ -380,6 +380,77 @@ public final class GpsMap {
         RenderSystem.color4f(1f, 1f, 1f, 1f);
     }
 
+    private static float[] shA = new float[4 * (MiniMapClip.MAX + 8)];
+    private static float[] shB = new float[4 * (MiniMapClip.MAX + 8)];
+    private static float[] shIn = new float[16];
+
+    /**
+     * Desenul pentru minimap: aceleasi dale si aceeasi transformare ca {@link #draw}, dar cu harta rotita cu unghiul theta
+     * (radiani, in jurul centrului ecranului cx, cy) si taiata geometric pe poligonul convex clip (x0,y0,x1,y1,...; clipN varfuri).
+     * Ecran: p = c + R(theta) * (w - cam) * zoom; theta = 0 pastreaza nordul (-Z) in sus. rad = raza cercului care incadreaza
+     * poligonul (pentru a alege dalele vizibile).
+     */
+    public static void drawClipped(GuiGraphics g, double camX, double camZ, float zoom, float cx, float cy, double theta,
+                                   float[] clip, int clipN, float rad, float alpha) {
+        frame++;
+        if (dimKey == null || clipN < 3 || clipN > MiniMapClip.MAX) return;
+        double ct = Math.cos(theta);
+        double st = Math.sin(theta);
+        double wr = rad / zoom + 2.0;
+        int t0x = MathHelper.floor((camX - wr) / TS);
+        int t1x = MathHelper.floor((camX + wr) / TS);
+        int t0z = MathHelper.floor((camZ - wr) / TS);
+        int t1z = MathHelper.floor((camZ + wr) / TS);
+        Matrix4f m = g.pose().last().pose();
+        Minecraft mc = Minecraft.getInstance();
+        int uploads = 2;
+        int loads = 3;
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.enableTexture();
+        RenderSystem.disableCull();
+        RenderSystem.color4f(1f, 1f, 1f, alpha);
+        for (int tz = t0z; tz <= t1z; tz++) {
+            for (int tx = t0x; tx <= t1x; tx++) {
+                long k = key(tx, tz);
+                Tile t = tiles.get(k);
+                if (t == null) {
+                    if (!known.contains(k) || loads <= 0) continue;
+                    loads--;
+                    t = tile(tx, tz, false);
+                    if (t == null) continue;
+                }
+                t.used = frame;
+                if (t.glDirty && uploads > 0) {
+                    t.tex.upload();
+                    t.glDirty = false;
+                    uploads--;
+                }
+                // colturile dalei: (x0,z0) (x1,z0) (x1,z1) (x0,z1) cu u,v
+                for (int c = 0; c < 4; c++) {
+                    double wx = (tx + (c == 1 || c == 2 ? 1 : 0)) * (double) TS;
+                    double wz = (tz + (c >= 2 ? 1 : 0)) * (double) TS;
+                    double dx = (wx - camX) * zoom;
+                    double dz = (wz - camZ) * zoom;
+                    shIn[c * 4] = (float) (cx + dx * ct - dz * st);
+                    shIn[c * 4 + 1] = (float) (cy + dx * st + dz * ct);
+                    shIn[c * 4 + 2] = (c == 1 || c == 2) ? 1f : 0f;
+                    shIn[c * 4 + 3] = c >= 2 ? 1f : 0f;
+                }
+                int n = MiniMapClip.clip(shIn, 4, 4, clip, clipN, shA, shB);
+                if (n < 3) continue;
+                float[] r = MiniMapClip.resultInTmp ? shB : shA;
+                mc.getTextureManager().bind(t.rl);
+                BufferBuilder b = Tessellator.getInstance().getBuilder();
+                b.begin(GL11.GL_TRIANGLE_FAN, DefaultVertexFormats.POSITION_TEX);
+                for (int i = 0; i < n; i++) b.vertex(m, r[i * 4], r[i * 4 + 1], 0f).uv(r[i * 4 + 2], r[i * 4 + 3]).endVertex();
+                Tessellator.getInstance().end();
+            }
+        }
+        RenderSystem.enableCull();
+        RenderSystem.color4f(1f, 1f, 1f, 1f);
+    }
+
     /** Numarul de dale in memorie (pentru depanare). */
     public static int loadedTiles() {
         return tiles.size();

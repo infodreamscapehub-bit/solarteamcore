@@ -1,4 +1,10 @@
 {
+  "key.flowcity.minimap.toggle": "Minimap: show/hide",
+  "key.flowcity.minimap.zoomin": "Minimap: zoom in",
+  "key.flowcity.minimap.zoomout": "Minimap: zoom out",
+  "key.flowcity.minimap.center": "Minimap: recenter",
+  "key.flowcity.minimap.north": "Minimap: north lock",
+  "key.flowcity.minimap.settings": "Minimap: settings",
   "key.flowcity.gps": "Open GPS map",
   "key.flowcity.admin": "Deschide eAdmin",
   "key.categories.flowcity": "FlowCity"

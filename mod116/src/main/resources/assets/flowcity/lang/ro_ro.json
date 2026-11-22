@@ -1,4 +1,10 @@
 {
+  "key.flowcity.minimap.toggle": "Minimap: afișează/ascunde",
+  "key.flowcity.minimap.zoomin": "Minimap: mărește",
+  "key.flowcity.minimap.zoomout": "Minimap: micșorează",
+  "key.flowcity.minimap.center": "Minimap: centrează",
+  "key.flowcity.minimap.north": "Minimap: North Lock",
+  "key.flowcity.minimap.settings": "Minimap: setări",
   "key.flowcity.gps": "Deschide harta GPS",
   "key.flowcity.admin": "Deschide eAdmin",
   "key.categories.flowcity": "FlowCity"
