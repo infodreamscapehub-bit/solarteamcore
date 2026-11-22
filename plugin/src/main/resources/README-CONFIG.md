@@ -16,11 +16,12 @@ Datele jocului se salveaza separat in `*-data.yml` si in baza de date SQLite a p
 | `primarie.yml` | Primarie: taxe buletin, duplicat, reinnoire, varsta minima |
 | `taxi.yml` | Taxi: tarife (pornire, pe km, asteptare), comision, cooldown, licenta sofer |
 | `shop.yml` | E-shop-urile deschise de NPC (arme, magazine, backpackuri, permise); articolele pot cere permis (`requires: port_arma`) |
+| `shop-data.yml` | Generat: magazinele editate din joc (butonul EDITARE din magazin); suprascriu magazinul cu acelasi id din `shop.yml` |
 | `permits.yml` | Permise: port-arma, vanatoare, licenta de afaceri (pret, descriere, cine le elibereaza, comenzile LuckPerms) |
 | `lp-setup.txt` | Comenzile LuckPerms rulate de `/lpsetup` (grupuri small caps + gradient birdflop) |
 | `plugin.yml` | Doar in jar (nume, versiune, softdepend) |
 
-Fisiere de date generate: `bank-data.yml`, `houses-data.yml`, `docs-data.yml`, `politie-data.yml`, `taxi-data.yml`, `permits-data.yml`.
+Fisiere de date generate: `shop-data.yml`, `bank-data.yml`, `houses-data.yml`, `docs-data.yml`, `politie-data.yml`, `taxi-data.yml`, `permits-data.yml`.
 
 ## Reincarcare
 
@@ -42,3 +43,11 @@ comenzile `/slash`, cifrele si diacriticele raman neschimbate. Pune `false` ca s
 - Se cumpara din magazinul `permise` (intrari `{permit: port_arma}`) sau le da politia: `/permis da <jucator> <id>`, `/permis retrage <jucator> <id>`, `/permis lista [jucator]` (permisiune `flowcity.politie.officer`). Jucatorul vede `/permise`.
 - La acordare se ruleaza comanda LuckPerms din `permits.yml` (`lp user %player% permission set flowcity.permit.<id> true`); la retragere se scoate. Evidenta e in `permits-data.yml`.
 - Un articol din `shop.yml` cere permis cu `requires: port_arma` (sau o lista). Verificarea e facuta pe server; in meniu articolul apare gri, cu lacat si textul "NECESITA PERMIS: ...".
+
+## Editarea magazinului din joc (flowcity.shop.admin)
+
+- Cine are `flowcity.shop.admin` (implicit op-ii) vede in orice magazin un buton **EDITARE**. In modul de editare: pe fiecare card apar **EDIT** si **STERGE** (cu confirmare), cardul **ADAUGA ARTICOL**, tab-ul **+ CATEGORIE**, iar jos **REDENUMESTE** / **STERGE CATEGORIA**.
+- Formularul articolului: nume, item (buton **DIN MANA** ia itemul pe care il tii in mana, ex. `minecraft:bread` sau `tac:ak47`), pret (> 0), cantitate (1-999), descriere, permise necesare (butoane pornit/oprit, din `permits.yml`) si, doar pentru op (sau `flowcity.shop.commands`), comenzi de consola separate prin `;` (`%player%`, `%amount%`).
+- Serverul re-verifica permisiunea la fiecare operatie, valideaza datele (itemul trebuie sa existe pe server, daca nu are comenzi), apoi salveaza si retrimite lista tuturor celor care au magazinul deschis. Fiecare modificare apare in consola: `[shop] <jucator> (<magazin>): ...`.
+- Modificarile se salveaza in `shop-data.yml`, care **suprascrie magazinul cu acelasi id** din `shop.yml`; `shop.yml` ramane neatins (cu comentarii). Ca sa revii la varianta din `shop.yml`, sterge magazinul din `shop-data.yml` si da `/shop reload`.
+- Limite: 8 categorii pe magazin, 200 articole pe categorie, 4 permise necesare, 5 comenzi pe articol.

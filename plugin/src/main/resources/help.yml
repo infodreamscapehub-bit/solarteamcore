@@ -163,7 +163,8 @@ categories:
       - {usage: "/doc remove <jucător> <tip>", desc: "Retragi un act", perm: "flowcity.hype.doc"}
       - {usage: "/doc categorii <jucător> <categorii>", desc: "Setezi categoriile permisului", perm: "flowcity.hype.doc"}
       - {usage: "/shop open <jucător> <magazin>", desc: "Deschide un e-shop (arme, magazine, backpackuri, permise)", perm: "flowcity.shop.admin"}
-      - {usage: "/shop reload", desc: "Reîncarcă shop.yml", perm: "flowcity.shop.admin"}
+      - {usage: "/shop reload", desc: "Reîncarcă shop.yml și shop-data.yml (magazinele editate din joc)", perm: "flowcity.shop.admin"}
+      - {usage: "Buton EDITARE în magazin", desc: "Adaugi/editezi/ștergi articole și categorii direct din meniu (item din mână, preț, permis necesar)", perm: "flowcity.shop.admin"}
       - {usage: "/permise", desc: "Vezi permisele tale (port-armă, vânătoare, licențe)", perm: ""}
       - {usage: "/permis lista [jucător]", desc: "Permisele unui jucător (poliția)", perm: "flowcity.politie.officer"}
       - {usage: "/permis da <jucător> <id>", desc: "Acorzi un permis (setează și flowcity.permit.<id>)", perm: "flowcity.politie.officer"}

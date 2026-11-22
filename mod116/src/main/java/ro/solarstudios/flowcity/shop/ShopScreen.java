@@ -5,10 +5,12 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
@@ -26,6 +28,11 @@ import ro.solarstudios.flowcity.module.JsonClientModule;
  * lacat), cantitate + CUMPARA cu dialog de confirmare. Plata (cash sau card) vine din PayScreen. Protocolul cu pluginul
  * ramane acelasi (buy: cat, idx, qty); in plus pluginul trimite solduri si permisele jucatorului (open/state).
  * Taste: sageti = alegi articolul, Enter = cumperi/confirmi, Tab / 1-9 = categorii, + / - = cantitate, Esc = inchide.
+ *
+ * Editor (doar pentru cei cu flowcity.shop.admin, pluginul trimite "admin"): butonul EDITARE din antet porneste modul de editare: pe fiecare
+ * card apar EDIT / STERGE, un card "+ ADAUGA ARTICOL", un tab "+" pentru categorii si formulare in stil iarna (nume, item cu "DIN MANA",
+ * pret, cantitate, descriere, permise necesare, comenzi pentru op). Acțiunile pleaca la server prin mesajul "edit"; serverul re-verifica
+ * permisiunea, valideaza si salveaza, apoi trimite "update" (lista noua) si "editres" (rezultatul).
  */
 public final class ShopScreen extends FlowScreen {
     private static final int W = 480;
@@ -47,10 +54,17 @@ public final class ShopScreen extends FlowScreen {
         String permit = "";
         final List<String> req = new ArrayList<>();
         final List<String> reqn = new ArrayList<>();
+        String itemId = "";
+        final List<String> cmds = new ArrayList<>();
         ItemStack stack = ItemStack.EMPTY;
     }
 
-    private final String title;
+    private String title;
+    private final List<Integer> catIdx = new ArrayList<>();
+    private boolean admin;
+    private boolean cmdOk;
+    private boolean editing;
+    private final List<String[]> permits = new ArrayList<>();
     private final List<String> catNames = new ArrayList<>();
     private final List<List<It>> cats = new ArrayList<>();
     private final Set<String> have = new HashSet<>();
@@ -72,13 +86,54 @@ public final class ShopScreen extends FlowScreen {
     private float offY;
     private float scale = 1f;
 
+    // editor: 0 = nimic, 1 = formular articol, 2 = formular categorie, 3 = stergere articol, 4 = stergere categorie
+    private int modal;
+    private boolean modalNew;
+    private boolean formPermit;
+    private int editIdx = -1;
+    private long pendingUntil;
+    private final Set<String> formReq = new LinkedHashSet<>();
+    private final TextFieldWidget fName;
+    private final TextFieldWidget fItem;
+    private final TextFieldWidget fPrice;
+    private final TextFieldWidget fAmount;
+    private final TextFieldWidget fDesc;
+    private final TextFieldWidget fCmd;
+    private final TextFieldWidget fCat;
+
     ShopScreen(JsonObject d) {
         super("Magazin", W, H);
+        fName = field("Nume articol", 40, null);
+        fItem = field("minecraft:bread sau tac:ak47", 80, null);
+        fPrice = field("ex. 2500", 10, null);
+        fAmount = field("1", 4, null);
+        fDesc = field("Descriere scurtă (opțional)", 80, null);
+        fCmd = field("comenzi consolă separate prin ;", 300, null);
+        fCat = field("Nume categorie", 24, null);
+        load(d);
+    }
+
+    private void load(JsonObject d) {
         this.title = JsonClientModule.str(d, "title", "MAGAZIN");
+        admin = JsonClientModule.bool(d, "admin", false);
+        cmdOk = admin && JsonClientModule.bool(d, "cmds", false);
+        permits.clear();
+        if (admin && d.has("permits") && d.get("permits").isJsonArray()) {
+            for (JsonElement e : d.getAsJsonArray("permits")) {
+                JsonObject po = e.getAsJsonObject();
+                permits.add(new String[] {JsonClientModule.str(po, "id", ""), JsonClientModule.str(po, "name", "")});
+            }
+        }
         readState(d);
+        catNames.clear();
+        cats.clear();
+        catIdx.clear();
         JsonArray ca = d.has("cats") && d.get("cats").isJsonArray() ? d.getAsJsonArray("cats") : new JsonArray();
+        int n = 0;
         for (JsonElement ce : ca) {
             JsonObject co = ce.getAsJsonObject();
+            catIdx.add(co.has("ci") ? JsonClientModule.integer(co, "ci", n) : n);
+            n++;
             catNames.add(JsonClientModule.str(co, "name", "?"));
             List<It> list = new ArrayList<>();
             JsonArray ia = co.has("items") && co.get("items").isJsonArray() ? co.getAsJsonArray("items") : new JsonArray();
@@ -90,14 +145,18 @@ public final class ShopScreen extends FlowScreen {
                 it.amount = Math.max(1, JsonClientModule.integer(io, "amount", 1));
                 it.desc = JsonClientModule.str(io, "desc", "");
                 it.permit = JsonClientModule.str(io, "permit", "");
+                it.itemId = JsonClientModule.str(io, "item", "minecraft:stone");
                 if (io.has("req") && io.get("req").isJsonArray()) {
                     for (JsonElement e : io.getAsJsonArray("req")) it.req.add(e.getAsString());
                 }
                 if (io.has("reqn") && io.get("reqn").isJsonArray()) {
                     for (JsonElement e : io.getAsJsonArray("reqn")) it.reqn.add(e.getAsString());
                 }
+                if (io.has("cmd") && io.get("cmd").isJsonArray()) {
+                    for (JsonElement e : io.getAsJsonArray("cmd")) it.cmds.add(e.getAsString());
+                }
                 try {
-                    Item item = ForgeRegistries.ITEMS.getValue(new ResourceLocation(JsonClientModule.str(io, "item", "minecraft:stone")));
+                    Item item = ForgeRegistries.ITEMS.getValue(new ResourceLocation(it.itemId));
                     if (item != null) it.stack = new ItemStack(item, Math.min(64, it.amount));
                 } catch (RuntimeException ignored) {
                     // id invalid: ramane fara iconita
@@ -106,6 +165,28 @@ public final class ShopScreen extends FlowScreen {
             }
             cats.add(list);
         }
+    }
+
+    /** Lista noua dupa o editare (trimisa de server tuturor celor care au magazinul deschis): pastreaza categoria si modul de editare. */
+    void refresh(JsonObject d) {
+        int realCat = cat >= 0 && cat < catIdx.size() ? catIdx.get(cat) : 0;
+        load(d);
+        int pos = catIdx.indexOf(realCat);
+        cat = pos >= 0 ? pos : Math.min(cat, Math.max(0, cats.size() - 1));
+        if (!admin) {
+            editing = false;
+            if (modal != 0) closeModal();
+        }
+        if (sel >= items().size()) sel = -1;
+        scrollRow = Math.max(0, Math.min(maxRow(), scrollRow));
+        confirm = false;
+    }
+
+    /** Raspunsul serverului la o editare: ok -> inchidem formularul, altfel il lasam deschis cu mesajul de eroare. */
+    void editResult(boolean ok, String m) {
+        pendingUntil = 0;
+        if (ok) closeModal();
+        result(ok, ok ? "Salvat." : m);
     }
 
     private void readState(JsonObject d) {
@@ -195,8 +276,20 @@ public final class ShopScreen extends FlowScreen {
         return "NECESITĂ PERMIS: " + b.toString().toUpperCase(Locale.ROOT);
     }
 
+    private boolean editMode() {
+        return admin && editing;
+    }
+
+    private int gridCount() {
+        return items().size() + (editMode() ? 1 : 0);
+    }
+
     private int rowsTotal() {
-        return (items().size() + COLS - 1) / COLS;
+        return (gridCount() + COLS - 1) / COLS;
+    }
+
+    private int realCat() {
+        return cat >= 0 && cat < catIdx.size() ? catIdx.get(cat) : -1;
     }
 
     private int maxRow() {
@@ -227,18 +320,19 @@ public final class ShopScreen extends FlowScreen {
         It it = selected();
         if (!buyable(it)) return;
         confirm = false;
-        ShopClient.buy(cat, sel, it.permit.isEmpty() ? qty : 1);
+        ShopClient.buy(realCat(), sel, it.permit.isEmpty() ? qty : 1);
     }
 
     @Override
     public boolean mouseScrolled(double mx, double my, double delta) {
-        if (confirm) return true;
+        if (confirm || modal != 0) return true;
         scrollRow = Math.max(0, Math.min(maxRow(), scrollRow - (int) Math.signum(delta)));
         return true;
     }
 
     @Override
     public boolean keyPressed(int key, int scan, int mods) {
+        if (modal != 0) return modalKey(key, scan, mods);
         if (confirm) {
             if (key == GLFW.GLFW_KEY_ENTER || key == GLFW.GLFW_KEY_KP_ENTER) {
                 doBuy();
@@ -284,7 +378,7 @@ public final class ShopScreen extends FlowScreen {
                 return true;
             case GLFW.GLFW_KEY_ENTER:
             case GLFW.GLFW_KEY_KP_ENTER:
-                if (buyable(selected())) confirm = true;
+                if (!editMode() && buyable(selected())) confirm = true;
                 return true;
             default:
                 if (key >= GLFW.GLFW_KEY_1 && key <= GLFW.GLFW_KEY_9) {
@@ -314,6 +408,7 @@ public final class ShopScreen extends FlowScreen {
             Gfx.alpha = 1f;
             ms.pose().popPose();
         }
+        for (TextFieldWidget f : fields()) f.render(ms.pose(), mx, my, 0);
     }
 
     private void content(GuiGraphics ms, float lmx, float lmy, float open) {
@@ -323,6 +418,18 @@ public final class ShopScreen extends FlowScreen {
         Gfx.text(ms, title, 16, 45, 17, Sk.WHITE, 0, true, 0f);
         Sk.close(ms, W - 34, 14, lmx, lmy);
         hitL(W - 34, 14, 20, 20, this::onClose);
+        if (admin) {
+            boolean he = Sk.in(lmx, lmy, W - 132, 14, 90, 20);
+            Sk.button(ms, editing ? "GATA" : "EDITARE", W - 132, 14, 90, 20, true, editing, he);
+            hitL(W - 132, 14, 90, 20, () -> {
+                editing = !editing;
+                confirm = false;
+                sel = -1;
+                scrollRow = 0;
+                scrollY = 0;
+                animStart = System.currentTimeMillis();
+            });
+        }
         if (bank >= 0 || cash >= 0) {
             float rx = W - 44;
             if (bank >= 0) {
@@ -334,7 +441,8 @@ public final class ShopScreen extends FlowScreen {
         }
 
         // tab-uri de categorii
-        int nc = Math.max(1, catNames.size());
+        boolean plusTab = editMode() && catNames.size() < 8;
+        int nc = Math.max(1, catNames.size() + (plusTab ? 1 : 0));
         float tw = Math.min(104f, (W - 32f - (nc - 1) * 4f) / nc);
         float targetX = 16 + cat * (tw + 4);
         if (tabX < 0) tabX = targetX;
@@ -345,7 +453,14 @@ public final class ShopScreen extends FlowScreen {
             boolean hot = Sk.in(lmx, lmy, x, ty, tw, 22);
             Sk.slant(ms, x, ty, tw, 22, 6f, hot ? Sk.ROW_HOT : Sk.ROW);
         }
-        Sk.slant(ms, tabX, ty, tw, 22, 6f, Sk.ACC);
+        if (plusTab) {
+            float px2 = 16 + catNames.size() * (tw + 4);
+            boolean hp = Sk.in(lmx, lmy, px2, ty, tw, 22);
+            Sk.slant(ms, px2, ty, tw, 22, 6f, hp ? Sk.ROW_HOT : Sk.ROW);
+            Gfx.text(ms, tw >= 80 ? "+  CATEGORIE" : "+", px2 + tw / 2f + 3, ty + 14.6f, 7.4f, hp ? Sk.WHITE : Sk.MUTED, 1, true, 0.3f);
+            hitL(px2, ty, tw, 22, this::openCatNew);
+        }
+        if (!catNames.isEmpty()) Sk.slant(ms, tabX, ty, tw, 22, 6f, Sk.ACC);
         for (int i = 0; i < catNames.size(); i++) {
             float x = 16 + i * (tw + 4);
             boolean on = Math.abs(tabX - x) < tw / 2f;
@@ -359,7 +474,8 @@ public final class ShopScreen extends FlowScreen {
         List<It> its = items();
         Gfx.rrect(ms, GX - 6, GY - 4, W - 2 * (GX - 6), GH + 8, 0, 0x14FFFFFF);
         scrollY += (scrollRow * (CH + GAP) - scrollY) * 0.3f;
-        for (int i = 0; i < its.size(); i++) {
+        int count = gridCount();
+        for (int i = 0; i < count; i++) {
             int col = i % COLS;
             int row = i / COLS;
             float x = GX + col * (CW + GAP);
@@ -372,14 +488,23 @@ public final class ShopScreen extends FlowScreen {
             if (a <= 0.02f) continue;
             float yy = y + (1f - t) * 10f;
             Gfx.alpha = a;
-            drawCard(ms, its.get(i), i, x, yy, lmx, lmy, a);
+            boolean isAdd = i >= its.size();
+            if (isAdd) drawAddCard(ms, x, yy, lmx, lmy);
+            else drawCard(ms, its.get(i), i, x, yy, lmx, lmy, a);
             Gfx.alpha = open;
             final int fi = i;
             float hy = Math.max(y, GY);
             float hh = Math.min(y + CH, GY + GH) - hy;
-            if (hh > 4) hitL(x, hy, CW, hh, () -> select(fi));
+            if (hh > 4) {
+                if (isAdd) hitL(x, hy, CW, hh, () -> openItemForm(-1));
+                else hitL(x, hy, CW, hh, () -> select(fi));
+            }
+            if (!isAdd && editMode() && yy >= GY - 2 && yy + 16 <= GY + GH) {
+                hitL(x + 3, yy + 3, 44, 13, () -> openItemForm(fi));
+                hitL(x + CW - 47, yy + 3, 44, 13, () -> openDelItem(fi));
+            }
         }
-        if (its.isEmpty()) Gfx.text(ms, "Nimic de vândut aici.", W / 2f, GY + 76, 8.4f, Sk.MUTED, 1);
+        if (its.isEmpty() && !editMode()) Gfx.text(ms, "Nimic de vândut aici.", W / 2f, GY + 76, 8.4f, Sk.MUTED, 1);
         if (maxRow() > 0) {
             float total = rowsTotal() * (CH + GAP) - GAP;
             float th = Math.max(20, GH * GH / total);
@@ -390,12 +515,15 @@ public final class ShopScreen extends FlowScreen {
 
         bottomBar(ms, lmx, lmy);
 
+        if (confirm) dialog(ms, lmx, lmy);
+        if (modal == 1) itemForm(ms, lmx, lmy);
+        else if (modal == 2) catForm(ms, lmx, lmy);
+        else if (modal == 3 || modal == 4) delDialog(ms, lmx, lmy);
         if (System.currentTimeMillis() < msgUntil && !msg.isEmpty()) {
             float w = Math.min(W - 60, Gfx.width(msg, 8f, false) + 28);
             Sk.slant(ms, W / 2f - w / 2f, 12, w, 20, 6f, msgOk ? 0xFF1F6B3F : 0xFF7A2A26);
             Gfx.text(ms, msg, W / 2f, 25.5f, 8f, Sk.WHITE, 1);
         }
-        if (confirm) dialog(ms, lmx, lmy);
     }
 
     private void drawCard(GuiGraphics ms, It it, int i, float x, float y, float lmx, float lmy, float a) {
@@ -426,13 +554,22 @@ public final class ShopScreen extends FlowScreen {
         } else {
             Gfx.text(ms, money(it.price) + " RON", x + CW / 2f, y + 60, 7.2f, lk ? Sk.FAINT : Sk.ACC, 1);
         }
-        if (it.amount > 1) {
+        boolean ed = editMode();
+        if (ed) {
+            boolean he = Sk.in(lmx, lmy, x + 3, y + 3, 44, 13);
+            boolean hd = Sk.in(lmx, lmy, x + CW - 47, y + 3, 44, 13);
+            Gfx.rrect(ms, x + 3, y + 3, 44, 13, 2, he ? Sk.ACC : 0xE0061426);
+            Gfx.text(ms, "EDIT", x + 25, y + 12.2f, 6.6f, he ? 0xFF061426 : Sk.ACC, 1, true, 0.5f);
+            Gfx.rrect(ms, x + CW - 47, y + 3, 44, 13, 2, hd ? Sk.BAD : 0xE0061426);
+            Gfx.text(ms, "ȘTERGE", x + CW - 25, y + 12.2f, 6.6f, hd ? 0xFF061426 : Sk.BAD, 1, true, 0.5f);
+        }
+        if (it.amount > 1 && !ed) {
             String b = "x" + it.amount;
             float bw = Gfx.width(b, 6.4f, false) + 8;
             Gfx.rrect(ms, x + CW - bw - 3, y + 3, bw, 11, 2, 0xB0061426);
             Gfx.text(ms, b, x + CW - bw / 2f - 3, y + 11.2f, 6.4f, Sk.WHITE, 1);
         }
-        if (!it.permit.isEmpty() && !ow) {
+        if (!it.permit.isEmpty() && !ow && !ed) {
             Gfx.rrect(ms, x + 3, y + 3, 34, 11, 2, 0xB0061426);
             Gfx.text(ms, "PERMIS", x + 20, y + 11.2f, 6f, Sk.WARN, 1, true, 0.4f);
         }
@@ -451,6 +588,10 @@ public final class ShopScreen extends FlowScreen {
     private void bottomBar(GuiGraphics ms, float lmx, float lmy) {
         float by = H - 56;
         Sk.slant(ms, 12, by, W - 36, 40, 8f, Sk.PANEL);
+        if (editMode()) {
+            editBar(ms, by, lmx, lmy);
+            return;
+        }
         It it = selected();
         if (it == null) {
             Gfx.text(ms, "Alege un articol (săgeți sau click).", 32, by + 24, 8.6f, Sk.FAINT, 0);
@@ -512,6 +653,385 @@ public final class ShopScreen extends FlowScreen {
     private void btn(GuiGraphics ms, String label, float x, float y, float w, float h, boolean filled, float lmx, float lmy, Runnable r) {
         Sk.button(ms, label, x, y, w, h, true, filled, Sk.in(lmx, lmy, x, y, w, h));
         hitL(x, y, w, h, r);
+    }
+
+    // ------------------------------------------------------------------ editor
+
+    private void drawAddCard(GuiGraphics ms, float x, float y, float lmx, float lmy) {
+        boolean hot = Sk.in(lmx, lmy, x, y, CW, CH) && lmy >= GY && lmy < GY + GH;
+        Sk.cut(ms, x, y, CW, CH, 8, hot ? Sk.ROW_HOT : 0x60111A28);
+        int c = hot ? Sk.ACC : Sk.MUTED;
+        Gfx.line(ms, x + CW / 2f - 9, y + 25, x + CW / 2f + 9, y + 25, 2.2f, c);
+        Gfx.line(ms, x + CW / 2f, y + 16, x + CW / 2f, y + 34, 2.2f, c);
+        Gfx.text(ms, "ADAUGĂ ARTICOL", x + CW / 2f, y + 54, 7.2f, hot ? Sk.WHITE : Sk.MUTED, 1, true, 0.5f);
+    }
+
+    private void editBar(GuiGraphics ms, float by, float lmx, float lmy) {
+        boolean has = cat >= 0 && cat < cats.size();
+        String cn = has ? catNames.get(cat) : "—";
+        Gfx.text(ms, "MOD EDITARE", 32, by + 15, 6.4f, Sk.WARN, 0, true, 1.2f);
+        Gfx.text(ms, clip("Categorie: " + cn + "  ·  " + items().size() + " articole", 8.6f, 190), 32, by + 29, 8.6f, Sk.WHITE, 0);
+        btnE(ms, "REDENUMEȘTE", W - 316, by + 6, 134, 28, has, false, lmx, lmy, this::openCatRename);
+        btnE(ms, "ȘTERGE CATEGORIA", W - 176, by + 6, 146, 28, has, false, lmx, lmy, this::openDelCat);
+    }
+
+    private void btnE(GuiGraphics ms, String label, float x, float y, float w, float h, boolean enabled, boolean filled, float lmx, float lmy, Runnable r) {
+        Sk.button(ms, label, x, y, w, h, enabled, filled, enabled && Sk.in(lmx, lmy, x, y, w, h));
+        if (enabled) hitL(x, y, w, h, r);
+    }
+
+    private static String num(double v) {
+        return v == Math.floor(v) && Math.abs(v) < 1e12 ? String.valueOf((long) v) : String.valueOf(v);
+    }
+
+    private void openItemForm(int idx) {
+        if (!editMode() || realCat() < 0) {
+            result(false, "Creează mai întâi o categorie (tab-ul +).");
+            return;
+        }
+        List<It> l = items();
+        modalNew = idx < 0 || idx >= l.size();
+        editIdx = modalNew ? -1 : idx;
+        formReq.clear();
+        if (modalNew) {
+            formPermit = false;
+            fName.setValue("");
+            fItem.setValue("");
+            fPrice.setValue("");
+            fAmount.setValue("1");
+            fDesc.setValue("");
+            fCmd.setValue("");
+        } else {
+            It it = l.get(idx);
+            formPermit = !it.permit.isEmpty();
+            fName.setValue(it.name);
+            fItem.setValue(it.itemId);
+            fPrice.setValue(num(it.price));
+            fAmount.setValue(String.valueOf(it.amount));
+            fDesc.setValue(it.desc);
+            fCmd.setValue(String.join("; ", it.cmds));
+            formReq.addAll(it.req);
+        }
+        confirm = false;
+        modal = 1;
+        focus(fName, true);
+    }
+
+    private void openDelItem(int idx) {
+        if (idx < 0 || idx >= items().size()) return;
+        editIdx = idx;
+        modal = 3;
+    }
+
+    private void openCatNew() {
+        modalNew = true;
+        fCat.setValue("");
+        confirm = false;
+        modal = 2;
+        focus(fCat, true);
+    }
+
+    private void openCatRename() {
+        if (cat < 0 || cat >= catNames.size()) return;
+        modalNew = false;
+        fCat.setValue(catNames.get(cat));
+        confirm = false;
+        modal = 2;
+        focus(fCat, true);
+    }
+
+    private void openDelCat() {
+        if (cat < 0 || cat >= catNames.size()) return;
+        modal = 4;
+    }
+
+    private void closeModal() {
+        modal = 0;
+        pendingUntil = 0;
+        for (TextFieldWidget f : new TextFieldWidget[] {fName, fItem, fPrice, fAmount, fDesc, fCmd, fCat}) focus(f, false);
+    }
+
+    private void toggleReq(String id) {
+        if (!formReq.remove(id)) formReq.add(id);
+    }
+
+    private void fromHand() {
+        Minecraft mc = Minecraft.getInstance();
+        ItemStack st = mc.player == null ? ItemStack.EMPTY : mc.player.getMainHandItem();
+        if (st.isEmpty()) {
+            result(false, "Nu ții niciun item în mână.");
+            return;
+        }
+        ResourceLocation rl = st.getItem().getRegistryName();
+        if (rl == null) return;
+        fItem.setValue(rl.toString());
+        if (fName.getValue().trim().isEmpty()) fName.setValue(st.getHoverName().getString());
+    }
+
+    private boolean pending() {
+        return System.currentTimeMillis() < pendingUntil;
+    }
+
+    private void submitItem() {
+        if (pending() || realCat() < 0) return;
+        String name = fName.getValue().trim();
+        if (name.isEmpty()) {
+            result(false, "Numele articolului lipsește.");
+            return;
+        }
+        double price;
+        try {
+            price = Double.parseDouble(fPrice.getValue().trim().replace(',', '.'));
+        } catch (NumberFormatException e) {
+            price = -1;
+        }
+        if (!(price > 0)) {
+            result(false, "Preț invalid (trebuie să fie mai mare ca 0).");
+            return;
+        }
+        int amount = 1;
+        if (!formPermit) {
+            try {
+                amount = Integer.parseInt(fAmount.getValue().trim());
+            } catch (NumberFormatException e) {
+                amount = -1;
+            }
+            if (amount < 1 || amount > 999) {
+                result(false, "Cantitate invalidă (1-999).");
+                return;
+            }
+            String id = fItem.getValue().trim();
+            if (id.indexOf(':') <= 0) {
+                result(false, "Id item invalid (ex. minecraft:bread). Folosește DIN MÂNĂ.");
+                return;
+            }
+        }
+        JsonObject o = new JsonObject();
+        o.addProperty("op", modalNew ? "addItem" : "setItem");
+        o.addProperty("cat", realCat());
+        o.addProperty("idx", editIdx);
+        o.addProperty("name", name);
+        o.addProperty("item", fItem.getValue().trim());
+        o.addProperty("price", price);
+        o.addProperty("amount", amount);
+        o.addProperty("desc", fDesc.getValue().trim());
+        JsonArray rq = new JsonArray();
+        for (String r : formReq) rq.add(new com.google.gson.JsonPrimitive(r));
+        o.add("req", rq);
+        if (cmdOk && !formPermit) {
+            JsonArray ca = new JsonArray();
+            for (String c : fCmd.getValue().split(";")) {
+                String t = c.trim();
+                if (!t.isEmpty()) ca.add(new com.google.gson.JsonPrimitive(t));
+            }
+            o.add("cmd", ca);
+        }
+        pendingUntil = System.currentTimeMillis() + 6000;
+        ShopClient.edit(o);
+    }
+
+    private void submitCat() {
+        if (pending()) return;
+        String n = fCat.getValue().trim();
+        if (n.isEmpty()) {
+            result(false, "Numele categoriei lipsește.");
+            return;
+        }
+        JsonObject o = new JsonObject();
+        o.addProperty("op", modalNew ? "addCat" : "renCat");
+        o.addProperty("cat", realCat());
+        o.addProperty("name", n);
+        pendingUntil = System.currentTimeMillis() + 6000;
+        ShopClient.edit(o);
+    }
+
+    private void submitDelete() {
+        JsonObject o = new JsonObject();
+        if (modal == 3) {
+            o.addProperty("op", "delItem");
+            o.addProperty("cat", realCat());
+            o.addProperty("idx", editIdx);
+        } else {
+            o.addProperty("op", "delCat");
+            o.addProperty("cat", realCat());
+        }
+        ShopClient.edit(o);
+        closeModal();
+        sel = -1;
+    }
+
+    private void submitModal() {
+        if (modal == 1) submitItem();
+        else if (modal == 2) submitCat();
+        else if (modal == 3 || modal == 4) submitDelete();
+    }
+
+    @Override
+    protected List<TextFieldWidget> fields() {
+        List<TextFieldWidget> l = new ArrayList<>();
+        if (modal == 1) {
+            l.add(fName);
+            if (!formPermit) {
+                l.add(fItem);
+                l.add(fPrice);
+                l.add(fAmount);
+            } else {
+                l.add(fPrice);
+            }
+            l.add(fDesc);
+            if (cmdOk && !formPermit) l.add(fCmd);
+        } else if (modal == 2) {
+            l.add(fCat);
+        }
+        return l;
+    }
+
+    @Override
+    protected void onEnter(TextFieldWidget field) {
+        submitModal();
+    }
+
+    private boolean modalKey(int key, int scan, int mods) {
+        List<TextFieldWidget> fs = fields();
+        for (int i = 0; i < fs.size(); i++) {
+            TextFieldWidget f = fs.get(i);
+            if (!f.isFocused()) continue;
+            if (key == GLFW.GLFW_KEY_TAB) {
+                int next = (i + ((mods & GLFW.GLFW_MOD_SHIFT) != 0 ? fs.size() - 1 : 1)) % fs.size();
+                focus(f, false);
+                focus(fs.get(next), true);
+                return true;
+            }
+            return super.keyPressed(key, scan, mods);
+        }
+        if (key == GLFW.GLFW_KEY_ESCAPE) {
+            closeModal();
+        } else if (key == GLFW.GLFW_KEY_ENTER || key == GLFW.GLFW_KEY_KP_ENTER) {
+            submitModal();
+        } else if (key == GLFW.GLFW_KEY_TAB && !fs.isEmpty()) {
+            focus(fs.get(0), true);
+        }
+        return true;
+    }
+
+    /** Camp de text cu fundal in stilul iarna; pozitia in pixeli de ecran se calculeaza din coordonatele de design. */
+    private void fieldBox(GuiGraphics ms, TextFieldWidget f, float x, float y, float w, float h, boolean enabled) {
+        Sk.slant(ms, x, y, w, h, 4f, enabled ? Sk.ROW : 0x60111A28);
+        Gfx.rrect(ms, x + 2, y + h - 2, w - 4, 1.5f, 0, enabled && f.isFocused() ? Sk.ACC : 0xFF22344D);
+        f.x = Math.round(offX + (x + 6f) * scale);
+        f.y = Math.round(offY + (y + (h - 8f) / 2f) * scale);
+        f.setWidth(Math.max(10, Math.round((w - 12f) * scale)));
+    }
+
+    private void label(GuiGraphics ms, String t, float x, float y) {
+        Gfx.text(ms, t, x, y, 5.8f, Sk.MUTED, 0, true, 0.9f);
+    }
+
+    private void overlay(GuiGraphics ms) {
+        hit(0, 0, width, height, () -> { });
+        Gfx.rrect(ms, -3000, -3000, 7000, 7000, 0, 0xB0050A14);
+    }
+
+    private void frame(GuiGraphics ms, float bx, float by, float bw, float bh) {
+        Gfx.rrect(ms, bx - 1, by - 1, bw + 2, bh + 2, 9, 0x40FFFFFF);
+        Gfx.rrect(ms, bx, by, bw, bh, 8, 0xFF14202F, 0xFF0B1320);
+        Gfx.rrect(ms, bx + 16, by + 1, 36, 2, 0, Sk.ACC);
+    }
+
+    private void itemForm(GuiGraphics ms, float lmx, float lmy) {
+        overlay(ms);
+        float bw = 400f;
+        float bh = 244f;
+        float bx = W / 2f - bw / 2f;
+        float by = H / 2f - bh / 2f;
+        frame(ms, bx, by, bw, bh);
+        Gfx.text(ms, modalNew ? "ARTICOL NOU" : "EDITEAZĂ ARTICOLUL", bx + 16, by + 22, 11, Sk.WHITE, 0, true, 0f);
+        String cn = cat >= 0 && cat < catNames.size() ? catNames.get(cat) : "";
+        Gfx.text(ms, clip("Categoria: " + cn, 6.8f, 150), bx + bw - 16, by + 21, 6.8f, Sk.MUTED, 2);
+
+        label(ms, "NUME", bx + 16, by + 36);
+        fieldBox(ms, fName, bx + 16, by + 40, 368, 16, true);
+
+        label(ms, formPermit ? "ITEM (articol-permis: fix)" : "ITEM  (id: minecraft:bread, tac:ak47 ...)", bx + 16, by + 66);
+        fieldBox(ms, fItem, bx + 16, by + 70, 268, 16, !formPermit);
+        if (formPermit) Gfx.text(ms, clip(fItem.getValue(), 7f, 250), bx + 22, by + 81, 7f, Sk.FAINT, 0);
+        else {
+            boolean hh = Sk.in(lmx, lmy, bx + 292, by + 70, 92, 16);
+            Sk.slant(ms, bx + 292, by + 70, 92, 16, 4f, hh ? Sk.ACC : 0xFF14202F);
+            Gfx.text(ms, "DIN MÂNĂ", bx + 292 + 46 + 2, by + 81, 6.8f, hh ? 0xFF061426 : Sk.ACC, 1, true, 0.6f);
+            hitL(bx + 292, by + 70, 92, 16, this::fromHand);
+        }
+
+        label(ms, "PREȚ (RON)", bx + 16, by + 96);
+        fieldBox(ms, fPrice, bx + 16, by + 100, 110, 16, true);
+        label(ms, "CANTITATE", bx + 138, by + 96);
+        fieldBox(ms, fAmount, bx + 138, by + 100, 90, 16, !formPermit);
+        if (formPermit) Gfx.text(ms, "1", bx + 144, by + 111, 7f, Sk.FAINT, 0);
+
+        label(ms, "DESCRIERE", bx + 16, by + 126);
+        fieldBox(ms, fDesc, bx + 16, by + 130, 368, 16, true);
+
+        label(ms, "NECESITĂ PERMIS (opțional, click = pornit/oprit)", bx + 16, by + 156);
+        float cx = bx + 16;
+        float cyy = by + 160;
+        if (permits.isEmpty()) Gfx.text(ms, "(niciun permis definit în permits.yml)", cx, cyy + 9.5f, 6.6f, Sk.FAINT, 0);
+        for (String[] pr : permits) {
+            String lab = clip(pr[1].isEmpty() ? pr[0] : pr[1], 6.6f, 100);
+            float w = Gfx.width(lab, 6.6f, false) + 14;
+            if (cx + w > bx + bw - 12) break;
+            boolean on = formReq.contains(pr[0]);
+            boolean hv = Sk.in(lmx, lmy, cx, cyy, w, 13);
+            Sk.slant(ms, cx, cyy, w, 13, 4f, on ? Sk.ACC : (hv ? Sk.ROW_HOT : Sk.ROW));
+            Gfx.text(ms, lab, cx + w / 2f + 2, cyy + 9.4f, 6.6f, on ? 0xFF061426 : Sk.WHITE, 1);
+            final String pid = pr[0];
+            hitL(cx, cyy, w, 13, () -> toggleReq(pid));
+            cx += w + 4;
+        }
+
+        if (cmdOk && !formPermit) {
+            label(ms, "COMENZI din consolă (opțional, separate prin ;  —  %player%, %amount%)", bx + 16, by + 182);
+            fieldBox(ms, fCmd, bx + 16, by + 186, 368, 16, true);
+        } else if (!cmdOk && !formPermit) {
+            Gfx.text(ms, "Comenzile pe articole pot fi setate doar de op.", bx + 16, by + 195, 6.4f, Sk.FAINT, 0);
+        }
+
+        btnE(ms, "ANULEAZĂ", bx + 16, by + bh - 36, 124, 28, true, false, lmx, lmy, this::closeModal);
+        btnE(ms, pending() ? "SE SALVEAZĂ…" : "SALVEAZĂ", bx + bw - 140, by + bh - 36, 124, 28, !pending(), true, lmx, lmy, this::submitItem);
+    }
+
+    private void catForm(GuiGraphics ms, float lmx, float lmy) {
+        overlay(ms);
+        float bw = 300f;
+        float bh = 130f;
+        float bx = W / 2f - bw / 2f;
+        float by = H / 2f - bh / 2f;
+        frame(ms, bx, by, bw, bh);
+        Gfx.text(ms, modalNew ? "CATEGORIE NOUĂ" : "REDENUMEȘTE CATEGORIA", bx + 16, by + 22, 11, Sk.WHITE, 0, true, 0f);
+        label(ms, "NUME", bx + 16, by + 42);
+        fieldBox(ms, fCat, bx + 16, by + 46, bw - 32, 16, true);
+        btnE(ms, "ANULEAZĂ", bx + 16, by + bh - 40, 124, 28, true, false, lmx, lmy, this::closeModal);
+        btnE(ms, pending() ? "SE SALVEAZĂ…" : "SALVEAZĂ", bx + bw - 140, by + bh - 40, 124, 28, !pending(), true, lmx, lmy, this::submitCat);
+    }
+
+    private void delDialog(GuiGraphics ms, float lmx, float lmy) {
+        overlay(ms);
+        float bw = 300f;
+        float bh = 124f;
+        float bx = W / 2f - bw / 2f;
+        float by = H / 2f - bh / 2f;
+        frame(ms, bx, by, bw, bh);
+        if (modal == 3) {
+            It it = editIdx >= 0 && editIdx < items().size() ? items().get(editIdx) : null;
+            Gfx.text(ms, "ȘTERGI ARTICOLUL?", bx + 16, by + 22, 11, Sk.WHITE, 0, true, 0f);
+            Gfx.text(ms, clip(it == null ? "" : it.name, 8.4f, bw - 32), bx + 16, by + 42, 8.4f, Sk.MUTED, 0);
+        } else {
+            String cn = cat >= 0 && cat < catNames.size() ? catNames.get(cat) : "";
+            Gfx.text(ms, "ȘTERGI CATEGORIA?", bx + 16, by + 22, 11, Sk.WHITE, 0, true, 0f);
+            Gfx.text(ms, clip("„" + cn + "” și cele " + items().size() + " articole din ea", 8f, bw - 32), bx + 16, by + 42, 8f, Sk.MUTED, 0);
+        }
+        Gfx.text(ms, "Acțiunea nu poate fi anulată.", bx + 16, by + 62, 6.6f, Sk.FAINT, 0);
+        btnE(ms, "ANULEAZĂ", bx + 16, by + bh - 40, 124, 28, true, false, lmx, lmy, this::closeModal);
+        btnE(ms, "ȘTERGE", bx + bw - 140, by + bh - 40, 124, 28, true, true, lmx, lmy, this::submitDelete);
     }
 
     @Override
