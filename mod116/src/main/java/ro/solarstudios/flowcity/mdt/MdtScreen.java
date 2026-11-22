@@ -19,8 +19,8 @@ import ro.solarstudios.flowcity.client.ui.Wrap;
 import ro.solarstudios.flowcity.module.JsonClientModule;
 
 /**
- * Terminalul MDT de politie, desenat ca o tableta: rama, bara de stare, meniu lateral, dosare pe cetateni,
- * cautare dupa numar de inmatriculare, dispecerat (unitati + backup) si echipa.
+ * Terminalul MDT de politie (stil iarna): fulgi animati, antet cu scut si breadcrumb, taburi cu indicator animat,
+ * dosare pe cetateni, cautare dupa numar, dispecerat (unitati + backup) si echipa.
  */
 public final class MdtScreen extends FlowScreen {
     private static final int BG = 0xFF0A101A;
@@ -36,8 +36,11 @@ public final class MdtScreen extends FlowScreen {
     private static final int RED = Sk.BAD;
     private static final int GREEN = Sk.GOOD;
     private static final int DARK = 0xFF061426;
-    private static final int RAIL = 76;
-    private static final int TOP = 20;
+    private static final int RAIL = 0;
+    private static final int HD = 30;
+    private static final int TB = 22;
+    private static final int TAB_W = 82;
+    private static final int TOP = HD + TB;
     private static final int LIST = 152;
     private static final DateTimeFormatter CLOCK = DateTimeFormatter.ofPattern("HH:mm");
     private static final String[] TABS = {"Cetateni", "Urmariti", "Vehicule", "Dispecerat", "Echipa"};
@@ -45,6 +48,7 @@ public final class MdtScreen extends FlowScreen {
     private static final String[] SUB_KEYS = {"records", "fines", "vehicles", "props"};
     private static final String[] UNIT_TYPES = {"PATRULA", "RUTIERA", "RAZIE"};
 
+    private float indX = -1f;
     private int tab;
     private int sub;
     private int sel = -1;
@@ -392,18 +396,18 @@ public final class MdtScreen extends FlowScreen {
 
     @Override
     protected void draw(GuiGraphics ms, int mx, int my) {
-        float open = Math.min(1f, (System.currentTimeMillis() - openedAt) / 260f);
+        long now = System.currentTimeMillis();
+        float open = Math.min(1f, (now - openedAt) / 260f);
         Sk.background(ms, 0, 0, width, height, open);
-        float pulse = 0.5f + 0.5f * (float) Math.sin(System.currentTimeMillis() / 700.0);
+        float pulse = 0.5f + 0.5f * (float) Math.sin(now / 700.0);
         Gfx.scrim(ms, px + pw / 2f, py + ph / 2f, pw * 0.62f, ph * 0.62f, Gfx.fade(Sk.ACC, 0.06f + 0.04f * pulse));
-        Sk.cut(ms, px - 1, py - 1, pw + 2, ph + 2, 13f, Gfx.fade(Sk.ACC, 0.55f));
+        Sk.cut(ms, px - 1, py - 1, pw + 2, ph + 2, 13f, Gfx.fade(Sk.ACC, 0.45f + 0.15f * pulse));
         Sk.cut(ms, px, py, pw, ph, 12f, 0xF20A121E);
-        Ui.rect(ms, px + 14, py + TOP, pw - 28, 1, Gfx.fade(Sk.ACC, 0.35f));
-        Ui.rect(ms, px - 3, py + 12, 3, ph - 24, Sk.ACC);
+        snow(ms, now);
         int cx = px + RAIL;
         int cy = py + TOP;
         int cw = pw - RAIL;
-        int ch = ph - TOP;
+        int ch = ph - TOP - 4;
         switch (tab) {
             case 0:
                 drawCitizens(ms, mx, my, cx, cy, cw, ch);
@@ -421,72 +425,91 @@ public final class MdtScreen extends FlowScreen {
                 drawTeam(ms, mx, my, cx, cy, cw, ch);
                 break;
         }
-        drawRail(ms, mx, my);
+        drawTabs(ms, mx, my, now);
         drawTop(ms, mx, my);
         if (modal != 0) drawModal(ms, mx, my);
     }
 
-    private void drawTop(GuiGraphics ms, int mx, int my) {
-        Ui.rect(ms, px, py, pw, TOP, SIDE);
-        Ui.rect(ms, px, py + TOP - 1, pw, 1, RULE);
-        Sk.slant(ms, px + 8, py + 4, 11, 12, 4f, Sk.ACC);
-        Gfx.text(ms, "POLIȚIA FLOWCITY", px + 26, py + 14, 8.6f, INK, 0, true, 0.4f);
-        Ui.text(ms, "MDT", px + 26 + Math.round(Gfx.width("POLIȚIA FLOWCITY", 8.6f, true)) + 14, py + 6, FAINT);
+    /** Fulgi de nea care cad in panou. */
+    private void snow(GuiGraphics ms, long now) {
+        for (int k = 0; k < 28; k++) {
+            int fx = px + 8 + (k * 53) % (pw - 16) + (int) Math.round(Math.sin(now / 1400.0 + k) * 5);
+            int fy = py + 4 + (int) (((now / (28 + (k % 4) * 9)) + k * 41L) % (ph - 8));
+            int sz = k % 5 == 0 ? 2 : 1;
+            Ui.rect(ms, fx, fy, sz, sz, Gfx.fade(Sk.WHITE, 0.10f + 0.04f * (k % 4)));
+        }
+    }
 
-        int xr = px + pw - 8;
-        button(ms, "x", xr - 14, py + 3, 14, 14, mx, my, true, 0xFF3A2328, this::onClose);
-        xr -= 22;
-        Ui.textRight(ms, LocalTime.now().format(CLOCK), xr, py + 6, DIM);
-        xr -= Ui.width("00:00") + 10;
-        for (int k = 0; k < 4; k++) Ui.rect(ms, xr - 14 + k * 4, py + 14 - (k + 1) * 2 - 1, 3, (k + 1) * 2 + 1, k < 3 ? GREEN : FAINT);
+    private void drawTop(GuiGraphics ms, int mx, int my) {
+        Ui.rect(ms, px + 12, py + HD - 1, pw - 24, 1, Gfx.fade(Sk.ACC, 0.30f));
+        // scut
+        for (int r = 0; r < 13; r++) {
+            int w = r < 8 ? 12 : 12 - (r - 7) * 2;
+            Ui.rect(ms, px + 14 + (12 - w) / 2, py + 8 + r, w, 1, Sk.ACC);
+        }
+        Ui.rect(ms, px + 19, py + 12, 2, 6, DARK);
+        Ui.rect(ms, px + 17, py + 14, 6, 2, DARK);
+        Gfx.text(ms, "POLIȚIA FLOWCITY", px + 34, py + 15, 8.6f, INK, 0, true, 0.4f);
+        int tx = px + 34 + Math.round(Gfx.width("POLIȚIA FLOWCITY", 8.6f, true)) + 8;
+        Ui.text(ms, "MDT  >  " + TABS[tab] + crumb(), tx, py + 11, FAINT);
+
+        int xr = px + pw - 12;
+        button(ms, "x", xr - 14, py + 8, 14, 14, mx, my, true, 0xFF3A2328, this::onClose);
+        xr -= 24;
+        Ui.textRight(ms, LocalTime.now().format(CLOCK), xr, py + 11, DIM);
+        xr -= Ui.width("00:00") + 8;
+        for (int k = 0; k < 4; k++) Ui.rect(ms, xr - 14 + k * 4, py + 20 - (k + 1) * 2 - 1, 3, (k + 1) * 2 + 1, k < 3 ? GREEN : FAINT);
         xr -= 22;
         JsonObject m = me();
         String rank = s(m, "rankName") + "  " + s(m, "name");
-        Ui.textRight(ms, rank, xr, py + 6, DIM);
-        xr -= Ui.width(rank) + 12;
+        Ui.textRight(ms, rank, xr, py + 11, DIM);
+        xr -= Ui.width(rank) + 10;
         String unitId = s(m, "unit");
         JsonObject mine = null;
         for (JsonObject u : list(arr(MdtState.state, "units"))) if (s(u, "id").equals(unitId)) mine = u;
         if (mine != null) {
             boolean free = "Available".equals(s(mine, "status"));
             String t = s(mine, "name") + " " + (free ? "disponibil" : "ocupat");
-            Ui.textRight(ms, t, xr, py + 6, free ? GREEN : AMBER);
+            Ui.textRight(ms, t, xr, py + 11, free ? GREEN : AMBER);
         } else {
-            Ui.textRight(ms, "fara unitate", xr, py + 6, FAINT);
+            Ui.textRight(ms, "fara unitate", xr, py + 11, FAINT);
         }
     }
 
-    private void drawRail(GuiGraphics ms, int mx, int my) {
-        int y0 = py + TOP;
-        Ui.rect(ms, px, y0, RAIL, ph - TOP, SIDE);
-        Ui.rect(ms, px + RAIL - 1, y0, 1, ph - TOP, RULE);
+    private String crumb() {
+        if (tab != 0 || selUuid.isEmpty()) return "";
+        JsonObject d = dossier();
+        return d == null ? "" : "  >  " + Ui.clip(s(d, "n"), 90);
+    }
+
+    private void drawTabs(GuiGraphics ms, int mx, int my, long now) {
+        int y0 = py + HD;
+        Ui.rect(ms, px + 8, y0, pw - 16, TB, 0x80080D16);
         int wantedN = arr(MdtState.state, "wanted").size();
         int bkN = arr(MdtState.state, "backups").size();
+        float target = px + 10 + tab * TAB_W;
+        indX = indX < 0 ? target : indX + (target - indX) * 0.28f;
         for (int k = 0; k < TABS.length; k++) {
-            int y = y0 + 8 + k * 27;
+            int x = px + 10 + k * TAB_W;
             boolean on = tab == k;
-            boolean hover = Ui.in(mx, my, px, y, RAIL - 1, 25);
-            if (on) Sk.slant(ms, px + 5, y, RAIL - 10, 25, 6f, Sk.ACC);
-            else if (hover) Sk.slant(ms, px + 5, y, RAIL - 10, 25, 6f, Sk.ROW_HOT);
-            glyph(ms, k, px + 13, y + 8, on ? DARK : DIM);
-            Ui.smallCaps(ms, TABS[k], px + 27, y + 9, on ? DARK : DIM);
+            boolean hover = Ui.in(mx, my, x, y0, TAB_W - 4, TB);
+            if (hover && !on) Sk.slant(ms, x, y0 + 2, TAB_W - 4, TB - 4, 4f, Sk.ROW_HOT);
+            glyph(ms, k, x + 8, y0 + 6, on ? INK : DIM);
+            Ui.smallCaps(ms, TABS[k], x + 22, y0 + 7, on ? INK : DIM);
             int badge = k == 1 ? wantedN : k == 3 ? bkN : 0;
             if (badge > 0) {
                 String t = String.valueOf(badge);
                 int w = Ui.width(t) + 6;
-                Ui.rect(ms, px + RAIL - w - 3, y + 7, w, 11, RED);
-                Ui.text(ms, t, px + RAIL - w, y + 9, DARK);
+                Ui.rect(ms, x + TAB_W - w - 8, y0 + 5, w, 11, RED);
+                Ui.text(ms, t, x + TAB_W - w - 5, y0 + 7, DARK);
             }
             final int kk = k;
-            hit(px, y, RAIL - 1, 25, () -> setTab(kk));
+            hit(x, y0, TAB_W - 4, TB, () -> setTab(kk));
         }
-        int by = py + ph - 52;
-        Ui.text(ms, "BK: Num 1-3", px + 9, by, FAINT);
-        int pw2 = RAIL - 14;
-        boolean hover = Ui.in(mx, my, px + 7, by + 12, pw2, 22);
-        Sk.slant(ms, px + 7, by + 12, pw2, 22, 6f, hover ? 0xFFFF7A6E : Sk.BAD);
-        Ui.smallCaps(ms, "Panica", px + 7 + (pw2 - Ui.smallCapsWidth("Panica")) / 2 + 2, by + 20, DARK);
-        hit(px + 7, by + 12, pw2, 22, () -> MdtClient.act("panic"));
+        int ix = Math.round(indX);
+        Ui.rect(ms, ix, y0 + TB - 3, TAB_W - 4, 3, Sk.ACC);
+        Ui.rect(ms, ix, y0 + TB - 7, TAB_W - 4, 4, Gfx.fade(Sk.ACC, 0.18f));
+        button(ms, "Panica", px + pw - 74, y0 + 3, 62, 16, mx, my, true, 0xFF6A2A26, () -> MdtClient.act("panic"));
     }
 
     /** Pictograme simple (10x10) desenate din dreptunghiuri. */
@@ -609,6 +632,8 @@ public final class MdtScreen extends FlowScreen {
         }
         boolean wanted = b(d, "w");
         // antet de dosar
+        Sk.slant(ms, dx - 6, cy + 6, dw + 12, 32, 6f, wanted ? 0x55401818 : 0x88111B2A);
+        if (wanted) Ui.rect(ms, dx - 6, cy + 10, 2, 24, RED);
         face(ms, s(d, "u"), dx + 1, cy + 13, b(d, "on"));
         Gfx.text(ms, Ui.clip(s(d, "n"), dw - 110), dx + 18, cy + 22, 14, INK, 0, true, 0f);
         Ui.text(ms, "Fisa  #" + shortId(s(d, "u")) + "   " + (b(d, "on") ? "online" : "offline"), dx + 18, cy + 27, FAINT);
