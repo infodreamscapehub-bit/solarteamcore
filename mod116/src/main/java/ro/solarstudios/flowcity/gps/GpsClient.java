@@ -29,6 +29,11 @@ public final class GpsClient extends JsonClientModule {
             GpsData.apply(d);
             Minecraft mc = Minecraft.getInstance();
             if (mc.screen instanceof GpsScreen) ((GpsScreen) mc.screen).dataChanged();
+            if (mc.screen instanceof MapEditorScreen) ((MapEditorScreen) mc.screen).dataChanged();
+        });
+        on("editres", d -> {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.screen instanceof MapEditorScreen) ((MapEditorScreen) mc.screen).onResult(str(d, "op", ""), bool(d, "ok", false), str(d, "msg", ""));
         });
         on("open", d -> wantOpen = true);
         on("set", d -> GpsNav.set("srv", str(d, "name", "Destinație"), num(d, "x", 0), num(d, "z", 0), str(d, "dim", "minecraft:overworld"), 0xFF4DA3FF));
@@ -66,6 +71,13 @@ public final class GpsClient extends JsonClientModule {
         if (instance == null || !ClientBridge.connected || now - lastRequest < 5000) return;
         lastRequest = now;
         instance.send("request", new JsonObject());
+    }
+
+    /** Trimite o editare serverului (autoritar: el re-verifica permisiunea si valideaza tot). */
+    public static void sendEdit(String op, JsonObject o) {
+        if (instance == null) return;
+        o.addProperty("op", op);
+        instance.send("edit", o);
     }
 
     public static void open() {

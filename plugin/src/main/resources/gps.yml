@@ -1,3 +1,5 @@
+# NOU: la prima pornire datele de aici se migreaza in plugins/FlowCityBridge/gps/*.json (cu backup). De atunci se editeaza
+# din joc: GPS > EDITOR HARTA (admin). Acest fisier ramane doar sursa pentru migrare.
 # GPS FlowCity - configuratie. Se reincarca cu /gps reload (si se trimite tuturor jucatorilor cu modul).
 # ATENTIE: ce adaugi/muti/stergi cu comenzile /gps adauga|muta|sterge ... se salveaza in gps-data.yml (peste acest fisier),
 # ca sa-ti pastrezi comentariile de aici. Poti edita oricand locatiile direct aici.

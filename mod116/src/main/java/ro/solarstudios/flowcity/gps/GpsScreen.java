@@ -50,6 +50,7 @@ public final class GpsScreen extends FlowScreen {
     private boolean panelOpen = true;
     private float panelAnim = 1f;
     private boolean menuOpen;
+    private boolean layersOpen;
     private boolean showZones;
     private long lastRefresh;
     private String note = "";
@@ -153,6 +154,7 @@ public final class GpsScreen extends FlowScreen {
         totalInDim = 0;
         for (GpsData.Loc l : all) {
             if (!l.dim.equals(dim)) continue;
+            if (!GpsPrefs.layerOn("locations") || !GpsPrefs.layerOn(GpsData.locLayer(l))) continue;
             totalInDim++;
             if ("FAV".equals(filter)) {
                 if (!GpsPrefs.fav.contains(l.id)) continue;
@@ -301,6 +303,7 @@ public final class GpsScreen extends FlowScreen {
             if (overPanel(mx, my)) return true;
             if (GpsNav.active && mx < 12 + cardW() && my > height - 12 - 70) return true;
             menuOpen = false;
+            layersOpen = false;
             pressMap = true;
             moved = false;
             pressX = mx;
@@ -508,6 +511,7 @@ public final class GpsScreen extends FlowScreen {
         drawTop(g, mc, mx, my);
         drawCard(g, mc, mx, my);
         drawControls(g, mx, my);
+        drawLayers(g, mx, my);
         drawPanel(g, mc, mx, my, t);
         if (hover != null && !overPanel(mx, my)) tooltip(g, hover, mx, my);
         if (System.currentTimeMillis() < noteUntil) {
@@ -520,25 +524,28 @@ public final class GpsScreen extends FlowScreen {
     }
 
     private void drawGrid(GuiGraphics g) {
-        if (zoom < 2.2f) return;
-        float step = 16f * zoom;
-        float x0 = (float) (mapCx + (Math.floor((camX - mapCx / zoom) / 16.0) * 16.0 - camX) * zoom);
-        float y0 = (float) (mapCy + (Math.floor((camZ - mapCy / zoom) / 16.0) * 16.0 - camZ) * zoom);
-        for (float x = x0; x < width; x += step) g.fill(Math.round(x), 0, Math.round(x) + 1, height, 0x0CFFFFFF);
-        for (float y = y0; y < height; y += step) g.fill(0, Math.round(y), width, Math.round(y) + 1, 0x0CFFFFFF);
+        if (zoom < 2.2f && !GpsPrefs.grid) return;
+        double base = 16.0;
+        while (base * zoom < 40.0) base *= 2.0;
+        float step = (float) (base * zoom);
+        float x0 = (float) (mapCx + (Math.floor((camX - mapCx / zoom) / base) * base - camX) * zoom);
+        float y0 = (float) (mapCy + (Math.floor((camZ - mapCy / zoom) / base) * base - camZ) * zoom);
+        int col = GpsPrefs.grid ? 0x22FFFFFF : 0x0CFFFFFF;
+        for (float x = x0; x < width; x += step) g.fill(Math.round(x), 0, Math.round(x) + 1, height, col);
+        for (float y = y0; y < height; y += step) g.fill(0, Math.round(y), width, Math.round(y) + 1, col);
     }
 
     private void drawZones(GuiGraphics g) {
         String dim = GpsData.dimOf(Minecraft.getInstance());
         for (GpsData.Zone z : GpsData.zones) {
-            if (!z.dim.equals(dim)) continue;
+            if (!z.dim.equals(dim) || !z.enabled || !GpsPrefs.layerOn(GpsData.zoneLayer(z))) continue;
             float x0 = sx(z.minX);
             float x1 = sx(z.maxX);
             float y0 = sy(z.minZ);
             float y1 = sy(z.maxZ);
             if (x1 < 0 || y1 < 0 || x0 > width || y0 > height) continue;
-            int fill = (z.color & 0xFFFFFF) | 0x36000000;
-            int edge = (z.color & 0xFFFFFF) | 0xE0000000;
+            int fill = (z.color & 0xFFFFFF) | (Math.round(z.alpha * 2.55f) << 24);
+            int edge = (z.outline & 0xFFFFFF) | 0xE0000000;
             float[] tr = z.tris;
             for (int i = 0; i + 5 < tr.length; i += 6) {
                 Gfx.poly(g, new float[] {sx(tr[i]), sy(tr[i + 1]), sx(tr[i + 2]), sy(tr[i + 3]), sx(tr[i + 4]), sy(tr[i + 5])}, fill);
@@ -616,6 +623,7 @@ public final class GpsScreen extends FlowScreen {
         float bd = (r + 4f) * (r + 4f);
         boolean mouseMap = !overPanel(mx, my);
         for (GpsData.Loc l : shown) {
+            if (l.hidden) continue;
             float x = sx(l.x);
             float y = sy(l.z);
             if (x < -20 || y < -20 || x > width + 20 || y > height + 20) continue;
@@ -629,15 +637,16 @@ public final class GpsScreen extends FlowScreen {
         }
         GpsData.Loc sel = selected;
         for (GpsData.Loc l : shown) {
-            if (l == sel) continue;
+            if (l == sel || l.hidden) continue;
             float x = sx(l.x);
             float y = sy(l.z);
             if (x < -20 || y < -20 || x > width + 20 || y > height + 20) continue;
             boolean hv = l == hover;
-            GpsIcons.badge(g, l.icon, x, y, hv ? r + 1.5f : r, l.color, 1f, GpsNav.isTarget(l.id));
+            float lr = r * l.size / 100f;
+            GpsIcons.badge(g, l.icon, x, y, hv ? lr + 1.5f : lr, l.color, 1f, GpsNav.isTarget(l.id));
             if (zoom >= 1.5f || hv) Gfx.textS(g, clip(l.name, 7.2f, true, 110f), x, y + r + 9f, 7.2f, Sk.WHITE, 1, true, 0.3f);
         }
-        if (sel != null) {
+        if (sel != null && (!PIN.equals(sel.id) || GpsPrefs.layerOn("waypoints"))) {
             float x = sx(sel.x);
             float y = sy(sel.z);
             float ph = (t % 1.6f) / 1.6f;
@@ -646,7 +655,7 @@ public final class GpsScreen extends FlowScreen {
             Gfx.textS(g, clip(sel.name, 8f, true, 140f), x, y + r + 12f, 8f, Sk.WHITE, 1, true, 0.3f);
         }
         // destinatia activa daca nu e in lista curenta (ex. setata de server)
-        if (GpsNav.active && GpsNav.dim.equals(GpsData.dimOf(mc)) && !isShown(GpsNav.id)) {
+        if (GpsNav.active && GpsPrefs.layerOn("waypoints") && GpsNav.dim.equals(GpsData.dimOf(mc)) && !isShown(GpsNav.id)) {
             float x = sx(GpsNav.x);
             float y = sy(GpsNav.z);
             GpsIcons.badge(g, "pin", x, y, r + 1f, GpsNav.color, 1f, true);
@@ -765,12 +774,17 @@ public final class GpsScreen extends FlowScreen {
         Sk.cut(g, bx, by, 38, 38, 8, menuOpen || hov ? 0xF0223656 : 0xF0081018);
         for (int i = 0; i < 3; i++) Gfx.rrect(g, bx + 10, by + 11 + i * 6, 18, 2.4f, 1, Sk.WHITE);
         hitF(bx, by, 38, 38, () -> menuOpen = !menuOpen);
+        if (GpsData.admin) {
+            btn(g, "EDITOR HARTĂ", bx + 46, by, 132, 38, 0, mx, my, () -> mc.setScreen(new MapEditorScreen(camX, camZ, zoom)));
+        }
         if (menuOpen) {
             String[] items = {
                 "Zone RP: " + (showZones ? "ACTIV" : "OPRIT"),
                 "Centrează pe mine",
                 "Vezi tot ce ai explorat",
-                panelOpen ? "Ascunde panoul" : "Arată panoul"
+                panelOpen ? "Ascunde panoul" : "Arată panoul",
+                "Straturi hartă",
+                "Grilă: " + (GpsPrefs.grid ? "ACTIVĂ" : "OPRITĂ")
             };
             float mw = 214f;
             float my0 = by + 44f;
@@ -789,8 +803,12 @@ public final class GpsScreen extends FlowScreen {
                         centerOnPlayer();
                     } else if (idx == 2) {
                         fitAll();
-                    } else {
+                    } else if (idx == 3) {
                         panelOpen = !panelOpen;
+                    } else if (idx == 4) {
+                        layersOpen = !layersOpen;
+                    } else {
+                        GpsPrefs.grid = !GpsPrefs.grid;
                     }
                 });
             }
@@ -812,6 +830,41 @@ public final class GpsScreen extends FlowScreen {
             long cx = Math.round(camX + (mx - mapCx) / zoom);
             long cz = Math.round(camZ + (my - mapCy) / zoom);
             Gfx.text(g, "cursor " + cx + " , " + cz, mapCx, M + 44f, 7f, 0xFF9CB4D0, 1);
+        }
+    }
+
+    /** Straturile hartii, comutabile independent (se retin local). */
+    static final String[][] LAYERS = {
+        {"locations", "Locații"}, {"legal", "Zone legale"}, {"illegal", "Zone ilegale"}, {"special", "Zone speciale"},
+        {"police", "Poliție"}, {"hospital", "Spitale"}, {"shop", "Magazine"}, {"waypoints", "Waypoint-uri"}, {"other", "Alte categorii"}
+    };
+
+    private void drawLayers(GuiGraphics g, int mx, int my) {
+        if (!layersOpen) return;
+        float w = 214f;
+        float rowH = 26f;
+        float h = LAYERS.length * rowH + 40f;
+        float x = M;
+        float y = M + 44f + (menuOpen ? 6f * 30f + 16f : 0f);
+        Sk.cut(g, x, y, w, h, 8, 0xF4081018);
+        Gfx.text(g, "STRATURI", x + 14, y + 20, 8f, Sk.ACC, 0, true, 1.4f);
+        hitF(x, y, w, h, () -> {});
+        for (int i = 0; i < LAYERS.length; i++) {
+            final String id = LAYERS[i][0];
+            float ry = y + 30f + i * rowH;
+            boolean on = GpsPrefs.layerOn(id);
+            boolean hv = Sk.in(mx, my, x + 4, ry, w - 8, rowH - 2);
+            if (hv) Sk.slant(g, x + 4, ry, w - 8, rowH - 2, 5f, 0xFF1B2E47);
+            Gfx.rrect(g, x + 14, ry + 5, 14, 14, 3, on ? Sk.ACC : 0xFF22344D);
+            if (on) {
+                Gfx.line(g, x + 17, ry + 12, x + 20.5f, ry + 15.5f, 1.8f, 0xFF061426);
+                Gfx.line(g, x + 20.5f, ry + 15.5f, x + 26, ry + 8, 1.8f, 0xFF061426);
+            }
+            Gfx.text(g, LAYERS[i][1], x + 38, ry + 16.5f, 8.6f, on ? Sk.WHITE : Sk.MUTED, 0, true, 0f);
+            hitF(x + 4, ry, w - 8, rowH - 2, () -> {
+                GpsPrefs.toggleLayer(id);
+                dirty = true;
+            });
         }
     }
 
@@ -864,6 +917,7 @@ public final class GpsScreen extends FlowScreen {
         search.x = Math.round(x + 44);
         search.y = Math.round(sy0 + 10);
         search.setWidth(Math.round(w - 64));
+        search.render(g.pose(), mx, my, 0f);
         hitF(x + 14, sy0, w - 28, 28, () -> focus(search, true));
 
         // filtre
@@ -907,7 +961,7 @@ public final class GpsScreen extends FlowScreen {
         if (shown.isEmpty()) {
             String msg = !GpsData.loaded && GpsData.all().isEmpty() ? "Se încarcă locațiile…" : (totalInDim == 0 ? "Nicio locație configurată" : "Nicio locație găsită");
             Gfx.text(g, msg, x + w / 2f, listTop + 30, 8.6f, Sk.MUTED, 1);
-            if (totalInDim == 0 && GpsData.loaded) Gfx.text(g, "Adminul: /gps adauga <categorie> <nume>", x + w / 2f, listTop + 46, 6.8f, Sk.FAINT, 1);
+            if (totalInDim == 0 && GpsData.loaded) Gfx.text(g, GpsData.admin ? "Adaugă din EDITOR HARTĂ → LOCAȚII" : "Adminul poate adăuga locații din editor", x + w / 2f, listTop + 46, 6.8f, Sk.FAINT, 1);
         }
         for (int i = 0; i < rowsVisible; i++) {
             int idx = scroll + i;

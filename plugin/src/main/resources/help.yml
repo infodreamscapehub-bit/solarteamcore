@@ -148,7 +148,7 @@ categories:
     color: "#4DA3FF"
     to: "#9BCDFF"
     commands:
-      - {usage: "/gps", desc: "Deschide harta GPS (locații, zone, navigare). Tasta M sau .gps în chat", perm: ""}
+      - {usage: "/gps", desc: "Deschide harta GPS (locații, zone, navigare). Tasta M sau .gps în chat. Adminii: buton EDITOR HARTĂ", perm: ""}
       - {usage: "/gps cancel", desc: "Anulează navigarea activă", perm: ""}
       - {usage: "/gps categorii", desc: "Lista categoriilor de locații", perm: ""}
       - {usage: "/gps lista [CATEGORIE]", desc: "Listează locațiile cu id-urile lor", perm: "flowcity.gps.admin"}

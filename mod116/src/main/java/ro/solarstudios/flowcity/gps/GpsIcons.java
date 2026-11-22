@@ -9,6 +9,34 @@ public final class GpsIcons {
 
     private static final int DARK = 0xFF0A1626;
 
+    /** Biblioteca iconitelor incluse in mod: {id, nume, categorie}. Toate sunt vectoriale (desenate cu Gfx), nu texturi PNG. */
+    public static final String[][] BUILTIN = {
+        {"police", "Poliție", "Poliție"},
+        {"hospital", "Spital", "Spital"},
+        {"bank", "Bancă", "Bancă"},
+        {"atm", "ATM", "ATM"},
+        {"shop", "Magazin", "Magazine"},
+        {"mall", "Mall", "Magazine"},
+        {"fuel", "Benzinărie", "Benzinării"},
+        {"repair", "Service auto", "Service Auto"},
+        {"tuning", "Tuning", "Tuning"},
+        {"city_hall", "Primărie", "Primărie"},
+        {"garage", "Garaj", "Garaje"},
+        {"restaurant", "Restaurant", "Restaurante"},
+        {"fishing", "Pescuit", "Zone de pescuit"},
+        {"bait", "Momeală", "Zone de pescuit"},
+        {"border", "Vamă", "Vama"},
+        {"home", "Proprietate", "Proprietăți"},
+        {"prison", "Închisoare", "Alte locații"},
+        {"pin", "Marcaj", "Alte locații"}
+    };
+
+    /** Categoriile bibliotecii, in ordinea afisarii (cele personalizate vin din icons.json, cu categoria lor). */
+    public static final String[] LIB_CATEGORIES = {
+        "Poliție", "Spital", "Bancă", "ATM", "Magazine", "Benzinării", "Service Auto", "Tuning", "Primărie", "Garaje",
+        "Restaurante", "Zone de pescuit", "Vama", "Proprietăți", "Alte locații"
+    };
+
     /** Insemn de marcaj: raza r, culoarea categoriei; hot = evidentiat (inel dublu). */
     public static void badge(GuiGraphics g, String icon, float cx, float cy, float r, int color, float alpha, boolean hot) {
         int col = Gfx.fade(color, alpha);
@@ -100,15 +128,59 @@ public final class GpsIcons {
                 Gfx.rrect(g, cx - 0.9f * u, cy - 0.9f * u, 1.8f * u, 1.8f * u, 1.2f, col);
                 for (int i = -1; i <= 1; i++) Gfx.rrect(g, cx + i * 0.5f * u - 0.1f * u, cy - 0.75f * u, 0.2f * u, 1.5f * u, 0f, dk);
                 break;
+            case "restaurant":
+                Gfx.line(g, cx - 0.55f * u, cy - 0.95f * u, cx - 0.55f * u, cy + 0.95f * u, 1.5f, col);
+                Gfx.line(g, cx - 0.85f * u, cy - 0.95f * u, cx - 0.85f * u, cy - 0.2f * u, 1.2f, col);
+                Gfx.line(g, cx - 0.25f * u, cy - 0.95f * u, cx - 0.25f * u, cy - 0.2f * u, 1.2f, col);
+                Gfx.line(g, cx - 0.85f * u, cy - 0.2f * u, cx - 0.25f * u, cy - 0.2f * u, 1.4f, col);
+                Gfx.line(g, cx + 0.6f * u, cy - 0.95f * u, cx + 0.6f * u, cy + 0.95f * u, 1.5f, col);
+                Gfx.poly(g, new float[] {cx + 0.6f * u, cy - 0.95f * u, cx + 0.95f * u, cy - 0.5f * u, cx + 0.95f * u, cy + 0.15f * u, cx + 0.6f * u, cy + 0.15f * u}, col);
+                break;
             case "home":
                 Gfx.poly(g, new float[] {cx - 1.0f * u, cy - 0.1f * u, cx, cy - 1.0f * u, cx + 1.0f * u, cy - 0.1f * u}, col);
                 Gfx.rrect(g, cx - 0.7f * u, cy - 0.1f * u, 1.4f * u, 1.0f * u, 0f, col);
                 break;
             default:
+                GpsData.CIcon ci = icon == null ? null : GpsData.customIcons.get(icon);
+                if (ci != null) {
+                    custom(g, ci, cx, cy, u, col, dk);
+                    break;
+                }
                 Gfx.disc(g, cx, cy - 0.25f * u, 0.7f * u, col);
                 Gfx.poly(g, new float[] {cx - 0.55f * u, cy + 0.05f * u, cx + 0.55f * u, cy + 0.05f * u, cx, cy + 1.0f * u}, col);
                 Gfx.disc(g, cx, cy - 0.25f * u, 0.28f * u, dk);
                 break;
+        }
+    }
+
+    /** Deseneaza o iconita personalizata (forme normalizate in -1..1, scalate cu u). */
+    public static void custom(GuiGraphics g, GpsData.CIcon ci, float cx, float cy, float u, int col, int dk) {
+        for (GpsData.Shape sh : ci.shapes) {
+            int c = sh.dark ? dk : col;
+            float[] p = sh.p;
+            switch (sh.t) {
+                case "poly": {
+                    float[] t = sh.tris;
+                    for (int i = 0; i + 5 < t.length; i += 6) {
+                        Gfx.poly(g, new float[] {cx + t[i] * u, cy + t[i + 1] * u, cx + t[i + 2] * u, cy + t[i + 3] * u, cx + t[i + 4] * u, cy + t[i + 5] * u}, c);
+                    }
+                    break;
+                }
+                case "line":
+                    if (p.length >= 4) Gfx.line(g, cx + p[0] * u, cy + p[1] * u, cx + p[2] * u, cy + p[3] * u, Math.max(1f, sh.w * u), c);
+                    break;
+                case "circle":
+                    if (p.length >= 2) Gfx.disc(g, cx + p[0] * u, cy + p[1] * u, Math.max(0.5f, sh.r * u), c);
+                    break;
+                case "ring":
+                    if (p.length >= 2) Gfx.ring(g, cx + p[0] * u, cy + p[1] * u, Math.max(0f, (sh.r - sh.w / 2f) * u), (sh.r + sh.w / 2f) * u, c, c);
+                    break;
+                case "rect":
+                    if (p.length >= 4) Gfx.rrect(g, cx + p[0] * u, cy + p[1] * u, p[2] * u, p[3] * u, 0f, c);
+                    break;
+                default:
+                    break;
+            }
         }
     }
 
