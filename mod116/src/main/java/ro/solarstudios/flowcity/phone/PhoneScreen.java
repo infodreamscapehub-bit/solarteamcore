@@ -23,29 +23,20 @@ import ro.solarstudios.flowcity.notify.NotifyScreen;
 import ro.solarstudios.flowcity.wheel.WheelClient;
 import ro.solarstudios.flowcity.wheel.WheelScreen;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
 /** Telefonul ePhone: ecran principal cu aplicatii + Mesaje, Contacte, Apeluri, Banca, Setari. */
 public final class PhoneScreen extends FlowScreen {
-    private enum Page { HOME, MSG, THREAD, CONTACTS, CALLS, BANK, SETTINGS, SIM }
+    private enum Page { HOME, MSG, THREAD, CONTACTS, CALLS, BANK, SETTINGS, SIM, STORE, STORE_APP, CALC, NOTES, NOTE_EDIT, CLOCK, WEATHER }
 
-    private static final String[] APP_NAMES = {"Mesaje", "Contacte", "Apeluri", "Banca", "CNN", "Notificari", "Joburi", "Roata", "Harta", "Setari", "SIM"};
-    private static final int[] APP_COLORS = {0xFF2F7FD6, 0xFF3A4F6B, 0xFF2E8F66, 0xFF245A99, 0xFFB0413B, 0xFFC28A2C, 0xFF4A6A8C, 0xFF7A5AA0, 0xFF2F8A9A, 0xFF3A4658, 0xFF2E7D6B};
-    /** Aplicatiile din dock (jos), restul stau in grila. */
-    private static final int[] DOCK = {2, 0, 1, 3};
-    private static final int[] GRID = {4, 5, 6, 10, 7, 9};
     private static final int[] AVATAR = {0xFF2F6FB0, 0xFF3F7E8C, 0xFF4E7A8A, 0xFF5E5C9A, 0xFF8C7A3A, 0xFF4B5D7A, 0xFF2E8F66};
     /** 3 fundaluri intunecate + aceleasi 3 in varianta luminoasa (mod luminos). */
     private static final int[][] WALL = {{0xFF0E1A2E, 0xFF060A14}, {0xFF12283C, 0xFF08121E}, {0xFF1B2433, 0xFF0A0F18},
         {0xFFCFE6FA, 0xFF8FB8E0}, {0xFFE2EEF8, 0xFFA9C8E4}, {0xFFD6DEEA, 0xFF9AA8BD}};
     private static final String[] WALL_NAMES = {"Noapte", "Gheata", "Fiord"};
-    /** Aplicatiile care cer o cartela SIM activa (Mesaje, Apeluri). */
-    private static boolean needsSim(int app) {
-        return app == 0 || app == 2;
-    }
-
     /** Deschide telefonul direct intr-o conversatie SMS (de ex. cu autorul unui anunt CNN). Fara SIM activ se deschide telefonul cu mesajul de eroare. */
     public static void openThreadWith(String uuid, String name) {
         PhoneScreen ps = new PhoneScreen();
@@ -65,10 +56,17 @@ public final class PhoneScreen extends FlowScreen {
             Minecraft.getInstance().setScreen(new ro.solarstudios.flowcity.news.AdsScreen());
             return;
         }
-        int idx = "sms".equals(app) ? 0 : "call".equals(app) ? 2 : "bank".equals(app) ? 3 : "news".equals(app) ? 4 : "jobs".equals(app) ? 6 : -1;
+        String id = "sms".equals(app) ? "messages" : "call".equals(app) ? "phone" : "bank".equals(app) ? "bank" : "news".equals(app) ? "cnn" : "jobs".equals(app) ? "jobs" : null;
         PhoneScreen ps = new PhoneScreen();
         Minecraft.getInstance().setScreen(ps);
-        if (idx >= 0) ps.openApp(idx);
+        if (id == null) return;
+        if (PhoneState.storeLoaded && !PhoneState.apps.contains(id)) {
+            ps.toast("Aplicatia nu este instalata. O gasesti in App Store.", true);
+            PhoneClient.requestStore();
+            ps.openDetail(id);
+            return;
+        }
+        ps.openApp(id);
     }
 
     private static int volumeStep = 2; // 0, 1(50%), 2(100%)
@@ -77,7 +75,6 @@ public final class PhoneScreen extends FlowScreen {
 
     private Page page = Page.HOME;
     private long pageSince = System.currentTimeMillis();
-    private int openApp = -1;
     private int scroll;
     private int scrollMax;
     private String threadUuid = "";
@@ -91,6 +88,13 @@ public final class PhoneScreen extends FlowScreen {
         super("ePhone", W, 350);
         msgField = field("Scrie un mesaj...", 200, null);
         contactField = field("Nume sau #ID", 40, null);
+        storeField = field("Cauta aplicatii", 30, v -> scroll = 0);
+        noteField = field("Notita...", 400, null);
+        PhoneClient.requestStore();
+        if (lastPage != Page.HOME && PhoneState.apps.contains(appOf(lastPage))) {
+            page = lastPage;
+            if (page == Page.NOTES) PhoneClient.requestNotes();
+        }
         PhoneClient.requestThreads();
         PhoneClient.requestContacts();
         PhoneClient.requestCalls();
@@ -105,6 +109,8 @@ public final class PhoneScreen extends FlowScreen {
     protected List<TextFieldWidget> fields() {
         if (page == Page.THREAD) return Collections.singletonList(msgField);
         if (page == Page.CONTACTS) return Collections.singletonList(contactField);
+        if (page == Page.STORE) return Collections.singletonList(storeField);
+        if (page == Page.NOTE_EDIT) return Collections.singletonList(noteField);
         return Collections.emptyList();
     }
 
@@ -112,6 +118,7 @@ public final class PhoneScreen extends FlowScreen {
     protected void onEnter(TextFieldWidget f) {
         if (f == msgField) sendMsg();
         else if (f == contactField) addContact();
+        else if (f == noteField) saveNote();
     }
 
     public boolean viewingThread(String uuid) {
@@ -122,7 +129,13 @@ public final class PhoneScreen extends FlowScreen {
         stickBottom = true;
     }
 
+    /** Ultima pagina "simpla" deschisa: telefonul se redeschide acolo (fara pierderea starii). */
+    private static Page lastPage = Page.HOME;
+
     private void go(Page p) {
+        lastPage = p == Page.STORE || p == Page.CALC || p == Page.NOTES || p == Page.CLOCK || p == Page.WEATHER || p == Page.SETTINGS ? p : Page.HOME;
+        if (p != Page.HOME) homeFade = false;
+        if (p != Page.HOME && editMode) exitEdit();
         page = p;
         pageSince = System.currentTimeMillis();
         scroll = 0;
@@ -203,14 +216,18 @@ public final class PhoneScreen extends FlowScreen {
         int y = (height - ph2) / 2 + Math.round((1f - appear) * 40f);
         Gfx.alpha = open;
         try {
-            // corp telefon: rama cu colturi taiate, muchie de accent
-            Sk.cut(ms, x - 6, y - 6, W + 12, ph2 + 12, 14f, 0xFF03060C);
-            Sk.cut(ms, x - 4, y - 4, W + 8, ph2 + 8, 12f, 0xFF16263C);
-            Sk.cut(ms, x - 3, y - 3, W + 6, ph2 + 6, 11f, 0xFF0B1424);
-            Ui.rect(ms, x + 14, y - 6, W - 28, 1, Sk.ACC);
+            // corp telefon: rama metalica rotunjita, butoane laterale, ecran cu colturi rotunjite
+            Gfx.rrect(ms, x - 9, y - 7, 3, 22, 1.5f, 0xFF2A3140);
+            Gfx.rrect(ms, x - 9, y + 62, 3, 30, 1.5f, 0xFF2A3140);
+            Gfx.rrect(ms, x + W + 6, y + 70, 3, 40, 1.5f, 0xFF2A3140);
+            Gfx.rrect(ms, x - 8, y - 8, W + 16, ph2 + 16, 26f, 0xFF3A4252, 0xFF161A22);
+            Gfx.rrect(ms, x - 6.5f, y - 6.5f, W + 13, ph2 + 13, 24.5f, 0xFF0E1118, 0xFF0A0C11);
+            Gfx.rrect(ms, x - 4, y - 4, W + 8, ph2 + 8, 22f, 0xFF020304);
             int sx = x, sy = y, sw = W, sh = ph2;
             wallpaper(ms, sx, sy, sw, sh, now);
-            if (PhoneState.light && (page != Page.HOME || PhoneState.call != null)) Ui.rect(ms, sx, sy, sw, sh, 0xD0060B14); // paginile aplicatiilor raman lizibile
+            if (page != Page.HOME && page != Page.CALC && page != Page.CLOCK && page != Page.WEATHER && PhoneState.call == null) {
+                Ui.rect(ms, sx, sy, sw, sh, PhoneState.light ? 0xD0060B14 : 0x8C060A12); // paginile aplicatiilor raman lizibile
+            }
             pw = sw;
             ph = sh;
             px = sx;
@@ -220,8 +237,29 @@ public final class PhoneScreen extends FlowScreen {
             if (call != null) {
                 callScreen(ms, sx, sy, sw, sh, mx, my, call, now);
             } else {
+                float te = Math.min(1f, (now - pageSince) / 200f);
+                float ease = 1f - (1f - te) * (1f - te) * (1f - te);
+                boolean zoom = page != Page.HOME && openFromX >= 0 && ease < 1f;
+                if (zoom) {
+                    float sc = 0.15f + 0.85f * ease;
+                    float zx = openFromX + (sx + sw / 2f - openFromX) * ease;
+                    float zy = openFromY + (sy + sh / 2f - openFromY) * ease;
+                    ms.pose().pushPose();
+                    ms.pose().translate(zx, zy, 0);
+                    ms.pose().scale(sc, sc, 1f);
+                    ms.pose().translate(-(sx + sw / 2f), -(sy + sh / 2f), 0);
+                } else if (page != Page.HOME) {
+                    openFromX = -1f;
+                }
                 switch (page) {
                     case HOME: home(ms, sx, sy, sw, sh, mx, my, now); break;
+                    case STORE: store(ms, sx, sy, sw, sh, mx, my); break;
+                    case STORE_APP: storeApp(ms, sx, sy, sw, sh, mx, my); break;
+                    case CALC: calc(ms, sx, sy, sw, sh, mx, my); break;
+                    case NOTES: notes(ms, sx, sy, sw, sh, mx, my); break;
+                    case NOTE_EDIT: noteEdit(ms, sx, sy, sw, sh, mx, my); break;
+                    case CLOCK: clock(ms, sx, sy, sw, sh, mx, my); break;
+                    case WEATHER: weather(ms, sx, sy, sw, sh, mx, my); break;
                     case MSG: messages(ms, sx, sy, sw, sh, mx, my); break;
                     case THREAD: thread(ms, sx, sy, sw, sh, mx, my); break;
                     case CONTACTS: contacts(ms, sx, sy, sw, sh, mx, my); break;
@@ -231,14 +269,59 @@ public final class PhoneScreen extends FlowScreen {
                     case SIM: sim(ms, sx, sy, sw, sh, mx, my); break;
                     default: break;
                 }
+                if (zoom) {
+                    ms.pose().popPose();
+                    Ui.rect(ms, sx, sy, sw, sh, ((int) ((1f - ease) * 200) << 24) | 0x060A12);
+                }
+                if (page == Page.HOME && te < 1f && homeFade) Ui.rect(ms, sx, sy, sw, sh, ((int) ((1f - ease) * 190) << 24) | 0x060A12);
+                confirmDialog(ms, sx, sy, sw, sh, mx, my);
             }
             statusBar(ms, sx, sy, sw, now);
-            // gaura camerei (taiata) si bara home (accent)
-            Sk.slant(ms, sx + sw / 2f - 20, sy + 2, 40, 8, 3f, 0xFF000000);
-            Ui.rect(ms, sx + sw / 2 - 24, sy + sh - 6, 48, 2, Sk.ACC);
-            if (call == null && page != Page.HOME) hit(sx + sw / 2 - 30, sy + sh - 10, 60, 10, () -> go(Page.HOME));
+            // colturile ecranului (masca), camera (insula) si bara home
+            screenCorners(ms, sx, sy, sw, sh, 16f, 0xFF020304);
+            Gfx.rrect(ms, sx + sw / 2f - 21, sy + 4, 42, 11, 5.5f, 0xFF000000);
+            Gfx.disc(ms, sx + sw / 2f + 13, sy + 9.5f, 2.2f, 0xFF10182A);
+            boolean darkBar = PhoneState.light && page == Page.HOME && call == null;
+            Gfx.rrect(ms, sx + sw / 2f - 27, sy + sh - 6, 54, 3, 1.5f, darkBar ? 0xCC10243C : 0xDDF2F7FF);
+            if (call == null && page != Page.HOME) hit(sx + sw / 2 - 34, sy + sh - 12, 68, 12, this::goHome);
+            if (call == null && page == Page.HOME && editMode) hit(sx + sw / 2 - 34, sy + sh - 12, 68, 12, this::exitEdit);
         } finally {
             Gfx.alpha = 1f;
+        }
+    }
+
+    private boolean homeFade;
+
+    private static String appOf(Page p) {
+        switch (p) {
+            case STORE: return "store";
+            case CALC: return "calc";
+            case NOTES: return "notes";
+            case CLOCK: return "clock";
+            case WEATHER: return "weather";
+            default: return "settings";
+        }
+    }
+
+    private void goHome() {
+        go(Page.HOME);
+        homeFade = true;
+    }
+
+    /** Masca pentru colturile rotunjite ale ecranului (evantai din fiecare colt pana la arc). */
+    private static void screenCorners(GuiGraphics ms, float x, float y, float w, float h, float r, int col) {
+        float[][] c = {{x, y, x + r, y + r, 180}, {x + w, y, x + w - r, y + r, 270}, {x + w, y + h, x + w - r, y + h - r, 0}, {x, y + h, x + r, y + h - r, 90}};
+        for (float[] k : c) {
+            int n = 10;
+            float[] pts = new float[(n + 2) * 2];
+            pts[0] = k[0];
+            pts[1] = k[1];
+            for (int i = 0; i <= n; i++) {
+                double a = Math.toRadians(k[4] + 90.0 * i / n);
+                pts[2 + i * 2] = k[2] + (float) Math.cos(a) * r;
+                pts[3 + i * 2] = k[3] + (float) Math.sin(a) * r;
+            }
+            Gfx.poly(ms, pts, col);
         }
     }
 
@@ -291,133 +374,404 @@ public final class PhoneScreen extends FlowScreen {
         Gfx.text(ms, simLabel(), x + w - 27, y + 10, 6.2f, ok ? tc : Sk.BAD, 2, false, 0.2f);
     }
 
+    // ------------------------------------------------------------------ ecran principal (launcher)
+
+    private static final int COLS = 4;
+    private static final int ROW_H = 54;
+    private static final int ICON = 30;
+
+    /** Pagina curenta a ecranului principal (static: ramane la redeschiderea telefonului). */
+    private static int homePage;
+    private float pageX = -1f;
+    private boolean editMode;
+    private boolean orderDirty;
+    private String editSel;
+    private String confirmRemove;
+    private String confirmBuy;
+    private boolean pressing;
+    private double pressX;
+    private double pressY;
+    private long pressAt;
+    private String pressApp;
+    private float dragDx;
+    private boolean dragged;
+    private float openFromX = -1f;
+    private float openFromY = -1f;
+    private int homeX;
+    private int homeW = W;
+    private int gridTopY;
+    private int gridBottomY;
+    private int editDoneX;
+    private int editDoneY;
+
+    private static final class IconRect {
+        final String id;
+        final int x;
+        final int y;
+        final int w;
+        final int h;
+        final int ix;
+        final int iy;
+
+        IconRect(String id, int x, int y, int w, int h, int ix, int iy) {
+            this.id = id;
+            this.x = x;
+            this.y = y;
+            this.w = w;
+            this.h = h;
+            this.ix = ix;
+            this.iy = iy;
+        }
+    }
+
+    private final List<IconRect> icons = new ArrayList<>();
+
+    private static int gridTop(int page, int y) {
+        return page == 0 ? y + 100 : y + 34;
+    }
+
     private void home(GuiGraphics ms, int x, int y, int w, int h, int mx, int my, long now) {
+        icons.clear();
+        homeX = x;
+        homeW = w;
+        List<String> dock = new ArrayList<>();
+        List<String> grid = new ArrayList<>();
+        for (int i = 0; i < PhoneState.apps.size(); i++) (i < 4 ? dock : grid).add(PhoneState.apps.get(i));
+        int dockY = y + h - 54;
+        int dotsY = dockY - 9;
+        List<List<String>> pages = new ArrayList<>();
+        int idx = 0;
+        int p = 0;
+        do {
+            int rows = Math.max(1, (dotsY - 4 - gridTop(p, y)) / ROW_H);
+            int n = rows * COLS;
+            pages.add(new ArrayList<>(grid.subList(Math.min(idx, grid.size()), Math.min(grid.size(), idx + n))));
+            idx += n;
+            p++;
+        } while (idx < grid.size());
+        if (editMode && !pages.get(pages.size() - 1).isEmpty()) pages.add(new ArrayList<>());
+        homePage = Math.max(0, Math.min(homePage, pages.size() - 1));
+        if (pageX < 0) pageX = homePage;
+        pageX += (homePage - pageX) * 0.22f;
+        if (Math.abs(homePage - pageX) < 0.002f) pageX = homePage;
+        float off = pageX * w - dragDx;
+        gridTopY = y + 16;
+        gridBottomY = dotsY - 2;
+
+        Ui.scissor(x, y + 16, w, dotsY - 2 - (y + 16));
+        for (int pg = 0; pg < pages.size(); pg++) {
+            int px0 = Math.round(x + pg * w - off);
+            if (px0 >= x + w || px0 + w <= x) continue;
+            if (pg == 0) clockWidget(ms, px0, y, w, now);
+            int cellW = (w - 12) / COLS;
+            int gy = gridTop(pg, y);
+            List<String> list = pages.get(pg);
+            for (int k = 0; k < list.size(); k++) {
+                appIcon(ms, list.get(k), px0 + 6 + (k % COLS) * cellW, gy + (k / COLS) * ROW_H, cellW, mx, my, true, now);
+            }
+            if (editMode && list.isEmpty()) {
+                Gfx.text(ms, editSel == null ? "Pagina noua" : "Apasa aici ca sa muti aplicatia", px0 + w / 2f, gy + 40, 6.6f, homeMuted(), 1, false, 0.3f);
+            }
+        }
+        Ui.endScissor();
+
+        // indicator pagini
+        if (pages.size() > 1) {
+            float dx0 = x + w / 2f - (pages.size() - 1) * 4f;
+            for (int i = 0; i < pages.size(); i++) {
+                boolean on = i == homePage;
+                Gfx.disc(ms, dx0 + i * 8f, dotsY, on ? 2.4f : 1.8f, on ? homeText() : (PhoneState.light ? 0x5510243C : 0x55FFFFFF));
+            }
+        }
+
+        // dock (sticla mata)
+        Gfx.rrect(ms, x + 6, dockY, w - 12, 44, 14f, PhoneState.light ? 0x66FFFFFF : 0x40FFFFFF, PhoneState.light ? 0x44FFFFFF : 0x22FFFFFF);
+        int dc = (w - 12) / 4;
+        for (int k = 0; k < dock.size(); k++) appIcon(ms, dock.get(k), x + 6 + k * dc, dockY + 7, dc, mx, my, false, now);
+
+        if (editMode) {
+            Gfx.rrect(ms, x + 6, y + 16, w - 12, 15, 7f, 0xCC0A1220);
+            Gfx.text(ms, editSel == null ? "Atinge o aplicatie ca s-o muti" : "Atinge locul unde o muti", x + 13, y + 26, 6.2f, Sk.MUTED, 0, false, 0.2f);
+            editDoneX = x + w - 44;
+            editDoneY = y + 18;
+            boolean hv = Ui.in(mx, my, editDoneX, editDoneY, 34, 11);
+            Gfx.rrect(ms, editDoneX, editDoneY, 34, 11, 5.5f, hv ? Theme.lighten(Sk.ACC, 20) : Sk.ACC);
+            Gfx.text(ms, "GATA", editDoneX + 17, editDoneY + 8.2f, 6.2f, 0xFF061426, 1, true, 0.4f);
+        }
+
+        // apasare lunga -> mod editare
+        if (pressing && !dragged && pressApp != null && !editMode && now - pressAt > 450) {
+            pressing = false;
+            editMode = true;
+            editSel = null;
+            FlowSounds.play("notify", 0.6F);
+        }
+    }
+
+    private int homeMuted() {
+        return PhoneState.light ? 0xFF2A4A6E : Sk.MUTED;
+    }
+
+    private void exitEdit() {
+        editMode = false;
+        editSel = null;
+        if (orderDirty) {
+            orderDirty = false;
+            PhoneClient.saveOrder();
+        }
+    }
+
+    private void clockWidget(GuiGraphics ms, int x, int y, int w, long now) {
         java.util.Calendar cal = java.util.Calendar.getInstance();
         String t = String.format("%02d:%02d", cal.get(java.util.Calendar.HOUR_OF_DAY), cal.get(java.util.Calendar.MINUTE));
-        Gfx.text(ms, t, x + w / 2f, y + 46, 26, homeText(), 1, true, 1f);
         String[] days = {"Duminica", "Luni", "Marti", "Miercuri", "Joi", "Vineri", "Sambata"};
-        Gfx.text(ms, (days[cal.get(java.util.Calendar.DAY_OF_WEEK) - 1] + ", " + cal.get(java.util.Calendar.DAY_OF_MONTH) + "." + (cal.get(java.util.Calendar.MONTH) + 1)).toUpperCase(), x + w / 2f, y + 62, 6.6f, PhoneState.light ? 0xFF2A4A6E : Sk.MUTED, 1, false, 1.2f);
-        String line = PhoneState.simInstalled == null ? "Fara cartela SIM" : PhoneState.myNumber + "  -  " + PhoneState.operator;
-        Gfx.text(ms, line, x + w / 2f, y + 74, 6.4f, PhoneState.simInstalled == null ? Sk.BAD : (PhoneState.light ? 0xFF10243C : Sk.ACC), 1, false, 0.4f);
+        String[] months = {"ian", "feb", "mar", "apr", "mai", "iun", "iul", "aug", "sep", "oct", "noi", "dec"};
+        int cx = x + 8;
+        int cy = y + 34;
+        int cw = w - 16;
+        Gfx.rrect(ms, cx, cy, cw, 60, 14f, PhoneState.light ? 0x88FFFFFF : 0x30FFFFFF, PhoneState.light ? 0x55FFFFFF : 0x14FFFFFF);
+        Gfx.text(ms, t, cx + 10, cy + 28, 22f, homeText(), 0, true, 0.6f);
+        Gfx.text(ms, days[cal.get(java.util.Calendar.DAY_OF_WEEK) - 1] + ", " + cal.get(java.util.Calendar.DAY_OF_MONTH) + " " + months[cal.get(java.util.Calendar.MONTH)],
+            cx + 11, cy + 42, 6.6f, homeMuted(), 0, false, 0.3f);
+        String line = PhoneState.simInstalled == null ? "Fara SIM" : PhoneState.myNumber;
+        Gfx.text(ms, line, cx + 11, cy + 53, 6.2f, PhoneState.simInstalled == null ? Sk.BAD : (PhoneState.light ? 0xFF1E4C80 : Sk.ACC), 0, false, 0.3f);
+        // vremea din lume, in dreapta
+        Minecraft mc = Minecraft.getInstance();
+        int cond = weatherCond(mc);
+        weatherGlyph(ms, cx + cw - 26, cy + 22, cond, 1f);
+        Gfx.text(ms, WEATHER_NAMES[cond], cx + cw - 26, cy + 46, 6.2f, homeMuted(), 1, false, 0.2f);
+        String gt = gameTime(mc);
+        Gfx.text(ms, gt, cx + cw - 26, cy + 55, 6f, homeMuted(), 1, false, 0.2f);
+    }
 
-        int cols = 3;
-        int cell = 56;
-        int gx = x + (w - cols * cell) / 2;
-        int gy = y + 88;
-        for (int k = 0; k < GRID.length; k++) {
-            appIcon(ms, GRID[k], gx + (k % cols) * cell, gy + (k / cols) * 58, cell, mx, my, true);
-        }
-        // dock: telefon, mesaje, contacte, banca
-        int dw = w - 16;
-        int dy = y + h - 52;
-        Sk.cut(ms, x + 8, dy, dw, 40, 8f, 0xB0081018);
-        Ui.rect(ms, x + 16, dy, dw - 16, 1, 0xFF22324A);
-        int dc = dw / DOCK.length;
-        for (int k = 0; k < DOCK.length; k++) {
-            appIcon(ms, DOCK[k], x + 8 + k * dc, dy + 4, dc, mx, my, false);
+    private int badge(String id) {
+        switch (id) {
+            case "messages": return PhoneState.unread;
+            case "phone": return PhoneState.missed;
+            case "notify": return ro.solarstudios.flowcity.notify.NotifyState.unread;
+            default: return 0;
         }
     }
 
-    private void appIcon(GuiGraphics ms, int i, int cx, int cy, int cell, int mx, int my, boolean label) {
-        int size = 30;
-        int ox = cx + (cell - size) / 2;
-        boolean hover = Ui.in(mx, my, cx, cy, cell, label ? 50 : 32);
-        boolean locked = needsSim(i) && !PhoneState.simActive();
-        int col = locked ? 0xFF3A4452 : (hover ? Theme.lighten(APP_COLORS[i], 12) : APP_COLORS[i]);
-        Sk.cut(ms, ox, cy, size, size, 8f, col);
-        Ui.rect(ms, ox + 8, cy, size - 8, 1, Theme.lighten(col, 40)); // muchie de sus
-        icon(ms, i, ox + size / 2, cy + size / 2);
-        if (locked) Ui.rect(ms, ox + size - 9, cy + size - 9, 8, 8, Sk.BAD); // lacat: necesita SIM
-        if (label) Gfx.text(ms, APP_NAMES[i], cx + cell / 2f, cy + size + 11, 7f, locked ? Sk.FAINT : (hover ? (PhoneState.light ? 0xFF10243C : Sk.WHITE) : (PhoneState.light ? 0xFF2A4A6E : Sk.MUTED)), 1, false, 0.2f);
-        int badge = i == 0 ? PhoneState.unread : (i == 2 ? PhoneState.missed : 0);
-        if (badge > 0) {
-            String b = badge > 9 ? "9+" : String.valueOf(badge);
-            int bw = Math.max(10, Ui.width(b) + 4);
-            Ui.rect(ms, ox + size - bw + 3, cy - 3, bw, 10, Sk.BAD);
-            Ui.textCenter(ms, b, ox + size - bw / 2 + 3, cy - 2, Sk.WHITE);
-        }
-        final int app = i;
-        hit(cx, cy, cell, label ? 50 : 32, () -> openApp(app));
+    private static boolean locked(PhoneApps.App a) {
+        return a.needsSim && !PhoneState.simActive();
     }
 
-    private void icon(GuiGraphics ms, int app, int cx, int cy) {
+    /** Iconita rotunjita cu gradient (desenata din cod), eticheta, badge, progres de instalare, mod editare. */
+    private void appIcon(GuiGraphics ms, String id, int cx, int cy, int cell, int mx, int my, boolean label, long now) {
+        PhoneApps.App a = PhoneApps.get(id);
+        if (a == null) return;
+        float ox = cx + (cell - ICON) / 2f;
+        float oy = cy;
+        if (editMode) {
+            int hsh = id.hashCode();
+            ox += (float) Math.sin(now / 55.0 + hsh) * 0.9f;
+            oy += (float) Math.cos(now / 61.0 + hsh * 0.7) * 0.7f;
+        }
+        float prog = PhoneState.installProgress(id);
+        boolean hover = !editMode && prog < 0 && Ui.in(mx, my, cx, cy, cell, label ? 46 : 32) && my >= gridTopY;
+        boolean press = pressing && !dragged && id.equals(pressApp);
+        if (press) {
+            ox += 1.5f;
+            oy += 1.5f;
+        }
+        float sz = press ? ICON - 3 : ICON;
+        boolean lock = locked(a);
+        Gfx.rrect(ms, ox + 0.5f, oy + 1.5f, sz, sz, 8.5f, 0x40000000); // umbra
+        int c1 = hover ? Theme.lighten(a.color, 14) : a.color;
+        Gfx.rrect(ms, ox, oy, sz, sz, 8.5f, c1, a.color2);
+        Gfx.rrect(ms, ox + 1.5f, oy + 1f, sz - 3f, sz * 0.42f, 7f, 0x2EFFFFFF, 0x00FFFFFF); // luciu
+        ms.pose().pushPose();
+        float scl = sz / ICON;
+        ms.pose().translate(ox + sz / 2f, oy + sz / 2f, 0);
+        ms.pose().scale(scl, scl, 1f);
+        glyph(ms, id, 0, 0, a);
+        ms.pose().popPose();
+        if (lock || prog >= 0) Gfx.rrect(ms, ox, oy, sz, sz, 8.5f, 0x99060A12);
+        if (lock) lockGlyph(ms, ox + sz / 2f, oy + sz / 2f);
+        if (prog >= 0) {
+            Gfx.ring(ms, ox + sz / 2f, oy + sz / 2f, 7f, 9f, 0x55FFFFFF, 0x55FFFFFF);
+            Gfx.sector(ms, ox + sz / 2f, oy + sz / 2f, 7f, 9f, -90f, -90f + 360f * prog, Sk.WHITE, Sk.WHITE);
+        }
+        int b = badge(id);
+        if (b > 0 && prog < 0) {
+            String s = b > 9 ? "9+" : String.valueOf(b);
+            Gfx.disc(ms, ox + sz - 1, oy + 1, 5.5f, 0xFFFF3B30);
+            Gfx.text(ms, s, ox + sz - 1, oy + 3.6f, 6f, Sk.WHITE, 1, true, 0f);
+        }
+        if (editMode && !a.core) {
+            Gfx.disc(ms, ox + 1, oy + 1, 5f, 0xEE3A404C);
+            Gfx.line(ms, ox - 1.5f, oy + 1, ox + 3.5f, oy + 1, 1.4f, Sk.WHITE);
+        }
+        if (editMode && id.equals(editSel)) {
+            Gfx.ring(ms, ox + sz / 2f, oy + sz / 2f, sz / 2f + 2f, sz / 2f + 3.2f, Sk.ACC, Sk.ACC);
+        }
+        if (label) {
+            String n = prog >= 0 ? "Se instaleaza" : a.name;
+            Gfx.textS(ms, n, cx + cell / 2f, oy + ICON + 9, 6.2f, lock ? (PhoneState.light ? 0xFF6A7A90 : Sk.FAINT) : homeText(), 1, false, 0.1f);
+        }
+        if (prog < 0) icons.add(new IconRect(id, cx, cy - 2, cell, label ? 48 : 34, Math.round(ox), Math.round(oy)));
+    }
+
+    private void lockGlyph(GuiGraphics ms, float cx, float cy) {
+        Gfx.ring(ms, cx, cy - 2.5f, 2.6f, 4f, Sk.WHITE, Sk.WHITE);
+        Gfx.rrect(ms, cx - 5f, cy - 1f, 10f, 8f, 2f, Sk.WHITE);
+        Gfx.disc(ms, cx, cy + 2.5f, 1.2f, 0xFF39414E);
+    }
+
+    /** Simbolul alb al aplicatiei, centrat in (cx, cy), pentru o iconita de 30px. */
+    private void glyph(GuiGraphics ms, String id, float cx, float cy, PhoneApps.App a) {
         int c = Sk.WHITE;
-        switch (app) {
-            case 0: // balon
-                Ui.rect(ms, cx - 9, cy - 7, 18, 12, c);
-                Ui.rect(ms, cx - 6, cy + 5, 4, 3, c);
+        switch (id) {
+            case "phone":
+                Gfx.line(ms, cx - 5f, cy - 5f, cx + 5f, cy + 5f, 3.6f, c);
+                Gfx.disc(ms, cx - 5.5f, cy - 5.5f, 3.2f, c);
+                Gfx.disc(ms, cx + 5.5f, cy + 5.5f, 3.2f, c);
                 break;
-            case 1: // persoana
-                Ui.rect(ms, cx - 3, cy - 9, 7, 7, c);
-                Ui.rect(ms, cx - 8, cy, 17, 8, c);
+            case "messages":
+                Gfx.rrect(ms, cx - 9f, cy - 7f, 18f, 13f, 6f, c);
+                Gfx.poly(ms, new float[] {cx - 6f, cy + 3f, cx - 2f, cy + 5f, cx - 8f, cy + 9f}, c);
                 break;
-            case 2: // receptor
-                Ui.rect(ms, cx - 8, cy - 8, 6, 16, c);
-                Ui.rect(ms, cx - 8, cy + 3, 16, 5, c);
-                Ui.rect(ms, cx + 2, cy - 8, 6, 16, c);
+            case "contacts":
+                Gfx.disc(ms, cx, cy - 3.5f, 4f, c);
+                Gfx.rrect(ms, cx - 7.5f, cy + 2f, 15f, 7f, 3.5f, c);
                 break;
-            case 3: // card / dolar
-                Ui.rect(ms, cx - 10, cy - 7, 20, 14, c);
-                Ui.rect(ms, cx - 10, cy - 3, 20, 3, APP_COLORS[3]);
+            case "store":
+                Gfx.line(ms, cx - 6f, cy + 7f, cx, cy - 7f, 2.6f, c);
+                Gfx.line(ms, cx + 6f, cy + 7f, cx, cy - 7f, 2.6f, c);
+                Gfx.line(ms, cx - 8f, cy + 2.5f, cx + 8f, cy + 2.5f, 2.4f, c);
                 break;
-            case 4: // CNN
-                Ui.textCenter(ms, "CNN", cx, cy - 4, c);
+            case "settings":
+                for (int i = 0; i < 8; i++) {
+                    double ang = Math.PI * i / 4.0;
+                    Gfx.line(ms, cx + (float) Math.cos(ang) * 5f, cy + (float) Math.sin(ang) * 5f, cx + (float) Math.cos(ang) * 9f, cy + (float) Math.sin(ang) * 9f, 3f, c);
+                }
+                Gfx.disc(ms, cx, cy, 6.5f, c);
+                Gfx.disc(ms, cx, cy, 2.6f, a.color2);
                 break;
-            case 5: // clopotel
-                Ui.rect(ms, cx - 6, cy - 8, 12, 12, c);
-                Ui.rect(ms, cx - 8, cy + 3, 16, 2, c);
-                Ui.rect(ms, cx - 1, cy + 6, 3, 2, c);
+            case "sim":
+                Gfx.poly(ms, new float[] {cx - 6f, cy - 9f, cx + 3f, cy - 9f, cx + 7f, cy - 5f, cx + 7f, cy + 9f, cx - 6f, cy + 9f}, c);
+                Gfx.rrect(ms, cx - 3.5f, cy - 2f, 7f, 7f, 1.5f, 0xFFE8C25A);
                 break;
-            case 6: // servieta
-                Ui.rect(ms, cx - 9, cy - 4, 18, 12, c);
-                Ui.rect(ms, cx - 3, cy - 8, 7, 4, c);
+            case "cnn":
+                Gfx.text(ms, "CNN", cx, cy + 3f, 9f, c, 1, true, 0.2f);
                 break;
-            case 7: // roata
-                Ui.rect(ms, cx - 9, cy - 9, 18, 18, c);
-                Ui.rect(ms, cx - 3, cy - 3, 6, 6, APP_COLORS[7]);
+            case "ads":
+                Gfx.poly(ms, new float[] {cx - 8f, cy, cx - 3f, cy - 7f, cx + 8f, cy - 7f, cx + 8f, cy + 7f, cx - 3f, cy + 7f}, c);
+                Gfx.disc(ms, cx - 2.5f, cy, 1.8f, a.color2);
+                Gfx.text(ms, "$", cx + 3.5f, cy + 3f, 7.5f, a.color2, 1, true, 0f);
                 break;
-            case 10: // cartela SIM
-                Ui.rect(ms, cx - 7, cy - 9, 14, 18, c);
-                Ui.rect(ms, cx - 4, cy - 2, 8, 7, APP_COLORS[10]);
+            case "bank":
+                Gfx.poly(ms, new float[] {cx - 9f, cy - 3f, cx, cy - 9f, cx + 9f, cy - 3f}, c);
+                for (int i = 0; i < 3; i++) Gfx.rrect(ms, cx - 6.5f + i * 5f, cy - 1.5f, 3f, 7f, 0.8f, c);
+                Gfx.rrect(ms, cx - 9f, cy + 6f, 18f, 2.5f, 1f, c);
                 break;
-            case 8: // pin
-                Ui.rect(ms, cx - 5, cy - 9, 10, 10, c);
-                Ui.rect(ms, cx - 1, cy + 1, 3, 8, c);
+            case "notify":
+                Gfx.disc(ms, cx, cy - 2f, 6f, c);
+                Gfx.rrect(ms, cx - 6f, cy - 2f, 12f, 7f, 1f, c);
+                Gfx.rrect(ms, cx - 8f, cy + 4.5f, 16f, 2.5f, 1.2f, c);
+                Gfx.disc(ms, cx, cy + 8.5f, 1.8f, c);
                 break;
-            default: // setari
-                Ui.rect(ms, cx - 8, cy - 8, 16, 16, c);
-                Ui.rect(ms, cx - 3, cy - 3, 6, 6, APP_COLORS[9]);
+            case "gps":
+                Gfx.poly(ms, new float[] {cx - 5.2f, cy - 0.5f, cx, cy + 9.5f, cx + 5.2f, cy - 0.5f}, c);
+                Gfx.disc(ms, cx, cy - 3f, 6f, c);
+                Gfx.disc(ms, cx, cy - 3f, 2.3f, a.color2);
+                break;
+            case "jobs":
+                Gfx.rrect(ms, cx - 4.5f, cy - 8f, 9f, 5f, 2f, c);
+                Gfx.rrect(ms, cx - 2.5f, cy - 6.5f, 5f, 3f, 1f, a.color);
+                Gfx.rrect(ms, cx - 9f, cy - 4f, 18f, 12f, 2.5f, c);
+                Gfx.rrect(ms, cx - 9f, cy + 0.5f, 18f, 1.2f, 0f, a.color2);
+                break;
+            case "wheel":
+                Gfx.ring(ms, cx, cy, 6.8f, 8.6f, c, c);
+                for (int i = 0; i < 4; i++) {
+                    double ang = Math.PI * i / 4.0;
+                    Gfx.line(ms, cx - (float) Math.cos(ang) * 7f, cy - (float) Math.sin(ang) * 7f, cx + (float) Math.cos(ang) * 7f, cy + (float) Math.sin(ang) * 7f, 1.4f, c);
+                }
+                Gfx.disc(ms, cx, cy, 2.5f, c);
+                break;
+            case "calc":
+                Gfx.rrect(ms, cx - 8f, cy - 8f, 7f, 7f, 2f, 0xFFB8BEC8);
+                Gfx.rrect(ms, cx + 1f, cy - 8f, 7f, 7f, 2f, 0xFFFF9F0A);
+                Gfx.rrect(ms, cx - 8f, cy + 1f, 7f, 7f, 2f, 0xFFB8BEC8);
+                Gfx.rrect(ms, cx + 1f, cy + 1f, 7f, 7f, 2f, 0xFFFF9F0A);
+                Gfx.line(ms, cx + 2.5f, cy - 4.5f, cx + 6.5f, cy - 4.5f, 1.2f, c);
+                Gfx.line(ms, cx + 2.5f, cy + 3.5f, cx + 6.5f, cy + 3.5f, 1.2f, c);
+                Gfx.line(ms, cx + 2.5f, cy + 5.5f, cx + 6.5f, cy + 5.5f, 1.2f, c);
+                break;
+            case "notes":
+                Gfx.rrect(ms, cx - 7.5f, cy - 9f, 15f, 18f, 2.5f, c);
+                Gfx.rrect(ms, cx - 7.5f, cy - 9f, 15f, 4f, 2f, 0xFFE0A52C);
+                for (int i = 0; i < 3; i++) Gfx.rrect(ms, cx - 5f, cy - 1.5f + i * 3.5f, i == 2 ? 6f : 10f, 1.2f, 0f, 0xFFB0B6C0);
+                break;
+            case "clock":
+                Gfx.disc(ms, cx, cy, 9f, c);
+                Gfx.line(ms, cx, cy, cx, cy - 6f, 1.6f, 0xFF15181E);
+                Gfx.line(ms, cx, cy, cx + 4.5f, cy + 1.5f, 1.6f, 0xFF15181E);
+                Gfx.disc(ms, cx, cy, 1.4f, 0xFFFF9F0A);
+                break;
+            case "weather":
+                Gfx.disc(ms, cx - 2.5f, cy - 3f, 5.5f, 0xFFFFD34A);
+                Gfx.disc(ms, cx + 1f, cy + 2.5f, 4f, c);
+                Gfx.disc(ms, cx + 5.5f, cy + 3.5f, 3.2f, c);
+                Gfx.rrect(ms, cx - 5f, cy + 3f, 13.5f, 4.5f, 2.2f, c);
+                break;
+            default:
+                Gfx.disc(ms, cx, cy, 5f, c);
                 break;
         }
     }
 
-    private void openApp(int app) {
-        if (needsSim(app) && !PhoneState.simActive()) {
+    /** Deschide aplicatia cu animatie din pozitia iconitei. */
+    private void launch(IconRect r) {
+        openFromX = r.ix + ICON / 2f;
+        openFromY = r.iy + ICON / 2f;
+        openApp(r.id);
+    }
+
+    private void openApp(String id) {
+        PhoneApps.App a = PhoneApps.get(id);
+        if (a == null) return;
+        if (locked(a)) {
             toast("NONE".equals(PhoneState.simStatus) ? "Fara SIM: introdu o cartela din aplicatia SIM." : (PhoneState.signal <= 0 ? "Fara semnal in aceasta zona." : "Cartela SIM este blocata."), true);
             return;
         }
-        openApp = app;
-        pageSince = System.currentTimeMillis();
         Minecraft mc = Minecraft.getInstance();
-        switch (app) {
-            case 0: PhoneClient.requestThreads(); go(Page.MSG); break;
-            case 1: PhoneClient.requestContacts(); go(Page.CONTACTS); break;
-            case 2: PhoneClient.requestCalls(); go(Page.CALLS); break;
-            case 3: HypeClient.request("atm_req", new JsonObject()); go(Page.BANK); break;
-            case 4: NewsClient.requestList(); mc.setScreen(new NewsScreen()); break;
-            case 5: NotifyClient.requestHistory(false); mc.setScreen(new NotifyScreen()); break;
-            case 6: ro.solarstudios.flowcity.fjobs.FJobsClient.open(); break;
-            case 7: WheelClient.requestInfo(); mc.setScreen(new WheelScreen()); break;
-            case 10: PhoneClient.requestSim(); go(Page.SIM); break;
+        switch (id) {
+            case "messages": PhoneClient.requestThreads(); go(Page.MSG); break;
+            case "contacts": PhoneClient.requestContacts(); go(Page.CONTACTS); break;
+            case "phone": PhoneClient.requestCalls(); go(Page.CALLS); break;
+            case "bank": HypeClient.request("atm_req", new JsonObject()); go(Page.BANK); break;
+            case "cnn": NewsClient.requestList(); mc.setScreen(new NewsScreen()); break;
+            case "notify": NotifyClient.requestHistory(false); mc.setScreen(new NotifyScreen()); break;
+            case "jobs": ro.solarstudios.flowcity.fjobs.FJobsClient.open(); break;
+            case "wheel": WheelClient.requestInfo(); mc.setScreen(new WheelScreen()); break;
+            case "gps": mc.setScreen(new ro.solarstudios.flowcity.gps.GpsScreen()); break;
+            case "ads":
+                ro.solarstudios.flowcity.news.AdsClient.requestInfo();
+                ro.solarstudios.flowcity.news.AdsClient.requestList();
+                mc.setScreen(new ro.solarstudios.flowcity.news.AdsScreen());
+                break;
+            case "sim": PhoneClient.requestSim(); go(Page.SIM); break;
+            case "store": PhoneClient.requestStore(); go(Page.STORE); break;
+            case "calc": go(Page.CALC); break;
+            case "notes": PhoneClient.requestNotes(); go(Page.NOTES); break;
+            case "clock": go(Page.CLOCK); break;
+            case "weather": go(Page.WEATHER); break;
             default: go(Page.SETTINGS); break;
         }
     }
 
     private void appHeader(GuiGraphics ms, int x, int y, int w, String title, int mx, int my, boolean back) {
+        appHeader(ms, x, y, w, title, mx, my, back ? (Runnable) this::goHome : null);
+    }
+
+    private void appHeader(GuiGraphics ms, int x, int y, int w, String title, int mx, int my, Runnable back) {
         Ui.rect(ms, x, y + 12, w, 24, 0xE60A1320);
         Ui.rect(ms, x, y + 36, w, 1, 0xFF22324A);
         Ui.rect(ms, x + w / 2 - 14, y + 36, 28, 1, Sk.ACC);
-        if (back) {
+        if (back != null) {
             boolean hover = Ui.in(mx, my, x, y + 12, 40, 24);
             int c = hover ? Sk.WHITE : Sk.ACC;
             // sageata "<" din pixeli
@@ -425,7 +779,7 @@ public final class PhoneScreen extends FlowScreen {
                 Ui.rect(ms, x + 12 - i, y + 20 + i, 2, 1, c);
                 Ui.rect(ms, x + 12 - i, y + 27 - i, 2, 1, c);
             }
-            hit(x, y + 12, 40, 24, () -> go(Page.HOME));
+            hit(x, y + 12, 40, 24, back);
         }
         Gfx.text(ms, title.toUpperCase(), x + w / 2f, y + 28, 8.4f, Sk.WHITE, 1, true, 0.9f);
     }
@@ -622,7 +976,7 @@ public final class PhoneScreen extends FlowScreen {
         int cc = hb ? Sk.WHITE : Sk.ACC;
         Gfx.line(ms, x + 17, y + 22, x + 11, y + 28, 1.9f, cc);
         Gfx.line(ms, x + 11, y + 28, x + 17, y + 34, 1.9f, cc);
-        hit(x, y + 14, 44, 28, () -> go(Page.HOME));
+        hit(x, y + 14, 44, 28, this::goHome);
         Gfx.text(ms, "APELURI", x + w / 2f, y + 33, 8.4f, Sk.WHITE, 1, true, 0.9f);
 
         // taburi: Recente | Tastatura
@@ -946,10 +1300,809 @@ public final class PhoneScreen extends FlowScreen {
         return yy + 28;
     }
 
+    // ------------------------------------------------------------------ App Store
+
+    private static int storeCat;
+    private String storeSel = "";
+    private final TextFieldWidget storeField;
+    private final TextFieldWidget noteField;
+
+    private static String priceLabel(String id) {
+        double p = PhoneState.prices.getOrDefault(id, 0.0);
+        if (p <= 0 || PhoneState.owned.contains(id)) return "OBTINE";
+        return Ui.money(p);
+    }
+
+    /** Butonul principal al unei aplicatii in magazin: OBTINE / pret / progres / DESCHIDE. */
+    private void storeAction(GuiGraphics ms, PhoneApps.App a, int bx, int by, int bw, int bh, int mx, int my) {
+        float prog = PhoneState.installProgress(a.id);
+        boolean installed = PhoneState.apps.contains(a.id);
+        if (prog >= 0) {
+            Gfx.bar(ms, bx + 4, by + bh / 2f - 2, bw - 8, 4, prog, 0x33FFFFFF, Sk.ACC);
+            return;
+        }
+        if (PhoneState.pending.contains(a.id)) {
+            Gfx.rrect(ms, bx, by, bw, bh, bh / 2f, 0x33FFFFFF);
+            Gfx.text(ms, "...", bx + bw / 2f, by + bh / 2f + 2.8f, 7f, Sk.MUTED, 1, true, 0.2f);
+            return;
+        }
+        String label;
+        int bg;
+        int fg = Sk.ACC;
+        Runnable act;
+        if (installed) {
+            label = "DESCHIDE";
+            bg = 0x2A4DA3FF;
+            act = () -> openApp(a.id);
+        } else if (!PhoneState.available.contains(a.id) && PhoneState.storeLoaded) {
+            Gfx.text(ms, "INDISPONIBIL", bx + bw / 2f, by + bh / 2f + 2.5f, 5.8f, Sk.FAINT, 1, false, 0.2f);
+            return;
+        } else {
+            label = priceLabel(a.id);
+            bg = 0x2A4DA3FF;
+            act = () -> requestInstall(a.id);
+        }
+        boolean hv = Ui.in(mx, my, bx, by, bw, bh);
+        Gfx.rrect(ms, bx, by, bw, bh, bh / 2f, hv ? Sk.ACC : bg);
+        Gfx.text(ms, label, bx + bw / 2f, by + bh / 2f + 2.6f, 6.4f, hv ? 0xFF061426 : fg, 1, true, 0.4f);
+        hit(bx, by, bw, bh, act);
+    }
+
+    private void requestInstall(String id) {
+        double p = PhoneState.prices.getOrDefault(id, 0.0);
+        if (p > 0 && !PhoneState.owned.contains(id)) {
+            confirmBuy = id;
+            return;
+        }
+        PhoneClient.install(id);
+    }
+
+    private void storeIcon(GuiGraphics ms, PhoneApps.App a, float x, float y, float size) {
+        float r = size * 0.28f;
+        Gfx.rrect(ms, x, y, size, size, r, a.color, a.color2);
+        Gfx.rrect(ms, x + 1f, y + 0.8f, size - 2f, size * 0.42f, r * 0.8f, 0x2EFFFFFF, 0x00FFFFFF);
+        ms.pose().pushPose();
+        ms.pose().translate(x + size / 2f, y + size / 2f, 0);
+        float s = size / ICON;
+        ms.pose().scale(s, s, 1f);
+        glyph(ms, a.id, 0, 0, a);
+        ms.pose().popPose();
+    }
+
+    private List<PhoneApps.App> storeList() {
+        String q = storeField.getValue().trim().toLowerCase(java.util.Locale.ROOT);
+        String cat = PhoneApps.CATEGORIES.get(storeCat);
+        List<PhoneApps.App> out = new ArrayList<>();
+        for (PhoneApps.App a : PhoneApps.all()) {
+            if (!a.core && PhoneState.storeLoaded && !PhoneState.available.contains(a.id) && !PhoneState.apps.contains(a.id)) continue;
+            if (storeCat > 0 && !a.category.equals(cat)) continue;
+            if (!q.isEmpty() && !a.name.toLowerCase(java.util.Locale.ROOT).contains(q) && !a.desc.toLowerCase(java.util.Locale.ROOT).contains(q)) continue;
+            out.add(a);
+        }
+        return out;
+    }
+
+    private void store(GuiGraphics ms, int x, int y, int w, int h, int mx, int my) {
+        appHeader(ms, x, y, w, "App Store", mx, my, true);
+        int yy = y + 42;
+        drawField(ms, storeField, x + 8, yy, w - 16, 16, mx, my);
+        if (storeField.getValue().isEmpty() && !storeField.isFocused()) Gfx.text(ms, "Cauta aplicatii", x + 18, yy + 10.5f, 6.6f, Sk.FAINT, 0, false, 0.2f);
+        yy += 21;
+        // categorii (chip-uri pe mai multe randuri)
+        int cx = x + 8;
+        for (int i = 0; i < PhoneApps.CATEGORIES.size(); i++) {
+            String c = PhoneApps.CATEGORIES.get(i);
+            int cw = (int) Gfx.width(c, 6.2f, false) + 12;
+            if (cx + cw > x + w - 8) {
+                cx = x + 8;
+                yy += 15;
+            }
+            boolean on = i == storeCat;
+            boolean hv = Ui.in(mx, my, cx, yy, cw, 12);
+            Gfx.rrect(ms, cx, yy, cw, 12, 6f, on ? Sk.ACC : (hv ? 0x44FFFFFF : 0x22FFFFFF));
+            Gfx.text(ms, c, cx + cw / 2f, yy + 8.6f, 6.2f, on ? 0xFF061426 : Sk.WHITE, 1, false, 0.2f);
+            final int ci = i;
+            hit(cx, yy, cw, 12, () -> {
+                storeCat = ci;
+                scroll = 0;
+            });
+            cx += cw + 4;
+        }
+        yy += 17;
+        int top = yy;
+        int bottom = y + h - 12;
+        List<PhoneApps.App> list = storeList();
+        PhoneApps.App feat = null;
+        if (storeCat == 0 && storeField.getValue().trim().isEmpty()) {
+            for (PhoneApps.App a : list) {
+                if (!a.core && !PhoneState.apps.contains(a.id)) {
+                    feat = a;
+                    break;
+                }
+            }
+        }
+        int rowH = 36;
+        int content = (feat != null ? 68 : 0) + list.size() * rowH + 20;
+        scrollMax = Math.max(0, content - (bottom - top));
+        scroll = Math.max(0, Math.min(scroll, scrollMax));
+        Ui.scissor(x, top, w, bottom - top);
+        int ry = top - scroll;
+        if (feat != null) {
+            final PhoneApps.App f = feat;
+            Gfx.rrect(ms, x + 8, ry, w - 16, 62, 12f, Theme.lighten(f.color, -10) & 0xEEFFFFFF, f.color2 & 0xEEFFFFFF);
+            Gfx.text(ms, "RECOMANDAT", x + 16, ry + 12, 5.8f, 0xCCFFFFFF, 0, true, 0.8f);
+            storeIcon(ms, f, x + 16, ry + 20, 30);
+            Gfx.text(ms, f.name, x + 52, ry + 29, 8f, Sk.WHITE, 0, true, 0.3f);
+            Gfx.text(ms, Ui.clip(f.desc, w - 76), x + 52, ry + 40, 5.8f, 0xDDFFFFFF, 0, false, 0.1f);
+            if (my >= top && my < bottom) {
+                hit(x + 8, ry, w - 16, 62, () -> openDetail(f.id));
+                storeAction(ms, f, x + w - 62, ry + 44, 48, 13, mx, my);
+            }
+            ry += 68;
+        }
+        if (list.isEmpty()) Gfx.text(ms, "Nicio aplicatie gasita.", x + w / 2f, ry + 20, 6.8f, Sk.MUTED, 1, false, 0.2f);
+        for (PhoneApps.App a : list) {
+            if (ry + rowH > top && ry < bottom) {
+                boolean hv = Ui.in(mx, my, x + 4, ry, w - 8, rowH - 2) && my >= top && my < bottom;
+                if (hv) Gfx.rrect(ms, x + 4, ry, w - 8, rowH - 2, 8f, 0x18FFFFFF);
+                storeIcon(ms, a, x + 10, ry + 4, 26);
+                Ui.text(ms, Ui.clip(a.name, w - 110), x + 42, ry + 7, Sk.WHITE);
+                Gfx.text(ms, a.category + "  -  " + a.sizeMb + " MB", x + 42, ry + 24, 5.8f, Sk.MUTED, 0, false, 0.2f);
+                Ui.rect(ms, x + 42, ry + rowH - 2, w - 50, 1, 0x18FFFFFF);
+                if (my >= top && my < bottom) {
+                    final String id = a.id;
+                    hit(x + 4, ry, w - 8, rowH - 2, () -> openDetail(id));
+                    if (a.core) Gfx.text(ms, "SISTEM", x + w - 36, ry + 18, 5.8f, Sk.FAINT, 1, true, 0.4f);
+                    else storeAction(ms, a, x + w - 62, ry + 11, 52, 13, mx, my);
+                } else if (!a.core) {
+                    float pr = PhoneState.installProgress(a.id);
+                    if (pr >= 0) Gfx.bar(ms, x + w - 58, ry + 16, 44, 4, pr, 0x33FFFFFF, Sk.ACC);
+                }
+            }
+            ry += rowH;
+        }
+        Ui.endScissor();
+    }
+
+    private void openDetail(String id) {
+        storeSel = id;
+        go(Page.STORE_APP);
+    }
+
+    private void storeApp(GuiGraphics ms, int x, int y, int w, int h, int mx, int my) {
+        PhoneApps.App a = PhoneApps.get(storeSel);
+        appHeader(ms, x, y, w, "App Store", mx, my, () -> go(Page.STORE));
+        if (a == null) return;
+        int yy = y + 48;
+        storeIcon(ms, a, x + 12, yy, 46);
+        Gfx.text(ms, a.name, x + 66, yy + 14, 9.5f, Sk.WHITE, 0, true, 0.3f);
+        Gfx.text(ms, a.category, x + 66, yy + 26, 6.2f, Sk.MUTED, 0, false, 0.2f);
+        boolean installed = PhoneState.apps.contains(a.id);
+        if (a.core) Gfx.text(ms, "Aplicatie de sistem", x + 66, yy + 40, 6f, Sk.FAINT, 0, false, 0.2f);
+        else storeAction(ms, a, x + 66, yy + 32, 62, 14, mx, my);
+        yy += 58;
+        // info
+        int cw = (w - 16) / 3;
+        String[][] info = {{"MARIME", a.sizeMb + " MB"}, {"PRET", priceText(a)}, {"SIM", a.needsSim ? "Necesar" : "Nu"}};
+        for (int i = 0; i < 3; i++) {
+            int ix = x + 8 + i * cw;
+            if (i > 0) Ui.rect(ms, ix, yy + 2, 1, 22, 0x22FFFFFF);
+            Gfx.text(ms, info[i][0], ix + cw / 2f, yy + 8, 5.6f, Sk.FAINT, 1, true, 0.6f);
+            Gfx.text(ms, info[i][1], ix + cw / 2f, yy + 21, 7f, Sk.WHITE, 1, false, 0.2f);
+        }
+        yy += 32;
+        Ui.rect(ms, x + 8, yy, w - 16, 1, 0x22FFFFFF);
+        yy += 8;
+        Gfx.text(ms, "Descriere", x + 10, yy + 6, 7.4f, Sk.WHITE, 0, true, 0.3f);
+        yy += 14;
+        for (String line : Wrap.lines(a.desc, w - 22)) {
+            Ui.text(ms, line, x + 10, yy, Sk.MUTED);
+            yy += 10;
+        }
+        double p = PhoneState.prices.getOrDefault(a.id, 0.0);
+        if (p > 0 && !PhoneState.owned.contains(a.id)) {
+            yy += 6;
+            Gfx.text(ms, "Soldul tau: " + Ui.money(PhoneState.balance), x + 10, yy + 6, 6.4f, Sk.MUTED, 0, false, 0.2f);
+            yy += 12;
+        }
+        if (installed && !a.core) {
+            int by = Math.max(yy + 10, y + h - 40);
+            button(ms, "DEZINSTALEAZA", x + 10, by, w - 20, 18, mx, my, true, 0xFF5A2328, () -> confirmRemove = a.id);
+        }
+    }
+
+    private static String priceText(PhoneApps.App a) {
+        if (a.core) return "Inclus";
+        double p = PhoneState.prices.getOrDefault(a.id, 0.0);
+        if (p <= 0) return "Gratuit";
+        return PhoneState.owned.contains(a.id) ? "Cumparat" : Ui.money(p);
+    }
+
+    /** Dialog de confirmare (dezinstalare / plata), peste orice pagina. */
+    private void confirmDialog(GuiGraphics ms, int x, int y, int w, int h, int mx, int my) {
+        final String rem = confirmRemove;
+        final String buy = confirmBuy;
+        if (rem == null && buy == null) return;
+        PhoneApps.App a = PhoneApps.get(rem != null ? rem : buy);
+        if (a == null) {
+            confirmRemove = null;
+            confirmBuy = null;
+            return;
+        }
+        Ui.rect(ms, x, y, w, h, 0xAA000000);
+        hit(x, y, w, h, () -> {});
+        int cw = w - 30;
+        int ch = 96;
+        int cx = x + 15;
+        int cy = y + (h - ch) / 2;
+        Gfx.rrect(ms, cx, cy, cw, ch, 14f, 0xF21A2230, 0xF2121822);
+        storeIcon(ms, a, cx + cw / 2f - 13, cy + 10, 26);
+        String title = rem != null ? "Stergi " + a.name + "?" : "Cumperi " + a.name + "?";
+        String sub = rem != null ? "O poti reinstala oricand din App Store." : "Pret: " + Ui.money(PhoneState.prices.getOrDefault(a.id, 0.0)) + "  |  Sold: " + Ui.money(PhoneState.balance);
+        Gfx.text(ms, title, cx + cw / 2f, cy + 50, 7.6f, Sk.WHITE, 1, true, 0.2f);
+        Gfx.text(ms, Ui.clip(sub, cw - 10), cx + cw / 2f, cy + 62, 5.8f, Sk.MUTED, 1, false, 0.1f);
+        int bw = (cw - 24) / 2;
+        button(ms, "ANULEAZA", cx + 8, cy + ch - 24, bw, 16, mx, my, true, 0xFF2A3342, () -> {
+            confirmRemove = null;
+            confirmBuy = null;
+        });
+        button(ms, rem != null ? "STERGE" : "PLATESTE", cx + 16 + bw, cy + ch - 24, bw, 16, mx, my, true, rem != null ? Sk.BAD : Sk.ACC_DARK, () -> {
+            if (rem != null) {
+                PhoneClient.uninstall(rem);
+                toast(a.name + " a fost stearsa.", false);
+                if (page == Page.STORE_APP) go(Page.STORE);
+            } else {
+                PhoneClient.install(buy);
+            }
+            confirmRemove = null;
+            confirmBuy = null;
+        });
+    }
+
+    // ------------------------------------------------------------------ Calculator
+
+    private static String calcDisplay = "0";
+    private static String calcExpr = "";
+    private static double calcAcc;
+    private static char calcOp;
+    private static boolean calcNew = true;
+
+    private static double calcVal() {
+        try {
+            return Double.parseDouble(calcDisplay);
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    private static String fmtNum(double v) {
+        if (Double.isNaN(v) || Double.isInfinite(v)) return "Eroare";
+        if (v == Math.rint(v) && Math.abs(v) < 1e12) return String.valueOf((long) v);
+        String s = new java.math.BigDecimal(v).round(new java.math.MathContext(10)).stripTrailingZeros().toPlainString();
+        if (s.length() > 13) s = String.format(java.util.Locale.ROOT, "%.6g", v);
+        return s;
+    }
+
+    private static char opChar(String k) {
+        switch (k) {
+            case "+": return '+';
+            case "-": return '-';
+            case "x": return '*';
+            default: return '/';
+        }
+    }
+
+    private static void calcPress(String k) {
+        if ("Eroare".equals(calcDisplay) && !"C".equals(k)) calcPress("C");
+        switch (k) {
+            case "C":
+                calcDisplay = "0";
+                calcExpr = "";
+                calcAcc = 0;
+                calcOp = 0;
+                calcNew = true;
+                return;
+            case "+/-":
+                if (!"0".equals(calcDisplay)) calcDisplay = calcDisplay.startsWith("-") ? calcDisplay.substring(1) : "-" + calcDisplay;
+                return;
+            case "%":
+                calcDisplay = fmtNum(calcVal() / 100.0);
+                calcNew = true;
+                return;
+            case ".":
+                if (calcNew) {
+                    calcDisplay = "0.";
+                    calcNew = false;
+                } else if (!calcDisplay.contains(".") && calcDisplay.length() < 12) calcDisplay += ".";
+                return;
+            case "<":
+                if (calcNew) return;
+                calcDisplay = calcDisplay.length() <= 1 || (calcDisplay.length() == 2 && calcDisplay.startsWith("-")) ? "0" : calcDisplay.substring(0, calcDisplay.length() - 1);
+                return;
+            case "=":
+                if (calcOp != 0) {
+                    calcCompute();
+                    calcOp = 0;
+                    calcExpr = "";
+                }
+                calcNew = true;
+                return;
+            case "+":
+            case "-":
+            case "x":
+            case "/":
+                if (calcOp != 0 && !calcNew) calcCompute();
+                else calcAcc = calcVal();
+                calcOp = opChar(k);
+                calcExpr = fmtNum(calcAcc) + " " + k;
+                calcNew = true;
+                return;
+            default:
+                if (k.length() == 1 && Character.isDigit(k.charAt(0))) {
+                    if (calcNew) {
+                        calcDisplay = k;
+                        calcNew = false;
+                    } else if (calcDisplay.replace("-", "").replace(".", "").length() < 12) {
+                        calcDisplay = "0".equals(calcDisplay) ? k : ("-0".equals(calcDisplay) ? "-" + k : calcDisplay + k);
+                    }
+                }
+        }
+    }
+
+    private static void calcCompute() {
+        double b = calcVal();
+        double r;
+        switch (calcOp) {
+            case '+': r = calcAcc + b; break;
+            case '-': r = calcAcc - b; break;
+            case '*': r = calcAcc * b; break;
+            default: r = b == 0 ? Double.NaN : calcAcc / b; break;
+        }
+        calcAcc = r;
+        calcDisplay = fmtNum(r);
+        if ("Eroare".equals(calcDisplay)) {
+            calcAcc = 0;
+            calcOp = 0;
+            calcExpr = "";
+        }
+    }
+
+    private void calc(GuiGraphics ms, int x, int y, int w, int h, int mx, int my) {
+        Ui.rect(ms, x, y, w, h, 0xF2050608);
+        appHeader(ms, x, y, w, "Calculator", mx, my, true);
+        String[][] keys = {{"C", "+/-", "%", "/"}, {"7", "8", "9", "x"}, {"4", "5", "6", "-"}, {"1", "2", "3", "+"}, {"0", ".", "<", "="}};
+        int gap = 6;
+        int bs = Math.min((w - 16 - gap * 3) / 4, (h - 150) / 5 - gap);
+        int gw = bs * 4 + gap * 3;
+        int gx = x + (w - gw) / 2;
+        int gy = y + h - 14 - (bs * 5 + gap * 4);
+        // afisaj
+        Gfx.text(ms, calcExpr, x + w - 14, gy - 40, 7f, Sk.MUTED, 2, false, 0.3f);
+        float size = calcDisplay.length() > 9 ? 13f : (calcDisplay.length() > 6 ? 17f : 22f);
+        Gfx.text(ms, calcDisplay, x + w - 14, gy - 12, size, Sk.WHITE, 2, true, 0.4f);
+        for (int r = 0; r < 5; r++) {
+            for (int c = 0; c < 4; c++) {
+                String k = keys[r][c];
+                int bx = gx + c * (bs + gap);
+                int by = gy + r * (bs + gap);
+                boolean op = c == 3;
+                boolean fn = r == 0 && c < 3;
+                boolean active = op && calcNew && calcOp == opChar(k) && !"=".equals(k);
+                int bg = op ? (active ? 0xFFFFFFFF : 0xFFFF9F0A) : (fn ? 0xFFA5ABB5 : 0xFF2C3038);
+                boolean hv = Ui.in(mx, my, bx, by, bs, bs);
+                if (hv) bg = Theme.lighten(bg, 18);
+                Gfx.rrect(ms, bx, by, bs, bs, bs / 2f, bg);
+                int fg = active ? 0xFFFF9F0A : (fn ? 0xFF101216 : Sk.WHITE);
+                String lbl = "x".equals(k) ? "x" : ("/".equals(k) ? "/" : k);
+                Gfx.text(ms, lbl, bx + bs / 2f, by + bs / 2f + 4f, k.length() > 1 ? 8f : 11f, fg, 1, true, 0.2f);
+                hit(bx, by, bs, bs, () -> calcPress(k));
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------ Note
+
+    private int noteIdx = -1;
+
+    private void notes(GuiGraphics ms, int x, int y, int w, int h, int mx, int my) {
+        appHeader(ms, x, y, w, "Note", mx, my, true);
+        boolean canAdd = PhoneState.notes.size() < 30;
+        boolean hv = canAdd && Ui.in(mx, my, x + w - 32, y + 14, 24, 20);
+        Gfx.text(ms, "+", x + w - 20, y + 30, 13f, canAdd ? (hv ? Sk.WHITE : 0xFFF6D365) : Sk.FAINT, 1, true, 0f);
+        if (canAdd) hit(x + w - 32, y + 14, 24, 20, () -> editNote(-1));
+        int top = y + 42;
+        int bottom = y + h - 12;
+        if (!PhoneState.notesLoaded) {
+            Gfx.text(ms, "Se incarca...", x + w / 2f, top + 24, 6.8f, Sk.MUTED, 1, false, 0.2f);
+            return;
+        }
+        if (PhoneState.notes.isEmpty()) {
+            Gfx.text(ms, "Nicio notita.", x + w / 2f, top + 24, 7f, Sk.MUTED, 1, false, 0.2f);
+            Gfx.text(ms, "Apasa + ca sa scrii una.", x + w / 2f, top + 36, 6.2f, Sk.FAINT, 1, false, 0.2f);
+        }
+        int rowH = 34;
+        scrollMax = Math.max(0, PhoneState.notes.size() * rowH - (bottom - top));
+        scroll = Math.max(0, Math.min(scroll, scrollMax));
+        Ui.scissor(x, top, w, bottom - top);
+        int yy = top - scroll;
+        for (int i = 0; i < PhoneState.notes.size(); i++) {
+            PhoneState.Note n = PhoneState.notes.get(i);
+            if (yy + rowH > top && yy < bottom) {
+                boolean rh = Ui.in(mx, my, x + 6, yy, w - 12, rowH - 4) && my >= top && my < bottom;
+                Gfx.rrect(ms, x + 6, yy, w - 12, rowH - 4, 8f, rh ? 0x2AFFFFFF : 0x16FFFFFF);
+                Ui.text(ms, Ui.clip(n.text, w - 28), x + 14, yy + 6, Sk.WHITE);
+                Gfx.text(ms, simDate(n.ts), x + 14, yy + 24, 5.8f, Sk.FAINT, 0, false, 0.2f);
+                final int idx = i;
+                if (my >= top && my < bottom) hit(x + 6, yy, w - 12, rowH - 4, () -> editNote(idx));
+            }
+            yy += rowH;
+        }
+        Ui.endScissor();
+    }
+
+    private void editNote(int idx) {
+        noteIdx = idx;
+        noteField.setValue(idx >= 0 && idx < PhoneState.notes.size() ? PhoneState.notes.get(idx).text : "");
+        go(Page.NOTE_EDIT);
+        focus(noteField, true);
+    }
+
+    private void saveNote() {
+        String t = noteField.getValue().trim();
+        if (noteIdx >= 0 && noteIdx < PhoneState.notes.size()) {
+            if (t.isEmpty()) PhoneState.notes.remove(noteIdx);
+            else {
+                PhoneState.Note n = PhoneState.notes.remove(noteIdx);
+                n.text = t;
+                n.ts = System.currentTimeMillis();
+                PhoneState.notes.add(0, n);
+            }
+        } else if (!t.isEmpty() && PhoneState.notes.size() < 30) {
+            PhoneState.Note n = new PhoneState.Note();
+            n.text = t;
+            n.ts = System.currentTimeMillis();
+            PhoneState.notes.add(0, n);
+        }
+        PhoneClient.saveNotes();
+        focus(noteField, false);
+        go(Page.NOTES);
+    }
+
+    private void noteEdit(GuiGraphics ms, int x, int y, int w, int h, int mx, int my) {
+        appHeader(ms, x, y, w, noteIdx < 0 ? "Notita noua" : "Notita", mx, my, this::saveNote);
+        int yy = y + 44;
+        drawField(ms, noteField, x + 8, yy, w - 16, 16, mx, my);
+        yy += 22;
+        int ph0 = y + h - 46 - yy;
+        Gfx.rrect(ms, x + 8, yy, w - 16, ph0, 10f, 0xFFFFF4C7, 0xFFF6E39A);
+        int ly = yy + 8;
+        String txt = noteField.getValue();
+        if (txt.isEmpty()) Gfx.text(ms, "Scrie notita in campul de sus.", x + 16, ly + 6, 6.4f, 0xFF8A7A40, 0, false, 0.2f);
+        for (String line : Wrap.lines(txt, w - 34)) {
+            if (ly > yy + ph0 - 12) break;
+            Ui.text(ms, line, x + 16, ly, 0xFF2A2410);
+            ly += 10;
+        }
+        Gfx.text(ms, txt.length() + "/" + 400, x + w - 14, yy + ph0 - 5, 5.6f, 0xFF8A7A40, 2, false, 0.2f);
+        int bw = (w - 24) / 2;
+        button(ms, "STERGE", x + 8, y + h - 36, bw, 18, mx, my, noteIdx >= 0, 0xFF5A2328, () -> {
+            noteField.setValue("");
+            saveNote();
+        });
+        button(ms, "SALVEAZA", x + 16 + bw, y + h - 36, bw, 18, mx, my, true, Sk.ACC_DARK, this::saveNote);
+    }
+
+    // ------------------------------------------------------------------ Ceas
+
+    private static String gameTime(Minecraft mc) {
+        if (mc.level == null) return "--:--";
+        long t = mc.level.getDayTime() % 24000L;
+        int hh = (int) ((t / 1000L + 6) % 24);
+        int mm = (int) ((t % 1000L) * 60 / 1000);
+        return String.format("%02d:%02d", hh, mm);
+    }
+
+    private static String dur(long ms, boolean cs) {
+        long s = ms / 1000;
+        String base = String.format("%02d:%02d", s / 60, s % 60);
+        return cs ? base + String.format(".%02d", (ms % 1000) / 10) : base;
+    }
+
+    private void clock(GuiGraphics ms, int x, int y, int w, int h, int mx, int my) {
+        Ui.rect(ms, x, y, w, h, 0xF2050608);
+        appHeader(ms, x, y, w, "Ceas", mx, my, true);
+        long now = System.currentTimeMillis();
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        int yy = y + 48;
+        // cadran analogic
+        float ccx = x + w / 2f;
+        float ccy = yy + 34;
+        Gfx.disc(ms, ccx, ccy, 32f, 0xFF1A1E26);
+        Gfx.ring(ms, ccx, ccy, 30.5f, 32f, 0xFF2E3440, 0xFF2E3440);
+        for (int i = 0; i < 12; i++) {
+            double ang = Math.PI * 2 * i / 12.0;
+            float r0 = i % 3 == 0 ? 24f : 26.5f;
+            Gfx.line(ms, ccx + (float) Math.sin(ang) * r0, ccy - (float) Math.cos(ang) * r0, ccx + (float) Math.sin(ang) * 28.5f, ccy - (float) Math.cos(ang) * 28.5f, i % 3 == 0 ? 1.6f : 0.9f, Sk.MUTED);
+        }
+        double sec = cal.get(java.util.Calendar.SECOND) + cal.get(java.util.Calendar.MILLISECOND) / 1000.0;
+        double min = cal.get(java.util.Calendar.MINUTE) + sec / 60.0;
+        double hr = cal.get(java.util.Calendar.HOUR) + min / 60.0;
+        hand(ms, ccx, ccy, hr / 12.0, 15f, 2.4f, Sk.WHITE);
+        hand(ms, ccx, ccy, min / 60.0, 22f, 1.8f, Sk.WHITE);
+        hand(ms, ccx, ccy, sec / 60.0, 25f, 0.9f, 0xFFFF9F0A);
+        Gfx.disc(ms, ccx, ccy, 2f, 0xFFFF9F0A);
+        yy += 74;
+        Gfx.text(ms, String.format("%02d:%02d:%02d", cal.get(java.util.Calendar.HOUR_OF_DAY), cal.get(java.util.Calendar.MINUTE), cal.get(java.util.Calendar.SECOND)), x + w / 2f, yy + 6, 11f, Sk.WHITE, 1, true, 0.4f);
+        Gfx.text(ms, "Ora in joc: " + gameTime(Minecraft.getInstance()), x + w / 2f, yy + 18, 6.4f, Sk.MUTED, 1, false, 0.3f);
+        yy += 28;
+        // cronometru
+        Gfx.rrect(ms, x + 8, yy, w - 16, 44, 10f, 0x18FFFFFF);
+        boolean run = PhoneState.swStart > 0;
+        long sw = PhoneState.swAccum + (run ? now - PhoneState.swStart : 0);
+        Gfx.text(ms, "CRONOMETRU", x + 16, yy + 11, 5.6f, Sk.FAINT, 0, true, 0.6f);
+        Gfx.text(ms, dur(sw, true), x + 16, yy + 31, 11f, Sk.WHITE, 0, true, 0.3f);
+        button(ms, run ? "STOP" : "START", x + w - 60, yy + 6, 44, 14, mx, my, true, run ? 0xFF5A2328 : 0xFF1E5E3A, () -> {
+            if (PhoneState.swStart > 0) {
+                PhoneState.swAccum += System.currentTimeMillis() - PhoneState.swStart;
+                PhoneState.swStart = 0;
+            } else PhoneState.swStart = System.currentTimeMillis();
+        });
+        button(ms, "RESET", x + w - 60, yy + 24, 44, 14, mx, my, sw > 0, 0xFF2A3342, () -> {
+            PhoneState.swStart = run ? System.currentTimeMillis() : 0;
+            PhoneState.swAccum = 0;
+        });
+        yy += 50;
+        // temporizator
+        Gfx.rrect(ms, x + 8, yy, w - 16, 48, 10f, 0x18FFFFFF);
+        Gfx.text(ms, "TEMPORIZATOR", x + 16, yy + 11, 5.6f, Sk.FAINT, 0, true, 0.6f);
+        if (PhoneState.timerEnd > 0) {
+            long left = Math.max(0, PhoneState.timerEnd - now);
+            Gfx.text(ms, dur(left, false), x + 16, yy + 30, 11f, 0xFFFF9F0A, 0, true, 0.3f);
+            Gfx.bar(ms, x + 16, yy + 38, w - 90, 3, PhoneState.timerTotal <= 0 ? 0 : 1f - left / (float) PhoneState.timerTotal, 0x33FFFFFF, 0xFFFF9F0A);
+            button(ms, "ANULEAZA", x + w - 66, yy + 17, 50, 14, mx, my, true, 0xFF5A2328, () -> PhoneState.timerEnd = 0);
+        } else {
+            int[] mins = {1, 3, 5, 10};
+            int bw = (w - 40) / 4;
+            for (int i = 0; i < 4; i++) {
+                final int m = mins[i];
+                button(ms, m + " min", x + 16 + i * (bw + 3), yy + 22, bw, 16, mx, my, true, 0xFF2A3342, () -> {
+                    PhoneState.timerTotal = m * 60_000L;
+                    PhoneState.timerEnd = System.currentTimeMillis() + PhoneState.timerTotal;
+                });
+            }
+        }
+    }
+
+    private static void hand(GuiGraphics ms, float cx, float cy, double frac, float len, float th, int col) {
+        double ang = Math.PI * 2 * frac;
+        Gfx.line(ms, cx, cy, cx + (float) Math.sin(ang) * len, cy - (float) Math.cos(ang) * len, th, col);
+    }
+
+    // ------------------------------------------------------------------ Vremea (din lumea jocului)
+
+    private static final String[] WEATHER_NAMES = {"Senin", "Noapte senina", "Ploaie", "Furtuna", "Ninsoare"};
+
+    private static boolean night(Minecraft mc) {
+        if (mc.level == null) return false;
+        long t = mc.level.getDayTime() % 24000L;
+        return t >= 12800L && t < 23200L;
+    }
+
+    private static int weatherCond(Minecraft mc) {
+        if (mc.level == null || mc.player == null) return 0;
+        if (mc.level.isThundering()) return 3;
+        if (mc.level.isRaining()) {
+            net.minecraft.world.biome.Biome b = mc.level.getBiome(mc.player.blockPosition());
+            if (b.getPrecipitation() == net.minecraft.world.biome.Biome.RainType.SNOW) return 4;
+            if (b.getPrecipitation() == net.minecraft.world.biome.Biome.RainType.NONE) return night(mc) ? 1 : 0;
+            return 2;
+        }
+        return night(mc) ? 1 : 0;
+    }
+
+    private static void weatherGlyph(GuiGraphics ms, float cx, float cy, int cond, float s) {
+        switch (cond) {
+            case 0:
+                for (int i = 0; i < 8; i++) {
+                    double ang = Math.PI * i / 4.0;
+                    Gfx.line(ms, cx + (float) Math.cos(ang) * 9f * s, cy + (float) Math.sin(ang) * 9f * s, cx + (float) Math.cos(ang) * 12f * s, cy + (float) Math.sin(ang) * 12f * s, 1.6f * s, 0xFFFFD34A);
+                }
+                Gfx.disc(ms, cx, cy, 7f * s, 0xFFFFD34A);
+                break;
+            case 1:
+                Gfx.disc(ms, cx, cy, 8f * s, 0xFFE8EEF8);
+                Gfx.disc(ms, cx + 4f * s, cy - 3f * s, 7f * s, 0xFF1A2230);
+                break;
+            default:
+                Gfx.disc(ms, cx - 4f * s, cy - 1f * s, 6f * s, 0xFFDDE4EE);
+                Gfx.disc(ms, cx + 3f * s, cy - 3f * s, 7.5f * s, 0xFFDDE4EE);
+                Gfx.rrect(ms, cx - 10f * s, cy, 20f * s, 6f * s, 3f * s, 0xFFDDE4EE);
+                if (cond == 2 || cond == 3) {
+                    for (int i = 0; i < 3; i++) Gfx.line(ms, cx - 5f * s + i * 5f * s, cy + 9f * s, cx - 7f * s + i * 5f * s, cy + 13f * s, 1.4f * s, 0xFF5BA8FF);
+                }
+                if (cond == 3) Gfx.poly(ms, new float[] {cx + 1f * s, cy + 6f * s, cx - 2f * s, cy + 12f * s, cx + 1f * s, cy + 12f * s, cx - 1f * s, cy + 17f * s, cx + 4f * s, cy + 10f * s, cx + 1f * s, cy + 10f * s}, 0xFFFFD34A);
+                if (cond == 4) {
+                    for (int i = 0; i < 3; i++) Gfx.disc(ms, cx - 5f * s + i * 5f * s, cy + 11f * s, 1.3f * s, Sk.WHITE);
+                }
+                break;
+        }
+    }
+
+    private static String biomeName(Minecraft mc, net.minecraft.world.biome.Biome b) {
+        net.minecraft.util.ResourceLocation rl = null;
+        try {
+            rl = mc.level.registryAccess().registryOrThrow(net.minecraft.util.registry.Registry.BIOME_REGISTRY).getKey(b);
+        } catch (RuntimeException ignored) {
+            // registrul dinamic indisponibil
+        }
+        if (rl == null) rl = b.getRegistryName();
+        if (rl == null) return "Necunoscut";
+        String[] parts = rl.getPath().split("_");
+        StringBuilder sb = new StringBuilder();
+        for (String p : parts) {
+            if (p.isEmpty()) continue;
+            if (sb.length() > 0) sb.append(' ');
+            sb.append(Character.toUpperCase(p.charAt(0))).append(p.substring(1));
+        }
+        return sb.toString();
+    }
+
+    private void weather(GuiGraphics ms, int x, int y, int w, int h, int mx, int my) {
+        Minecraft mc = Minecraft.getInstance();
+        int cond = weatherCond(mc);
+        int[] top = {0xFF3D8BD9, 0xFF0D1B33, 0xFF4A5A70, 0xFF2A3140, 0xFF8DA4BE};
+        int[] bot = {0xFF7FC0F5, 0xFF1F3355, 0xFF2C3746, 0xFF161B24, 0xFFC8D6E6};
+        Gfx.rrect(ms, x, y, w, h, 0f, top[cond], bot[cond]);
+        appHeader(ms, x, y, w, "Vremea", mx, my, true);
+        if (mc.level == null || mc.player == null) return;
+        net.minecraft.util.math.BlockPos pos = mc.player.blockPosition();
+        net.minecraft.world.biome.Biome b = mc.level.getBiome(pos);
+        float temp = b.getTemperature(pos);
+        int celsius = Math.round(temp * 25f - (night(mc) ? 4f : 0f));
+        int yy = y + 52;
+        Gfx.text(ms, biomeName(mc, b), x + w / 2f, yy + 6, 8f, Sk.WHITE, 1, true, 0.4f);
+        weatherGlyph(ms, x + w / 2f, yy + 38, cond, 2.2f);
+        Gfx.text(ms, celsius + "°", x + w / 2f + 4, yy + 96, 30f, Sk.WHITE, 1, true, 0.2f);
+        Gfx.text(ms, WEATHER_NAMES[cond], x + w / 2f, yy + 110, 8f, 0xEEFFFFFF, 1, false, 0.4f);
+        yy += 124;
+        Gfx.rrect(ms, x + 8, yy, w - 16, 64, 12f, 0x30000000);
+        String[][] rows = {
+            {"Ora in joc", gameTime(mc)},
+            {"Umiditate", Math.round(b.getDownfall() * 100f) + "%"},
+            {"Zi", String.valueOf(mc.level.getDayTime() / 24000L + 1)},
+            {"Pozitie", pos.getX() + ", " + pos.getZ()}};
+        for (int i = 0; i < rows.length; i++) {
+            int ry = yy + 8 + i * 13;
+            Gfx.text(ms, rows[i][0], x + 16, ry + 7, 6.4f, 0xCCFFFFFF, 0, false, 0.2f);
+            Gfx.text(ms, rows[i][1], x + w - 16, ry + 7, 6.6f, Sk.WHITE, 2, false, 0.2f);
+        }
+        Gfx.text(ms, "Temperatura este estimata din biom.", x + w / 2f, y + h - 18, 5.6f, 0xAAFFFFFF, 1, false, 0.2f);
+    }
+
     // ------------------------------------------------------------------ input
 
     @Override
+    public void onClose() {
+        if (orderDirty) {
+            orderDirty = false;
+            PhoneClient.saveOrder();
+        }
+        super.onClose();
+    }
+
+    private IconRect iconAt(double mx, double my) {
+        for (IconRect r : icons) if (Ui.in((int) mx, (int) my, r.x, r.y, r.w, r.h)) return r;
+        return null;
+    }
+
+    private boolean homeInput() {
+        return page == Page.HOME && PhoneState.call == null && confirmRemove == null && confirmBuy == null;
+    }
+
+    @Override
+    public boolean mouseClicked(double mx, double my, int button) {
+        if (button == 0 && homeInput()) {
+            if (editMode) {
+                if (Ui.in((int) mx, (int) my, editDoneX, editDoneY, 34, 11)) {
+                    click();
+                    exitEdit();
+                    return true;
+                }
+                // butonul "-" (dezinstalare) din coltul iconitei
+                for (IconRect r : icons) {
+                    PhoneApps.App a = PhoneApps.get(r.id);
+                    if (a != null && !a.core && Ui.in((int) mx, (int) my, r.ix - 5, r.iy - 5, 11, 11)) {
+                        click();
+                        confirmRemove = r.id;
+                        return true;
+                    }
+                }
+                IconRect r = iconAt(mx, my);
+                if (r != null) {
+                    click();
+                    if (editSel == null) editSel = r.id;
+                    else if (editSel.equals(r.id)) editSel = null;
+                    else {
+                        int i = PhoneState.apps.indexOf(editSel);
+                        int j = PhoneState.apps.indexOf(r.id);
+                        if (i >= 0 && j >= 0) {
+                            java.util.Collections.swap(PhoneState.apps, i, j);
+                            orderDirty = true;
+                        }
+                        editSel = null;
+                    }
+                    return true;
+                }
+                if (editSel != null && my >= gridTopY && my < gridBottomY) {
+                    // loc gol pe o pagina: aplicatia se muta la sfarsit
+                    PhoneState.apps.remove(editSel);
+                    PhoneState.apps.add(editSel);
+                    orderDirty = true;
+                    editSel = null;
+                    click();
+                    return true;
+                }
+            }
+            if (Ui.in((int) mx, (int) my, homeX, gridTopY, homeW, (int) (py + ph - gridTopY - 12))) {
+                IconRect r = editMode ? null : iconAt(mx, my);
+                pressing = true;
+                dragged = false;
+                dragDx = 0;
+                pressX = mx;
+                pressY = my;
+                pressAt = System.currentTimeMillis();
+                pressApp = r == null ? null : r.id;
+                return true;
+            }
+        }
+        return super.mouseClicked(mx, my, button);
+    }
+
+    @Override
+    public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
+        if (pressing && page == Page.HOME) {
+            dragDx = (float) (mx - pressX);
+            if (Math.abs(dragDx) > 4 || Math.abs(my - pressY) > 6) dragged = true;
+            if (!dragged) dragDx = 0;
+            return true;
+        }
+        return super.mouseDragged(mx, my, button, dx, dy);
+    }
+
+    @Override
+    public boolean mouseReleased(double mx, double my, int button) {
+        if (pressing && button == 0) {
+            pressing = false;
+            if (dragged) {
+                if (pageX < 0) pageX = homePage;
+                pageX -= dragDx / Math.max(1, homeW);
+                if (dragDx < -homeW / 6f) homePage++;
+                else if (dragDx > homeW / 6f) homePage = Math.max(0, homePage - 1);
+                dragDx = 0;
+                dragged = false;
+                return true;
+            }
+            dragDx = 0;
+            if (pressApp != null && page == Page.HOME && !editMode) {
+                IconRect r = iconAt(mx, my);
+                if (r != null && r.id.equals(pressApp)) {
+                    click();
+                    launch(r);
+                }
+            }
+            pressApp = null;
+            return true;
+        }
+        return super.mouseReleased(mx, my, button);
+    }
+
+    @Override
     public boolean mouseScrolled(double mx, double my, double delta) {
+        if (homeInput()) {
+            if (delta < 0) homePage++;
+            else if (delta > 0) homePage = Math.max(0, homePage - 1);
+            return true;
+        }
         scroll -= (int) (delta * 14);
         scroll = Math.max(0, Math.min(scroll, scrollMax));
         return true;
@@ -957,6 +2110,20 @@ public final class PhoneScreen extends FlowScreen {
 
     @Override
     public boolean charTyped(char ch, int mods) {
+        if (page == Page.CALC && PhoneState.call == null) {
+            if (Character.isDigit(ch) || ch == '.' || ch == '+' || ch == '-' || ch == '%' || ch == '=') {
+                calcPress(String.valueOf(ch));
+                return true;
+            }
+            if (ch == '*' || ch == 'x') {
+                calcPress("x");
+                return true;
+            }
+            if (ch == '/') {
+                calcPress("/");
+                return true;
+            }
+        }
         if (page == Page.CALLS && dialTab && PhoneState.call == null && ch >= '0' && ch <= '9') {
             if (dial.length() < 8) dial.append(ch);
             return true;
@@ -966,7 +2133,33 @@ public final class PhoneScreen extends FlowScreen {
 
     @Override
     public boolean keyPressed(int key, int scan, int mods) {
-        boolean typing = (page == Page.THREAD && msgField.isFocused()) || (page == Page.CONTACTS && contactField.isFocused());
+        boolean typing = (page == Page.THREAD && msgField.isFocused()) || (page == Page.CONTACTS && contactField.isFocused())
+            || (page == Page.STORE && storeField.isFocused()) || (page == Page.NOTE_EDIT && noteField.isFocused());
+        if (!typing && key == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) {
+            if (confirmRemove != null || confirmBuy != null) {
+                confirmRemove = null;
+                confirmBuy = null;
+                return true;
+            }
+            if (editMode) {
+                exitEdit();
+                return true;
+            }
+        }
+        if (!typing && page == Page.CALC && PhoneState.call == null) {
+            if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_BACKSPACE) {
+                calcPress("<");
+                return true;
+            }
+            if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER || key == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER) {
+                calcPress("=");
+                return true;
+            }
+            if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_DELETE) {
+                calcPress("C");
+                return true;
+            }
+        }
         if (!typing && PhoneClient.openKey != null && PhoneClient.openKey.matches(key, scan)) {
             onClose();
             return true;

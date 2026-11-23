@@ -51,6 +51,8 @@ public final class PhoneModule extends JsonModule {
     private SimStore sims;
     private final Map<UUID, Integer> lastSignal = new HashMap<>();
     private final Map<UUID, Long> lastSimOp = new HashMap<>();
+    private final Map<UUID, Long> lastStoreOp = new HashMap<>();
+    private AppStore store;
     private long nextCallId = 1;
 
     @Override
@@ -80,6 +82,23 @@ public final class PhoneModule extends JsonModule {
         }
 
         sims = new SimStore(plugin);
+        store = new AppStore(plugin);
+        on("store.req", (p, j) -> sendStore(p));
+        on("store.install", this::storeInstall);
+        on("store.remove", this::storeRemove);
+        on("store.order", (p, j) -> {
+            if (!storeRate(p) || !j.has("apps") || !j.get("apps").isJsonArray()) return;
+            AppStore.Data d = store.cached(p.getUniqueId());
+            if (d != null && !store.reorder(p.getUniqueId(), d, j.getAsJsonArray("apps"))) sendStore(p);
+        });
+        on("notes.req", (p, j) -> store.load(p.getUniqueId(), d -> sendNotes(p, d)));
+        on("notes.save", (p, j) -> {
+            if (!storeRate(p) || !j.has("notes") || !j.get("notes").isJsonArray()) return;
+            store.load(p.getUniqueId(), d -> {
+                store.saveNotes(p.getUniqueId(), d, j.getAsJsonArray("notes"));
+                sendNotes(p, d);
+            });
+        });
         on("sim.info", (p, j) -> sendSim(p));
         on("sim.insert", this::simInsert);
         on("sim.eject", (p, j) -> simEject(p));
@@ -538,8 +557,53 @@ public final class PhoneModule extends JsonModule {
         sendSim(p);
     }
 
+    // ------------------------------------------------------------------ App Store
+
+    private boolean storeRate(Player p) {
+        long now = System.currentTimeMillis();
+        Long last = lastStoreOp.get(p.getUniqueId());
+        if (last != null && now - last < 350) return false;
+        lastStoreOp.put(p.getUniqueId(), now);
+        return true;
+    }
+
+    private void sendStore(Player p) {
+        store.load(p.getUniqueId(), d -> send(p, "store", store.json(p.getUniqueId(), d)));
+    }
+
+    private void sendNotes(Player p, AppStore.Data d) {
+        JsonObject o = new JsonObject();
+        o.add("notes", d.notes);
+        send(p, "notes", o);
+    }
+
+    private void storeInstall(Player p, JsonObject j) {
+        if (!ok(p) || !storeRate(p)) return;
+        final String id = str(j, "id", "");
+        store.load(p.getUniqueId(), d -> {
+            String err = store.install(p.getUniqueId(), d, id);
+            JsonObject o = new JsonObject();
+            o.addProperty("id", id);
+            o.addProperty("ok", err == null);
+            o.addProperty("msg", err == null ? "" : err);
+            send(p, "store.res", o);
+            send(p, "store", store.json(p.getUniqueId(), d));
+        });
+    }
+
+    private void storeRemove(Player p, JsonObject j) {
+        if (!ok(p) || !storeRate(p)) return;
+        final String id = str(j, "id", "");
+        store.load(p.getUniqueId(), d -> {
+            String err = store.uninstall(p.getUniqueId(), d, id);
+            if (err != null) plugin.channel().toast(p, err, true);
+            send(p, "store", store.json(p.getUniqueId(), d));
+        });
+    }
+
     @Override
     public void onClientReady(Player p) {
+        sendStore(p);
         sendState(p);
         sims.loadPrefs(p.getUniqueId(), (w, light) -> {
             JsonObject o = new JsonObject();
@@ -556,6 +620,8 @@ public final class PhoneModule extends JsonModule {
         if (c != null) finish(c, c.active ? "ENDED" : (c.caller.equals(p.getUniqueId()) ? "CANCELLED" : "DECLINED"), p.getUniqueId());
         lastSend.remove(p.getUniqueId());
         lastSignal.remove(p.getUniqueId());
+        lastStoreOp.remove(p.getUniqueId());
+        if (store != null) store.forget(p.getUniqueId());
         lastSimOp.remove(p.getUniqueId());
     }
 

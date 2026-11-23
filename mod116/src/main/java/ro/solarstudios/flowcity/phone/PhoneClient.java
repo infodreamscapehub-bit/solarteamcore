@@ -165,6 +165,47 @@ public final class PhoneClient extends JsonClientModule {
             }
         });
         on("open", d -> Minecraft.getInstance().setScreen(new PhoneScreen()));
+        on("store", d -> {
+            PhoneState.storeLoaded = true;
+            PhoneState.apps.clear();
+            if (d.has("apps")) for (JsonElement e : d.getAsJsonArray("apps")) {
+                String id = e.getAsString();
+                if (PhoneApps.get(id) != null && !PhoneState.apps.contains(id)) PhoneState.apps.add(id);
+            }
+            PhoneState.owned.clear();
+            if (d.has("owned")) for (JsonElement e : d.getAsJsonArray("owned")) PhoneState.owned.add(e.getAsString());
+            PhoneState.prices.clear();
+            PhoneState.available.clear();
+            if (d.has("catalog")) for (JsonElement e : d.getAsJsonArray("catalog")) {
+                JsonObject a = e.getAsJsonObject();
+                String id = str(a, "id", "");
+                PhoneState.prices.put(id, a.has("price") ? a.get("price").getAsDouble() : 0.0);
+                if (bool(a, "enabled", true)) PhoneState.available.add(id);
+            }
+            PhoneState.balance = d.has("balance") ? d.get("balance").getAsDouble() : 0;
+        });
+        on("store.res", d -> {
+            String id = str(d, "id", "");
+            PhoneState.pending.remove(id);
+            PhoneApps.App a = PhoneApps.get(id);
+            if (bool(d, "ok", false)) {
+                PhoneState.installing.put(id, System.currentTimeMillis());
+                NotifyToasts.add("INFO", "App Store", (a == null ? id : a.name) + " se instaleaza...");
+            } else {
+                NotifyToasts.add("BAD", "App Store", str(d, "msg", "Instalarea a esuat."));
+            }
+        });
+        on("notes", d -> {
+            PhoneState.notesLoaded = true;
+            PhoneState.notes.clear();
+            if (d.has("notes")) for (JsonElement e : d.getAsJsonArray("notes")) {
+                JsonObject o = e.getAsJsonObject();
+                PhoneState.Note n = new PhoneState.Note();
+                n.text = str(o, "t", "");
+                n.ts = lng(o, "ts", 0);
+                PhoneState.notes.add(n);
+            }
+        });
     }
 
     private static boolean shownUnread;
@@ -223,6 +264,45 @@ public final class PhoneClient extends JsonClientModule {
         JsonObject o = new JsonObject();
         o.addProperty(key, val);
         return o;
+    }
+
+    public static void requestStore() {
+        req("store.req", null);
+    }
+
+    public static void install(String id) {
+        PhoneState.pending.add(id);
+        req("store.install", with("id", id));
+    }
+
+    public static void uninstall(String id) {
+        PhoneState.apps.remove(id);
+        req("store.remove", with("id", id));
+    }
+
+    public static void saveOrder() {
+        com.google.gson.JsonArray a = new com.google.gson.JsonArray();
+        for (String s : PhoneState.apps) a.add(s);
+        JsonObject o = new JsonObject();
+        o.add("apps", a);
+        req("store.order", o);
+    }
+
+    public static void requestNotes() {
+        req("notes.req", null);
+    }
+
+    public static void saveNotes() {
+        com.google.gson.JsonArray a = new com.google.gson.JsonArray();
+        for (PhoneState.Note n : PhoneState.notes) {
+            JsonObject o = new JsonObject();
+            o.addProperty("t", n.text);
+            o.addProperty("ts", n.ts);
+            a.add(o);
+        }
+        JsonObject o = new JsonObject();
+        o.add("notes", a);
+        req("notes.save", o);
     }
 
     public static void requestContacts() {
@@ -316,6 +396,11 @@ public final class PhoneClient extends JsonClientModule {
             Minecraft mc = Minecraft.getInstance();
             if (mc.player == null) return;
             if (openKey != null && openKey.consumeClick() && mc.screen == null) mc.setScreen(new PhoneScreen());
+            if (PhoneState.timerEnd > 0 && System.currentTimeMillis() >= PhoneState.timerEnd) {
+                PhoneState.timerEnd = 0;
+                FlowSounds.play("ring", 1.0F);
+                NotifyToasts.add("INFO", "Ceas", "Temporizatorul s-a terminat.");
+            }
             PhoneState.Call c = PhoneState.call;
             if (c != null && c.incoming && !c.active) {
                 long now = System.currentTimeMillis();

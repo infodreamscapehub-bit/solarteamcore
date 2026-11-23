@@ -47,6 +47,23 @@ phone:
     allow-transfer: true            # true = cine tine cartela fizic o poate introduce (devine proprietar); false = doar proprietarul
     max-in-inventory: 3             # cate cartele poate avea cumparatorul in inventar odata
     emergency-without-sim: true     # apelul la 112 merge si fara SIM
+  # App Store (telefon): aplicatiile de sistem (Telefon, Mesaje, Contacte, Setari, App Store, SIM) sunt mereu instalate.
+  # ID-uri magazin: cnn, ads, bank, notify, gps, jobs, wheel, calc, notes, clock, weather
+  store:
+    default-installed: [cnn, bank, notify, gps, jobs, ads]   # ce primeste un jucator nou
+    disabled: []                    # aplicatii ascunse din magazin (si de pe telefoane)
+    prices:                         # 0 = gratuit; plata se face o singura data (reinstalarea e gratuita)
+      cnn: 0
+      ads: 0
+      bank: 0
+      notify: 0
+      gps: 0
+      jobs: 0
+      wheel: 0
+      calc: 0
+      notes: 0
+      clock: 0
+      weather: 0
   signal:
     dead-zones: []                  # zone fara semnal, ex: "world,1200,-300,150" (lume,x,z,raza)
   call:
