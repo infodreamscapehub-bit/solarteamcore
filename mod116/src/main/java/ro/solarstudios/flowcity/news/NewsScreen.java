@@ -150,6 +150,11 @@ public final class NewsScreen extends FlowScreen {
         Gfx.text(ms, "FLOWCITY NEWS", px + 17, py + 44, 6.4f, Sk.MUTED, 0, false, 1.2f);
         Sk.close(ms, px + pw - 34, py + 12, mx, my);
         hit(px + pw - 34, py + 12, 20, 20, this::onClose);
+        pill(ms, "ANUNȚURI", px + 16, py + 50, pillW("ANUNȚURI"), 14, mx, my, false, Sk.ACC, () -> {
+            AdsClient.requestInfo();
+            AdsClient.requestList();
+            net.minecraft.client.Minecraft.getInstance().setScreen(new AdsScreen());
+        });
 
         int ty = py + 12;
         int tx = px + 128;

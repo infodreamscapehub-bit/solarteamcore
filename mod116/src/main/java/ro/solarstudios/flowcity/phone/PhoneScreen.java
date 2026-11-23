@@ -46,9 +46,26 @@ public final class PhoneScreen extends FlowScreen {
         return app == 0 || app == 2;
     }
 
+    /** Deschide telefonul direct intr-o conversatie SMS (de ex. cu autorul unui anunt CNN). Fara SIM activ se deschide telefonul cu mesajul de eroare. */
+    public static void openThreadWith(String uuid, String name) {
+        PhoneScreen ps = new PhoneScreen();
+        Minecraft.getInstance().setScreen(ps);
+        if (!PhoneState.simActive()) {
+            ps.toast("Fara SIM activ nu poti trimite mesaje. Introdu o cartela din aplicatia SIM.", true);
+            return;
+        }
+        ps.openThread(uuid, name);
+    }
+
     /** Deschide telefonul direct in aplicatia indicata de o notificare (sms, call, news, ads, bank, jobs). */
     public static void openFor(String app) {
-        int idx = "sms".equals(app) ? 0 : "call".equals(app) ? 2 : "bank".equals(app) ? 3 : ("news".equals(app) || "ads".equals(app)) ? 4 : "jobs".equals(app) ? 6 : -1;
+        if ("ads".equals(app)) {
+            ro.solarstudios.flowcity.news.AdsClient.requestInfo();
+            ro.solarstudios.flowcity.news.AdsClient.requestList();
+            Minecraft.getInstance().setScreen(new ro.solarstudios.flowcity.news.AdsScreen());
+            return;
+        }
+        int idx = "sms".equals(app) ? 0 : "call".equals(app) ? 2 : "bank".equals(app) ? 3 : "news".equals(app) ? 4 : "jobs".equals(app) ? 6 : -1;
         PhoneScreen ps = new PhoneScreen();
         Minecraft.getInstance().setScreen(ps);
         if (idx >= 0) ps.openApp(idx);
