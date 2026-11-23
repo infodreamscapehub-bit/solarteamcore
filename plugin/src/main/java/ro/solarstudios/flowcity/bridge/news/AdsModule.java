@@ -42,6 +42,7 @@ import ro.solarstudios.flowcity.bridge.module.JsonModule;
 public final class AdsModule extends JsonModule {
     private static final String PERM_USE = "flowcity.ads.use";
     private static final String PERM_MOD = "flowcity.ads.moderate";
+    private static final String PERM_ADMIN = "flowcity.ads.admin";
 
     private static final class Ad {
         long id;
@@ -61,6 +62,9 @@ public final class AdsModule extends JsonModule {
         double fee;
         String hash = "";
         String reason = "";
+        int edits;
+        long lastEdit;
+        boolean edited;
     }
 
     private YamlConfiguration cfg;
@@ -83,6 +87,7 @@ public final class AdsModule extends JsonModule {
         cfg = ModConfig.load(plugin, "ads");
         db = plugin.db();
         Commands.permission(PERM_USE, "Poate publica si vedea anunturi CNN", PermissionDefault.TRUE);
+        Commands.permission(PERM_ADMIN, "Configureaza CNN Anunturi din interfata (taxe, cooldown, durata)", PermissionDefault.OP);
         Commands.permission(PERM_MOD, "Modereaza anunturile CNN (aproba, respinge, sterge, suspenda)", PermissionDefault.OP);
         try {
             db.async(c -> {
@@ -90,6 +95,11 @@ public final class AdsModule extends JsonModule {
                     st.execute("CREATE TABLE IF NOT EXISTS core_ads (id INTEGER PRIMARY KEY AUTOINCREMENT, owner TEXT NOT NULL, author TEXT NOT NULL, cat TEXT NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL DEFAULT '', price INTEGER NOT NULL DEFAULT -1, phone TEXT NOT NULL DEFAULT '', promoted INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL, created INTEGER NOT NULL, expires INTEGER NOT NULL, duration INTEGER NOT NULL DEFAULT 24, extends INTEGER NOT NULL DEFAULT 0, fee REAL NOT NULL DEFAULT 0, hash TEXT NOT NULL DEFAULT '', reason TEXT NOT NULL DEFAULT '')");
                     st.execute("CREATE INDEX IF NOT EXISTS idx_ads_owner ON core_ads(owner, status)");
                     st.execute("CREATE TABLE IF NOT EXISTS core_ads_state (uuid TEXT PRIMARY KEY, last_any INTEGER NOT NULL DEFAULT 0, last_promo INTEGER NOT NULL DEFAULT 0, suspended_until INTEGER NOT NULL DEFAULT 0, suspend_reason TEXT NOT NULL DEFAULT '')");
+                    try {
+                        st.execute("ALTER TABLE core_ads ADD COLUMN edits INTEGER NOT NULL DEFAULT 0");
+                    } catch (Exception ignored) {
+                        // coloana exista deja
+                    }
                     st.execute("CREATE TABLE IF NOT EXISTS core_ads_log (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, actor TEXT NOT NULL, action TEXT NOT NULL, ad_id INTEGER NOT NULL DEFAULT 0, detail TEXT NOT NULL DEFAULT '')");
                 }
                 return null;
@@ -107,6 +117,10 @@ public final class AdsModule extends JsonModule {
         on("mod", this::moderate);
         on("suspend", this::suspend);
         on("history", (p, j) -> sendHistory(p));
+        on("edit", this::edit);
+        on("promote", (p, j) -> promote(p, (long) num(j, "id", -1)));
+        on("all", (p, j) -> sendAll(p));
+        on("cfg.set", this::cfgSet);
         Bukkit.getScheduler().runTaskTimer(plugin, this::tickExpire, 20L * 30, 20L * 60);
     }
 
@@ -140,15 +154,37 @@ public final class AdsModule extends JsonModule {
         return l;
     }
 
+    /** Categoriile CNN 2.0 (id -> eticheta), din categories-v2. */
     private Map<String, String> categories() {
         Map<String, String> m = new java.util.LinkedHashMap<>();
+        ConfigurationSection v2 = cfg.getConfigurationSection("categories-v2");
+        if (v2 != null) {
+            for (String k : v2.getKeys(false)) m.put(k.toLowerCase(Locale.ROOT), v2.getString(k + ".label", k));
+            if (!m.isEmpty()) return m;
+        }
         ConfigurationSection sec = cfg.getConfigurationSection("categories");
         if (sec != null) for (String k : sec.getKeys(false)) m.put(k.toLowerCase(Locale.ROOT), sec.getString(k, k));
         if (m.isEmpty()) m.put("diverse", "Diverse");
         return m;
     }
 
+    private String catColor(String cat) {
+        return cfg.getString("categories-v2." + cat + ".color", "#A0AEC0");
+    }
+
+    private String catIcon(String cat) {
+        return cfg.getString("categories-v2." + cat + ".icon", "puncte");
+    }
+
+    /** Eticheta oricarei categorii (si a celor vechi, pentru anunturile publicate inainte de CNN 2.0). */
+    private String anyLabel(String cat) {
+        String l = categories().get(cat);
+        if (l != null) return l;
+        return cfg.getString("categories." + cat, cat);
+    }
+
     private boolean priceCat(String cat) {
+        if (cfg.isConfigurationSection("categories-v2." + cat)) return cfg.getBoolean("categories-v2." + cat + ".price", false);
         for (String s : cfg.getStringList("price-categories")) if (s.equalsIgnoreCase(cat)) return true;
         return false;
     }
@@ -168,7 +204,7 @@ public final class AdsModule extends JsonModule {
         final long since = System.currentTimeMillis() - Math.max(1, cfg.getInt("history-days", 7)) * 86_400_000L;
         List<Ad> rows = db.async(c -> {
             List<Ad> l = new ArrayList<>();
-            try (PreparedStatement ps = c.prepareStatement("SELECT id, owner, author, cat, title, body, price, phone, promoted, status, created, expires, duration, extends, fee, hash, reason FROM core_ads WHERE status IN ('ACTIVE','PENDING') OR created>?")) {
+            try (PreparedStatement ps = c.prepareStatement("SELECT id, owner, author, cat, title, body, price, phone, promoted, status, created, expires, duration, extends, fee, hash, reason, edits FROM core_ads WHERE status IN ('ACTIVE','PENDING') OR created>?")) {
                 ps.setLong(1, since);
                 try (ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
@@ -194,6 +230,7 @@ public final class AdsModule extends JsonModule {
                         a.fee = rs.getDouble(15);
                         a.hash = rs.getString(16);
                         a.reason = rs.getString(17);
+                        a.edits = rs.getInt(18);
                         l.add(a);
                     }
                 }
@@ -246,13 +283,27 @@ public final class AdsModule extends JsonModule {
         final long exp = a.expires;
         final int ext = a.extendsUsed;
         final String re = a.reason;
+        final String ti = a.title;
+        final String bo = a.body;
+        final long pr = a.price;
+        final int pro = a.promoted ? 1 : 0;
+        final int ed = a.edits;
+        final String ha = a.hash;
+        final double fe = a.fee;
         db.run(c -> {
-            try (PreparedStatement ps = c.prepareStatement("UPDATE core_ads SET status=?, expires=?, extends=?, reason=? WHERE id=?")) {
+            try (PreparedStatement ps = c.prepareStatement("UPDATE core_ads SET status=?, expires=?, extends=?, reason=?, title=?, body=?, price=?, promoted=?, edits=?, hash=?, fee=? WHERE id=?")) {
                 ps.setString(1, st);
                 ps.setLong(2, exp);
                 ps.setInt(3, ext);
                 ps.setString(4, re);
-                ps.setLong(5, id);
+                ps.setString(5, ti);
+                ps.setString(6, bo);
+                ps.setLong(7, pr);
+                ps.setInt(8, pro);
+                ps.setInt(9, ed);
+                ps.setString(10, ha);
+                ps.setDouble(11, fe);
+                ps.setLong(12, id);
                 ps.executeUpdate();
             }
             return null;
@@ -399,6 +450,10 @@ public final class AdsModule extends JsonModule {
         o.addProperty("own", a.owner.equals(viewer));
         o.addProperty("extendsLeft", Math.max(0, cfg.getInt("extend.max-extends", 2) - a.extendsUsed));
         o.addProperty("reason", a.reason);
+        o.addProperty("catLabel", anyLabel(a.cat));
+        o.addProperty("edits", a.edits);
+        o.addProperty("editsLeft", Math.max(0, cfg.getInt("edit.max-edits", 3) - a.edits));
+        o.addProperty("fee", a.fee);
         return o;
     }
 
@@ -424,6 +479,8 @@ public final class AdsModule extends JsonModule {
             c.addProperty("id", e.getKey());
             c.addProperty("label", e.getValue());
             c.addProperty("price", priceCat(e.getKey()));
+            c.addProperty("color", catColor(e.getKey()));
+            c.addProperty("icon", catIcon(e.getKey()));
             cats.add(c);
         }
         o.add("cats", cats);
@@ -441,6 +498,15 @@ public final class AdsModule extends JsonModule {
         SimStore.Sim sim = sims == null ? null : sims.activeOf(u);
         o.addProperty("phone", sim == null ? "" : NumberLogic.phoneDisplay(sim.number));
         o.addProperty("requireSim", cfg.getBoolean("require-sim", true));
+        o.addProperty("defaultDuration", cfg.getInt("default-duration-hours", 24));
+        o.addProperty("editAllowed", cfg.getBoolean("edit.enabled", true));
+        o.addProperty("feeEdit", Math.max(0, cfg.getDouble("edit.fee", 0)));
+        o.addProperty("editMax", cfg.getInt("edit.max-edits", 3));
+        o.addProperty("promoteAllowed", cfg.getBoolean("promote.enabled", true) && cfg.getBoolean("promoted.enabled", true));
+        o.addProperty("feePromote", Math.max(0, cfg.getDouble("promote.fee", 1000)));
+        o.addProperty("isAdmin", p.hasPermission(PERM_ADMIN));
+        o.addProperty("cooldownMin", stdCooldownMin());
+        o.addProperty("extendHours", cfg.getInt("extend.hours", 24));
         send(p, "info", o);
     }
 
@@ -658,6 +724,8 @@ public final class AdsModule extends JsonModule {
             Player pp = Bukkit.getPlayer(u);
             if (pp != null) {
                 res(pp, true, needsApproval ? "Anunt trimis spre aprobare (taxa $" + Math.round(fee) + ")." : "Anunt publicat (taxa $" + Math.round(fee) + ").");
+                plugin.notifications().send(u, needsApproval ? NotifyModule.Type.INFO : NotifyModule.Type.OK, needsApproval ? "Anunt in asteptare" : "Anunt publicat",
+                    "\"" + a.title + "\" - taxa $" + Math.round(fee) + (needsApproval ? ", asteapta aprobarea." : ", expira in " + a.durationH + " h."), null, "ads");
                 sendInfo(pp);
                 sendList(pp);
             }
@@ -775,7 +843,8 @@ public final class AdsModule extends JsonModule {
                 return;
             }
             a.status = "ACTIVE";
-            a.expires = System.currentTimeMillis() + a.durationH * 3_600_000L;
+            if (!a.edited) a.expires = System.currentTimeMillis() + a.durationH * 3_600_000L;
+            a.edited = false;
             a.reason = "";
             saveAd(a);
             log(p.getName(), "APPROVE", id, a.title);
@@ -789,7 +858,7 @@ public final class AdsModule extends JsonModule {
             a.status = "REJECTED";
             a.reason = reason.isEmpty() ? "Nerespectarea regulilor" : reason;
             saveAd(a);
-            boolean refund = cfg.getBoolean("moderation.refund-on-reject", true) && a.fee > 0 && plugin.money() != null;
+            boolean refund = !a.edited && cfg.getBoolean("moderation.refund-on-reject", true) && a.fee > 0 && plugin.money() != null;
             if (refund) plugin.money().deposit(a.owner, a.fee);
             log(p.getName(), "REJECT", id, a.title + " | " + a.reason);
             plugin.notifications().send(a.owner, NotifyModule.Type.BAD, "Anunt respins", "\"" + a.title + "\": " + a.reason + (refund ? " (taxa returnata)" : ""), null, "ads");
@@ -865,6 +934,240 @@ public final class AdsModule extends JsonModule {
             o.add("items", arr);
             send(p, "history", o);
         }));
+    }
+
+    // ------------------------------------------------------------------ editare / promovare
+
+    /**
+     * Editare: doar titlul, descrierea si pretul. Categoria si tipul (standard/promovat) nu se schimba (pentru asta se publica un anunt
+     * nou, cu taxa si cooldown). Editarea nu reseteaza expirarea, are limita per anunt si pauza intre editari; cu moderarea pornita
+     * anuntul reintra in asteptare (fara ramburs la respingere: taxa a fost pentru publicarea deja facuta).
+     */
+    private void edit(Player p, JsonObject j) {
+        if (!rate(p)) return;
+        UUID u = p.getUniqueId();
+        if (!cfg.getBoolean("edit.enabled", true)) {
+            res(p, false, "Editarea anunturilor este dezactivata.");
+            return;
+        }
+        Ad a = ads.get((long) num(j, "id", -1));
+        if (a == null || !a.owner.equals(u)) {
+            res(p, false, "Anuntul nu exista sau nu este al tau.");
+            return;
+        }
+        if (!live(a)) {
+            res(p, false, "Doar anunturile active sau in asteptare pot fi editate.");
+            return;
+        }
+        if (suspendedLeft(u) > 0) {
+            res(p, false, "Publicarea ta este suspendata.");
+            return;
+        }
+        int max = cfg.getInt("edit.max-edits", 3);
+        if (a.edits >= max) {
+            res(p, false, "Ai folosit toate editarile acestui anunt (" + max + ").");
+            return;
+        }
+        long gap = Math.max(0, cfg.getInt("edit.cooldown-minutes", 10)) * 60_000L;
+        long left = a.lastEdit + gap - System.currentTimeMillis();
+        if (left > 0) {
+            res(p, false, "Poti edita din nou acest anunt peste " + fmt(left) + ".");
+            return;
+        }
+        String title = clean(str(j, "title", ""), 200);
+        String body = clean(str(j, "body", ""), 2000);
+        int tMin = cfg.getInt("limits.title-min", 5);
+        int tMax = cfg.getInt("limits.title-max", 48);
+        int dMin = cfg.getInt("limits.description-min", 10);
+        int dMax = cfg.getInt("limits.description-max", 240);
+        if (title.length() < tMin || title.length() > tMax) {
+            res(p, false, "Titlul trebuie sa aiba intre " + tMin + " si " + tMax + " caractere.");
+            return;
+        }
+        if (body.length() < dMin || body.length() > dMax) {
+            res(p, false, "Descrierea trebuie sa aiba intre " + dMin + " si " + dMax + " caractere.");
+            return;
+        }
+        String bad = abuse(title + " " + body);
+        if (bad != null) {
+            res(p, false, bad);
+            return;
+        }
+        long price = a.price;
+        if (priceCat(a.cat)) {
+            double raw = num(j, "price", -1);
+            long maxPrice = cfg.getLong("limits.max-price", 1_000_000_000L);
+            if (Double.isNaN(raw) || raw < 1 || raw > maxPrice || raw != Math.floor(raw)) {
+                res(p, false, "Pret invalid (intre 1 si " + maxPrice + ").");
+                return;
+            }
+            price = (long) raw;
+        }
+        String h = hash(a.cat + "|" + fold(title) + "|" + fold(body));
+        if (h.equals(a.hash) && price == a.price) {
+            res(p, false, "Nu ai schimbat nimic.");
+            return;
+        }
+        for (Ad o : ads.values()) {
+            if (o.id != a.id && o.owner.equals(u) && o.hash.equals(h) && live(o)) {
+                res(p, false, "Ai deja un anunt identic.");
+                return;
+            }
+        }
+        double fee = Math.max(0, cfg.getDouble("edit.fee", 0));
+        if (fee > 0) {
+            if (plugin.money() == null || !plugin.money().has(u, fee)) {
+                res(p, false, "Fonduri insuficiente: editarea costa $" + Math.round(fee) + ". Nu s-a retras nimic.");
+                return;
+            }
+            if (!plugin.money().withdraw(u, fee)) {
+                res(p, false, "Plata a esuat. Nu s-a retras nimic.");
+                return;
+            }
+        }
+        a.title = title;
+        a.body = body;
+        a.price = price;
+        a.hash = h;
+        a.edits++;
+        a.lastEdit = System.currentTimeMillis();
+        a.fee += fee;
+        boolean recheck = cfg.getBoolean("moderation.enabled", false) && !isMod(p) && "ACTIVE".equals(a.status);
+        if (recheck) {
+            a.status = "PENDING";
+            a.edited = true;
+        }
+        saveAd(a);
+        log(p.getName(), "EDIT", a.id, a.title);
+        res(p, true, recheck ? "Anunt modificat, trimis din nou spre aprobare." : "Anunt modificat" + (fee > 0 ? " (taxa $" + Math.round(fee) + ")." : "."));
+        sendInfo(p);
+        sendList(p);
+    }
+
+    /** Promovarea unui anunt standard activ, contra taxa (nu prelungeste si nu ocoleste limitele: anuntul exista deja). */
+    private void promote(Player p, long id) {
+        if (!rate(p)) return;
+        UUID u = p.getUniqueId();
+        if (!cfg.getBoolean("promote.enabled", true) || !cfg.getBoolean("promoted.enabled", true)) {
+            res(p, false, "Promovarea nu este permisa.");
+            return;
+        }
+        Ad a = ads.get(id);
+        if (a == null || !a.owner.equals(u)) {
+            res(p, false, "Anuntul nu exista sau nu este al tau.");
+            return;
+        }
+        if (!"ACTIVE".equals(a.status) || a.promoted) {
+            res(p, false, a.promoted ? "Anuntul este deja promovat." : "Doar anunturile active pot fi promovate.");
+            return;
+        }
+        if (suspendedLeft(u) > 0) {
+            res(p, false, "Publicarea ta este suspendata.");
+            return;
+        }
+        int pc = promoCooldownMin();
+        if (pc > 0) {
+            long left = lastPromo.getOrDefault(u, 0L) + pc * 60_000L - System.currentTimeMillis();
+            if (left > 0) {
+                res(p, false, "Poti promova din nou peste " + fmt(left) + ".");
+                return;
+            }
+        }
+        double fee = Math.max(0, cfg.getDouble("promote.fee", 1000));
+        if (plugin.money() == null || (fee > 0 && !plugin.money().has(u, fee))) {
+            res(p, false, "Fonduri insuficiente: promovarea costa $" + Math.round(fee) + ". Nu s-a retras nimic.");
+            return;
+        }
+        if (fee > 0 && !plugin.money().withdraw(u, fee)) {
+            res(p, false, "Plata a esuat. Nu s-a retras nimic.");
+            return;
+        }
+        a.promoted = true;
+        a.fee += fee;
+        lastPromo.put(u, System.currentTimeMillis());
+        saveState(u);
+        saveAd(a);
+        log(p.getName(), "PROMOTE", a.id, a.title);
+        plugin.notifications().send(u, NotifyModule.Type.OK, "Anunt promovat", "\"" + a.title + "\" apare acum primul.", null, "ads");
+        res(p, true, "Anunt promovat (taxa $" + Math.round(fee) + ").");
+        sendInfo(p);
+        sendList(p);
+    }
+
+    // ------------------------------------------------------------------ panel admin
+
+    /** Toate anunturile (inclusiv expirate/sterse/respinse din ultimele zile) pentru moderatori. */
+    private void sendAll(Player p) {
+        if (!isMod(p)) return;
+        List<Ad> l = new ArrayList<>(ads.values());
+        l.sort((a, b) -> Long.compare(b.created, a.created));
+        JsonArray arr = new JsonArray();
+        for (int i = 0; i < Math.min(250, l.size()); i++) arr.add(adJson(l.get(i), p.getUniqueId()));
+        JsonObject o = new JsonObject();
+        o.add("items", arr);
+        send(p, "all", o);
+    }
+
+    /** Setarile CNN din panelul admin (permisiunea flowcity.ads.admin); validate si salvate in ads.yml. */
+    private void cfgSet(Player p, JsonObject j) {
+        if (!p.hasPermission(PERM_ADMIN)) {
+            res(p, false, "Nu ai permisiunea de a configura CNN.");
+            return;
+        }
+        if (!rate(p)) return;
+        String key = str(j, "key", "");
+        double v = num(j, "value", Double.NaN);
+        if (Double.isNaN(v) || Double.isInfinite(v)) {
+            res(p, false, "Valoare invalida.");
+            return;
+        }
+        switch (key) {
+            case "fees.standard":
+            case "fees.promoted":
+            case "fees.extend":
+            case "edit.fee":
+            case "promote.fee":
+                if (v < 0 || v > 100_000_000) {
+                    res(p, false, "Taxa trebuie sa fie intre 0 si 100.000.000.");
+                    return;
+                }
+                cfg.set(key, Math.round(v * 100) / 100.0);
+                break;
+            case "cooldown-minutes":
+                if (v < 0 || v > 1440) {
+                    res(p, false, "Cooldown intre 0 si 1440 minute.");
+                    return;
+                }
+                cfg.set(key, (int) v);
+                break;
+            case "default-duration-hours":
+                if (!durations().contains((int) v)) {
+                    res(p, false, "Durata trebuie sa fie una din: " + durations());
+                    return;
+                }
+                cfg.set(key, (int) v);
+                break;
+            case "limits.max-active-per-player":
+                if (v < 1 || v > 20) {
+                    res(p, false, "Maxim anunturi active: intre 1 si 20.");
+                    return;
+                }
+                cfg.set(key, (int) v);
+                break;
+            case "moderation.enabled":
+            case "promoted.enabled":
+            case "extend.enabled":
+            case "edit.enabled":
+                cfg.set(key, v != 0);
+                break;
+            default:
+                res(p, false, "Setare necunoscuta.");
+                return;
+        }
+        ModConfig.save(cfg, plugin, "ads");
+        log(p.getName(), "CONFIG", 0, key + " = " + cfg.get(key));
+        res(p, true, "Setare salvata: " + key + " = " + cfg.get(key));
+        sendInfo(p);
     }
 
     // ------------------------------------------------------------------ expirare

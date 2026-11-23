@@ -21,7 +21,38 @@ promoted:
   cooldown-minutes: -1
   broadcast: false     # true = toti jucatorii primesc o notificare la un anunt promovat nou
 
-# Categorii: id: eticheta afisata. Categoriile din price-categories cer pret.
+# Categorii CNN 2.0: id -> eticheta, culoare (hex), iconita (masina, casa, cheie, cutie, unealta, servieta, oameni, puncte), pret obligatoriu.
+# (sectiunea veche "categories" de mai jos ramane doar pentru numele anunturilor vechi)
+categories-v2:
+  vand_auto: {label: "Vand automobile", color: "#E5484D", icon: "masina", price: true}
+  cumpar_auto: {label: "Cumpar automobile", color: "#F2994A", icon: "masina", price: true}
+  vand_prop: {label: "Vand proprietati", color: "#4DA3FF", icon: "casa", price: true}
+  cumpar_prop: {label: "Cumpar proprietati", color: "#56CCF2", icon: "casa", price: true}
+  inchiriez: {label: "Inchiriez", color: "#9B51E0", icon: "cheie", price: true}
+  vand_obiecte: {label: "Vand obiecte", color: "#27AE60", icon: "cutie", price: true}
+  cumpar_obiecte: {label: "Cumpar obiecte", color: "#6FCF97", icon: "cutie", price: true}
+  servicii: {label: "Ofer servicii", color: "#F2C94C", icon: "unealta", price: false}
+  caut_job: {label: "Caut loc de munca", color: "#2DD4BF", icon: "servieta", price: false}
+  recrutare: {label: "Recrutare angajati", color: "#EB5757", icon: "oameni", price: false}
+  diverse: {label: "Diverse", color: "#A0AEC0", icon: "puncte", price: false}
+
+# Durata implicita aleasa in formular (ore; trebuie sa fie in durations-hours)
+default-duration-hours: 24
+
+# Editarea unui anunt: se pot schimba doar titlul, descrierea si pretul (NU categoria sau tipul -> pentru asta publici unul nou).
+# Editarea NU reseteaza expirarea si NU consuma cooldown-ul de publicare; cu moderarea pornita anuntul editat reintra in asteptare.
+edit:
+  enabled: true
+  fee: 0.0             # taxa pe editare
+  max-edits: 3         # cate editari per anunt
+  cooldown-minutes: 10 # pauza intre doua editari ale aceluiasi anunt
+
+# Promovarea ulterioara a unui anunt standard activ (taxa diferentei); nu prelungeste anuntul.
+promote:
+  enabled: true
+  fee: 1000.0
+
+# Categorii vechi: id: eticheta afisata. Categoriile din price-categories cer pret.
 categories:
   vand: "Vand"
   cumpar: "Cumpar"

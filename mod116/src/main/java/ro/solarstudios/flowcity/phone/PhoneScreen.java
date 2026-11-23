@@ -50,7 +50,7 @@ public final class PhoneScreen extends FlowScreen {
 
     /** Deschide telefonul direct in aplicatia indicata de o notificare (sms, call, news, ads, bank, jobs). */
     public static void openFor(String app) {
-        if ("ads".equals(app)) {
+        if ("ads".equals(app) || "news".equals(app)) {
             ro.solarstudios.flowcity.news.AdsClient.requestInfo();
             ro.solarstudios.flowcity.news.AdsClient.requestList();
             Minecraft.getInstance().setScreen(new ro.solarstudios.flowcity.news.AdsScreen());
@@ -743,7 +743,11 @@ public final class PhoneScreen extends FlowScreen {
             case "contacts": PhoneClient.requestContacts(); go(Page.CONTACTS); break;
             case "phone": PhoneClient.requestCalls(); go(Page.CALLS); break;
             case "bank": HypeClient.request("atm_req", new JsonObject()); go(Page.BANK); break;
-            case "cnn": NewsClient.requestList(); mc.setScreen(new NewsScreen()); break;
+            case "cnn":
+                ro.solarstudios.flowcity.news.AdsClient.requestInfo();
+                ro.solarstudios.flowcity.news.AdsClient.requestList();
+                mc.setScreen(new ro.solarstudios.flowcity.news.AdsScreen());
+                break;
             case "notify": NotifyClient.requestHistory(false); mc.setScreen(new NotifyScreen()); break;
             case "jobs": ro.solarstudios.flowcity.fjobs.FJobsClient.open(); break;
             case "wheel": WheelClient.requestInfo(); mc.setScreen(new WheelScreen()); break;

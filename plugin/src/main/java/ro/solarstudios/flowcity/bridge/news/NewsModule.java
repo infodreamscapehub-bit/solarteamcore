@@ -122,7 +122,16 @@ public final class NewsModule extends JsonModule {
 
     // ------------------------------------------------------------------ publicare / stergere
 
+    /** CNN 2.0 este doar platforma de anunturi: stirile/breaking sunt oprite implicit (hype.yml news.enabled). Datele vechi raman in DB. */
+    private boolean newsOn() {
+        return cfg.getBoolean("news.enabled", false);
+    }
+
     private void publish(Player p, String catIn, String titleIn, String bodyIn) {
+        if (!newsOn()) {
+            p.sendMessage("§cStirile CNN sunt dezactivate. CNN este acum platforma de anunturi.");
+            return;
+        }
         if (!p.hasPermission("flowcity.hype.cnn")) {
             plugin.channel().toast(p, "Nu ai permisiunea de a publica stiri.", true);
             return;
@@ -235,6 +244,10 @@ public final class NewsModule extends JsonModule {
                 return true;
             }
             Player p = (Player) s;
+            if (!newsOn()) {
+                sendList(p, true);
+                return true;
+            }
             if (a.length == 0 || a[0].equalsIgnoreCase("list")) {
                 sendList(p, a.length == 0);
                 return true;

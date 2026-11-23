@@ -23,12 +23,18 @@ public final class AdsState {
         public boolean own;
         public int extendsLeft;
         public String reason = "";
+        public String catLabel = "";
+        public int edits;
+        public int editsLeft;
+        public double fee;
     }
 
     public static final class Cat {
         public String id = "";
         public String label = "";
         public boolean price;
+        public int color = 0xFFA0AEC0;
+        public String icon = "puncte";
     }
 
     public static final class Log {
@@ -45,6 +51,16 @@ public final class AdsState {
     public static final List<Cat> cats = new ArrayList<>();
     public static final List<Integer> durations = new ArrayList<>();
     public static final List<Log> history = new ArrayList<>();
+    public static final List<Ad> all = new ArrayList<>();
+    public static int defaultDuration = 24;
+    public static boolean editAllowed = true;
+    public static double feeEdit;
+    public static int editMax = 3;
+    public static boolean promoteAllowed = true;
+    public static double feePromote;
+    public static boolean isAdmin;
+    public static int cooldownMin = 30;
+    public static int extendHours = 24;
 
     public static boolean loaded;
     public static boolean enabled = true;
@@ -82,6 +98,8 @@ public final class AdsState {
         cats.clear();
         durations.clear();
         history.clear();
+        all.clear();
+        isAdmin = false;
         loaded = false;
         isMod = false;
         phone = "";
@@ -93,6 +111,15 @@ public final class AdsState {
         return id;
     }
 
+    public static String label(Ad a) {
+        return a.catLabel.isEmpty() ? catLabel(a.cat) : a.catLabel;
+    }
+
+    public static String catIcon(String id) {
+        for (Cat c : cats) if (c.id.equals(id)) return c.icon;
+        return "puncte";
+    }
+
     public static boolean catHasPrice(String id) {
         for (Cat c : cats) if (c.id.equals(id)) return c.price;
         return false;
@@ -100,9 +127,8 @@ public final class AdsState {
 
     /** Culoarea unei categorii (ARGB), stabila dupa pozitia in lista. */
     public static int catColor(String id) {
-        int[] pal = {0xFF5BA8FF, 0xFF4CD39A, 0xFFF5C451, 0xFFB58CFF, 0xFFFF8A5B, 0xFF4FD1D9, 0xFF9AA7BD};
-        for (int i = 0; i < cats.size(); i++) if (cats.get(i).id.equals(id)) return pal[i % pal.length];
-        return pal[6];
+        for (Cat c : cats) if (c.id.equals(id)) return c.color;
+        return 0xFF9AA7BD;
     }
 
     public static String statusLabel(String s) {

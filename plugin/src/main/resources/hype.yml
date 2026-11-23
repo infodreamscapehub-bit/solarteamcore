@@ -218,6 +218,7 @@ thirst:
     GLOW_BERRIES: 3
 
 news:
+  enabled: false            # CNN 2.0 = doar anunturi; true = reactiveaza stirile vechi (banner/breaking)
   max-kept: 30
   publish-cooldown-seconds: 10
   banner-seconds: 9

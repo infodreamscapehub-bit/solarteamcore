@@ -36,6 +36,15 @@ public final class AdsClient extends JsonClientModule {
             AdsState.isMod = bool(d, "isMod", false);
             AdsState.phone = str(d, "phone", "");
             AdsState.requireSim = bool(d, "requireSim", true);
+            AdsState.defaultDuration = integer(d, "defaultDuration", 24);
+            AdsState.editAllowed = bool(d, "editAllowed", true);
+            AdsState.feeEdit = dbl(d, "feeEdit");
+            AdsState.editMax = integer(d, "editMax", 3);
+            AdsState.promoteAllowed = bool(d, "promoteAllowed", true);
+            AdsState.feePromote = dbl(d, "feePromote");
+            AdsState.isAdmin = bool(d, "isAdmin", false);
+            AdsState.cooldownMin = integer(d, "cooldownMin", 30);
+            AdsState.extendHours = integer(d, "extendHours", 24);
             AdsState.durations.clear();
             if (d.has("durations")) for (JsonElement e : d.getAsJsonArray("durations")) AdsState.durations.add(e.getAsInt());
             AdsState.cats.clear();
@@ -46,6 +55,8 @@ public final class AdsClient extends JsonClientModule {
                     c.id = str(o, "id", "");
                     c.label = str(o, "label", c.id);
                     c.price = bool(o, "price", false);
+                    c.color = hex(str(o, "color", "#A0AEC0"));
+                    c.icon = str(o, "icon", "puncte");
                     AdsState.cats.add(c);
                 }
             }
@@ -56,6 +67,7 @@ public final class AdsClient extends JsonClientModule {
             fill(AdsState.own, d, "own");
             fill(AdsState.pending, d, "pending");
         });
+        on("all", d -> fill(AdsState.all, d, "items"));
         on("res", d -> {
             AdsState.lastOk = bool(d, "ok", false);
             AdsState.lastMsg = str(d, "msg", "");
@@ -79,6 +91,14 @@ public final class AdsClient extends JsonClientModule {
                 }
             }
         });
+    }
+
+    private static int hex(String s) {
+        try {
+            return 0xFF000000 | Integer.parseInt(s.replace("#", "").trim(), 16);
+        } catch (Exception e) {
+            return 0xFFA0AEC0;
+        }
     }
 
     private static double dbl(JsonObject d, String k) {
@@ -106,6 +126,10 @@ public final class AdsClient extends JsonClientModule {
             a.own = bool(o, "own", false);
             a.extendsLeft = integer(o, "extendsLeft", 0);
             a.reason = str(o, "reason", "");
+            a.catLabel = str(o, "catLabel", "");
+            a.edits = integer(o, "edits", 0);
+            a.editsLeft = integer(o, "editsLeft", 0);
+            a.fee = dbl(o, "fee");
             out.add(a);
         }
     }
@@ -178,5 +202,31 @@ public final class AdsClient extends JsonClientModule {
         o.addProperty("minutes", minutes);
         o.addProperty("reason", reason);
         req("suspend", o);
+    }
+
+    public static void requestAll() {
+        req("all", null);
+    }
+
+    public static void edit(long id, String title, String body, long price) {
+        JsonObject o = new JsonObject();
+        o.addProperty("id", id);
+        o.addProperty("title", title);
+        o.addProperty("body", body);
+        o.addProperty("price", price);
+        req("edit", o);
+    }
+
+    public static void promote(long id) {
+        JsonObject o = new JsonObject();
+        o.addProperty("id", id);
+        req("promote", o);
+    }
+
+    public static void cfgSet(String key, double value) {
+        JsonObject o = new JsonObject();
+        o.addProperty("key", key);
+        o.addProperty("value", value);
+        req("cfg.set", o);
     }
 }

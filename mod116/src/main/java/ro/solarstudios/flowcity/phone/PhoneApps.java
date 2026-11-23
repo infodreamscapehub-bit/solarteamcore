@@ -52,7 +52,7 @@ public final class PhoneApps {
         add(new App("store", "App Store", 0xFF2E9BFF, 0xFF1653C9, "Utilitare", 21, true, false, "Descopera, instaleaza si gestioneaza aplicatiile telefonului."));
         add(new App("settings", "Setari", 0xFF7D8696, 0xFF4A5262, "Utilitare", 6, true, false, "Fundal, mod luminos, sunete, HUD."));
         add(new App("sim", "SIM", 0xFF2FC2A3, 0xFF1A8C74, "Utilitare", 3, true, false, "Introdu, scoate sau cumpara o cartela SIM. Vezi numarul si operatorul."));
-        add(new App("cnn", "CNN", 0xFFE0453C, 0xFFA12722, "Info", 34, false, false, "Stirile orasului: breaking news, articole si anunturi oficiale."));
+        add(new App("cnn", "CNN", 0xFFE0453C, 0xFFA12722, "Info", 34, false, false, "CNN Anunturi: platforma de anunturi a orasului. Vinde, cumpara, inchiriaza, recruteaza."));
         add(new App("ads", "Anunturi", 0xFFF2A33A, 0xFFC0701C, "Social", 18, false, false, "Marketplace: vinde, cumpara, inchiriaza sau ofera servicii. Contacteaza vanzatorii prin SMS sau apel."));
         add(new App("bank", "Banca", 0xFF2D6FE0, 0xFF183F9E, "Finante", 27, false, false, "Soldul contului, transferuri si istoricul tranzactiilor."));
         add(new App("notify", "Notificari", 0xFFF5C044, 0xFFC98A12, "Utilitare", 5, false, false, "Centrul de notificari: SMS-uri, apeluri pierdute, stiri, banca, joburi."));
