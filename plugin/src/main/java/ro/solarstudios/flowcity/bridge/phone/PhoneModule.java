@@ -935,8 +935,7 @@ public final class PhoneModule extends JsonModule {
             }
             if (!c.active && now - c.startedAt > ringMs() && calls.containsKey(c.caller)) {
                 finish(c, "MISSED", c.caller);
-                Player callee = Bukkit.getPlayer(c.callee);
-                if (callee != null) plugin.notifications().send(callee, ro.solarstudios.flowcity.bridge.notify.NotifyModule.Type.INFO,
+                plugin.notifications().send(c.callee, ro.solarstudios.flowcity.bridge.notify.NotifyModule.Type.INFO,
                     "Apel pierdut", "De la " + nameOf(c.caller), null, "call");
             }
         }
