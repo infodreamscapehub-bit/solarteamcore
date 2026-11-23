@@ -24,6 +24,8 @@ public final class FJobsClient extends JsonClientModule {
     static JsonObject data;
     /** Ultimul panou de job primit (obiective, statistici, butoane). */
     static JsonObject panel;
+    /** Ultimul clasament primit ("top"). */
+    static JsonObject top;
     private static boolean wantPanel;
     private static long panelAt;
     private static KeyBinding panelKey;
@@ -64,6 +66,7 @@ public final class FJobsClient extends JsonClientModule {
             FJobsMiniGameScreen cur = FJobsMiniGameScreen.current;
             if (cur != null) cur.result(d);
         });
+        on("top", d -> top = d);
         on("prof", d -> {
             if (data != null) data.add("me", d);
         });

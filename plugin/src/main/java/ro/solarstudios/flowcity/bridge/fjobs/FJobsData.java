@@ -55,6 +55,17 @@ public final class FJobsData {
         public final List<Entry> history = new ArrayList<>();
         public boolean dirty;
         public boolean loadedOnline;
+        /** Pauza turei (doar in memorie: tura nu supravietuieste unei reporniri). 0 = nu e in pauza. */
+        public long pausedAt;
+        /** Timpul total (ms) petrecut in pauza in tura curenta; nu se plateste si nu se numara la timpul lucrat. */
+        public long pausedMs;
+
+        /** Timpul lucrat efectiv (ms) in tura curenta, fara pauze. */
+        public long activeMs(long now) {
+            if (shiftStart <= 0) return 0;
+            long paused = pausedMs + (pausedAt > 0 ? now - pausedAt : 0);
+            return Math.max(0, now - shiftStart - paused);
+        }
 
         Profile(UUID uuid) {
             this.uuid = uuid;

@@ -14,8 +14,8 @@ import ro.solarstudios.flowcity.compat.GuiGraphics;
 import ro.solarstudios.flowcity.module.JsonClientModule;
 
 /**
- * FlowCity Job Center: ecran complet, tema inchisa violet/albastru, bara laterala (Acasa, Toate joburile, Joburile mele, Joburi disponibile,
- * Joburi premium, Istoric activitate, Statistici personale), carduri cu ilustratii vectoriale, fereastra de detalii si administrare
+ * FlowCity Job Center: ecran complet, tema inchisa cyan/albastru, bara laterala (Acasa, Joburi disponibile, Joburile mele, Joburi speciale,
+ * Profil profesional, Echipamente, Istoric activitate, Clasament angajati), carduri cu ilustratii vectoriale, fereastra de detalii si administrare
  * (doar pentru cei cu flowcity.fjobs.admin; serverul re-verifica). Clientul nu decide nimic: toate datele vin de la server (FJobsClient.data).
  * Layout propriu (design pe 640 x 360, scalat), inspirat doar ca structura de aplicatii de joburi, fara asset-uri copiate.
  */
@@ -32,12 +32,18 @@ public final class FJobsScreen extends FlowScreen {
     private static final int TOP = 62;                 // sub antet
     private static final int VIEW_H = H - TOP - 10;
 
-    private static final String[] NAV = {"Acasă", "Toate joburile", "Joburile mele", "Joburi disponibile", "Joburi premium", "Istoric activitate", "Statistici personale"};
-    private static final int VIOLET = 0xFF8B5CF6;
-    private static final int VIOLET_D = 0xFF5B35C9;
-    private static final int BG_SIDE = 0xF00A0D1C;
-    private static final int CARD = 0xFF141A30;
-    private static final int CARD_HOT = 0xFF1B2342;
+    private static final String[] NAV = {"Acasă", "Joburi disponibile", "Joburile mele", "Joburi speciale", "Profil profesional", "Echipamente", "Istoric activitate", "Clasament angajați"};
+    private static final int P_HOME = 0;
+    private static final int P_PROFILE = 4;
+    private static final int P_GEAR = 5;
+    private static final int P_HISTORY = 6;
+    private static final int P_TOP = 7;
+    private static final int BLUE = 0xFF3B82F6;
+    private static final int VIOLET = 0xFF22D3EE;   // accent cyan (numele ramane din versiunea veche)
+    private static final int VIOLET_D = 0xFF0E7490;
+    private static final int BG_SIDE = 0xF0070C16;
+    private static final int CARD = 0xFF101A2A;
+    private static final int CARD_HOT = 0xFF16243A;
 
     private int page;
     private String detail = "";
@@ -105,16 +111,13 @@ public final class FJobsScreen extends FlowScreen {
         for (JsonObject j : jobs()) {
             switch (page) {
                 case 1:
-                    out.add(j);
+                    if (!"special".equals(s(j, "category"))) out.add(j);
                     break;
                 case 2:
                     if (s(j, "id").equals(cur) || n(j, "xp") > 0 || n(j, "level") > 0 || n(j, "shifts") > 0 || n(j, "earned") > 0) out.add(j);
                     break;
                 case 3:
-                    if (b(j, "canHire")) out.add(j);
-                    break;
-                case 4:
-                    if (b(j, "premium")) out.add(j);
+                    if ("special".equals(s(j, "category"))) out.add(j);
                     break;
                 default:
                     break;
@@ -128,7 +131,7 @@ public final class FJobsScreen extends FlowScreen {
         switch (group) {
             case "Resurse": return 0xFF34D399;
             case "Transport": return 0xFF4DA3FF;
-            case "Servicii": return 0xFFA78BFA;
+            case "Servicii": return 0xFF67E8F9;
             case "Urgente": return 0xFFF87171;
             case "Constructii": return 0xFFFBBF24;
             case "Educatie": return 0xFF2DD4BF;
@@ -192,8 +195,8 @@ public final class FJobsScreen extends FlowScreen {
     }
 
     private void background(GuiGraphics ms, float l, float t, float r, float b) {
-        Gfx.rrect(ms, l, t, r - l, b - t, 0, 0xFF0F1226, 0xFF070914);
-        Gfx.scrim(ms, SIDE + 200, 0, 380, 190, 0x338B5CF6);
+        Gfx.rrect(ms, l, t, r - l, b - t, 0, 0xFF0B1220, 0xFF050A12);
+        Gfx.scrim(ms, SIDE + 200, 0, 380, 190, 0x3322D3EE);
         Gfx.scrim(ms, W - 40, H, 300, 140, 0x224DA3FF);
         float tt = System.currentTimeMillis() / 1000f;
         for (int i = 0; i < 26; i++) {
@@ -205,7 +208,7 @@ public final class FJobsScreen extends FlowScreen {
 
     private void sidebar(GuiGraphics ms, float lmx, float lmy, float t, float bt) {
         Gfx.rrect(ms, -offX / scale, t, SIDE + offX / scale, bt - t, 0, BG_SIDE);
-        Gfx.rrect(ms, SIDE, t, 1, bt - t, 0, 0xFF1F2547);
+        Gfx.rrect(ms, SIDE, t, 1, bt - t, 0, 0xFF16243A);
         Gfx.text(ms, "FLOWCITY", 16, 30, 6.4f, Sk.MUTED, 0, false, 1.6f);
         Gfx.text(ms, "Job Center", 16, 48, 15, Sk.WHITE, 0, true, 0f);
         for (int i = 0; i < NAV.length; i++) {
@@ -213,15 +216,16 @@ public final class FJobsScreen extends FlowScreen {
             boolean sel = page == i;
             boolean hot = Sk.in(lmx, lmy, 8, y, SIDE - 16, 26);
             if (sel) {
-                Gfx.rrect(ms, 8, y, SIDE - 16, 26, 7, 0xFF241B52, 0xFF1A1440);
+                Gfx.rrect(ms, 8, y, SIDE - 16, 26, 7, 0xFF0B2A3D, 0xFF082033);
                 Gfx.rrect(ms, 8, y + 5, 3, 16, 1.5f, VIOLET);
             } else if (hot) {
-                Gfx.rrect(ms, 8, y, SIDE - 16, 26, 7, 0xFF151A33);
+                Gfx.rrect(ms, 8, y, SIDE - 16, 26, 7, 0xFF0F1A2B);
             }
             navIcon(ms, i, 24, y + 13, sel ? VIOLET : (hot ? Sk.WHITE : Sk.MUTED));
             Gfx.text(ms, NAV[i], 38, y + 16.5f, 7.2f, sel ? Sk.WHITE : (hot ? Sk.WHITE : Sk.MUTED), 0);
             final int pg = i;
             hitL(8, y, SIDE - 16, 26, () -> {
+                if (pg == P_TOP) requestTop(topBy);
                 page = pg;
                 scroll = 0;
                 scrollTarget = 0;
@@ -229,7 +233,7 @@ public final class FJobsScreen extends FlowScreen {
             });
         }
         boolean hc = Sk.in(lmx, lmy, 12, H - 34, SIDE - 24, 22);
-        Gfx.rrect(ms, 12, H - 34, SIDE - 24, 22, 7, hc ? 0xFF2A1F5E : 0xFF171C38);
+        Gfx.rrect(ms, 12, H - 34, SIDE - 24, 22, 7, hc ? 0xFF0E3550 : 0xFF111C2E);
         Gfx.text(ms, "ÎNCHIDE", SIDE / 2f, H - 19, 7.2f, hc ? Sk.WHITE : Sk.MUTED, 1, true, 0.8f);
         hitL(12, H - 34, SIDE - 24, 22, this::onClose);
     }
@@ -251,10 +255,18 @@ public final class FJobsScreen extends FlowScreen {
                 Gfx.line(ms, cx - 5, cy, cx - 1.5f, cy + 4, 1.8f, c);
                 Gfx.line(ms, cx - 1.5f, cy + 4, cx + 6, cy - 5, 1.8f, c);
                 break;
-            case 4: // stea
+            case 4: // profil
+                Gfx.disc(ms, cx, cy - 3, 3.2f, c);
+                Gfx.rrect(ms, cx - 5.5f, cy + 1.5f, 11, 5.5f, 2.5f, c);
+                break;
+            case 5: // cheie (echipament)
+                Gfx.line(ms, cx - 5, cy + 5, cx + 2, cy - 2, 2f, c);
+                Gfx.ring(ms, cx + 3, cy - 3, 1.5f, 3.6f, c, c);
+                break;
+            case 7: // stea (clasament)
                 Gfx.poly(ms, new float[] {cx, cy - 7, cx + 2, cy - 2, cx + 7, cy - 2, cx + 3, cy + 1.5f, cx + 4.5f, cy + 6.5f, cx, cy + 3.5f, cx - 4.5f, cy + 6.5f, cx - 3, cy + 1.5f, cx - 7, cy - 2, cx - 2, cy - 2}, c);
                 break;
-            case 5: // ceas
+            case 6: // ceas
                 Gfx.ring(ms, cx, cy, 5, 7, c, c);
                 Gfx.line(ms, cx, cy, cx, cy - 4, 1.4f, c);
                 Gfx.line(ms, cx, cy, cx + 3, cy + 1, 1.4f, c);
@@ -275,22 +287,28 @@ public final class FJobsScreen extends FlowScreen {
         float bx = W - 12;
         String cash = "$" + Ui.money(n(m, "cash"));
         float cw = Gfx.width(cash, 8.5f, true) + 28;
-        Gfx.rrect(ms, bx - cw, 14, cw, 24, 8, 0xFF171C38);
+        Gfx.rrect(ms, bx - cw, 14, cw, 24, 8, 0xFF111C2E);
         Gfx.disc(ms, bx - cw + 12, 26, 4.5f, 0xFF34D399);
         Gfx.text(ms, cash, bx - cw + 22, 29.5f, 8.5f, Sk.WHITE, 0, true, 0f);
         String lv = "NIVEL " + (int) n(m, "level");
         float lw = Gfx.width(lv, 7.5f, true) + 20;
-        Gfx.rrect(ms, bx - cw - 8 - lw, 14, lw, 24, 8, 0xFF241B52);
-        Gfx.text(ms, lv, bx - cw - 8 - lw / 2f, 29, 7.5f, 0xFFC4B5FD, 1, true, 0.5f);
+        Gfx.rrect(ms, bx - cw - 8 - lw, 14, lw, 24, 8, 0xFF0B2A3D);
+        Gfx.text(ms, lv, bx - cw - 8 - lw / 2f, 29, 7.5f, 0xFF7DE3F4, 1, true, 0.5f);
         switch (page) {
-            case 0:
+            case P_HOME:
                 home(ms, lmx, lmy);
                 break;
-            case 5:
-                history(ms);
+            case P_HISTORY:
+                history(ms, lmx, lmy);
                 break;
-            case 6:
+            case P_PROFILE:
                 stats(ms);
+                break;
+            case P_GEAR:
+                gearPage(ms, lmx, lmy);
+                break;
+            case P_TOP:
+                topPage(ms, lmx, lmy);
                 break;
             default:
                 grid(ms, lmx, lmy);
@@ -323,14 +341,16 @@ public final class FJobsScreen extends FlowScreen {
             art(ms, cj, CX + 8, 148, 40, 40, col);
             Gfx.text(ms, s(cj, "name"), CX + 56, 162, 9.5f, Sk.WHITE, 0, true, 0f);
             double need = n(m, "jobXpNeed");
-            Gfx.text(ms, "Nivel " + (int) n(m, "jobLevel") + (need > 0 ? "  ·  " + (long) n(m, "jobXp") + " / " + (long) need + " XP" : "  ·  MAX"), CX + 56, 175, 6.8f, Sk.MUTED, 0);
-            Gfx.bar(ms, CX + 56, 181, 170, 5, need > 0 ? (float) (n(m, "jobXp") / need) : 1f, 0xFF1F2547, VIOLET);
+            Gfx.text(ms, s(m, "jobRank") + "  ·  Nivel " + (int) n(m, "jobLevel") + (need > 0 ? "  ·  " + (long) n(m, "jobXp") + " / " + (long) need + " XP" : "  ·  MAX"), CX + 56, 175, 6.8f, Sk.MUTED, 0);
+            Gfx.bar(ms, CX + 56, 181, 170, 5, need > 0 ? (float) (n(m, "jobXp") / need) : 1f, 0xFF16243A, VIOLET);
             boolean shift = b(m, "inShift");
+            boolean paused = b(m, "paused");
             if (shift) {
-                Gfx.text(ms, "TURĂ ACTIVĂ  " + Ui.duration((long) n(m, "shiftSec")), CX + CW - 200, 160, 7, Sk.GOOD, 0, true, 0.4f);
-                Gfx.text(ms, "+$" + Ui.money(n(m, "shiftEarned")) + "  ·  " + (int) n(m, "shiftMissions") + " misiuni", CX + CW - 200, 172, 6.8f, Sk.MUTED, 0);
+                Gfx.text(ms, (paused ? "PAUZĂ  " + Ui.duration((long) n(m, "pauseSec")) : "TURĂ ACTIVĂ  " + Ui.duration((long) n(m, "shiftSec"))), CX + CW - 270, 160, 7, paused ? Sk.WARN : Sk.GOOD, 0, true, 0.4f);
+                Gfx.text(ms, "+$" + Ui.money(n(m, "shiftEarned")) + "  ·  " + (int) n(m, "shiftMissions") + " activități", CX + CW - 270, 172, 6.8f, Sk.MUTED, 0);
+                smallButton(ms, paused ? "RELUARE" : "PAUZĂ", CX + CW - 166, 156, 60, 24, lmx, lmy, true, false, () -> FJobsClient.request(paused ? "resume" : "pause", new JsonObject()));
             }
-            smallButton(ms, shift ? "ÎNCHEIE TURA" : "ÎNCEPE TURA", CX + CW - 108, 156, 96, 24, lmx, lmy, true, !shift, () -> FJobsClient.request(shift ? "end" : "start", new JsonObject()));
+            smallButton(ms, shift ? "FINALIZEAZĂ" : "ÎNCEPE TURA", CX + CW - 100, 156, 88, 24, lmx, lmy, true, !shift, () -> FJobsClient.request(shift ? "end" : "start", new JsonObject()));
         }
         // recomandate + populare
         List<JsonObject> rec = byIds("recommended");
@@ -388,12 +408,10 @@ public final class FJobsScreen extends FlowScreen {
 
     private void grid(GuiGraphics ms, float lmx, float lmy) {
         List<JsonObject> list = pageJobs();
-        if (page == 4 && data() != null && !b(data(), "premiumOn")) {
-            Gfx.text(ms, "Joburile premium nu sunt active pe acest server.", CX, 54, 7, Sk.WARN, 0);
-        }
+        if (page == 3) Gfx.text(ms, "Joburi speciale: necesita permisiune / factiune (politie, medic, instructori...).", CX, 54, 6.6f, Sk.MUTED, 0);
         if (list.isEmpty()) {
             Gfx.rrect(ms, CX, TOP, CW, 80, 12, CARD);
-            String msg = page == 2 ? "Nu ai încă niciun job. Alege unul din Toate joburile." : page == 3 ? "Nu ai joburi disponibile acum (nivel, permisiuni sau locuri)." : "Nu există joburi în această categorie.";
+            String msg = page == 2 ? "Nu ai încă niciun job. Alege unul din Toate joburile." : page == 3 ? "Nu există joburi speciale configurate." : "Nu există joburi în această categorie.";
             Gfx.text(ms, msg, CX + CW / 2f, TOP + 44, 7.5f, Sk.MUTED, 1);
             return;
         }
@@ -413,7 +431,7 @@ public final class FJobsScreen extends FlowScreen {
         if (ms2 > 0) {
             float th = Math.max(24, VIEW_H * VIEW_H / (VIEW_H + ms2));
             float ty = TOP + (VIEW_H - th) * (scroll / ms2);
-            Gfx.rrect(ms, W - 8, TOP, 2.5f, VIEW_H, 1.2f, 0xFF171C38);
+            Gfx.rrect(ms, W - 8, TOP, 2.5f, VIEW_H, 1.2f, 0xFF111C2E);
             Gfx.rrect(ms, W - 8, ty, 2.5f, th, 1.2f, VIOLET);
         }
     }
@@ -459,17 +477,43 @@ public final class FJobsScreen extends FlowScreen {
 
     // ---- Istoric / Statistici
 
-    private void history(GuiGraphics ms) {
+    private int histScroll;
+    private int histFilter; // 0 toate, 1 ture, 2 niveluri/recompense
+
+    private void history(GuiGraphics ms, float lmx, float lmy) {
+        String[] fl = {"TOATE", "TURE", "NIVELURI"};
+        float fx = CX + CW;
+        for (int i = fl.length - 1; i >= 0; i--) {
+            float w = Gfx.width(fl[i], 6.2f, true) + 16;
+            fx -= w;
+            final int k = i;
+            smallButton(ms, fl[i], fx, 44, w, 14, lmx, lmy, true, histFilter == i, () -> {
+                histFilter = k;
+                histScroll = 0;
+            });
+            fx -= 4;
+        }
         JsonArray h = data().has("history") && data().get("history").isJsonArray() ? data().getAsJsonArray("history") : new JsonArray();
         if (h.size() == 0) {
             Gfx.rrect(ms, CX, TOP, CW, 80, 12, CARD);
             Gfx.text(ms, "Nicio activitate încă. Angajează-te și începe o tură.", CX + CW / 2f, TOP + 44, 7.5f, Sk.MUTED, 1);
             return;
         }
+        List<JsonObject> rows = new ArrayList<>();
+        for (JsonElement el : h) {
+            JsonObject e = el.getAsJsonObject();
+            String ty = s(e, "type");
+            if (histFilter == 1 && !"shift".equals(ty)) continue;
+            if (histFilter == 2 && !("level".equals(ty) || "reward".equals(ty))) continue;
+            rows.add(e);
+        }
         int rowH = 26;
-        for (int i = 0; i < h.size() && i < 10; i++) {
-            JsonObject e = h.get(i).getAsJsonObject();
-            float y = TOP + i * (rowH + 4);
+        int vis = 9;
+        histScroll = Math.max(0, Math.min(histScroll, Math.max(0, rows.size() - vis)));
+        if (rows.isEmpty()) Gfx.text(ms, "Nimic in aceasta categorie.", CX + CW / 2f, TOP + 30, 7.5f, Sk.MUTED, 1);
+        for (int i = histScroll; i < rows.size() && i < histScroll + vis; i++) {
+            JsonObject e = rows.get(i);
+            float y = TOP + (i - histScroll) * (rowH + 4);
             Gfx.rrect(ms, CX, y, CW, rowH, 8, CARD);
             String type = s(e, "type");
             int c = "shift".equals(type) ? Sk.GOOD : "level".equals(type) ? 0xFFFBBF24 : "hire".equals(type) ? VIOLET : Sk.MUTED;
@@ -489,15 +533,23 @@ public final class FJobsScreen extends FlowScreen {
 
     private void stats(GuiGraphics ms) {
         JsonObject m = me();
-        float tw = (CW - GAP * 2) / 3f;
-        tile(ms, CX, TOP - 2, tw, "TURE FĂCUTE", String.valueOf((int) n(m, "shifts")), VIOLET);
-        tile(ms, CX + tw + GAP, TOP - 2, tw, "MISIUNI", String.valueOf((int) n(m, "missions")), 0xFF4DA3FF);
-        tile(ms, CX + (tw + GAP) * 2, TOP - 2, tw, "TIMP LUCRAT", Ui.duration((long) n(m, "seconds")), 0xFFFBBF24);
+        // carte de vizita: nume, job, rang
+        String cur = s(m, "job");
+        JsonObject cj = cur.isEmpty() ? null : jobById(cur);
+        Gfx.rrect(ms, CX, TOP - 18, CW, 14, 0, 0x00000000);
+        Gfx.text(ms, s(m, "name") + "  ·  " + (cj == null ? "fara job" : s(cj, "name")) + "  ·  " + s(m, "rank").toUpperCase(), CX, TOP - 8, 7.4f, VIOLET, 0, true, 0.4f);
+        float tw = (CW - GAP * 3) / 4f;
+        double hours = n(m, "seconds") / 3600.0;
+        tile(ms, CX, TOP - 2, tw, "BANI CÂȘTIGAȚI", "$" + Ui.money(n(m, "totalEarned")), 0xFF34D399);
+        tile(ms, CX + tw + GAP, TOP - 2, tw, "ORE LUCRATE", String.format(java.util.Locale.ROOT, "%.1f h", hours), 0xFFFBBF24);
+        tile(ms, CX + (tw + GAP) * 2, TOP - 2, tw, "ACTIVITĂȚI / TURE", (int) n(m, "missions") + " / " + (int) n(m, "shifts"), BLUE);
+        String perf = hours >= 0.05 ? "$" + Ui.money(n(m, "totalEarned") / hours) + "/h" : "-";
+        tile(ms, CX + (tw + GAP) * 3, TOP - 2, tw, "PERFORMANȚĂ", perf, VIOLET);
         Gfx.rrect(ms, CX, TOP + 52, CW, 46, 10, CARD);
-        Gfx.text(ms, "NIVEL PROFESIONAL " + (int) n(m, "level"), CX + 12, TOP + 70, 7.5f, Sk.WHITE, 0, true, 0.4f);
+        Gfx.text(ms, "NIVEL PROFESIONAL " + (int) n(m, "level") + "  ·  " + s(m, "rank").toUpperCase() + "  ·  " + (long) n(m, "totalXp") + " XP TOTAL", CX + 12, TOP + 70, 7.5f, Sk.WHITE, 0, true, 0.4f);
         double need = n(m, "xpNeed");
         Gfx.text(ms, need > 0 ? (long) n(m, "xp") + " / " + (long) need + " XP" : "NIVEL MAXIM", CX + CW - 12, TOP + 70, 7, Sk.MUTED, 2);
-        Gfx.bar(ms, CX + 12, TOP + 78, CW - 24, 7, need > 0 ? (float) (n(m, "xp") / need) : 1f, 0xFF1F2547, VIOLET);
+        Gfx.bar(ms, CX + 12, TOP + 78, CW - 24, 7, need > 0 ? (float) (n(m, "xp") / need) : 1f, 0xFF16243A, VIOLET);
         Gfx.text(ms, "CÂȘTIGURI PE JOB", CX, TOP + 114, 6.4f, Sk.MUTED, 0, false, 1.4f);
         List<JsonObject> js = new ArrayList<>();
         double top = 1;
@@ -516,9 +568,92 @@ public final class FJobsScreen extends FlowScreen {
             JsonObject j = js.get(i);
             float y = TOP + 120 + i * 20;
             Gfx.text(ms, clip(s(j, "name"), 110, 7, false), CX, y + 9, 7, Sk.WHITE, 0);
-            Gfx.bar(ms, CX + 120, y + 2, CW - 240, 7, (float) (n(j, "earned") / top), 0xFF1F2547, groupColor(s(j, "group"), s(j, "category")));
+            Gfx.bar(ms, CX + 120, y + 2, CW - 240, 7, (float) (n(j, "earned") / top), 0xFF16243A, groupColor(s(j, "group"), s(j, "category")));
             Gfx.text(ms, "$" + Ui.money(n(j, "earned")) + "  ·  niv " + (int) n(j, "level"), CX + CW, y + 9, 6.8f, Sk.MUTED, 2);
         }
+    }
+
+    // ---- Echipamente
+
+    private void gearPage(GuiGraphics ms, float lmx, float lmy) {
+        JsonObject m = me();
+        String cur = s(m, "job");
+        JsonObject cj = cur.isEmpty() ? null : jobById(cur);
+        if (cj == null) {
+            Gfx.rrect(ms, CX, TOP, CW, 80, 12, CARD);
+            Gfx.text(ms, "Angajeaza-te intr-un job ca sa vezi echipamentul necesar.", CX + CW / 2f, TOP + 44, 7.5f, Sk.MUTED, 1);
+            return;
+        }
+        Gfx.text(ms, "Echipamentul jobului " + s(cj, "name"), CX, TOP - 6, 8.5f, Sk.WHITE, 0, true, 0f);
+        JsonArray gl = cj.has("gear") && cj.get("gear").isJsonArray() ? cj.getAsJsonArray("gear") : new JsonArray();
+        if (gl.size() == 0) Gfx.text(ms, "Jobul nu are echipament dedicat.", CX, TOP + 16, 7, Sk.MUTED, 0);
+        int lvl = (int) n(cj, "level");
+        for (int i = 0; i < gl.size() && i < 7; i++) {
+            JsonObject g = gl.get(i).getAsJsonObject();
+            float y = TOP + 4 + i * 30;
+            Gfx.rrect(ms, CX, y, CW, 26, 8, CARD);
+            boolean req = b(g, "required");
+            Gfx.rrect(ms, CX, y + 5, 3, 16, 1.5f, req ? Sk.WARN : VIOLET);
+            Gfx.text(ms, s(g, "name"), CX + 12, y + 11, 7.6f, Sk.WHITE, 0, true, 0f);
+            int ml = (int) n(g, "minLevel");
+            Gfx.text(ms, (req ? "OBLIGATORIU" : "OPȚIONAL") + (ml > 0 ? "  ·  nivel " + ml + (lvl >= ml ? " ✓" : " (blocat)") : ""), CX + 12, y + 21, 6, req ? Sk.WARN : Sk.MUTED, 0);
+            Gfx.text(ms, "$" + Ui.money(n(g, "price")), CX + CW - 12, y + 16, 8, Sk.GOOD, 2, true, 0f);
+        }
+        float by = TOP + 4 + Math.min(7, gl.size()) * 30 + 6;
+        smallButton(ms, "CUMPĂRĂ / ÎNLOCUIEȘTE (PANOU JOB)", CX, by, 200, 22, lmx, lmy, true, true, FJobsClient::openPanel);
+        Gfx.text(ms, "Durabilitatea si consumabilele se vad in panou; serverul verifica plata.", CX + 210, by + 14, 6.2f, Sk.FAINT, 0);
+    }
+
+    // ---- Clasament
+
+    private String topBy = "earned";
+
+    private void requestTop(String by) {
+        topBy = by;
+        JsonObject o = new JsonObject();
+        o.addProperty("by", by);
+        FJobsClient.request("top", o);
+    }
+
+    private void topPage(GuiGraphics ms, float lmx, float lmy) {
+        String[][] modes = {{"earned", "BANI"}, {"missions", "ACTIVITĂȚI"}, {"xp", "XP"}};
+        float fx = CX + CW;
+        for (int i = modes.length - 1; i >= 0; i--) {
+            float w = Gfx.width(modes[i][1], 6.2f, true) + 16;
+            fx -= w;
+            final String k = modes[i][0];
+            smallButton(ms, modes[i][1], fx, 44, w, 14, lmx, lmy, true, topBy.equals(k), () -> requestTop(k));
+            fx -= 4;
+        }
+        JsonObject t = FJobsClient.top;
+        if (t == null) {
+            Gfx.text(ms, "Se încarcă clasamentul...", CX + CW / 2f, TOP + 40, 7.5f, Sk.MUTED, 1);
+            return;
+        }
+        JsonArray items = t.has("items") && t.get("items").isJsonArray() ? t.getAsJsonArray("items") : new JsonArray();
+        Gfx.text(ms, "#", CX + 10, TOP + 6, 6, Sk.FAINT, 0, true, 0.6f);
+        Gfx.text(ms, "ANGAJAT", CX + 32, TOP + 6, 6, Sk.FAINT, 0, true, 0.6f);
+        Gfx.text(ms, "JOB / RANG", CX + 170, TOP + 6, 6, Sk.FAINT, 0, true, 0.6f);
+        Gfx.text(ms, "BANI", CX + CW - 150, TOP + 6, 6, Sk.FAINT, 2, true, 0.6f);
+        Gfx.text(ms, "ACTIV.", CX + CW - 80, TOP + 6, 6, Sk.FAINT, 2, true, 0.6f);
+        Gfx.text(ms, "XP", CX + CW - 12, TOP + 6, 6, Sk.FAINT, 2, true, 0.6f);
+        if (items.size() == 0) Gfx.text(ms, "Încă nu a lucrat nimeni.", CX + CW / 2f, TOP + 40, 7.5f, Sk.MUTED, 1);
+        for (int i = 0; i < items.size() && i < 12; i++) {
+            JsonObject e = items.get(i).getAsJsonObject();
+            float y = TOP + 12 + i * 21;
+            boolean me = b(e, "me");
+            Gfx.rrect(ms, CX, y, CW, 18, 6, me ? 0xFF0E3550 : CARD);
+            int pos = (int) n(e, "pos");
+            int pc = pos == 1 ? 0xFFFBBF24 : pos == 2 ? 0xFFCBD5E1 : pos == 3 ? 0xFFD97706 : Sk.MUTED;
+            Gfx.text(ms, String.valueOf(pos), CX + 12, y + 12, 8, pc, 1, true, 0f);
+            Gfx.text(ms, clip(s(e, "name"), 130, 7.4f, true), CX + 32, y + 12, 7.4f, Sk.WHITE, 0, true, 0f);
+            Gfx.text(ms, clip(s(e, "job") + "  ·  " + s(e, "rank") + " (niv " + (int) n(e, "level") + ")", 170, 6.6f, false), CX + 170, y + 12, 6.6f, Sk.MUTED, 0);
+            Gfx.text(ms, "$" + Ui.money(n(e, "earned")), CX + CW - 150, y + 12, 7, Sk.GOOD, 2, true, 0f);
+            Gfx.text(ms, String.valueOf((int) n(e, "missions")), CX + CW - 80, y + 12, 7, Sk.WHITE, 2);
+            Gfx.text(ms, String.valueOf((long) n(e, "xp")), CX + CW - 12, y + 12, 7, VIOLET, 2);
+        }
+        int mine = (int) n(t, "mine");
+        Gfx.text(ms, mine > 0 ? "Locul tău: " + mine + " din " + (int) n(t, "total") : "Nu apari încă în clasament.", CX, H - 14, 6.6f, Sk.MUTED, 0);
     }
 
     // ------------------------------------------------------------------ fereastra de detalii + administrare
@@ -532,13 +667,13 @@ public final class FJobsScreen extends FlowScreen {
             detail = "";
             return;
         }
-        Gfx.rrect(ms, l, t, r - l, bt - t, 0, 0xB0050712);
+        Gfx.rrect(ms, l, t, r - l, bt - t, 0, 0xB0030810);
         hitL(l, t, r - l, bt - t, () -> {}); // blocheaza click-urile din spate
         float mw = 420;
         float mh = adminOpen && admin ? 300 : 262;
         float mx0 = (W - mw) / 2f;
         float my0 = (H - mh) / 2f;
-        Gfx.rrect(ms, mx0, my0, mw, mh, 14, 0xFF141A30, 0xFF0E1226);
+        Gfx.rrect(ms, mx0, my0, mw, mh, 14, 0xFF101A2A, 0xFF0B1422);
         int col = groupColor(s(j, "group"), s(j, "category"));
         art(ms, j, mx0 + 12, my0 + 12, 96, 70, col);
         Gfx.text(ms, s(j, "name"), mx0 + 120, my0 + 30, 14, Sk.WHITE, 0, true, 0f);
@@ -567,17 +702,32 @@ public final class FJobsScreen extends FlowScreen {
         miniStat(ms, mx0 + 12 + (cw + 8) * 3, sy, cw, "ANGAJAȚI", (int) n(j, "employees") + (max > 0 ? "/" + max : ""));
         // taskuri
         float ty = sy + 44;
-        Gfx.text(ms, "CE FACI", mx0 + 12, ty, 6.2f, Sk.FAINT, 0, false, 1.3f);
+        Gfx.text(ms, "RESPONSABILITĂȚI", mx0 + 12, ty, 6.2f, Sk.FAINT, 0, false, 1.3f);
+        // echipamente obligatorii + cerinte (coloana dreapta)
+        float ex = mx0 + mw / 2f + 10;
+        Gfx.text(ms, "ECHIPAMENTE OBLIGATORII", ex, ty, 6.2f, Sk.FAINT, 0, false, 1.3f);
+        JsonArray gl = j.has("gear") && j.get("gear").isJsonArray() ? j.getAsJsonArray("gear") : new JsonArray();
+        int gi = 0;
+        for (JsonElement ge : gl) {
+            JsonObject go = ge.getAsJsonObject();
+            if (!b(go, "required")) continue;
+            if (gi >= 3) break;
+            Gfx.disc(ms, ex + 4, ty + 11 + gi * 11 - 2.5f, 1.8f, Sk.WARN);
+            Gfx.text(ms, clip(s(go, "name") + "  ·  $" + (long) n(go, "price"), mw / 2f - 30, 6.6f, false), ex + 12, ty + 11 + gi * 11, 6.6f, Sk.WHITE, 0);
+            gi++;
+        }
+        if (gi == 0) Gfx.text(ms, "Nimic obligatoriu.", ex + 4, ty + 11, 6.6f, Sk.MUTED, 0);
+        Gfx.text(ms, "CERINȚE: nivel profesional " + (int) n(j, "minLevel") + "+" + ("special".equals(s(j, "category")) ? " · permisiune" : ""), ex, ty + 46, 6f, Sk.MUTED, 0);
         JsonArray tasks = j.has("tasks") && j.get("tasks").isJsonArray() ? j.getAsJsonArray("tasks") : new JsonArray();
         for (int i = 0; i < tasks.size() && i < 4; i++) {
             Gfx.disc(ms, mx0 + 16, ty + 11 + i * 11 - 2.5f, 1.8f, col);
-            Gfx.text(ms, clip(tasks.get(i).getAsString(), mw - 40, 6.8f, false), mx0 + 24, ty + 11 + i * 11, 6.8f, Sk.WHITE, 0);
+            Gfx.text(ms, clip(tasks.get(i).getAsString(), mw / 2f - 24, 6.8f, false), mx0 + 24, ty + 11 + i * 11, 6.8f, Sk.WHITE, 0);
         }
         // progres in job
         float py2 = ty + 58;
         double need = n(j, "xpNeed");
-        Gfx.text(ms, "NIVELUL TĂU: " + (int) n(j, "level") + (need > 0 ? "   " + (long) n(j, "xp") + " / " + (long) need + " XP" : "   MAX"), mx0 + 12, py2, 6.6f, Sk.MUTED, 0, true, 0.3f);
-        Gfx.bar(ms, mx0 + 12, py2 + 5, mw - 24, 5, need > 0 ? (float) (n(j, "xp") / need) : 1f, 0xFF1F2547, VIOLET);
+        Gfx.text(ms, s(j, "rank").toUpperCase() + "  ·  NIVELUL TĂU: " + (int) n(j, "level") + (need > 0 ? "   " + (long) n(j, "xp") + " / " + (long) need + " XP" : "   MAX"), mx0 + 12, py2, 6.6f, Sk.MUTED, 0, true, 0.3f);
+        Gfx.bar(ms, mx0 + 12, py2 + 5, mw - 24, 5, need > 0 ? (float) (n(j, "xp") / need) : 1f, 0xFF16243A, VIOLET);
         String why = s(j, "why");
         if (!why.isEmpty() && !s(j, "id").equals(s(me(), "job"))) Gfx.text(ms, clip(why, mw - 24, 6.6f, false), mx0 + 12, py2 + 21, 6.6f, Sk.WARN, 0);
         else if (!s(j, "note").isEmpty()) Gfx.text(ms, clip(s(j, "note"), mw - 24, 6.6f, false), mx0 + 12, py2 + 21, 6.6f, Sk.MUTED, 0);
@@ -598,9 +748,17 @@ public final class FJobsScreen extends FlowScreen {
         boolean shift = b(m, "inShift");
         float x = mx0 + 12;
         if (mine) {
-            smallButton(ms, shift ? "ÎNCHEIE TURA" : "ÎNCEPE TURA", x, by, 112, 24, lmx, lmy, true, !shift, () -> FJobsClient.request(shift ? "end" : "start", new JsonObject()));
-            smallButton(ms, "DEMISIONEAZĂ", x + 120, by, 96, 24, lmx, lmy, !shift, false, () -> FJobsClient.request("quit", new JsonObject()));
-            if ((j.has("kind") || b(j, "hasGear")) && "READY".equals(s(j, "status"))) smallButton(ms, "PANOU JOB", x + 224, by, 78, 24, lmx, lmy, true, false, FJobsClient::openPanel);
+            boolean paused = b(m, "paused");
+            smallButton(ms, shift ? "FINALIZEAZĂ" : "ÎNCEPE TURA", x, by, 84, 24, lmx, lmy, true, !shift, () -> FJobsClient.request(shift ? "end" : "start", new JsonObject()));
+            float nx = x + 90;
+            if (shift) {
+                smallButton(ms, paused ? "RELUARE" : "PAUZĂ", nx, by, 62, 24, lmx, lmy, true, false, () -> FJobsClient.request(paused ? "resume" : "pause", new JsonObject()));
+                nx += 68;
+            } else {
+                smallButton(ms, "DEMISIONEAZĂ", nx, by, 84, 24, lmx, lmy, true, false, () -> FJobsClient.request("quit", new JsonObject()));
+                nx += 90;
+            }
+            if ((j.has("kind") || b(j, "hasGear")) && "READY".equals(s(j, "status"))) smallButton(ms, "PANOU JOB", nx, by, 70, 24, lmx, lmy, true, false, FJobsClient::openPanel);
         } else {
             smallButton(ms, "ANGAJEAZĂ-TE", x, by, 118, 24, lmx, lmy, b(j, "canHire"), true, () -> hire(id));
         }
@@ -610,7 +768,7 @@ public final class FJobsScreen extends FlowScreen {
     /** Administrare pentru joburile cu activitate proprie: parametri generali + puncte pe tipuri (statii), adaugate unde stai in joc. */
     private void adminCustom(GuiGraphics ms, JsonObject j, float x0, float y0, float mw, float lmx, float lmy) {
         final String id = s(j, "id");
-        Gfx.rrect(ms, x0 + 8, y0 - 2, mw - 16, 176, 8, 0xFF0A0D1C);
+        Gfx.rrect(ms, x0 + 8, y0 - 2, mw - 16, 176, 8, 0xFF07101C);
         Gfx.text(ms, "ADMINISTRARE (server validează)", x0 + 14, y0 + 8, 5.8f, 0xFFFBBF24, 0, false, 1.1f);
         float x = x0 + 14;
         float y = y0 + 12;
@@ -644,7 +802,7 @@ public final class FJobsScreen extends FlowScreen {
 
     private void adminPanel(GuiGraphics ms, JsonObject j, float x0, float y0, float mw, float lmx, float lmy) {
         final String id = s(j, "id");
-        Gfx.rrect(ms, x0 + 8, y0 - 2, mw - 16, 66, 8, 0xFF0A0D1C);
+        Gfx.rrect(ms, x0 + 8, y0 - 2, mw - 16, 66, 8, 0xFF07101C);
         Gfx.text(ms, "ADMINISTRARE (server validează)", x0 + 14, y0 + 8, 5.8f, 0xFFFBBF24, 0, false, 1.1f);
         float x = x0 + 14;
         float y = y0 + 14;
@@ -708,7 +866,7 @@ public final class FJobsScreen extends FlowScreen {
     }
 
     private void miniStat(GuiGraphics ms, float x, float y, float w, String label, String value) {
-        Gfx.rrect(ms, x, y, w, 36, 8, 0xFF0F1428);
+        Gfx.rrect(ms, x, y, w, 36, 8, 0xFF0C1626);
         Gfx.text(ms, label, x + 8, y + 13, 5.4f, Sk.FAINT, 0, false, 0.9f);
         Gfx.text(ms, clip(value, w - 12, 9, true), x + 8, y + 28, 9, Sk.WHITE, 0, true, 0f);
     }
@@ -717,8 +875,8 @@ public final class FJobsScreen extends FlowScreen {
 
     private void smallButton(GuiGraphics ms, String label, float x, float y, float w, float h, float lmx, float lmy, boolean enabled, boolean filled, Runnable action) {
         boolean hot = enabled && Sk.in(lmx, lmy, x, y, w, h);
-        int bg = !enabled ? 0xFF141A2C : filled ? (hot ? 0xFFA78BFA : VIOLET) : (hot ? 0xFF262E55 : 0xFF1B2140);
-        int fg = !enabled ? Sk.FAINT : filled ? 0xFF0B0720 : (hot ? Sk.WHITE : 0xFFC9CBE0);
+        int bg = !enabled ? 0xFF101826 : filled ? (hot ? 0xFF67E8F9 : VIOLET) : (hot ? 0xFF1C3350 : 0xFF142338);
+        int fg = !enabled ? Sk.FAINT : filled ? 0xFF04141C : (hot ? Sk.WHITE : 0xFFC9CBE0);
         Gfx.rrect(ms, x, y, w, h, Math.min(7, h / 2.5f), bg);
         Gfx.text(ms, label, x + w / 2f, y + h / 2f + 2.6f, Math.min(6.4f, h * 0.36f + 1.2f), fg, 1, true, 0.3f);
         if (enabled) hitL(x, y, w, h, action);
@@ -899,7 +1057,11 @@ public final class FJobsScreen extends FlowScreen {
 
     @Override
     public boolean mouseScrolled(double mx, double my, double delta) {
-        if (!detail.isEmpty() || page == 0 || page > 4) return true;
+        if (page == P_HISTORY) {
+            histScroll += delta > 0 ? -1 : 1;
+            return true;
+        }
+        if (!detail.isEmpty() || page == 0 || page > 3) return true;
         scrollTarget = Math.max(0, Math.min(maxScroll(pageJobs().size()), scrollTarget - (float) delta * 40f));
         return true;
     }

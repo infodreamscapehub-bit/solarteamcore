@@ -164,6 +164,9 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
         on("quit", (p, j) -> quit(p));
         on("start", (p, j) -> startShift(p));
         on("end", (p, j) -> endShift(p, "Tura incheiata."));
+        on("pause", (p, j) -> pauseShift(p, true));
+        on("resume", (p, j) -> pauseShift(p, false));
+        on("top", (p, j) -> sendTop(p, str(j, "by", "earned")));
         on("panel", (p, j) -> openPanel(p));
         on("panel_close", (p, j) -> panelViewers.remove(p.getUniqueId()));
         on("panel_act", this::panelAct);
@@ -513,6 +516,8 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
             }
         }
         pr.shiftStart = System.currentTimeMillis();
+        pr.pausedAt = 0;
+        pr.pausedMs = 0;
         pr.shiftEarned = 0;
         pr.shiftXp = 0;
         pr.shiftMissions = 0;
@@ -544,7 +549,7 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
 
     private void closeShift(Player p, FJobsData.Profile pr, boolean notify, String note) {
         long now = System.currentTimeMillis();
-        long sec = Math.max(0, (now - pr.shiftStart) / 1000);
+        long sec = Math.max(0, pr.activeMs(now) / 1000);   // doar timpul lucrat efectiv (fara pauze)
         FJobDef j = jobs.get(pr.job);
         JobActivity endAct = actOf(j);
         if (endAct != null) {
@@ -579,6 +584,8 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
             + (bonus > 0 ? " (+" + (long) bonus + "$ bonus)" : "");
         store.addHistory(pr, "shift", pr.job, text, HypeMath.round2(earned + bonus));
         pr.shiftStart = 0;
+        pr.pausedAt = 0;
+        pr.pausedMs = 0;
         pr.shiftEarned = 0;
         pr.shiftXp = 0;
         pr.shiftMissions = 0;
@@ -589,6 +596,105 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
             plugin.notifications().send(p, NotifyModule.Type.JOB, "Tura incheiata", text);
             if (note != null && !note.isEmpty()) msg(p, true, note);
         }
+    }
+
+    // ------------------------------------------------------------------ pauza / ranguri / clasament
+
+    /** Pauza / reluare: in pauza nu se platesc actiuni si timpul nu se numara; pauza prea lunga inchide tura. */
+    private void pauseShift(Player p, boolean pause) {
+        if (throttled(p)) return;
+        FJobsData.Profile pr = prof(p);
+        if (!pr.inShift()) {
+            msg(p, false, "Nu esti in tura.");
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (pause) {
+            if (pr.pausedAt > 0) {
+                msg(p, false, "Tura este deja in pauza.");
+                return;
+            }
+            pr.pausedAt = now;
+            msg(p, true, "Tura e in pauza (maxim " + (long) cfg.getDouble("settings.max-pause-minutes", 15) + " min).");
+            plugin.notifications().send(p, NotifyModule.Type.JOB, "Pauza", "Tura este in pauza.");
+        } else {
+            if (pr.pausedAt <= 0) {
+                msg(p, false, "Tura nu este in pauza.");
+                return;
+            }
+            pr.pausedMs += now - pr.pausedAt;
+            pr.pausedAt = 0;
+            msg(p, true, "Tura a fost reluata.");
+        }
+        pr.dirty = true;
+        sendData(p, false);
+    }
+
+    /** Rangurile (nivel minim -> nume), din settings.ranks; implicit 1 Incepator, 5 Angajat, 10 Profesionist, 20 Expert. */
+    private java.util.TreeMap<Integer, String> ranks() {
+        java.util.TreeMap<Integer, String> m = new java.util.TreeMap<>();
+        ConfigurationSection rs = cfg.getConfigurationSection("settings.ranks");
+        if (rs != null) {
+            for (String k : rs.getKeys(false)) {
+                try {
+                    m.put(Integer.parseInt(k.trim()), rs.getString(k, k));
+                } catch (NumberFormatException ignored) {
+                    // cheie invalida
+                }
+            }
+        }
+        if (m.isEmpty()) {
+            m.put(1, "Incepator");
+            m.put(5, "Angajat");
+            m.put(10, "Profesionist");
+            m.put(20, "Expert");
+        }
+        return m;
+    }
+
+    private String rankFor(int level) {
+        Map.Entry<Integer, String> e = ranks().floorEntry(Math.max(1, level));
+        return e == null ? "" : e.getValue();
+    }
+
+    /** Clasamentul angajatilor (toti jucatorii cu profil, si offline), dupa bani castigati / misiuni / XP. */
+    private void sendTop(Player p, String by) {
+        if (throttled(p)) return;
+        final String key = "missions".equals(by) || "xp".equals(by) ? by : "earned";
+        List<FJobsData.Profile> all = new ArrayList<>();
+        for (FJobsData.Profile pr : store.all()) if (pr.totalShifts > 0 || pr.totalEarned > 0 || pr.totalXp() > 0) all.add(pr);
+        all.sort((a, b) -> {
+            if ("missions".equals(key)) return Integer.compare(b.totalMissions, a.totalMissions);
+            if ("xp".equals(key)) return Long.compare(b.totalXp(), a.totalXp());
+            return Double.compare(b.totalEarned, a.totalEarned);
+        });
+        JsonArray arr = new JsonArray();
+        int mine = -1;
+        for (int i = 0; i < all.size(); i++) {
+            FJobsData.Profile pr = all.get(i);
+            if (pr.uuid.equals(p.getUniqueId())) mine = i + 1;
+            if (i >= 15) continue;
+            JsonObject o = new JsonObject();
+            FJobDef jd = pr.job.isEmpty() ? null : jobs.get(pr.job);
+            int lvl = profileLevel(pr);
+            o.addProperty("pos", i + 1);
+            o.addProperty("name", pr.name.isEmpty() ? "?" : pr.name);
+            o.addProperty("job", jd == null ? "-" : jd.name);
+            o.addProperty("level", lvl);
+            o.addProperty("rank", rankFor(lvl));
+            o.addProperty("earned", pr.totalEarned);
+            o.addProperty("missions", pr.totalMissions);
+            o.addProperty("xp", pr.totalXp());
+            o.addProperty("hours", pr.totalSeconds / 3600.0);
+            o.addProperty("me", pr.uuid.equals(p.getUniqueId()));
+            arr.add(o);
+        }
+        JsonObject o = new JsonObject();
+        o.addProperty("by", key);
+        o.add("items", arr);
+        o.addProperty("mine", mine);
+        o.addProperty("total", all.size());
+        send(p, "top", o);
     }
 
     // ------------------------------------------------------------------ plata / XP
@@ -812,10 +918,18 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
         for (Player p : Bukkit.getOnlinePlayers()) {
             FJobsData.Profile pr = store.peek(p.getUniqueId());
             if (pr == null || !pr.inShift()) continue;
-            if (maxShift > 0 && now - pr.shiftStart > maxShift) {
+            if (maxShift > 0 && pr.activeMs(now) > maxShift) {
                 closeShift(p, pr, true, "Tura a durat prea mult si a fost incheiata automat.");
                 sendData(p, false);
                 continue;
+            }
+            if (pr.pausedAt > 0) {
+                long maxPause = (long) cfg.getDouble("settings.max-pause-minutes", 15) * 60_000L;
+                if (maxPause > 0 && now - pr.pausedAt > maxPause) {
+                    closeShift(p, pr, true, "Pauza a durat prea mult: tura a fost incheiata.");
+                    sendData(p, false);
+                }
+                continue;   // in pauza activitatea nu ruleaza
             }
             if (creative(p)) continue;
             FJobDef jd = jobs.get(pr.job);
@@ -955,7 +1069,13 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
         m.addProperty("missions", pr.totalMissions);
         m.addProperty("seconds", pr.totalSeconds);
         m.addProperty("inShift", pr.inShift());
-        m.addProperty("shiftSec", pr.inShift() ? (System.currentTimeMillis() - pr.shiftStart) / 1000 : 0);
+        m.addProperty("shiftSec", pr.inShift() ? pr.activeMs(System.currentTimeMillis()) / 1000 : 0);
+        m.addProperty("paused", pr.inShift() && pr.pausedAt > 0);
+        m.addProperty("pauseSec", pr.inShift() && pr.pausedAt > 0 ? (System.currentTimeMillis() - pr.pausedAt) / 1000 : 0);
+        m.addProperty("maxPauseMin", cfg.getDouble("settings.max-pause-minutes", 15));
+        m.addProperty("rank", rankFor(pl));
+        m.addProperty("shiftXp", pr.shiftXp);
+        m.addProperty("uuid", p.getUniqueId().toString());
         m.addProperty("shiftEarned", pr.shiftEarned);
         m.addProperty("shiftMissions", pr.shiftMissions);
         m.addProperty("cooldownMs", cooldownLeft(pr));
@@ -966,6 +1086,7 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
             m.addProperty("jobLevel", jl);
             m.addProperty("jobXp", HypeMath.xpIntoLevel(total, xpBase(), xpGrowth(), maxLevel()));
             m.addProperty("jobXpNeed", jl >= maxLevel() ? 0 : HypeMath.xpForLevel(jl, xpBase(), xpGrowth()));
+            m.addProperty("jobRank", rankFor(jl));
         }
         return m;
     }
@@ -1010,6 +1131,19 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
             e.addProperty("note", j.statusNote());
             e.addProperty("activity", j.activity);
             e.addProperty("level", lvl);
+            e.addProperty("rank", rankFor(lvl));
+            JsonArray ga = new JsonArray();
+            for (FJobsGear.Def gd : gear.defs(j)) {
+                if (!gd.enabled) continue;
+                JsonObject go = new JsonObject();
+                go.addProperty("id", gd.id);
+                go.addProperty("name", gd.name);
+                go.addProperty("required", gd.required);
+                go.addProperty("price", gd.price);
+                go.addProperty("minLevel", gd.minLevel);
+                ga.add(go);
+            }
+            e.add("gear", ga);
             e.addProperty("xp", HypeMath.xpIntoLevel(total, xpBase(), xpGrowth(), maxLevel()));
             e.addProperty("xpNeed", lvl >= maxLevel() ? 0 : HypeMath.xpForLevel(lvl, xpBase(), xpGrowth()));
             e.addProperty("earned", pr.earned.getOrDefault(j.id, 0.0));
@@ -1070,6 +1204,14 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
             if (store.employees(pop.get(i).id) > 0) pa.add(pop.get(i).id);
         }
         o.add("popular", pa);
+        JsonArray rk = new JsonArray();
+        for (Map.Entry<Integer, String> re : ranks().entrySet()) {
+            JsonObject ro = new JsonObject();
+            ro.addProperty("level", re.getKey());
+            ro.addProperty("name", re.getValue());
+            rk.add(ro);
+        }
+        o.add("ranks", rk);
         send(p, "data", o);
     }
 
@@ -1440,6 +1582,7 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
     public double pay(Player p, FJobDef jd, double rawPay, long rawXp, boolean mission) {
         FJobsData.Profile pr = store.peek(p.getUniqueId());
         if (pr == null || !pr.inShift() || !jd.id.equals(pr.job) || !jd.active) return -1;
+        if (pr.pausedAt > 0) return -1;   // in pauza nu se plateste nimic (HUD-ul arata PAUZA)
         if (!mission && rawPay > 0 && jd.limitPerMinute > 0) {
             long now = System.currentTimeMillis();
             RateWindow w = rates.computeIfAbsent(p.getUniqueId(), k -> new HashMap<>()).computeIfAbsent(jd.id, k -> new RateWindow(jd.limitPerMinute, 60_000L));

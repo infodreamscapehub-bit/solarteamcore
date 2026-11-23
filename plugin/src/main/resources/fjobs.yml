@@ -22,7 +22,13 @@ settings:
   max-level: 50
   bonus-per-level: 0.03      # +3% plata pe nivel de job
   change-cooldown-minutes: 30
-  max-shift-minutes: 120     # tura se inchide automat dupa atat
+  max-shift-minutes: 120     # tura se inchide automat dupa atat (timp lucrat efectiv, fara pauze)
+  max-pause-minutes: 15      # pauza mai lunga inchide tura; in pauza nu se plateste nimic
+  ranks:                     # rangul dupa nivel (nivel minim: nume); se aplica pe job si pe nivelul profesional
+    1: "Incepator"
+    5: "Angajat"
+    10: "Profesionist"
+    20: "Expert"
   premium-enabled: false     # joburile premium se pot lua doar cu flowcity.fjobs.premium si doar daca e true
   placed-ttl-minutes: 180    # anti-farm: blocuri puse de jucatori
   placed-max: 60000
