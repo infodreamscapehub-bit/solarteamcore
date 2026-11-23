@@ -56,6 +56,13 @@ public final class SimStore {
 
     private static final String ALPHA = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
+    private static SimStore instance;
+
+    /** Instanta activa (setata de PhoneModule); folosita de CNN Anunturi pentru numarul de telefon al autorului. */
+    public static SimStore get() {
+        return instance;
+    }
+
     private final FlowCityBridge plugin;
     private final Map<String, Sim> byId = new ConcurrentHashMap<>();
     private final Map<String, Sim> byNumber = new ConcurrentHashMap<>();
@@ -66,6 +73,7 @@ public final class SimStore {
 
     public SimStore(FlowCityBridge plugin) {
         this.plugin = plugin;
+        instance = this;
         this.keyId = new NamespacedKey(plugin, "sim_id");
         this.keyGen = new NamespacedKey(plugin, "sim_gen");
         try {

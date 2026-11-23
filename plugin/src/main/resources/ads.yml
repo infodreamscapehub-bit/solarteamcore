@@ -1,0 +1,60 @@
+# CNN ANUNTURI - anunturi platite ale jucatorilor. Toate valorile se aplica la repornirea serverului.
+# Banii se retrag prin Vault (sau economia interna FlowCity daca nu exista Vault), O SINGURA DATA, doar dupa validarea tuturor conditiilor.
+enabled: true
+
+# Taxele (in $)
+fees:
+  standard: 500.0      # anunt standard
+  promoted: 1500.0     # anunt promovat (apare primul in lista, evidentiat)
+  extend: 300.0        # prelungirea unui anunt
+
+# Optiunile de durata pe care le poate alege jucatorul (ore)
+durations-hours: [12, 24, 48, 72]
+
+# Cooldown intre doua publicari (minute), salvat persistent pe server (nu se reseteaza la reconectare)
+cooldown-minutes: 30
+
+promoted:
+  enabled: true
+  # -1 = anunturile promovate respecta acelasi cooldown ca cele standard (recomandat, anti-spam)
+  #  0 = anunturile promovate ocolesc cooldown-ul (explicit!);  >0 = cooldown propriu, in minute, doar intre promovate
+  cooldown-minutes: -1
+  broadcast: false     # true = toti jucatorii primesc o notificare la un anunt promovat nou
+
+# Categorii: id: eticheta afisata. Categoriile din price-categories cer pret.
+categories:
+  vand: "Vand"
+  cumpar: "Cumpar"
+  inchiriez: "Inchiriez"
+  servicii: "Ofer servicii"
+  job: "Caut loc de munca"
+  recrutare: "Recrutare"
+  diverse: "Diverse"
+price-categories: [vand, cumpar, inchiriez]
+
+limits:
+  title-min: 5
+  title-max: 48
+  description-min: 10
+  description-max: 240
+  max-price: 1000000000
+  max-active-per-player: 3     # anunturi active + in asteptare per jucator
+
+# Anti-abuz
+require-sim: true              # numarul din anunt = cartela SIM activa a autorului (nu se poate pune alt numar)
+duplicate-hours: 24            # acelasi anunt (aceeasi categorie/titlu/descriere) nu se poate republica atata timp
+block-links: true              # fara linkuri / invitatii Discord
+blocked-words: []              # cuvinte interzise (fara diacritice, nu conteaza literele mari)
+
+# Moderare: true = anunturile noi asteapta aprobarea staff-ului (permisiunea flowcity.ads.moderate)
+moderation:
+  enabled: false
+  refund-on-reject: true       # taxa se returneaza daca anuntul e respins
+
+extend:
+  enabled: true
+  hours: 24
+  max-extends: 2
+
+history-days: 7                # cat timp raman vizibile in "Anunturile mele" cele expirate/sterse
+list-max: 150                  # cate anunturi publice se trimit clientului
