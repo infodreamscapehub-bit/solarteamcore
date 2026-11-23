@@ -52,6 +52,11 @@ public final class NotifyModule extends JsonModule implements Listener {
                 try (Statement st = c.createStatement()) {
                     st.execute("CREATE TABLE IF NOT EXISTS core_notifications (id INTEGER PRIMARY KEY AUTOINCREMENT, uuid TEXT NOT NULL, type TEXT NOT NULL, title TEXT NOT NULL, text TEXT NOT NULL DEFAULT '', ts INTEGER NOT NULL, read INTEGER NOT NULL DEFAULT 0)");
                     st.execute("CREATE INDEX IF NOT EXISTS idx_notif_uuid ON core_notifications(uuid, id)");
+                    try {
+                        st.execute("ALTER TABLE core_notifications ADD COLUMN app TEXT NOT NULL DEFAULT ''");
+                    } catch (java.sql.SQLException ignored) {
+                        // coloana exista deja
+                    }
                 }
                 return null;
             }).get(8, java.util.concurrent.TimeUnit.SECONDS);
@@ -80,6 +85,12 @@ public final class NotifyModule extends JsonModule implements Listener {
 
     /** Ca {@link #send(UUID, Type, String, String)}, cu un sunet propriu al modului (ex. "payday"); null = sunetul implicit al tipului. */
     public void send(UUID u, Type type, String title, String text, String sound) {
+        send(u, type, title, text, sound, "");
+    }
+
+    /** Ca mai sus, cu aplicatia de telefon care se deschide la apasarea notificarii (sms, call, news, ads, bank, jobs; gol = niciuna). */
+    public void send(UUID u, Type type, String title, String text, String sound, String appHint) {
+        final String app = appHint == null ? "" : appHint.replaceAll("[^a-z]", "");
         final String ti = ro.solarstudios.flowcity.bridge.core.SmallCaps.title(clip(title, 40));
         final String tx = clip(text, 160);
         if (ti.isEmpty()) return;
@@ -91,13 +102,14 @@ public final class NotifyModule extends JsonModule implements Listener {
         final int keep = maxKept;
         db.async(c -> {
             long id;
-            try (PreparedStatement ps = c.prepareStatement("INSERT INTO core_notifications(uuid, type, title, text, ts, read) VALUES (?,?,?,?,?,?)")) {
+            try (PreparedStatement ps = c.prepareStatement("INSERT INTO core_notifications(uuid, type, title, text, ts, read, app) VALUES (?,?,?,?,?,?,?)")) {
                 ps.setString(1, key);
                 ps.setString(2, type.name());
                 ps.setString(3, ti);
                 ps.setString(4, tx);
                 ps.setLong(5, ts);
                 ps.setInt(6, read);
+                ps.setString(7, app);
                 ps.executeUpdate();
             }
             try (Statement st = c.createStatement(); ResultSet rs = st.executeQuery("SELECT last_insert_rowid()")) {
@@ -130,6 +142,7 @@ public final class NotifyModule extends JsonModule implements Listener {
                 o.addProperty("text", tx);
                 o.addProperty("ts", ts);
                 o.addProperty("unread", res[1]);
+                o.addProperty("app", app);
                 if (sound != null && !sound.isEmpty()) o.addProperty("sound", sound);
                 send(p, "push", o);
             } else {
@@ -149,7 +162,7 @@ public final class NotifyModule extends JsonModule implements Listener {
         final int keep = maxKept;
         db.async(c -> {
             JsonArray arr = new JsonArray();
-            try (PreparedStatement ps = c.prepareStatement("SELECT id, type, title, text, ts, read FROM core_notifications WHERE uuid=? ORDER BY id DESC LIMIT ?")) {
+            try (PreparedStatement ps = c.prepareStatement("SELECT id, type, title, text, ts, read, app FROM core_notifications WHERE uuid=? ORDER BY id DESC LIMIT ?")) {
                 ps.setString(1, key);
                 ps.setInt(2, keep);
                 try (ResultSet rs = ps.executeQuery()) {
@@ -161,6 +174,7 @@ public final class NotifyModule extends JsonModule implements Listener {
                         o.addProperty("text", rs.getString(4));
                         o.addProperty("ts", rs.getLong(5));
                         o.addProperty("read", rs.getInt(6) == 1);
+                        o.addProperty("app", rs.getString(7) == null ? "" : rs.getString(7));
                         arr.add(o);
                     }
                 }

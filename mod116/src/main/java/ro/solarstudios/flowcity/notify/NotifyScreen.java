@@ -91,6 +91,8 @@ public final class NotifyScreen extends FlowScreen {
             if (!l.isEmpty()) Gfx.text(ms, l.get(0), rx + 48, y + 26, 7.6f, Gfx.fade(Sk.MUTED, a), 0);
             Gfx.text(ms, Ui.time(it.ts), rx + w - 18, y + 14, 6.8f, Gfx.fade(Sk.FAINT, a), 2);
             if (!it.read) Gfx.rrect(ms, rx + w - 22, y + 21, 5, 5, 0, Gfx.fade(c, a));
+            final String target = it.targetApp();
+            if (!target.isEmpty()) hit(x, y, w, ROW - 5, () -> ro.solarstudios.flowcity.phone.PhoneScreen.openFor(target));
             y += ROW;
         }
         if (items.size() > visible) {

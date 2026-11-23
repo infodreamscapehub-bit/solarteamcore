@@ -48,6 +48,9 @@ public final class PhoneModule extends JsonModule {
 
     private final Map<UUID, Call> calls = new ConcurrentHashMap<>();
     private final Map<UUID, Long> lastSend = new HashMap<>();
+    private SimStore sims;
+    private final Map<UUID, Integer> lastSignal = new HashMap<>();
+    private final Map<UUID, Long> lastSimOp = new HashMap<>();
     private long nextCallId = 1;
 
     @Override
@@ -76,17 +79,24 @@ public final class PhoneModule extends JsonModule {
             plugin.getLogger().warning("ePhone: nu pot crea tabelele: " + e);
         }
 
+        sims = new SimStore(plugin);
+        on("sim.info", (p, j) -> sendSim(p));
+        on("sim.insert", this::simInsert);
+        on("sim.eject", (p, j) -> simEject(p));
+        on("sim.buy", this::simBuy);
+        on("prefs.set", (p, j) -> sims.savePrefs(p.getUniqueId(), Math.max(0, Math.min(15, (int) num(j, "wallpaper", 0))), bool(j, "light", false)));
+        Bukkit.getScheduler().runTaskTimer(plugin, this::tickSignal, 100L, 100L);
         on("contacts", (p, j) -> sendContacts(p));
         on("contact_add", this::contactAdd);
         on("contact_del", this::contactDel);
         on("threads", (p, j) -> sendThreads(p));
         on("thread", (p, j) -> sendThread(p, uuid(j, "uuid")));
         on("send", (p, j) -> {
-            if (needPhone(p)) sendMessage(p, j);
+            if (needLine(p)) sendMessage(p, j);
         });
         on("call", (p, j) -> dial(p, uuid(j, "uuid"), str(j, "q", "").trim()));
         on("call_answer", (p, j) -> {
-            if (needPhone(p)) answer(p);
+            if (needLine(p)) answer(p);
         });
         on("call_decline", (p, j) -> end(p, true));
         on("call_end", (p, j) -> end(p, false));
@@ -129,7 +139,7 @@ public final class PhoneModule extends JsonModule {
             Player p = callerOf(s);
             if (p == null) return true;
             if (!calls.containsKey(p.getUniqueId())) p.sendMessage("\u00a7cNu ai niciun apel.");
-            else if (needPhone(p)) answer(p);
+            else if (needLine(p)) answer(p);
             return true;
         }, null);
         Commands.register(plugin, "inchide", "flowcity.phone", (s, c, l, a) -> {
@@ -162,19 +172,23 @@ public final class PhoneModule extends JsonModule {
         return Math.max(5L, plugin.getConfig().getLong("phone.call.ring-timeout-seconds", 30L)) * 1000L;
     }
 
-    /** Apel dupa UUID, ID, nume, numar 07xxxxxxxx sau 112 (urgente). */
+    /** Apel dupa UUID, ID, nume, numar de telefon (cartela SIM) sau 112 (urgente). */
     private void dial(Player p, UUID t, String q) {
         if (!needPhone(p)) return;
-        if (t == null) {
-            String clean = q.replaceAll("[\\s.\\-]", "");
-            boolean numeric = clean.matches("\\d+");
-            if (numeric && clean.equals("112")) {
+        String clean = q.replaceAll("[\\s.\\-]", "");
+        boolean numeric = clean.matches("\\d+");
+        if (t == null && numeric && clean.equals("112")) {
+            if (plugin.getConfig().getBoolean("phone.sim.emergency-without-sim", true) || sims.activeOf(p.getUniqueId()) != null) {
                 emergency(p);
-                return;
+            } else {
+                needLine(p);
             }
-            if (numeric && clean.length() == 10 && clean.startsWith("07")) {
-                int id = NumberLogic.idOfPhone(clean);
-                if (id > 0) t = plugin.ids().uuidOf(id);
+            return;
+        }
+        if (!needLine(p)) return;
+        if (t == null) {
+            if (numeric && NumberLogic.validDial(clean)) {
+                t = sims.holderOfNumber(clean);
             } else if (!q.isEmpty() && q.length() <= 20) {
                 t = plugin.ids().resolveAny(q);
             }
@@ -182,6 +196,10 @@ public final class PhoneModule extends JsonModule {
                 plugin.channel().toast(p, "Numarul format nu exista.", true);
                 return;
             }
+        }
+        if (sims.activeOf(t) == null) {
+            plugin.channel().toast(p, "Numarul nu este disponibil (fara SIM activ).", true);
+            return;
         }
         Player tp = Bukkit.getPlayer(t);
         if (tp != null && !hasPhone(tp)) {
@@ -266,9 +284,232 @@ public final class PhoneModule extends JsonModule {
         return false;
     }
 
+    /** Telefon + cartela SIM activa + semnal: conditia pentru SMS si apeluri (verificata mereu pe server). */
+    private boolean needLine(Player p) {
+        if (!needPhone(p)) return false;
+        SimStore.Sim s = sims.installed(p.getUniqueId());
+        if (s == null) {
+            plugin.channel().toast(p, "Fara SIM: introdu o cartela din Telefon > SIM.", true);
+            return false;
+        }
+        if (!s.active()) {
+            plugin.channel().toast(p, "Cartela SIM este blocata.", true);
+            return false;
+        }
+        if (signalOf(p) <= 0) {
+            plugin.channel().toast(p, "Fara semnal in aceasta zona.", true);
+            return false;
+        }
+        return true;
+    }
+
+    /** 0..4. Zonele fara semnal se definesc in config (phone.signal.dead-zones: "lume,x,z,raza"). */
+    private int signalOf(Player p) {
+        org.bukkit.Location l = p.getLocation();
+        if (l.getWorld() == null) return 4;
+        for (String z : plugin.getConfig().getStringList("phone.signal.dead-zones")) {
+            String[] a = z.split(",");
+            if (a.length < 4) continue;
+            try {
+                if (!a[0].trim().equalsIgnoreCase(l.getWorld().getName())) continue;
+                double dx = l.getX() - Double.parseDouble(a[1].trim());
+                double dz = l.getZ() - Double.parseDouble(a[2].trim());
+                double r = Double.parseDouble(a[3].trim());
+                if (dx * dx + dz * dz <= r * r) return 0;
+            } catch (NumberFormatException ignored) {
+                // intrare invalida in config
+            }
+        }
+        return 4;
+    }
+
+    private void tickSignal() {
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            if (!plugin.channel().hasMod(p)) continue;
+            int sig = signalOf(p);
+            Integer last = lastSignal.put(p.getUniqueId(), sig);
+            if (last == null || last != sig) {
+                JsonObject o = new JsonObject();
+                o.addProperty("signal", sig);
+                send(p, "signal", o);
+                if (sig == 0) {
+                    Call c = calls.get(p.getUniqueId());
+                    if (c != null) end(p, false);
+                }
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------ SIM (introducere / extragere / cumparare)
+
+    private List<String> operators() {
+        List<String> l = plugin.getConfig().getStringList("phone.sim.operators");
+        if (l.isEmpty()) {
+            l = new ArrayList<>();
+            l.add("Orange");
+            l.add("Vodafone");
+            l.add("Digi");
+        }
+        return l;
+    }
+
+    private String numberFormat() {
+        return plugin.getConfig().getString("phone.sim.number-format", "07## ### ###");
+    }
+
+    private boolean simRate(Player p) {
+        long now = System.currentTimeMillis();
+        Long last = lastSimOp.get(p.getUniqueId());
+        if (last != null && now - last < 700) return false;
+        lastSimOp.put(p.getUniqueId(), now);
+        return true;
+    }
+
+    private void sendSim(Player p) {
+        JsonObject o = new JsonObject();
+        SimStore.Sim s = sims.installed(p.getUniqueId());
+        if (s != null) o.add("installed", simJson(s));
+        JsonArray inv = new JsonArray();
+        for (SimStore.Sim x : sims.inInventory(p)) {
+            JsonObject j = simJson(x);
+            String state;
+            if (!x.active()) state = "BLOCKED";
+            else if (x.installed != null) state = "USED";
+            else if (sims.findValidItem(p, x) == null) state = "INVALID";
+            else state = "FREE";
+            j.addProperty("state", state);
+            inv.add(j);
+        }
+        o.add("inv", inv);
+        o.addProperty("price", plugin.getConfig().getDouble("phone.sim.price", 200.0));
+        JsonArray ops = new JsonArray();
+        for (String op : operators()) ops.add(op);
+        o.add("operators", ops);
+        o.addProperty("signal", signalOf(p));
+        send(p, "sim", o);
+    }
+
+    private JsonObject simJson(SimStore.Sim s) {
+        JsonObject j = new JsonObject();
+        j.addProperty("id", s.id);
+        j.addProperty("number", NumberLogic.phoneDisplay(s.number));
+        j.addProperty("operator", s.operator);
+        j.addProperty("status", s.status);
+        j.addProperty("since", s.activated);
+        return j;
+    }
+
+    private void simInsert(Player p, JsonObject j) {
+        if (!ok(p) || !simRate(p)) return;
+        String id = str(j, "id", "");
+        SimStore.Sim s = sims.get(id);
+        if (s == null) {
+            plugin.channel().toast(p, "Cartela nu exista sau nu mai este valida.", true);
+            return;
+        }
+        if (sims.installed(p.getUniqueId()) != null) {
+            plugin.channel().toast(p, "Telefonul are deja o cartela. Scoate-o mai intai.", true);
+            return;
+        }
+        if (!s.active()) {
+            plugin.channel().toast(p, "Cartela este blocata.", true);
+            return;
+        }
+        if (s.installed != null) {
+            plugin.channel().toast(p, "Cartela este deja folosita de alt telefon.", true);
+            return;
+        }
+        if (!plugin.getConfig().getBoolean("phone.sim.allow-transfer", true) && s.owner != null && !s.owner.equals(p.getUniqueId())) {
+            plugin.channel().toast(p, "Cartela apartine altui jucator.", true);
+            return;
+        }
+        org.bukkit.inventory.ItemStack it = sims.findValidItem(p, s);
+        if (it == null) {
+            plugin.channel().toast(p, "Cartela nu este in inventar (sau este o copie invalida).", true);
+            return;
+        }
+        if (it.getAmount() > 1) it.setAmount(it.getAmount() - 1);
+        else p.getInventory().removeItem(it);
+        sims.install(s, p.getUniqueId());
+        plugin.channel().toast(p, "Cartela SIM instalata: " + NumberLogic.phoneDisplay(s.number), false);
+        sendSim(p);
+        sendState(p);
+    }
+
+    private void simEject(Player p) {
+        if (!simRate(p)) return;
+        SimStore.Sim s = sims.installed(p.getUniqueId());
+        if (s == null) {
+            plugin.channel().toast(p, "Nu ai nicio cartela in telefon.", true);
+            return;
+        }
+        if (p.getInventory().firstEmpty() < 0) {
+            plugin.channel().toast(p, "Inventar plin: fa loc pentru cartela.", true);
+            return;
+        }
+        Call c = calls.get(p.getUniqueId());
+        if (c != null) end(p, false);
+        sims.eject(s);
+        p.getInventory().addItem(sims.makeItem(s));
+        plugin.channel().toast(p, "Cartela SIM a fost scoasa.", false);
+        sendSim(p);
+        sendState(p);
+    }
+
+    private void simBuy(Player p, JsonObject j) {
+        if (!ok(p) || !simRate(p)) return;
+        if (!needPhone(p)) return;
+        List<String> ops = operators();
+        String op = str(j, "operator", ops.get(0));
+        boolean known = false;
+        for (String o : ops) if (o.equalsIgnoreCase(op)) {
+            op = o;
+            known = true;
+            break;
+        }
+        if (!known) {
+            plugin.channel().toast(p, "Operator invalid.", true);
+            return;
+        }
+        int maxOwned = Math.max(1, plugin.getConfig().getInt("phone.sim.max-in-inventory", 3));
+        if (sims.inInventory(p).size() >= maxOwned) {
+            plugin.channel().toast(p, "Ai deja prea multe cartele in inventar.", true);
+            return;
+        }
+        if (p.getInventory().firstEmpty() < 0) {
+            plugin.channel().toast(p, "Inventar plin.", true);
+            return;
+        }
+        double price = Math.max(0, plugin.getConfig().getDouble("phone.sim.price", 200.0));
+        if (price > 0 && !plugin.money().has(p.getUniqueId(), price)) {
+            plugin.channel().toast(p, "Nu ai destui bani pentru o cartela ($" + Math.round(price) + ").", true);
+            return;
+        }
+        SimStore.Sim s = sims.create(p.getUniqueId(), op, numberFormat());
+        if (s == null) {
+            plugin.channel().toast(p, "Nu s-a putut genera un numar liber. Incearca din nou.", true);
+            return;
+        }
+        if (price > 0 && !plugin.money().withdraw(p.getUniqueId(), price)) {
+            sims.setStatus(s, "VOID");
+            plugin.channel().toast(p, "Plata a esuat. Nu s-a retras nimic.", true);
+            return;
+        }
+        p.getInventory().addItem(sims.makeItem(s));
+        plugin.channel().toast(p, "Ai cumparat o cartela " + op + ": " + NumberLogic.phoneDisplay(s.number), false);
+        sendSim(p);
+    }
+
     @Override
     public void onClientReady(Player p) {
         sendState(p);
+        sims.loadPrefs(p.getUniqueId(), (w, light) -> {
+            JsonObject o = new JsonObject();
+            o.addProperty("wallpaper", w);
+            o.addProperty("light", light);
+            send(p, "prefs", o);
+        });
+        sendSim(p);
     }
 
     @Override
@@ -276,6 +517,8 @@ public final class PhoneModule extends JsonModule {
         Call c = calls.get(p.getUniqueId());
         if (c != null) finish(c, c.active ? "ENDED" : (c.caller.equals(p.getUniqueId()) ? "CANCELLED" : "DECLINED"), p.getUniqueId());
         lastSend.remove(p.getUniqueId());
+        lastSignal.remove(p.getUniqueId());
+        lastSimOp.remove(p.getUniqueId());
     }
 
     private static UUID uuid(JsonObject j, String key) {
@@ -299,7 +542,8 @@ public final class PhoneModule extends JsonModule {
         o.addProperty("name", nameOf(u));
         o.addProperty("id", plugin.ids().idOf(u));
         o.addProperty("online", Bukkit.getPlayer(u) != null);
-        o.addProperty("number", NumberLogic.phoneDisplay(NumberLogic.phoneNumber(plugin.ids().idOf(u))));
+        SimStore.Sim sim = sims.installed(u);
+        o.addProperty("number", sim == null ? "" : NumberLogic.phoneDisplay(sim.number));
         return o;
     }
 
@@ -332,10 +576,16 @@ public final class PhoneModule extends JsonModule {
             JsonObject o = new JsonObject();
             o.addProperty("unread", unread);
             o.addProperty("missed", missed);
-            o.addProperty("number", NumberLogic.phoneDisplay(NumberLogic.phoneNumber(plugin.ids().idOf(me))));
             return o;
         }).whenComplete((o, err) -> Bukkit.getScheduler().runTask(plugin, () -> {
-            if (err == null && o != null && p.isOnline()) send(p, "state", o);
+            if (err == null && o != null && p.isOnline()) {
+                SimStore.Sim sim = sims.installed(me);
+                o.addProperty("number", sim == null ? "" : NumberLogic.phoneDisplay(sim.number));
+                o.addProperty("operator", sim == null ? "" : sim.operator);
+                o.addProperty("simStatus", sim == null ? "NONE" : sim.status);
+                o.addProperty("signal", signalOf(p));
+                send(p, "state", o);
+            }
         }));
     }
 
@@ -523,6 +773,10 @@ public final class PhoneModule extends JsonModule {
             plugin.channel().toast(p, "Destinatar necunoscut.", true);
             return;
         }
+        if (sims.activeOf(to) == null) {
+            plugin.channel().toast(p, "Destinatarul nu are o cartela SIM activa.", true);
+            return;
+        }
         long now = System.currentTimeMillis();
         Long last = lastSend.get(p.getUniqueId());
         if (last != null && now - last < 800) return;
@@ -553,6 +807,8 @@ public final class PhoneModule extends JsonModule {
                 send(rcv, "msg_in", o);
             } else if (rcv != null) {
                 rcv.sendMessage("§b[SMS] §f" + p.getName() + "§7: " + fText);
+            } else if (plugin.notifications() != null) {
+                plugin.notifications().send(to, ro.solarstudios.flowcity.bridge.notify.NotifyModule.Type.INFO, "Mesaj de la " + p.getName(), fText, null, "sms");
             }
             if (p.isOnline()) sendThread(p, to);
         }));
@@ -580,6 +836,10 @@ public final class PhoneModule extends JsonModule {
         Player t = Bukkit.getPlayer(to);
         if (t == null || to.equals(p.getUniqueId())) {
             plugin.channel().toast(p, "Numarul nu este disponibil.", true);
+            return;
+        }
+        if (sims.activeOf(to) == null || signalOf(t) <= 0) {
+            plugin.channel().toast(p, "Numarul nu este disponibil (fara SIM sau semnal).", true);
             return;
         }
         if (!plugin.channel().hasMod(t) || calls.containsKey(to)) {
@@ -677,7 +937,7 @@ public final class PhoneModule extends JsonModule {
                 finish(c, "MISSED", c.caller);
                 Player callee = Bukkit.getPlayer(c.callee);
                 if (callee != null) plugin.notifications().send(callee, ro.solarstudios.flowcity.bridge.notify.NotifyModule.Type.INFO,
-                    "Apel pierdut", "De la " + nameOf(c.caller));
+                    "Apel pierdut", "De la " + nameOf(c.caller), null, "call");
             }
         }
     }

@@ -49,6 +49,32 @@ public final class PhoneState {
         public long ringStart = System.currentTimeMillis();
     }
 
+    /** O cartela SIM (instalata sau din inventar). */
+    public static final class SimInfo {
+        public String id = "";
+        public String number = "";
+        public String operator = "";
+        public String status = "ACTIVE";
+        public String state = "";
+        public long since;
+    }
+
+    public static SimInfo simInstalled;
+    public static final List<SimInfo> simInv = new ArrayList<>();
+    public static final List<String> simOps = new ArrayList<>();
+    public static double simPrice;
+    public static int simOpSel;
+    /** NONE / ACTIVE / BLOCKED. */
+    public static String simStatus = "NONE";
+    public static String operator = "";
+    public static int signal = 4;
+    public static int wallpaper;
+    public static boolean light;
+
+    public static boolean simActive() {
+        return "ACTIVE".equals(simStatus) && signal > 0;
+    }
+
     public static final List<Person> contacts = new ArrayList<>();
     public static final List<Thread> threads = new ArrayList<>();
     public static final List<Msg> thread = new ArrayList<>();
@@ -72,6 +98,11 @@ public final class PhoneState {
         unread = 0;
         missed = 0;
         myNumber = "";
+        simInstalled = null;
+        simInv.clear();
+        simStatus = "NONE";
+        operator = "";
+        signal = 4;
         callMuted = false;
         callSpeaker = false;
         call = null;

@@ -47,6 +47,7 @@ public final class NotifyClient extends JsonClientModule {
         it.text = str(d, "text", "");
         it.ts = lng(d, "ts", 0);
         it.read = bool(d, "read", false);
+        it.app = str(d, "app", "");
         return it;
     }
 

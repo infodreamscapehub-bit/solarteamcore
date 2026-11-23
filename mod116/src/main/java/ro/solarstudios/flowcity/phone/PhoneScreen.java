@@ -29,17 +29,31 @@ import java.util.List;
 
 /** Telefonul ePhone: ecran principal cu aplicatii + Mesaje, Contacte, Apeluri, Banca, Setari. */
 public final class PhoneScreen extends FlowScreen {
-    private enum Page { HOME, MSG, THREAD, CONTACTS, CALLS, BANK, SETTINGS }
+    private enum Page { HOME, MSG, THREAD, CONTACTS, CALLS, BANK, SETTINGS, SIM }
 
-    private static final String[] APP_NAMES = {"Mesaje", "Contacte", "Apeluri", "Banca", "CNN", "Notificari", "Joburi", "Roata", "Harta", "Setari"};
-    private static final int[] APP_COLORS = {0xFF2F7FD6, 0xFF3A4F6B, 0xFF2E8F66, 0xFF245A99, 0xFFB0413B, 0xFFC28A2C, 0xFF4A6A8C, 0xFF7A5AA0, 0xFF2F8A9A, 0xFF3A4658};
+    private static final String[] APP_NAMES = {"Mesaje", "Contacte", "Apeluri", "Banca", "CNN", "Notificari", "Joburi", "Roata", "Harta", "Setari", "SIM"};
+    private static final int[] APP_COLORS = {0xFF2F7FD6, 0xFF3A4F6B, 0xFF2E8F66, 0xFF245A99, 0xFFB0413B, 0xFFC28A2C, 0xFF4A6A8C, 0xFF7A5AA0, 0xFF2F8A9A, 0xFF3A4658, 0xFF2E7D6B};
     /** Aplicatiile din dock (jos), restul stau in grila. */
     private static final int[] DOCK = {2, 0, 1, 3};
-    private static final int[] GRID = {4, 5, 6, 7, 9};
+    private static final int[] GRID = {4, 5, 6, 10, 7, 9};
     private static final int[] AVATAR = {0xFF2F6FB0, 0xFF3F7E8C, 0xFF4E7A8A, 0xFF5E5C9A, 0xFF8C7A3A, 0xFF4B5D7A, 0xFF2E8F66};
-    private static final int[][] WALL = {{0xFF0E1A2E, 0xFF060A14}, {0xFF12283C, 0xFF08121E}, {0xFF1B2433, 0xFF0A0F18}};
+    /** 3 fundaluri intunecate + aceleasi 3 in varianta luminoasa (mod luminos). */
+    private static final int[][] WALL = {{0xFF0E1A2E, 0xFF060A14}, {0xFF12283C, 0xFF08121E}, {0xFF1B2433, 0xFF0A0F18},
+        {0xFFCFE6FA, 0xFF8FB8E0}, {0xFFE2EEF8, 0xFFA9C8E4}, {0xFFD6DEEA, 0xFF9AA8BD}};
     private static final String[] WALL_NAMES = {"Noapte", "Gheata", "Fiord"};
-    private static int wallpaper = 0;
+    /** Aplicatiile care cer o cartela SIM activa (Mesaje, Apeluri). */
+    private static boolean needsSim(int app) {
+        return app == 0 || app == 2;
+    }
+
+    /** Deschide telefonul direct in aplicatia indicata de o notificare (sms, call, news, ads, bank, jobs). */
+    public static void openFor(String app) {
+        int idx = "sms".equals(app) ? 0 : "call".equals(app) ? 2 : "bank".equals(app) ? 3 : ("news".equals(app) || "ads".equals(app)) ? 4 : "jobs".equals(app) ? 6 : -1;
+        PhoneScreen ps = new PhoneScreen();
+        Minecraft.getInstance().setScreen(ps);
+        if (idx >= 0) ps.openApp(idx);
+    }
+
     private static int volumeStep = 2; // 0, 1(50%), 2(100%)
 
     private static final int W = 190;
@@ -179,6 +193,7 @@ public final class PhoneScreen extends FlowScreen {
             Ui.rect(ms, x + 14, y - 6, W - 28, 1, Sk.ACC);
             int sx = x, sy = y, sw = W, sh = ph2;
             wallpaper(ms, sx, sy, sw, sh, now);
+            if (PhoneState.light && (page != Page.HOME || PhoneState.call != null)) Ui.rect(ms, sx, sy, sw, sh, 0xD0060B14); // paginile aplicatiilor raman lizibile
             pw = sw;
             ph = sh;
             px = sx;
@@ -196,6 +211,7 @@ public final class PhoneScreen extends FlowScreen {
                     case CALLS: calls(ms, sx, sy, sw, sh, mx, my); break;
                     case BANK: bank(ms, sx, sy, sw, sh, mx, my); break;
                     case SETTINGS: settings(ms, sx, sy, sw, sh, mx, my); break;
+                    case SIM: sim(ms, sx, sy, sw, sh, mx, my); break;
                     default: break;
                 }
             }
@@ -210,7 +226,7 @@ public final class PhoneScreen extends FlowScreen {
     }
 
     private void wallpaper(GuiGraphics ms, int x, int y, int w, int h, long now) {
-        int[] c = WALL[wallpaper % WALL.length];
+        int[] c = WALL[(PhoneState.wallpaper % 3) + (PhoneState.light ? 3 : 0)];
         int steps = 24;
         for (int i = 0; i < steps; i++) {
             int y0 = y + h * i / steps;
@@ -218,7 +234,7 @@ public final class PhoneScreen extends FlowScreen {
             Ui.rect(ms, x, y0, w, Math.max(1, y1 - y0), Theme.mix(c[0], c[1], i / (float) (steps - 1)));
         }
         // granulatie fina, fixa (nu se misca), ca sa nu para un gradient "de program"
-        int seed = 7 + wallpaper * 131;
+        int seed = 7 + PhoneState.wallpaper * 131;
         for (int i = 0; i < 260; i++) {
             seed = seed * 1103515245 + 12345;
             int gx = x + ((seed >>> 8) & 0x7FFF) % w;
@@ -236,26 +252,41 @@ public final class PhoneScreen extends FlowScreen {
         }
     }
 
+    private int homeText() {
+        return PhoneState.light && page == Page.HOME && PhoneState.call == null ? 0xFF10243C : Sk.WHITE;
+    }
+
+    private String simLabel() {
+        if ("NONE".equals(PhoneState.simStatus)) return "FARA SIM";
+        if ("BLOCKED".equals(PhoneState.simStatus)) return "SIM BLOCAT";
+        if (PhoneState.signal <= 0) return "FARA SEMNAL";
+        return PhoneState.operator.isEmpty() ? "SIM ACTIV" : PhoneState.operator.toUpperCase();
+    }
+
     private void statusBar(GuiGraphics ms, int x, int y, int w, long now) {
         java.util.Calendar cal = java.util.Calendar.getInstance();
         String t = String.format("%02d:%02d", cal.get(java.util.Calendar.HOUR_OF_DAY), cal.get(java.util.Calendar.MINUTE));
-        Gfx.text(ms, t, x + 10, y + 10, 7.5f, Sk.WHITE, 0, true, 0.3f);
-        for (int i = 0; i < 4; i++) Ui.rect(ms, x + w - 44 + i * 3, y + 9 - (i + 1) * 2, 2, (i + 1) * 2, Sk.ACC);
-        Ui.frame(ms, x + w - 28, y + 3, 16, 7, 0x00000000, Sk.MUTED);
-        Ui.rect(ms, x + w - 27, y + 4, 12, 5, Sk.GOOD);
+        int tc = homeText();
+        Gfx.text(ms, t, x + 10, y + 10, 7.5f, tc, 0, true, 0.3f);
+        boolean ok = PhoneState.simActive();
+        int bars = ok ? Math.max(1, Math.min(4, PhoneState.signal)) : 0;
+        for (int i = 0; i < 4; i++) Ui.rect(ms, x + w - 22 + i * 3, y + 9 - (i + 1) * 2, 2, (i + 1) * 2, i < bars ? tc : 0x44808080);
+        Gfx.text(ms, simLabel(), x + w - 27, y + 10, 6.2f, ok ? tc : Sk.BAD, 2, false, 0.2f);
     }
 
     private void home(GuiGraphics ms, int x, int y, int w, int h, int mx, int my, long now) {
         java.util.Calendar cal = java.util.Calendar.getInstance();
         String t = String.format("%02d:%02d", cal.get(java.util.Calendar.HOUR_OF_DAY), cal.get(java.util.Calendar.MINUTE));
-        Gfx.text(ms, t, x + w / 2f, y + 46, 26, Sk.WHITE, 1, true, 1f);
+        Gfx.text(ms, t, x + w / 2f, y + 46, 26, homeText(), 1, true, 1f);
         String[] days = {"Duminica", "Luni", "Marti", "Miercuri", "Joi", "Vineri", "Sambata"};
-        Gfx.text(ms, (days[cal.get(java.util.Calendar.DAY_OF_WEEK) - 1] + ", " + cal.get(java.util.Calendar.DAY_OF_MONTH) + "." + (cal.get(java.util.Calendar.MONTH) + 1)).toUpperCase(), x + w / 2f, y + 62, 6.6f, Sk.MUTED, 1, false, 1.2f);
+        Gfx.text(ms, (days[cal.get(java.util.Calendar.DAY_OF_WEEK) - 1] + ", " + cal.get(java.util.Calendar.DAY_OF_MONTH) + "." + (cal.get(java.util.Calendar.MONTH) + 1)).toUpperCase(), x + w / 2f, y + 62, 6.6f, PhoneState.light ? 0xFF2A4A6E : Sk.MUTED, 1, false, 1.2f);
+        String line = PhoneState.simInstalled == null ? "Fara cartela SIM" : PhoneState.myNumber + "  -  " + PhoneState.operator;
+        Gfx.text(ms, line, x + w / 2f, y + 74, 6.4f, PhoneState.simInstalled == null ? Sk.BAD : (PhoneState.light ? 0xFF10243C : Sk.ACC), 1, false, 0.4f);
 
         int cols = 3;
         int cell = 56;
         int gx = x + (w - cols * cell) / 2;
-        int gy = y + 84;
+        int gy = y + 88;
         for (int k = 0; k < GRID.length; k++) {
             appIcon(ms, GRID[k], gx + (k % cols) * cell, gy + (k / cols) * 58, cell, mx, my, true);
         }
@@ -274,11 +305,13 @@ public final class PhoneScreen extends FlowScreen {
         int size = 30;
         int ox = cx + (cell - size) / 2;
         boolean hover = Ui.in(mx, my, cx, cy, cell, label ? 50 : 32);
-        int col = hover ? Theme.lighten(APP_COLORS[i], 12) : APP_COLORS[i];
+        boolean locked = needsSim(i) && !PhoneState.simActive();
+        int col = locked ? 0xFF3A4452 : (hover ? Theme.lighten(APP_COLORS[i], 12) : APP_COLORS[i]);
         Sk.cut(ms, ox, cy, size, size, 8f, col);
         Ui.rect(ms, ox + 8, cy, size - 8, 1, Theme.lighten(col, 40)); // muchie de sus
         icon(ms, i, ox + size / 2, cy + size / 2);
-        if (label) Gfx.text(ms, APP_NAMES[i], cx + cell / 2f, cy + size + 11, 7f, hover ? Sk.WHITE : Sk.MUTED, 1, false, 0.2f);
+        if (locked) Ui.rect(ms, ox + size - 9, cy + size - 9, 8, 8, Sk.BAD); // lacat: necesita SIM
+        if (label) Gfx.text(ms, APP_NAMES[i], cx + cell / 2f, cy + size + 11, 7f, locked ? Sk.FAINT : (hover ? (PhoneState.light ? 0xFF10243C : Sk.WHITE) : (PhoneState.light ? 0xFF2A4A6E : Sk.MUTED)), 1, false, 0.2f);
         int badge = i == 0 ? PhoneState.unread : (i == 2 ? PhoneState.missed : 0);
         if (badge > 0) {
             String b = badge > 9 ? "9+" : String.valueOf(badge);
@@ -326,6 +359,10 @@ public final class PhoneScreen extends FlowScreen {
                 Ui.rect(ms, cx - 9, cy - 9, 18, 18, c);
                 Ui.rect(ms, cx - 3, cy - 3, 6, 6, APP_COLORS[7]);
                 break;
+            case 10: // cartela SIM
+                Ui.rect(ms, cx - 7, cy - 9, 14, 18, c);
+                Ui.rect(ms, cx - 4, cy - 2, 8, 7, APP_COLORS[10]);
+                break;
             case 8: // pin
                 Ui.rect(ms, cx - 5, cy - 9, 10, 10, c);
                 Ui.rect(ms, cx - 1, cy + 1, 3, 8, c);
@@ -338,6 +375,10 @@ public final class PhoneScreen extends FlowScreen {
     }
 
     private void openApp(int app) {
+        if (needsSim(app) && !PhoneState.simActive()) {
+            toast("NONE".equals(PhoneState.simStatus) ? "Fara SIM: introdu o cartela din aplicatia SIM." : (PhoneState.signal <= 0 ? "Fara semnal in aceasta zona." : "Cartela SIM este blocata."), true);
+            return;
+        }
         openApp = app;
         pageSince = System.currentTimeMillis();
         Minecraft mc = Minecraft.getInstance();
@@ -350,6 +391,7 @@ public final class PhoneScreen extends FlowScreen {
             case 5: NotifyClient.requestHistory(false); mc.setScreen(new NotifyScreen()); break;
             case 6: ro.solarstudios.flowcity.fjobs.FJobsClient.open(); break;
             case 7: WheelClient.requestInfo(); mc.setScreen(new WheelScreen()); break;
+            case 10: PhoneClient.requestSim(); go(Page.SIM); break;
             default: go(Page.SETTINGS); break;
         }
     }
@@ -787,6 +829,58 @@ public final class PhoneScreen extends FlowScreen {
         }
     }
 
+    // ------------------------------------------------------------------ SIM
+
+    private static String simDate(long ts) {
+        return ts <= 0 ? "-" : new java.text.SimpleDateFormat("dd.MM.yyyy").format(new java.util.Date(ts));
+    }
+
+    private void sim(GuiGraphics ms, int x, int y, int w, int h, int mx, int my) {
+        appHeader(ms, x, y, w, "SIM", mx, my, true);
+        int yy = y + 44;
+        PhoneState.SimInfo in = PhoneState.simInstalled;
+        Sk.cut(ms, x + 8, yy, w - 16, 62, 10f, 0xFF1B2F4E);
+        Ui.rect(ms, x + 8, yy, 3, 62, in == null ? Sk.BAD : ("ACTIVE".equals(in.status) ? Sk.GOOD : Sk.BAD));
+        if (in == null) {
+            Ui.text(ms, "FARA SIM", x + 18, yy + 10, Sk.BAD);
+            Ui.text(ms, "Telefonul nu are cartela.", x + 18, yy + 24, Sk.MUTED);
+            Ui.text(ms, "SMS si apelurile sunt oprite.", x + 18, yy + 36, Sk.MUTED);
+        } else {
+            Ui.text(ms, in.operator, x + 18, yy + 8, Sk.MUTED);
+            Gfx.text(ms, in.number, x + 18, yy + 28, 10f, Sk.WHITE, 0, true, 0.6f);
+            Ui.text(ms, "ACTIVE".equals(in.status) ? "SIM ACTIV" : "SIM BLOCAT", x + 18, yy + 38, "ACTIVE".equals(in.status) ? Sk.GOOD : Sk.BAD);
+            Ui.text(ms, "Activata: " + simDate(in.since), x + 18, yy + 50, Sk.FAINT);
+            Ui.textRight(ms, in.id, x + w - 14, yy + 8, Sk.FAINT);
+        }
+        yy += 68;
+        if (in != null) {
+            button(ms, "SCOATE CARTELA", x + 8, yy, w - 16, 18, mx, my, true, Sk.BAD, PhoneClient::simEject);
+            yy += 24;
+        }
+        Ui.text(ms, "Cartele in inventar", x + 10, yy + 2, Sk.MUTED);
+        yy += 14;
+        int shown = 0;
+        for (PhoneState.SimInfo s : PhoneState.simInv) {
+            if (shown++ >= 3) break;
+            Ui.rect(ms, x + 8, yy + 24, w - 16, 1, 0x22FFFFFF);
+            Ui.text(ms, s.operator + "  " + s.number, x + 14, yy + 4, Sk.WHITE);
+            boolean free = "FREE".equals(s.state) && in == null;
+            String st = "FREE".equals(s.state) ? (in == null ? "" : "Scoate cartela actuala") : ("USED".equals(s.state) ? "Folosita de alt telefon" : ("BLOCKED".equals(s.state) ? "Blocata" : "Copie invalida"));
+            if (free) {
+                button(ms, "INTRODU", x + w - 66, yy + 2, 58, 16, mx, my, true, Sk.ACC_DARK, () -> PhoneClient.simInsert(s.id));
+            } else {
+                Ui.text(ms, st, x + 14, yy + 15, Sk.FAINT);
+            }
+            yy += 28;
+        }
+        if (shown == 0) Ui.textCenter(ms, "Nicio cartela in inventar.", x + w / 2, yy + 6, Sk.FAINT);
+        yy = Math.max(yy + (shown == 0 ? 22 : 0), y + h - 86);
+        Ui.text(ms, "Cumpara cartela noua", x + 10, yy, Sk.MUTED);
+        String op = PhoneState.simOps.isEmpty() ? "-" : PhoneState.simOps.get(PhoneState.simOpSel % PhoneState.simOps.size());
+        button(ms, "Operator: " + op, x + 8, yy + 12, w - 16, 18, mx, my, !PhoneState.simOps.isEmpty(), 0xFF22324A, () -> PhoneState.simOpSel = (PhoneState.simOpSel + 1) % PhoneState.simOps.size());
+        button(ms, "CUMPARA  " + Ui.money(PhoneState.simPrice), x + 8, yy + 34, w - 16, 18, mx, my, !PhoneState.simOps.isEmpty(), Sk.ACC_DARK, () -> PhoneClient.simBuy(op));
+    }
+
     // ------------------------------------------------------------------ Setari
 
     private void settings(GuiGraphics ms, int x, int y, int w, int h, int mx, int my) {
@@ -806,7 +900,14 @@ public final class PhoneScreen extends FlowScreen {
             FlowSounds.volume = volumeStep == 0 ? 0f : (volumeStep == 1 ? 0.5f : 1f);
             FlowSounds.play("notify", 0.8F);
         });
-        row(ms, x, yy, w, "Fundal telefon", WALL_NAMES[wallpaper % WALL.length], mx, my, () -> wallpaper = (wallpaper + 1) % WALL.length);
+        yy = row(ms, x, yy, w, "Mod luminos", PhoneState.light ? "Pornit" : "Oprit", mx, my, () -> {
+            PhoneState.light = !PhoneState.light;
+            PhoneClient.savePrefs();
+        });
+        row(ms, x, yy, w, "Fundal telefon", WALL_NAMES[PhoneState.wallpaper % 3], mx, my, () -> {
+            PhoneState.wallpaper = (PhoneState.wallpaper + 1) % 3;
+            PhoneClient.savePrefs();
+        });
     }
 
     private int row(GuiGraphics ms, int x, int yy, int w, String label, String value, int mx, int my, Runnable r) {

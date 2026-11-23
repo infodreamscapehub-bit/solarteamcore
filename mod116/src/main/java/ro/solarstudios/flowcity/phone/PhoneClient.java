@@ -30,9 +30,36 @@ public final class PhoneClient extends JsonClientModule {
             PhoneState.unread = integer(d, "unread", 0);
             PhoneState.missed = integer(d, "missed", 0);
             PhoneState.myNumber = str(d, "number", PhoneState.myNumber);
+            PhoneState.operator = str(d, "operator", PhoneState.operator);
+            PhoneState.simStatus = str(d, "simStatus", PhoneState.simStatus);
+            PhoneState.signal = integer(d, "signal", PhoneState.signal);
             if (PhoneState.unread > 0 && !shownUnread) {
                 shownUnread = true;
                 NotifyToasts.add("INFO", "Telefon", "Ai " + PhoneState.unread + " mesaje necitite.");
+            }
+        });
+        on("signal", d -> PhoneState.signal = integer(d, "signal", 4));
+        on("prefs", d -> {
+            PhoneState.wallpaper = integer(d, "wallpaper", 0);
+            PhoneState.light = bool(d, "light", false);
+        });
+        on("sim", d -> {
+            PhoneState.simInstalled = d.has("installed") ? sim(d.getAsJsonObject("installed")) : null;
+            PhoneState.simInv.clear();
+            if (d.has("inv")) for (JsonElement e : d.getAsJsonArray("inv")) PhoneState.simInv.add(sim(e.getAsJsonObject()));
+            PhoneState.simOps.clear();
+            if (d.has("operators")) for (JsonElement e : d.getAsJsonArray("operators")) PhoneState.simOps.add(e.getAsString());
+            if (PhoneState.simOpSel >= PhoneState.simOps.size()) PhoneState.simOpSel = 0;
+            PhoneState.simPrice = d.has("price") ? d.get("price").getAsDouble() : 0;
+            PhoneState.signal = integer(d, "signal", PhoneState.signal);
+            if (PhoneState.simInstalled == null) {
+                PhoneState.simStatus = "NONE";
+                PhoneState.operator = "";
+                PhoneState.myNumber = "";
+            } else {
+                PhoneState.simStatus = PhoneState.simInstalled.status;
+                PhoneState.operator = PhoneState.simInstalled.operator;
+                PhoneState.myNumber = PhoneState.simInstalled.number;
             }
         });
         on("contacts", d -> {
@@ -141,6 +168,17 @@ public final class PhoneClient extends JsonClientModule {
 
     private static boolean shownUnread;
 
+    private static PhoneState.SimInfo sim(JsonObject o) {
+        PhoneState.SimInfo s = new PhoneState.SimInfo();
+        s.id = str(o, "id", "");
+        s.number = str(o, "number", "");
+        s.operator = str(o, "operator", "");
+        s.status = str(o, "status", "ACTIVE");
+        s.state = str(o, "state", "");
+        s.since = lng(o, "since", 0);
+        return s;
+    }
+
     private static PhoneState.Person person(JsonObject o) {
         PhoneState.Person p = new PhoneState.Person();
         p.uuid = str(o, "uuid", "");
@@ -196,6 +234,30 @@ public final class PhoneClient extends JsonClientModule {
 
     public static void requestThread(String uuid) {
         req("thread", with("uuid", uuid));
+    }
+
+    public static void requestSim() {
+        req("sim.info", null);
+    }
+
+    public static void simInsert(String id) {
+        req("sim.insert", with("id", id));
+    }
+
+    public static void simEject() {
+        req("sim.eject", null);
+    }
+
+    public static void simBuy(String operator) {
+        req("sim.buy", with("operator", operator));
+    }
+
+    /** Salveaza fundalul si modul luminos pe server (se pastreaza intre sesiuni). */
+    public static void savePrefs() {
+        JsonObject o = new JsonObject();
+        o.addProperty("wallpaper", PhoneState.wallpaper);
+        o.addProperty("light", PhoneState.light);
+        req("prefs.set", o);
     }
 
     public static void requestCalls() {

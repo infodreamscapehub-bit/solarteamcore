@@ -15,6 +15,18 @@ public final class NotifyState {
         public String text = "";
         public long ts;
         public boolean read;
+        /** Aplicatia de telefon care se deschide la apasare (sms, call, news, ads, bank, jobs); gol = dupa tip. */
+        public String app = "";
+
+        public String targetApp() {
+            if (!app.isEmpty()) return app;
+            switch (type) {
+                case "NEWS": return "news";
+                case "MONEY": return "bank";
+                case "JOB": return "jobs";
+                default: return "";
+            }
+        }
     }
 
     public static final List<Item> history = new ArrayList<>();

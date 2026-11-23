@@ -33,6 +33,20 @@ update:
 phone:
   # true = ai nevoie de un telefon (item flowcitycore:phone*) in inventar pentru mesaje/apeluri
   require-item: true
+  # Cartele SIM: item real in inventar (ID unic, numar unic). Fara SIM activ nu merg SMS-urile si apelurile (112 poate fi permis).
+  sim:
+    price: 200.0                    # pretul unei cartele noi (platit din Vault / economia serverului)
+    operators:                      # operatorii dintre care alege cumparatorul
+      - Orange
+      - Vodafone
+      - Digi
+    number-format: "07## ### ###"   # # = cifra aleatoare; numerele sunt unice pe server
+    material: PAPER                 # materialul itemului de cartela (marcat server-side, nu se poate falsifica)
+    allow-transfer: true            # true = cine tine cartela fizic o poate introduce (devine proprietar); false = doar proprietarul
+    max-in-inventory: 3             # cate cartele poate avea cumparatorul in inventar odata
+    emergency-without-sim: true     # apelul la 112 merge si fara SIM
+  signal:
+    dead-zones: []                  # zone fara semnal, ex: "world,1200,-300,150" (lume,x,z,raza)
   call:
     ring-timeout-seconds: 30        # dupa cate secunde apelul nesunat devine "pierdut"
     max-minutes: 0                  # durata maxima a unui apel (0 = nelimitat)
