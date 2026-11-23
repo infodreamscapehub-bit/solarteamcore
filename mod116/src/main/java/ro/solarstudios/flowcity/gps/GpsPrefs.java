@@ -28,7 +28,56 @@ public final class GpsPrefs {
     public static boolean showDisabled = true;
     /** Anunturi sonore + mesaj la viraje (GPS pe drumuri). */
     public static boolean navSound = true;
+    /** Notificare + sunet cand ajungi la destinatie. */
+    public static boolean notify = true;
+
+    /** Intrare in istoricul destinatiilor. */
+    public static final class Hist {
+        public String id = "";
+        public String name = "";
+        public double x;
+        public double z;
+        public String dim = "minecraft:overworld";
+        public int color = 0xFF4DA3FF;
+        public long at;
+    }
+
+    public static final int HIST_MAX = 20;
+    public static final java.util.List<Hist> history = new java.util.ArrayList<>();
     private static boolean loaded;
+
+    /** Adauga in istoric (cea mai recenta prima; aceeasi destinatie nu se repeta). */
+    public static void addHistory(String id, String name, double x, double z, String dim, int color) {
+        for (int i = history.size() - 1; i >= 0; i--) {
+            Hist h = history.get(i);
+            if (h.name.equals(name) && Math.abs(h.x - x) < 1 && Math.abs(h.z - z) < 1) history.remove(i);
+        }
+        Hist h = new Hist();
+        h.id = id == null ? "" : id;
+        h.name = name;
+        h.x = x;
+        h.z = z;
+        h.dim = dim;
+        h.color = color;
+        h.at = System.currentTimeMillis();
+        history.add(0, h);
+        while (history.size() > HIST_MAX) history.remove(history.size() - 1);
+        save();
+    }
+
+    /** Reface setarile GPS la valorile implicite (favoritele si istoricul raman). */
+    public static void resetSettings() {
+        showZones = null;
+        zoom = 0f;
+        hiddenLayers.clear();
+        hiddenLayers.add("roads");
+        grid = false;
+        showDisabled = true;
+        navSound = true;
+        notify = true;
+        ro.solarstudios.flowcity.gps.MiniMapSettings.hiddenCats.clear();
+        save();
+    }
 
     static {
         // reteaua de drumuri e ascunsa implicit pe harta jucatorilor (se vede doar traseul)
@@ -65,6 +114,23 @@ public final class GpsPrefs {
             if (o.has("navSound")) navSound = o.get("navSound").getAsBoolean();
             if (o.has("grid")) grid = o.get("grid").getAsBoolean();
             if (o.has("showDisabled")) showDisabled = o.get("showDisabled").getAsBoolean();
+            if (o.has("notify")) notify = o.get("notify").getAsBoolean();
+            history.clear();
+            if (o.has("history") && o.get("history").isJsonArray()) {
+                for (JsonElement e : o.getAsJsonArray("history")) {
+                    if (!e.isJsonObject() || history.size() >= HIST_MAX) continue;
+                    JsonObject h = e.getAsJsonObject();
+                    Hist x = new Hist();
+                    x.id = h.has("id") ? h.get("id").getAsString() : "";
+                    x.name = h.has("name") ? h.get("name").getAsString() : "";
+                    x.x = h.has("x") ? h.get("x").getAsDouble() : 0;
+                    x.z = h.has("z") ? h.get("z").getAsDouble() : 0;
+                    x.dim = h.has("dim") ? h.get("dim").getAsString() : "minecraft:overworld";
+                    x.color = h.has("color") ? h.get("color").getAsInt() : 0xFF4DA3FF;
+                    x.at = h.has("at") ? h.get("at").getAsLong() : 0L;
+                    if (!x.name.isEmpty()) history.add(x);
+                }
+            }
         } catch (IOException | RuntimeException ignored) {
             // fisier lipsa sau stricat: preferinte implicite
         }
@@ -85,6 +151,20 @@ public final class GpsPrefs {
             o.addProperty("navSound", navSound);
             o.addProperty("grid", grid);
             o.addProperty("showDisabled", showDisabled);
+            o.addProperty("notify", notify);
+            JsonArray ha = new JsonArray();
+            for (Hist x : history) {
+                JsonObject h = new JsonObject();
+                h.addProperty("id", x.id);
+                h.addProperty("name", x.name);
+                h.addProperty("x", x.x);
+                h.addProperty("z", x.z);
+                h.addProperty("dim", x.dim);
+                h.addProperty("color", x.color);
+                h.addProperty("at", x.at);
+                ha.add(h);
+            }
+            o.add("history", ha);
             Files.write(file(), o.toString().getBytes(StandardCharsets.UTF_8));
         } catch (IOException ignored) {
             // nu putem salva: preferintele raman doar in sesiune

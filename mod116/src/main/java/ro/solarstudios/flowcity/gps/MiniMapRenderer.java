@@ -197,6 +197,7 @@ public final class MiniMapRenderer {
             if (MiniMapSettings.showZones && !MiniMapSettings.lowPerf) drawZones(g, mc, op);
             if (MiniMapSettings.showLocations) drawLocs(g, mc);
             drawRoute(g, mc);
+        drawWps(g, mc);
         drawWaypoint(g, mc);
             drawPlayer(g, yaw);
             drawFrame(g, size, circle);
@@ -282,6 +283,17 @@ public final class MiniMapRenderer {
             float y1 = ay + (by - ay) * MiniMapClip.t1;
             Gfx.line(g, x0, y0, x1, y1, 4.2f, 0xB0081018);
             Gfx.line(g, x0, y0, x1, y1, 2.4f, col);
+        }
+    }
+
+    /** Waypoint-urile salvate (personale + partajate) aflate in raza minimapului. */
+    private static void drawWps(GuiGraphics g, Minecraft mc) {
+        if (!MiniMapSettings.showWaypoint || !GpsPrefs.layerOn("waypoints")) return;
+        String dim = GpsData.dimOf(mc);
+        for (GpsWps.Wp w : GpsWps.all()) {
+            if (!w.dim.equals(dim) || GpsNav.isTarget("wp:" + w.id)) continue;
+            project(w.x, w.z);
+            if (MiniMapClip.inside(clip, clipN, outX, outY)) GpsIcons.pin(g, "pin", outX, outY, 4.4f, w.color, 1f, false);
         }
     }
 

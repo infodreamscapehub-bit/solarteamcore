@@ -38,6 +38,8 @@ public final class GpsNav {
         lastAt = 0;
         speed = 0;
         RoadRouteProvider.I.reset();
+        GpsPrefs.load();
+        GpsPrefs.addHistory(GpsNav.id, GpsNav.name, x, z, GpsNav.dim, color);
         Minecraft mc = Minecraft.getInstance();
         if (mc.player != null) mc.getSoundManager().play(SimpleSound.forUI(SoundEvents.EXPERIENCE_ORB_PICKUP, 1.2f));
     }
@@ -113,8 +115,10 @@ public final class GpsNav {
         if (d >= 0 && d <= GpsData.arrive) {
             String n = name;
             clear();
-            mc.player.displayClientMessage(new StringTextComponent("§b[GPS] §fAi ajuns la destinație: §b" + n), true);
-            mc.getSoundManager().play(SimpleSound.forUI(SoundEvents.PLAYER_LEVELUP, 1.0f));
+            if (GpsPrefs.notify) {
+                mc.player.displayClientMessage(new StringTextComponent("§b[GPS] §fAi ajuns la destinație: §b" + n), true);
+                mc.getSoundManager().play(SimpleSound.forUI(SoundEvents.PLAYER_LEVELUP, 1.0f));
+            }
         }
     }
 }

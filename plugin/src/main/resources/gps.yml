@@ -7,6 +7,25 @@
 # Coordonate: x si z (inaltimea nu conteaza). "dimension": minecraft:overworld (implicit), minecraft:the_nether, minecraft:the_end.
 # Navigarea este DIRECTA (sageata + distanta in linie dreapta), nu ruta pe strazi.
 
+# ---------------------------------------------------------------------------------------------------------------
+# HARTA PARTAJATA (nu e migrata, se citeste direct de aici; se aplica la repornirea serverului)
+# Clientii cu permisiunea flowcity.gps.upload trimit serverului dalele de 64x64 blocuri pe care le-au explorat; serverul le
+# valideaza, le uneste si le salveaza in plugins/FlowCityBridge/gps/map/ ; toti jucatorii primesc dalele lipsa cand le privesc.
+map:
+  enabled: true
+  quality: 1              # 1 = un pixel pe bloc (~5-12 KB/dala pe disc), 2 = jumatate din rezolutie, 4 = sfert (dale mai mici si mai rapide)
+  max-tiles: 40000        # plafon de dale pe disc (o dala = 64x64 blocuri; 40000 dale ~ 12.800 x 12.800 blocuri)
+  radius: 12000           # nu se accepta dale mai departe de atatea blocuri de (0,0)
+  upload-range: 640       # dala se accepta doar daca e la cel mult atatea blocuri de pozitia jucatorului care o trimite
+  upload-per-minute: 90   # cate dale poate trimite un jucator pe minut
+  upload-min-gap-ms: 600  # pauza minima intre doua mesaje de upload ale aceluiasi jucator
+  admin-max-side: 4096    # latura maxima (blocuri) a zonei pe care un admin o poate sterge/reimprospata dintr-o data
+
+# Waypoint-uri personale (cate un fisier per jucator in plugins/FlowCityBridge/gps/waypoints/)
+waypoints:
+  max-personal: 50
+  max-shared: 100         # waypoint-uri partajate (create doar de admini din harta)
+
 settings:
   arrive-distance: 8      # la cate blocuri de destinatie se considera ca ai ajuns (GPS-ul se opreste)
   show-zones: true        # zonele RP apar implicit pe harta (jucatorul le poate opri din meniu)

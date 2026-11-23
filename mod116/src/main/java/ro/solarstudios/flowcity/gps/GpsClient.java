@@ -53,6 +53,17 @@ public final class GpsClient extends JsonClientModule {
         on("open", d -> wantOpen = true);
         on("set", d -> GpsNav.set("srv", str(d, "name", "Destinație"), num(d, "x", 0), num(d, "z", 0), str(d, "dim", "minecraft:overworld"), 0xFF4DA3FF));
         on("cancel", d -> GpsNav.clear());
+        // harta partajata (SharedMap in plugin)
+        on("map.cfg", GpsShared::onCfg);
+        on("map.idx", GpsShared::onIdx);
+        on("map.upd", GpsShared::onUpd);
+        on("map.ack", GpsShared::onAck);
+        on("map.tiles", GpsShared::onTiles);
+        on("map.del", GpsShared::onDel);
+        on("map.res", GpsShared::onRes);
+        // waypoint-uri personale / partajate (GpsWaypoints in plugin)
+        on("wp.list", GpsWps::onList);
+        on("wp.err", GpsWps::onErr);
     }
 
     @Override
@@ -65,6 +76,8 @@ public final class GpsClient extends JsonClientModule {
         GpsData.clear();
         RoadNet.clear();
         GpsNav.clear();
+        GpsWps.clear();
+        GpsShared.reset();
         GpsMap.shutdown();
         wantOpen = false;
     }
@@ -98,6 +111,18 @@ public final class GpsClient extends JsonClientModule {
         instance.send("edit", o);
     }
 
+    /** Mesaje ale hartii partajate (map.put / map.get / map.del). */
+    static void sendMap(String action, JsonObject o) {
+        if (instance == null) return;
+        instance.send(action, o);
+    }
+
+    /** Mesaje de waypoint-uri (wp.req / wp.set / wp.del). */
+    static void sendWp(String action, JsonObject o) {
+        if (instance == null) return;
+        instance.send(action, o);
+    }
+
     public static void open() {
         wantOpen = true;
     }
@@ -121,6 +146,7 @@ public final class GpsClient extends JsonClientModule {
             int budget = mc.screen instanceof GpsScreen ? 10 : (MiniMapSettings.lowPerf ? 1 : 2);
             // mod performanta redusa: scanam harta doar la fiecare al doilea tick
             if (budget > 1 || (++lowTick & 1) == 0) GpsMap.tick(mc, budget);
+            GpsShared.tick(mc);
             GpsNav.tick(mc);
             if (key != null) {
                 while (key.consumeClick()) {

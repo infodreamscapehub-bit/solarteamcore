@@ -35,9 +35,12 @@ import ro.solarstudios.flowcity.bridge.module.JsonModule;
 public final class GpsModule extends JsonModule {
     private static final String TAG = "§b[GPS] §7";
     private static final String PERM_ADMIN = "flowcity.gps.admin";
+    private static final String PERM_UPLOAD = "flowcity.gps.upload";
     private static final String OVERWORLD = GpsStore.OVERWORLD;
 
     private GpsStore store;
+    private SharedMap map;
+    private GpsWaypoints wps;
     private final Map<UUID, RoadBuf> roadBufs = new HashMap<>();
     private final Map<UUID, Long> lastRoadOp = new HashMap<>();
     private Scan scan;
@@ -53,8 +56,22 @@ public final class GpsModule extends JsonModule {
     protected void onEnable() {
         Commands.permission("flowcity.gps.use", "Poate folosi harta GPS", PermissionDefault.TRUE);
         Commands.permission(PERM_ADMIN, "Editeaza harta GPS (locatii, zone, categorii) din interfata", PermissionDefault.OP);
+        Commands.permission(PERM_UPLOAD, "Trimite serverului părți din harta explorată (harta partajată GPS)", PermissionDefault.TRUE);
         load();
         on("request", (p, j) -> send(p, "config", build(p)));
+        // harta partajata + waypoint-uri (vezi SharedMap / GpsWaypoints)
+        on("map.put", (p, j) -> map.put(p, j));
+        on("map.get", (p, j) -> map.get(p, j));
+        on("map.del", (p, j) -> {
+            if (!isAdmin(p)) {
+                mapResult(p, false, "Nu ai permisiunea.");
+                return;
+            }
+            map.adminZone(p, j);
+        });
+        on("wp.req", (p, j) -> wps.sendList(p));
+        on("wp.set", (p, j) -> wps.set(p, j, isAdmin(p)));
+        on("wp.del", (p, j) -> wps.delete(p, j, isAdmin(p)));
         on("edit", this::edit);
         on("roads.req", (p, j) -> {
             if (((long) num(j, "ver", -1)) != store.roads.ver) sendRoads(p);
@@ -66,10 +83,22 @@ public final class GpsModule extends JsonModule {
     public void onClientReady(Player p) {
         send(p, "config", build(p));
         sendRoads(p);
+        wps.sendList(p);
+        map.onClientReady(p);
+    }
+
+    /** Raspuns pentru operatiile de admin pe harta partajata (sterge / reimprospateaza zona). */
+    void mapResult(Player p, boolean ok, String msg) {
+        JsonObject o = new JsonObject();
+        o.addProperty("ok", ok);
+        o.addProperty("msg", msg);
+        send(p, "map.res", o);
     }
 
     @Override
     public void onQuit(Player p) {
+        if (map != null) map.onQuit(p);
+        if (wps != null) wps.onQuit(p);
         roadBufs.remove(p.getUniqueId());
         if (scan != null && scan.owner.equals(p.getUniqueId())) stopScan();
     }
@@ -77,6 +106,7 @@ public final class GpsModule extends JsonModule {
     @Override
     public void disable() {
         stopScan();
+        if (map != null) map.shutdown();
     }
 
     private void load() {
@@ -84,6 +114,9 @@ public final class GpsModule extends JsonModule {
         YamlConfiguration legacy = YamlConfiguration.loadConfiguration(new File(plugin.getDataFolder(), "gps-data.yml"));
         store = new GpsStore(plugin.getDataFolder(), plugin.getLogger());
         store.load(cfg, legacy);
+        File gpsDir = new File(plugin.getDataFolder(), "gps");
+        map = new SharedMap(this, plugin, gpsDir, cfg);
+        wps = new GpsWaypoints(this, plugin.getLogger(), gpsDir, cfg);
     }
 
     private static boolean isAdmin(Player p) {
