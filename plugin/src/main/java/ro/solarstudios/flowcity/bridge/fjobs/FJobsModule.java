@@ -167,6 +167,8 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
         on("pause", (p, j) -> pauseShift(p, true));
         on("resume", (p, j) -> pauseShift(p, false));
         on("top", (p, j) -> sendTop(p, str(j, "by", "earned")));
+        on("shop", (p, j) -> sendShop(p));
+        on("shop_buy", this::shopBuy);
         on("panel", (p, j) -> openPanel(p));
         on("panel_close", (p, j) -> panelViewers.remove(p.getUniqueId()));
         on("panel_act", this::panelAct);
@@ -695,6 +697,67 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
         o.addProperty("mine", mine);
         o.addProperty("total", all.size());
         send(p, "top", o);
+    }
+
+    // ------------------------------------------------------------------ magazin profesional
+
+    /** Magazinul profesional: echipamentul tuturor joburilor (pe categorii), starea celui detinut si istoricul achizitiilor. */
+    private void sendShop(Player p) {
+        FJobsData.Profile pr = prof(p);
+        JsonObject o = new JsonObject();
+        JsonArray js = new JsonArray();
+        for (FJobDef jd : jobs.values()) {
+            if (!jd.active || gear.defs(jd).isEmpty()) continue;
+            JsonObject e = new JsonObject();
+            e.addProperty("id", jd.id);
+            e.addProperty("name", jd.name);
+            e.addProperty("group", jd.group);
+            e.addProperty("icon", jd.icon);
+            e.addProperty("mine", jd.id.equals(pr.job));
+            e.addProperty("level", jobLevel(pr, jd.id));
+            e.add("items", gear.state(p, jd));
+            js.add(e);
+        }
+        o.add("jobs", js);
+        o.addProperty("cash", plugin.money().balance(p.getUniqueId()));
+        o.addProperty("current", pr.job);
+        JsonArray hist = new JsonArray();
+        long now = System.currentTimeMillis();
+        for (int i = pr.history.size() - 1; i >= 0 && hist.size() < 30; i--) {
+            FJobsData.Entry en = pr.history.get(i);
+            if (!"buy".equals(en.type)) continue;
+            JsonObject h = new JsonObject();
+            h.addProperty("ageSec", Math.max(0, (now - en.at) / 1000));
+            h.addProperty("job", en.job);
+            h.addProperty("text", en.text);
+            h.addProperty("money", en.money);
+            hist.add(h);
+        }
+        o.add("history", hist);
+        send(p, "shop", o);
+    }
+
+    /** Cumparare din magazinul profesional: doar pentru jobul curent; pretul, nivelul si limita le verifica FJobsGear.buy. */
+    private void shopBuy(Player p, JsonObject j) {
+        if (throttled(p) || creative(p)) return;
+        FJobsData.Profile pr = prof(p);
+        FJobDef jd = jobs.get(str(j, "job", "").toLowerCase(Locale.ROOT));
+        if (jd == null || !jd.id.equals(pr.job)) {
+            msg(p, false, "Poti cumpara doar echipamentul jobului tau actual.");
+            return;
+        }
+        String id = str(j, "id", "");
+        FJobsGear.Def d = gear.def(jd, id);
+        int qty = (int) Math.max(1, Math.min(8, num(j, "qty", 1)));
+        double before = plugin.money().balance(p.getUniqueId());
+        if (d != null && gear.buy(p, jd, id, qty)) {
+            double paid = HypeMath.round2(Math.max(0, before - plugin.money().balance(p.getUniqueId())));
+            int amount = d.pack * (d.consumable ? qty : 1);
+            store.addHistory(pr, "buy", jd.id, "Cumparat " + d.name + (amount > 1 ? " x" + amount : "") + " (" + jd.name + ")", paid);
+            pr.dirty = true;
+        }
+        sendShop(p);
+        sendData(p, false);
     }
 
     // ------------------------------------------------------------------ plata / XP

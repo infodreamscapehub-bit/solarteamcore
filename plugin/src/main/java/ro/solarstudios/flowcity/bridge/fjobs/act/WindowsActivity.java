@@ -15,13 +15,17 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.ItemStack;
 import ro.solarstudios.flowcity.bridge.fjobs.FJobDef;
 
 /**
  * SPALATOR DE GEAMURI: o cladire = grup de puncte cu acelasi prefix ("Bloc A - ..."): punctul "platform" (platforma de lucru) si
  * punctele "window" (ferestrele). Misiune: mergi la platforma (urci pe ea), apoi speli fiecare fereastra cu racleta (click dreapta pe
  * geam). Fiecare fereastra are murdarie 0-100%, vizibila doar tie (geamurile din jur devin colorate, iar culoarea se schimba pe masura
- * ce speli). Ploaia murdareste din nou ferestrele neterminate. Plata: per fereastra (dupa murdaria indepartata) + bonus de finalizare dupa timpul fata de timpul-tinta.
+ * ce speli). Etape (Iteme profesionale 2.0, optionale, dar cresc calitatea si plata): 1) umezire cu galeata cu apa, 2) solutie de
+ * curatare (se consuma), 3) curatare cu buretele (unealta jobului), 4) finisare cu racleta cand murdaria scade sub prag. Starea suprafetei
+ * (ud / solutie / finisat / murdarie) e tinuta separat, pe server, per fereastra; blocurile reale (orice geam, geam colorat sau panou)
+ * nu sunt inlocuite niciodata - culoarea murdariei e trimisa doar clientului. Ploaia murdareste din nou ferestrele neterminate. Plata: per fereastra (dupa murdaria indepartata) + bonus de finalizare dupa timpul fata de timpul-tinta.
  */
 public final class WindowsActivity extends BaseActivity<WindowsActivity.St> {
     static final class Win {
@@ -31,6 +35,14 @@ public final class WindowsActivity extends BaseActivity<WindowsActivity.St> {
         final List<Location> glass = new ArrayList<>();
         int shown = -1;
         boolean paid;
+        boolean wet;
+        boolean soap;
+        boolean polished;
+
+        /** Calitatea curatarii (55-100%): +15 umezire, +15 solutie, +15 finisare cu racleta. */
+        int quality() {
+            return 55 + (wet ? 15 : 0) + (soap ? 15 : 0) + (polished ? 15 : 0);
+        }
     }
 
     static final class St {
@@ -97,7 +109,7 @@ public final class WindowsActivity extends BaseActivity<WindowsActivity.St> {
 
     private void giveTool(Player p, FJobDef jd) {
         if (Items.tagged(api.plugin(), p, "fj_tool").isEmpty()) {
-            Items.give(p, Items.make(api.plugin(), toolMat(jd), "§bRacleta de geamuri", Items.lore("§7Click dreapta pe geam, pe platforma.", "§8Unealta de serviciu FJobs"), "fj_tool", "windows"));
+            Items.give(p, Items.make(api.plugin(), toolMat(jd), "§bBurete profesional", Items.lore("§7Click dreapta pe geam, pe platforma (dupa apa si solutie).", "§8Unealta de serviciu FJobs"), "fj_tool", "windows"));
         }
     }
 
@@ -246,7 +258,13 @@ public final class WindowsActivity extends BaseActivity<WindowsActivity.St> {
         St s = state(p);
         if (s.building == null) return;
         if (!isGlass(e.getClickedBlock().getType())) return;
-        if (!"windows".equals(Items.tag(api.plugin(), e.getItem(), "fj_tool"))) return;
+        boolean sponge = "windows".equals(Items.tag(api.plugin(), e.getItem(), "fj_tool"));
+        String gtag = Items.tag(api.plugin(), e.getItem(), ro.solarstudios.flowcity.bridge.fjobs.FJobsGear.TAG);
+        String g = gtag == null || !gtag.startsWith(jd.id + ":") ? "" : gtag.substring(jd.id.length() + 1);
+        boolean water = "water".equals(g);
+        boolean soap = "solution".equals(g);
+        boolean squeegee = "squeegee".equals(g);
+        if (!sponge && !water && !soap && !squeegee) return;
         e.setCancelled(true);
         if (!s.onPlatform) {
             Fx.bar(p, "§cUrca intai pe platforma de lucru.");
@@ -270,22 +288,59 @@ public final class WindowsActivity extends BaseActivity<WindowsActivity.St> {
             return;
         }
         s.lastStroke = now;
-        double stroke = jd.cd("stroke", 25);
+        if (water) {
+            if (target.wet) {
+                Fx.bar(p, "§7Geamul e deja umezit. Aplica solutia, apoi buretele.");
+                return;
+            }
+            target.wet = true;
+            Fx.particle(p, "WATER_SPLASH", bl.clone().add(0.5, 0.5, 0.5), 18, 0.4);
+            Fx.sound(p, "ITEM_BUCKET_EMPTY", 0.6f, 1.3f);
+            Fx.bar(p, "§bUmezit (" + target.quality() + "% calitate). Urmeaza: solutia de curatare.");
+            return;
+        }
+        if (soap) {
+            if (target.soap) {
+                Fx.bar(p, "§7Solutia e deja aplicata. Curata cu buretele.");
+                return;
+            }
+            ItemStack it = e.getItem();
+            if (it.getAmount() <= 1) p.getInventory().setItemInMainHand(null);
+            else it.setAmount(it.getAmount() - 1);
+            target.soap = true;
+            Fx.particle(p, "SPELL_INSTANT", bl.clone().add(0.5, 0.5, 0.5), 10, 0.3);
+            Fx.sound(p, "BLOCK_BREWING_STAND_BREW", 0.4f, 1.6f);
+            Fx.bar(p, "§bSolutie aplicata (" + target.quality() + "% calitate). Curata cu buretele.");
+            return;
+        }
+        double finishAt = jd.cd("squeegee-at", 25);
+        if (squeegee) {
+            if (target.dirt > finishAt) {
+                Fx.bar(p, "§7Racleta se foloseste la final: curata intai cu buretele sub " + (int) finishAt + "% murdarie.");
+                return;
+            }
+            target.polished = true;
+        }
+        double stroke = jd.cd("stroke", 25) * (target.soap ? 1.25 : 1.0) * (target.wet ? 1.15 : 1.0);
+        if (squeegee) stroke = target.dirt; // finisarea indeparteaza tot ce a ramas
         double removed = Math.min(stroke, target.dirt);
         target.dirt -= removed;
         Fx.particle(p, "WATER_SPLASH", bl.clone().add(0.5, 0.5, 0.5), 10, 0.3);
         Fx.sound(p, "BLOCK_GLASS_HIT", 0.5f, 1.5f);
         paint(p, target);
         Diff d = diff(p, jd);
-        double wpay = jd.cd("window-pay", 14) * (removed / Math.max(1, target.initial));
+        double qf = 0.7 + 0.3 * (target.quality() - 55) / 45.0;   // calitatea scade/creste plata (70%-100%)
+        double wpay = jd.cd("window-pay", 14) * (removed / Math.max(1, target.initial)) * qf;
         s.earnedMission += Math.max(0, api.pay(p, jd, wpay * d.pay, 0, false));
         if (target.dirt <= 0) {
             target.paid = true;
             api.pay(p, jd, 0, Math.round(jd.cd("window-xp", 3) * d.xp), false);
             Fx.particle(p, "VILLAGER_HAPPY", bl.clone().add(0.5, 0.5, 0.5), 12, 0.4);
             Fx.sound(p, "ENTITY_EXPERIENCE_ORB_PICKUP", 0.6f, 1.4f);
+            Fx.bar(p, "§aGeam curat - calitate " + target.quality() + "%");
+            api.addCounter(p, "windows.quality", target.quality());
         } else {
-            Fx.bar(p, "§bMurdarie: " + (int) Math.ceil(target.dirt) + "%");
+            Fx.bar(p, "§bMurdarie: " + (int) Math.ceil(target.dirt) + "%  |  calitate " + target.quality() + "%" + (target.dirt <= finishAt ? "  |  §efinisaza cu racleta" : ""));
         }
         boolean all = true;
         for (Win w : s.wins) if (w.dirt > 0) all = false;
@@ -336,7 +391,8 @@ public final class WindowsActivity extends BaseActivity<WindowsActivity.St> {
         pn.status(s.building == null ? "Astepti o cladire" : "Cladire: " + s.building);
         if (s.building != null) {
             pn.obj(s.onPlatform ? "Esti pe platforma. Curata toate ferestrele." : "Urca pe platforma de lucru a cladirii.");
-            for (Win w : s.wins) pn.obj(w.pt.name + ": " + (w.dirt <= 0 ? "curat" : "murdarie " + (int) Math.ceil(w.dirt) + "%"));
+            for (Win w : s.wins) pn.obj(w.pt.name + ": " + (w.dirt <= 0 ? "curat" : "murdarie " + (int) Math.ceil(w.dirt) + "%")
+                + "  [" + (w.wet ? "ud" : "uscat") + (w.soap ? ", solutie" : "") + (w.polished ? ", finisat" : "") + "] " + w.quality() + "%");
         } else {
             pn.obj("Porneste tura: primesti o cladire si racleta de geamuri.");
         }
@@ -344,10 +400,11 @@ public final class WindowsActivity extends BaseActivity<WindowsActivity.St> {
         pn.stat("Ferestre spalate", String.valueOf(api.counter(p, "windows.windows")));
         pn.stat("Cladiri setate", String.valueOf(buildings(jd).size()));
         pn.btn("gps", "Navigheaza la platforma", s.platform != null);
-        pn.btn("tool", "Primeste racleta", true);
+        pn.btn("tool", "Primeste buretele", true);
         pn.btn("skip", "Alta cladire", s.building != null);
         pn.reward("Per fereastra: " + money(jd.cd("window-pay", 14)) + " (proportional cu murdaria indepartata)");
         pn.reward("Bonus de cladire: " + money(jd.cd("complete-bonus", 40)) + " pentru 3 ferestre, dupa timp (nota S/A/B/C)");
+        pn.tip("Ordinea: galeata cu apa -> solutie -> burete -> racleta (sub " + (int) jd.cd("squeegee-at", 25) + "%). Fiecare etapa creste calitatea si plata.");
         pn.tip("Ploaia murdareste din nou ferestrele neterminate.");
         pn.tip("Trebuie sa fii pe platforma; geamurile colorate sunt vazute doar de tine.");
     }

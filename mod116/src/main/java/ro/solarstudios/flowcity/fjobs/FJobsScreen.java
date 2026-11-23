@@ -226,6 +226,7 @@ public final class FJobsScreen extends FlowScreen {
             final int pg = i;
             hitL(8, y, SIDE - 16, 26, () -> {
                 if (pg == P_TOP) requestTop(topBy);
+                if (pg == P_GEAR) requestShop();
                 page = pg;
                 scroll = 0;
                 scrollTarget = 0;
@@ -520,7 +521,10 @@ public final class FJobsScreen extends FlowScreen {
             Gfx.rrect(ms, CX, y + 5, 3, rowH - 10, 1.5f, c);
             Gfx.text(ms, clip(s(e, "text"), CW - 150, 7.2f, false), CX + 12, y + 16.5f, 7.2f, Sk.WHITE, 0);
             Gfx.text(ms, ago((long) n(e, "ageSec")), CX + CW - 10, y + 11, 6, Sk.FAINT, 2);
-            if (n(e, "money") > 0) Gfx.text(ms, "+$" + Ui.money(n(e, "money")), CX + CW - 10, y + 21, 7, Sk.GOOD, 2, true, 0f);
+            if (n(e, "money") > 0) {
+                boolean buy = "buy".equals(type);
+                Gfx.text(ms, (buy ? "-$" : "+$") + Ui.money(n(e, "money")), CX + CW - 10, y + 21, 7, buy ? Sk.BAD : Sk.GOOD, 2, true, 0f);
+            }
         }
     }
 
@@ -573,35 +577,166 @@ public final class FJobsScreen extends FlowScreen {
         }
     }
 
-    // ---- Echipamente
+    // ---- Echipamente: inventar profesional, magazin profesional, istoric achizitii
+
+    private int gearTab; // 0 inventar, 1 magazin, 2 istoric
+    private String shopJob = "";
+    private String confirmBuy = "";
+    private int confirmQty = 1;
+
+    private static void requestShop() {
+        FJobsClient.request("shop", new JsonObject());
+    }
+
+    private static JsonArray arr(JsonObject o, String k) {
+        return o != null && o.has(k) && o.get(k).isJsonArray() ? o.getAsJsonArray(k) : new JsonArray();
+    }
 
     private void gearPage(GuiGraphics ms, float lmx, float lmy) {
-        JsonObject m = me();
-        String cur = s(m, "job");
-        JsonObject cj = cur.isEmpty() ? null : jobById(cur);
-        if (cj == null) {
-            Gfx.rrect(ms, CX, TOP, CW, 80, 12, CARD);
-            Gfx.text(ms, "Angajeaza-te intr-un job ca sa vezi echipamentul necesar.", CX + CW / 2f, TOP + 44, 7.5f, Sk.MUTED, 1);
+        JsonObject sh = FJobsClient.shop;
+        if (sh == null) {
+            requestShop();
+            FJobsClient.shop = new JsonObject();
+            sh = FJobsClient.shop;
+        }
+        String[] tabs = {"INVENTAR PROFESIONAL", "MAGAZIN PROFESIONAL", "ISTORIC ACHIZIȚII"};
+        float tx = CX;
+        for (int i = 0; i < tabs.length; i++) {
+            float w = Gfx.width(tabs[i], 6.2f, true) + 18;
+            final int k = i;
+            smallButton(ms, tabs[i], tx, 44, w, 14, lmx, lmy, true, gearTab == i, () -> {
+                gearTab = k;
+                confirmBuy = "";
+                requestShop();
+            });
+            tx += w + 4;
+        }
+        Gfx.text(ms, "$" + Ui.money(n(sh, "cash")), CX + CW, 54, 7.5f, Sk.GOOD, 2, true, 0f);
+        if (gearTab == 2) {
+            purchaseHistory(ms, sh);
             return;
         }
-        Gfx.text(ms, "Echipamentul jobului " + s(cj, "name"), CX, TOP - 6, 8.5f, Sk.WHITE, 0, true, 0f);
-        JsonArray gl = cj.has("gear") && cj.get("gear").isJsonArray() ? cj.getAsJsonArray("gear") : new JsonArray();
-        if (gl.size() == 0) Gfx.text(ms, "Jobul nu are echipament dedicat.", CX, TOP + 16, 7, Sk.MUTED, 0);
-        int lvl = (int) n(cj, "level");
-        for (int i = 0; i < gl.size() && i < 7; i++) {
-            JsonObject g = gl.get(i).getAsJsonObject();
-            float y = TOP + 4 + i * 30;
-            Gfx.rrect(ms, CX, y, CW, 26, 8, CARD);
-            boolean req = b(g, "required");
-            Gfx.rrect(ms, CX, y + 5, 3, 16, 1.5f, req ? Sk.WARN : VIOLET);
-            Gfx.text(ms, s(g, "name"), CX + 12, y + 11, 7.6f, Sk.WHITE, 0, true, 0f);
-            int ml = (int) n(g, "minLevel");
-            Gfx.text(ms, (req ? "OBLIGATORIU" : "OPȚIONAL") + (ml > 0 ? "  ·  nivel " + ml + (lvl >= ml ? " ✓" : " (blocat)") : ""), CX + 12, y + 21, 6, req ? Sk.WARN : Sk.MUTED, 0);
-            Gfx.text(ms, "$" + Ui.money(n(g, "price")), CX + CW - 12, y + 16, 8, Sk.GOOD, 2, true, 0f);
+        String cur = s(sh, "current");
+        List<JsonObject> js = new ArrayList<>();
+        for (JsonElement e : arr(sh, "jobs")) js.add(e.getAsJsonObject());
+        if (gearTab == 0) {
+            JsonObject mj = null;
+            for (JsonObject j : js) if (s(j, "id").equals(cur)) mj = j;
+            if (mj == null) {
+                Gfx.rrect(ms, CX, TOP, CW, 80, 12, CARD);
+                Gfx.text(ms, cur.isEmpty() ? "Angajeaza-te intr-un job ca sa ai echipament profesional." : "Jobul tau nu are echipament dedicat.", CX + CW / 2f, TOP + 44, 7.5f, Sk.MUTED, 1);
+                return;
+            }
+            itemList(ms, mj, CX, TOP + 2, CW, lmx, lmy, true);
+            return;
         }
-        float by = TOP + 4 + Math.min(7, gl.size()) * 30 + 6;
-        smallButton(ms, "CUMPĂRĂ / ÎNLOCUIEȘTE (PANOU JOB)", CX, by, 200, 22, lmx, lmy, true, true, FJobsClient::openPanel);
-        Gfx.text(ms, "Durabilitatea si consumabilele se vad in panou; serverul verifica plata.", CX + 210, by + 14, 6.2f, Sk.FAINT, 0);
+        // magazin: categorii (joburi) in stanga, articole in dreapta
+        if (shopJob.isEmpty() && !js.isEmpty()) shopJob = cur.isEmpty() ? s(js.get(0), "id") : cur;
+        float lw = 118;
+        for (int i = 0; i < js.size() && i < 15; i++) {
+            JsonObject j = js.get(i);
+            float y = TOP + 2 + i * 17;
+            boolean sel = s(j, "id").equals(shopJob);
+            boolean hot = Sk.in(lmx, lmy, CX, y, lw, 15);
+            Gfx.rrect(ms, CX, y, lw, 15, 5, sel ? 0xFF0B2A3D : (hot ? 0xFF0F1A2B : CARD));
+            if (sel) Gfx.rrect(ms, CX, y + 3, 2, 9, 1, VIOLET);
+            Gfx.text(ms, clip(s(j, "name"), lw - 24, 6.6f, sel), CX + 7, y + 10, 6.6f, sel ? Sk.WHITE : Sk.MUTED, 0, sel, 0f);
+            if (b(j, "mine")) Gfx.disc(ms, CX + lw - 8, y + 7.5f, 2.2f, Sk.GOOD);
+            final String id = s(j, "id");
+            hitL(CX, y, lw, 15, () -> {
+                shopJob = id;
+                confirmBuy = "";
+            });
+        }
+        JsonObject sj = null;
+        for (JsonObject j : js) if (s(j, "id").equals(shopJob)) sj = j;
+        if (sj != null) itemList(ms, sj, CX + lw + 8, TOP + 2, CW - lw - 8, lmx, lmy, false);
+    }
+
+    /** Lista de echipamente ale unui job: detinut, uzura, cerinte, pret si cumparare (cu confirmare). */
+    private void itemList(GuiGraphics ms, JsonObject j, float x, float y, float w, float lmx, float lmy, boolean inventory) {
+        boolean mine = b(j, "mine");
+        Gfx.text(ms, s(j, "name") + "  ·  " + s(j, "group") + (mine ? "  ·  jobul tau (nivel " + (int) n(j, "level") + ")" : "  ·  doar angajatii pot cumpara"), x, y + 6, 6.6f, mine ? VIOLET : Sk.MUTED, 0, true, 0.2f);
+        y += 12;
+        JsonArray items = arr(j, "items");
+        if (items.size() == 0) Gfx.text(ms, "Nimic de afisat.", x + w / 2f, y + 30, 7, Sk.MUTED, 1);
+        for (int i = 0; i < items.size() && i < 8; i++) {
+            JsonObject it = items.get(i).getAsJsonObject();
+            float ry = y + i * 33;
+            boolean req = b(it, "required");
+            boolean cons = b(it, "consumable");
+            int owned = (int) n(it, "owned");
+            Gfx.rrect(ms, x, ry, w, 30, 8, CARD);
+            Gfx.rrect(ms, x, ry + 6, 3, 18, 1.5f, req ? Sk.WARN : cons ? Sk.GOOD : VIOLET);
+            Gfx.text(ms, clip(s(it, "name"), w * 0.45f, 7.4f, true), x + 10, ry + 11, 7.4f, Sk.WHITE, 0, true, 0f);
+            String tags = (req ? "OBLIGATORIU" : cons ? "CONSUMABIL" : "UNEALTĂ") + ((int) n(it, "minLevel") > 0 ? "  ·  NIVEL " + (int) n(it, "minLevel") : "")
+                + (n(it, "bonusPay") > 0 ? "  ·  +" + Math.round(n(it, "bonusPay") * 100) + "% PLATĂ" : "") + (n(it, "bonusXp") > 0 ? "  ·  +" + Math.round(n(it, "bonusXp") * 100) + "% XP" : "");
+            Gfx.text(ms, clip(tags, w * 0.6f, 5.6f, true), x + 10, ry + 19.5f, 5.6f, req ? Sk.WARN : Sk.FAINT, 0, true, 0.3f);
+            Gfx.text(ms, clip(s(it, "desc"), w * 0.6f, 5.8f, false), x + 10, ry + 27, 5.8f, Sk.MUTED, 0);
+            // stare / uzura
+            float sx = x + w * 0.62f;
+            String own = owned > 0 ? "DEȚII " + owned + (cons ? "/" + (int) n(it, "max") : "") : "NU DEȚII";
+            Gfx.text(ms, own, sx, ry + 11, 6.4f, owned > 0 ? Sk.GOOD : (req ? Sk.BAD : Sk.MUTED), 0, true, 0.3f);
+            int uses = (int) n(it, "uses");
+            int left = (int) n(it, "usesLeft");
+            if (uses > 0 && owned > 0 && left >= 0) {
+                float frac = Math.max(0, Math.min(1, left / (float) uses));
+                Gfx.bar(ms, sx, ry + 16, 60, 4, frac, 0xFF16243A, frac < 0.25f ? Sk.BAD : frac < 0.5f ? Sk.WARN : Sk.GOOD);
+                Gfx.text(ms, left + "/" + uses, sx + 64, ry + 20, 5.6f, Sk.MUTED, 0);
+            } else if (uses > 0) {
+                Gfx.text(ms, "Durabilitate: " + uses + " utilizari", sx, ry + 21, 5.6f, Sk.FAINT, 0);
+            }
+            final String id = s(it, "id");
+            final String job = s(j, "id");
+            boolean locked = b(it, "locked");
+            boolean canBuy = mine && !locked && (cons ? owned < n(it, "max") : owned < Math.max(1, n(it, "max")));
+            String key = job + ":" + id;
+            float bx = x + w - 74;
+            if (confirmBuy.equals(key)) {
+                double price = n(it, "price") * (cons ? confirmQty : 1);
+                if (cons) {
+                    smallButton(ms, "-", bx - 46, ry + 7, 14, 16, lmx, lmy, confirmQty > 1, false, () -> confirmQty = Math.max(1, confirmQty - 1));
+                    Gfx.text(ms, "x" + confirmQty, bx - 24, ry + 18, 6.6f, Sk.WHITE, 1, true, 0f);
+                    smallButton(ms, "+", bx - 16, ry + 7, 14, 16, lmx, lmy, confirmQty < 8, false, () -> confirmQty = Math.min(8, confirmQty + 1));
+                }
+                smallButton(ms, "PLĂTEȘTE $" + Ui.money(price), bx, ry + 7, 70, 16, lmx, lmy, true, true, () -> {
+                    JsonObject o = new JsonObject();
+                    o.addProperty("job", job);
+                    o.addProperty("id", id);
+                    o.addProperty("qty", confirmQty);
+                    FJobsClient.request("shop_buy", o);
+                    confirmBuy = "";
+                });
+            } else {
+                String lab = owned > 0 && !cons ? (inventory ? "ÎNLOCUIEȘTE" : "DEȚINUT") : "$" + Ui.money(n(it, "price")) + (n(it, "pack") > 1 ? " x" + (int) n(it, "pack") : "");
+                boolean en = canBuy || (inventory && owned > 0 && !cons && mine && !locked);
+                smallButton(ms, locked ? "NIVEL " + (int) n(it, "minLevel") : lab, bx, ry + 7, 70, 16, lmx, lmy, en && !(owned > 0 && !cons && !inventory), false, () -> {
+                    confirmBuy = key;
+                    confirmQty = 1;
+                });
+            }
+        }
+        if (inventory) {
+            float by = y + Math.min(8, items.size()) * 33 + 4;
+            Gfx.text(ms, "„Înlocuiește” cumpără un exemplar nou dacă cel vechi e uzat sau pierdut (în limita maximă). Echipamentul OBLIGATORIU e cerut la începutul turei.", x, by + 6, 5.8f, Sk.FAINT, 0);
+        }
+    }
+
+    private void purchaseHistory(GuiGraphics ms, JsonObject sh) {
+        JsonArray h = arr(sh, "history");
+        if (h.size() == 0) {
+            Gfx.rrect(ms, CX, TOP, CW, 60, 12, CARD);
+            Gfx.text(ms, "Nu ai cumparat inca echipament.", CX + CW / 2f, TOP + 34, 7.5f, Sk.MUTED, 1);
+            return;
+        }
+        for (int i = 0; i < h.size() && i < 10; i++) {
+            JsonObject e = h.get(i).getAsJsonObject();
+            float y = TOP + 2 + i * 26;
+            Gfx.rrect(ms, CX, y, CW, 22, 7, CARD);
+            Gfx.text(ms, clip(s(e, "text"), CW - 140, 7, false), CX + 10, y + 14, 7, Sk.WHITE, 0);
+            Gfx.text(ms, ago((long) n(e, "ageSec")), CX + CW - 80, y + 14, 6, Sk.FAINT, 2);
+            Gfx.text(ms, "-$" + Ui.money(n(e, "money")), CX + CW - 10, y + 14, 7, Sk.BAD, 2, true, 0f);
+        }
     }
 
     // ---- Clasament

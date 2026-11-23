@@ -26,6 +26,8 @@ public final class FJobsClient extends JsonClientModule {
     static JsonObject panel;
     /** Ultimul clasament primit ("top"). */
     static JsonObject top;
+    /** Ultimul magazin profesional primit ("shop"). */
+    static JsonObject shop;
     private static boolean wantPanel;
     private static long panelAt;
     private static KeyBinding panelKey;
@@ -67,6 +69,7 @@ public final class FJobsClient extends JsonClientModule {
             if (cur != null) cur.result(d);
         });
         on("top", d -> top = d);
+        on("shop", d -> shop = d);
         on("prof", d -> {
             if (data != null) data.add("me", d);
         });

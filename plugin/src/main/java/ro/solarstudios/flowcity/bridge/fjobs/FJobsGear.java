@@ -185,6 +185,20 @@ public final class FJobsGear implements Listener {
         return it.getItemMeta().getPersistentDataContainer().has(key(OWNER), PersistentDataType.STRING);
     }
 
+    /** Utilizarile ramase pe cel mai uzat exemplar detinut (-1 = fara uzura sau nu il are). */
+    public int usesLeft(Player p, FJobDef jd, Def d) {
+        if (d.uses <= 0) return -1;
+        String tag = tagOf(jd, d);
+        int best = -1;
+        for (ItemStack it : p.getInventory().getContents()) {
+            if (!mine(p, it, tag)) continue;
+            Integer left = it.getItemMeta().getPersistentDataContainer().get(key(USES), PersistentDataType.INTEGER);
+            int u = left == null ? d.uses : left;
+            if (best < 0 || u < best) best = u;
+        }
+        return best;
+    }
+
     public int count(Player p, FJobDef jd, Def d) {
         String tag = tagOf(jd, d);
         int n = 0;
@@ -449,6 +463,8 @@ public final class FJobsGear implements Listener {
             o.addProperty("enabled", d.enabled);
             o.addProperty("bonusPay", d.bonusPay);
             o.addProperty("bonusXp", d.bonusXp);
+            o.addProperty("usesLeft", usesLeft(p, jd, d));
+            o.addProperty("material", d.material);
             a.add(o);
         }
         return a;

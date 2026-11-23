@@ -55,6 +55,19 @@ jobs:
   miner:
     name: "Miner"
     gear:   # echipament real (iteme cu eticheta PDC). Chei: name desc material price pack max starter uses required consumable consume(pay|mission) soulbound remove-on-end bonus-pay bonus-xp min-level refund enabled glow enchants
+      bag:
+        name: "Geanta pentru minereuri"
+        desc: "+5% plata. Nivel 2."
+        material: "FLOWCITYCORE_MI_GEANTA"
+        price: 140
+        min-level: 2
+        bonus-pay: 0.05
+      gloves:
+        name: "Manusi de lucru"
+        desc: "+4% XP."
+        material: "FLOWCITYCORE_MANUSI_LUCRU"
+        price: 60
+        bonus-xp: 0.04
       pickaxe:
         name: "Tarnacop de miner"
         desc: "Obligatoriu. Se uzeaza treptat."
@@ -73,7 +86,7 @@ jobs:
       lantern:
         name: "Lanterna de mina"
         desc: "+8% XP. Nivel 3."
-        material: "LANTERN"
+        material: "FLOWCITYCORE_LANTERNA"
         price: 120
         min-level: 3
         bonus-xp: 0.08
@@ -114,6 +127,19 @@ jobs:
   lumberjack:
     name: "Taietor de lemne"
     gear:   # echipament real (iteme cu eticheta PDC). Chei: name desc material price pack max starter uses required consumable consume(pay|mission) soulbound remove-on-end bonus-pay bonus-xp min-level refund enabled glow enchants
+      gloves:
+        name: "Manusi de lucru"
+        desc: "+5% XP."
+        material: "FLOWCITYCORE_MANUSI_LUCRU"
+        price: 60
+        bonus-xp: 0.05
+      crate:
+        name: "Lada pentru lemne"
+        desc: "+6% plata. Nivel 3."
+        material: "FLOWCITYCORE_FE_LADA"
+        price: 150
+        min-level: 3
+        bonus-pay: 0.06
       axe:
         name: "Topor de padurar"
         desc: "Obligatoriu. Se uzeaza treptat."
@@ -132,7 +158,7 @@ jobs:
       oil:
         name: "Ulei pentru fierastrau"
         desc: "Consumabil: +10% plata la fiecare plata."
-        material: "GLASS_BOTTLE"
+        material: "FLOWCITYCORE_ME_ULEI"
         price: 40
         pack: 5
         max: 20
@@ -177,6 +203,21 @@ jobs:
   fisher:
     name: "Pescar"
     gear:   # echipament real (iteme cu eticheta PDC). Chei: name desc material price pack max starter uses required consumable consume(pay|mission) soulbound remove-on-end bonus-pay bonus-xp min-level refund enabled glow enchants
+      net:
+        name: "Plasa de pescuit"
+        desc: "+8% plata. Nivel 3."
+        material: "FLOWCITYCORE_PE_PLASA"
+        price: 180
+        min-level: 3
+        bonus-pay: 0.08
+        uses: 250
+        consume: "pay"
+      crate:
+        name: "Lada pentru peste"
+        desc: "+5% XP."
+        material: "FLOWCITYCORE_PE_LADA"
+        price: 120
+        bonus-xp: 0.05
       rod:
         name: "Lanseta profesionala"
         desc: "Obligatorie. Se uzeaza treptat."
@@ -188,7 +229,7 @@ jobs:
       bait:
         name: "Momeala"
         desc: "Consumabil: +12% plata."
-        material: "WHEAT_SEEDS"
+        material: "FLOWCITYCORE_PE_MOMEALA"
         price: 40
         pack: 16
         max: 64
@@ -237,6 +278,31 @@ jobs:
   farmer:
     name: "Fermier"
     gear:   # echipament real (iteme cu eticheta PDC). Chei: name desc material price pack max starter uses required consumable consume(pay|mission) soulbound remove-on-end bonus-pay bonus-xp min-level refund enabled glow enchants
+      fertilizer:
+        name: "Ingrasamant"
+        desc: "Consumabil: +10% plata la fiecare recoltare."
+        material: "FLOWCITYCORE_FE_INGRASAMANT"
+        price: 25
+        pack: 8
+        max: 32
+        consumable: true
+        consume: "pay"
+        bonus-pay: 0.1
+      crate:
+        name: "Lada pentru recolta"
+        desc: "+5% XP."
+        material: "FLOWCITYCORE_FE_LADA"
+        price: 110
+        bonus-xp: 0.05
+      sickle:
+        name: "Secera"
+        desc: "+7% plata. Nivel 4. Se uzeaza."
+        material: "FLOWCITYCORE_FE_SECERA"
+        price: 160
+        min-level: 4
+        uses: 300
+        consume: "pay"
+        bonus-pay: 0.07
       hoe:
         name: "Sapa de fermier"
         desc: "Obligatorie. Se uzeaza treptat."
@@ -302,6 +368,19 @@ jobs:
   garbage:
     name: "Gunoier"
     gear:   # echipament real (iteme cu eticheta PDC). Chei: name desc material price pack max starter uses required consumable consume(pay|mission) soulbound remove-on-end bonus-pay bonus-xp min-level refund enabled glow enchants
+      gloves:
+        name: "Manusi de lucru"
+        desc: "+4% XP."
+        material: "FLOWCITYCORE_MANUSI_LUCRU"
+        price: 60
+        bonus-xp: 0.04
+      bin:
+        name: "Cos de gunoi portabil"
+        desc: "+6% plata. Nivel 2."
+        material: "FLOWCITYCORE_GU_COS"
+        price: 130
+        min-level: 2
+        bonus-pay: 0.06
       vest:
         name: "Salopeta reflectorizanta"
         desc: "Obligatorie pentru tura."
@@ -313,7 +392,7 @@ jobs:
       bags:
         name: "Saci de gunoi"
         desc: "Consumabil: +8% plata per misiune."
-        material: "BLACK_DYE"
+        material: "FLOWCITYCORE_GU_SAC"
         price: 30
         pack: 10
         max: 40
@@ -323,7 +402,7 @@ jobs:
       grabber:
         name: "Clesti de colectat"
         desc: "+8% XP."
-        material: "STICK"
+        material: "FLOWCITYCORE_GU_CLESTE"
         price: 70
         bonus-xp: 0.08
     icon: trash
@@ -362,6 +441,27 @@ jobs:
   builder:
     name: "Constructor"
     gear:   # echipament real (iteme cu eticheta PDC). Chei: name desc material price pack max starter uses required consumable consume(pay|mission) soulbound remove-on-end bonus-pay bonus-xp min-level refund enabled glow enchants
+      trowel:
+        name: "Mistrie"
+        desc: "+6% plata. Se uzeaza."
+        material: "FLOWCITYCORE_CO_MISTRIE"
+        price: 90
+        uses: 300
+        consume: "pay"
+        bonus-pay: 0.06
+      hammer:
+        name: "Ciocan"
+        desc: "+5% XP."
+        material: "FLOWCITYCORE_ME_CIOCAN"
+        price: 80
+        bonus-xp: 0.05
+      vest:
+        name: "Vesta reflectorizanta"
+        desc: "+3% plata (siguranta pe santier)."
+        material: "FLOWCITYCORE_VESTA_REFLECT"
+        price: 70
+        bonus-pay: 0.03
+        soulbound: true
       helmet:
         name: "Casca de santier"
         desc: "Obligatorie pentru tura."
@@ -373,7 +473,7 @@ jobs:
       tape:
         name: "Ruleta de masurat"
         desc: "+6% plata."
-        material: "CLOCK"
+        material: "FLOWCITYCORE_CO_RULETA"
         price: 110
         bonus-pay: 0.06
       mortar:
@@ -559,11 +659,11 @@ jobs:
     # ---- echipament (se cumpara din panoul jobului; sunt iteme reale cu eticheta, folosite in interventii)
     # price/pack/min-rank/max se pot schimba din panoul jobului (admin) sau aici; material = material Minecraft al itemului
     equipment:
-      trusa:      {name: "Trusa electrician",       material: ORANGE_SHULKER_BOX, price: 120, pack: 1, min-rank: 0, max: 1,  desc: "Obligatorie pentru orice interventie."}
-      multimetru: {name: "Multimetru",              material: COMPARATOR,         price: 90,  pack: 1, min-rank: 0, max: 1,  desc: "Masoara siguranta defecta (fara el ghicesti)."}
-      cleste:     {name: "Cleste izolat",           material: SHEARS,             price: 60,  pack: 1, min-rank: 1, max: 1,  desc: "+1 greseala permisa la conectarea circuitelor."}
-      cablu:      {name: "Cablu electric",          material: STRING,             price: 20,  pack: 4, min-rank: 0, max: 16, desc: "Material consumat la cabluri deteriorate si instalatii."}
-      siguranta:  {name: "Siguranta fuzibila",      material: REDSTONE,           price: 15,  pack: 4, min-rank: 0, max: 24, desc: "Se foloseste la inlocuirea sigurantelor arse."}
+      trusa:      {name: "Trusa electrician",       material: FLOWCITYCORE_EL_TRUSA, price: 120, pack: 1, min-rank: 0, max: 1,  desc: "Obligatorie pentru orice interventie."}
+      multimetru: {name: "Multimetru",              material: FLOWCITYCORE_EL_MULTIMETRU, price: 90,  pack: 1, min-rank: 0, max: 1,  desc: "Masoara siguranta defecta (fara el ghicesti)."}
+      cleste:     {name: "Cleste izolat",           material: FLOWCITYCORE_EL_CLESTE, price: 60,  pack: 1, min-rank: 1, max: 1,  desc: "+1 greseala permisa la conectarea circuitelor."}
+      cablu:      {name: "Cablu electric",          material: FLOWCITYCORE_EL_CABLU, price: 20,  pack: 4, min-rank: 0, max: 16, desc: "Material consumat la cabluri deteriorate si instalatii."}
+      siguranta:  {name: "Siguranta fuzibila",      material: FLOWCITYCORE_EL_SIGURANTA, price: 15,  pack: 4, min-rank: 0, max: 24, desc: "Se foloseste la inlocuirea sigurantelor arse."}
       protectie:  {name: "Echipament de protectie", material: GOLDEN_HELMET,      price: 200, pack: 1, min-rank: 2, max: 1,  desc: "Fara soc electric la esec; obligatoriu la tensiune inalta."}
     station-names:                # numele implicit al punctelor setate de admin
       panou: "Panou electric {n}"
@@ -580,6 +680,22 @@ jobs:
   courier:
     name: "Curier"
     gear:   # echipament real (iteme cu eticheta PDC). Chei: name desc material price pack max starter uses required consumable consume(pay|mission) soulbound remove-on-end bonus-pay bonus-xp min-level refund enabled glow enchants
+      docs:
+        name: "Documente de livrare"
+        desc: "Consumabil: +8% plata per livrare."
+        material: "FLOWCITYCORE_CU_DOCUMENTE"
+        price: 10
+        pack: 10
+        max: 40
+        consumable: true
+        consume: "mission"
+        bonus-pay: 0.08
+      parcelbag:
+        name: "Geanta de curier"
+        desc: "+5% XP."
+        material: "FLOWCITYCORE_CU_GEANTA"
+        price: 140
+        bonus-xp: 0.05
       bag:
         name: "Rucsac de curier"
         desc: "Obligatoriu pentru tura."
@@ -591,7 +707,7 @@ jobs:
       tape:
         name: "Banda adeziva"
         desc: "Consumabil: +8% plata per livrare."
-        material: "STRING"
+        material: "FLOWCITYCORE_CU_ETICHETA"
         price: 30
         pack: 10
         max: 40
@@ -601,7 +717,7 @@ jobs:
       phone:
         name: "Suport de telefon"
         desc: "+6% XP."
-        material: "COMPARATOR"
+        material: "FLOWCITYCORE_CU_SCANNER"
         price: 90
         bonus-xp: 0.06
     icon: box
@@ -666,6 +782,22 @@ jobs:
   postman:
     name: "Postas"
     gear:   # echipament real (iteme cu eticheta PDC). Chei: name desc material price pack max starter uses required consumable consume(pay|mission) soulbound remove-on-end bonus-pay bonus-xp min-level refund enabled glow enchants
+      scanner:
+        name: "Scanner coduri"
+        desc: "+5% plata."
+        material: "FLOWCITYCORE_CU_SCANNER"
+        price: 150
+        bonus-pay: 0.05
+      parcels:
+        name: "Colete mici"
+        desc: "Consumabil: +6% plata per tura de livrare."
+        material: "FLOWCITYCORE_PO_COLET_MIC"
+        price: 12
+        pack: 8
+        max: 32
+        consumable: true
+        consume: "mission"
+        bonus-pay: 0.06
       bag:
         name: "Geanta postala"
         desc: "Obligatorie pentru tura."
@@ -683,7 +815,7 @@ jobs:
       envelopes:
         name: "Plicuri"
         desc: "Consumabil: +8% plata per livrare."
-        material: "PAPER"
+        material: "FLOWCITYCORE_PO_SCRISOARE"
         price: 20
         pack: 10
         max: 40
@@ -720,6 +852,29 @@ jobs:
   trucker:
     name: "Camionagiu"
     gear:   # echipament real (iteme cu eticheta PDC). Chei: name desc material price pack max starter uses required consumable consume(pay|mission) soulbound remove-on-end bonus-pay bonus-xp min-level refund enabled glow enchants
+      docs:
+        name: "Documente de transport (CMR)"
+        desc: "Consumabil: +8% plata per cursa."
+        material: "FLOWCITYCORE_CA_DOCUMENTE"
+        price: 15
+        pack: 5
+        max: 20
+        consumable: true
+        consume: "mission"
+        bonus-pay: 0.08
+      scanner:
+        name: "Scanner marfa"
+        desc: "+5% XP."
+        material: "FLOWCITYCORE_CA_SCANNER"
+        price: 160
+        bonus-xp: 0.05
+      keys:
+        name: "Chei vehicul greu"
+        desc: "+3% plata."
+        material: "FLOWCITYCORE_CA_CHEI"
+        price: 60
+        bonus-pay: 0.03
+        soulbound: true
       tacho:
         name: "Tahograf"
         desc: "Obligatoriu pentru tura."
@@ -775,7 +930,7 @@ jobs:
       labels:
         name: "Etichete de marfa"
         desc: "Consumabil: +8% plata per misiune."
-        material: "NAME_TAG"
+        material: "FLOWCITYCORE_CU_ETICHETA"
         price: 30
         pack: 8
         max: 32
@@ -794,6 +949,29 @@ jobs:
   cargo_handler:
     name: "Manipulant marfa"
     gear:   # echipament real (iteme cu eticheta PDC). Chei: name desc material price pack max starter uses required consumable consume(pay|mission) soulbound remove-on-end bonus-pay bonus-xp min-level refund enabled glow enchants
+      cart:
+        name: "Carucior de marfa"
+        desc: "+8% plata. Nivel 2."
+        material: "FLOWCITYCORE_MA_CARUCIOR"
+        price: 200
+        min-level: 2
+        bonus-pay: 0.08
+      scanner:
+        name: "Scanner marfa"
+        desc: "+5% XP."
+        material: "FLOWCITYCORE_CA_SCANNER"
+        price: 160
+        bonus-xp: 0.05
+      pallets:
+        name: "Paleti"
+        desc: "Consumabil: +5% plata per misiune."
+        material: "FLOWCITYCORE_MA_PALET"
+        price: 8
+        pack: 8
+        max: 32
+        consumable: true
+        consume: "mission"
+        bonus-pay: 0.05
       vest:
         name: "Vesta reflectorizanta"
         desc: "Obligatorie pentru tura."
@@ -805,14 +983,14 @@ jobs:
       gloves:
         name: "Manusi de lucru"
         desc: "+5% plata."
-        material: "LEATHER_BOOTS"
+        material: "FLOWCITYCORE_MANUSI_LUCRU"
         price: 50
         soulbound: true
         bonus-pay: 0.05
       labels:
         name: "Etichete de marfa"
         desc: "Consumabil: +8% plata per misiune."
-        material: "NAME_TAG"
+        material: "FLOWCITYCORE_CU_ETICHETA"
         price: 30
         pack: 8
         max: 32
@@ -833,6 +1011,12 @@ jobs:
   bus_driver:
     name: "Sofer de autobuz"
     gear:   # echipament real (iteme cu eticheta PDC). Chei: name desc material price pack max starter uses required consumable consume(pay|mission) soulbound remove-on-end bonus-pay bonus-xp min-level refund enabled glow enchants
+      card:
+        name: "Card de transport"
+        desc: "+4% XP."
+        material: "FLOWCITYCORE_AU_CARD"
+        price: 40
+        bonus-xp: 0.04
       uniform:
         name: "Uniforma de sofer"
         desc: "Obligatorie pentru tura."
@@ -844,7 +1028,7 @@ jobs:
       tickets:
         name: "Bilete"
         desc: "Consumabil: +8% plata per cursa."
-        material: "PAPER"
+        material: "FLOWCITYCORE_AU_BILET"
         price: 20
         pack: 16
         max: 64
@@ -887,10 +1071,38 @@ jobs:
   window_washer:
     name: "Spalator de geamuri"
     gear:   # echipament real (iteme cu eticheta PDC). Chei: name desc material price pack max starter uses required consumable consume(pay|mission) soulbound remove-on-end bonus-pay bonus-xp min-level refund enabled glow enchants
+      water:
+        name: "Galeata cu apa"
+        desc: "Etapa 1: umezeste geamul (+15% calitate)."
+        material: "FLOWCITYCORE_GM_GALEATA"
+        price: 40
+        starter: 1
+      squeegee:
+        name: "Racleta"
+        desc: "Etapa 4: finisare sub 25% murdarie (+15% calitate)."
+        material: "FLOWCITYCORE_GM_RACLETA"
+        price: 70
+        starter: 1
+      cloth:
+        name: "Laveta din microfibra"
+        desc: "Consumabil: +5% plata per cladire."
+        material: "FLOWCITYCORE_GM_LAVETA"
+        price: 15
+        pack: 4
+        max: 16
+        consumable: true
+        consume: "mission"
+        bonus-pay: 0.05
+      gloves:
+        name: "Manusi de lucru"
+        desc: "+4% XP."
+        material: "FLOWCITYCORE_MANUSI_LUCRU"
+        price: 60
+        bonus-xp: 0.04
       belt:
         name: "Centura de siguranta"
         desc: "Obligatorie pentru tura."
-        material: "LEAD"
+        material: "FLOWCITYCORE_GM_HAM"
         price: 80
         starter: 1
         required: true
@@ -898,12 +1110,12 @@ jobs:
       solution:
         name: "Solutie de curatat"
         desc: "Consumabil: +10% plata per misiune."
-        material: "GLASS_BOTTLE"
+        material: "FLOWCITYCORE_GM_SOLUTIE"
         price: 30
         pack: 5
         max: 20
         consumable: true
-        consume: "mission"
+        consume: "none"   # se consuma la aplicarea pe geam (etapa 2)
         bonus-pay: 0.1
     icon: window
     group: "Servicii"
@@ -918,7 +1130,7 @@ jobs:
       usor:  {name: "Usor",  min-level: 0, pay: 1.0, xp: 1.0, size: 2, seconds: 75, attempts: 3}
       mediu: {name: "Mediu", min-level: 3, pay: 1.5, xp: 1.4, size: 3, seconds: 55, attempts: 3}
       greu:  {name: "Greu",  min-level: 7, pay: 2.2, xp: 2.0, size: 5, seconds: 40, attempts: 2}
-    tool: SPONGE                  # unealta primita la inceputul turei
+    tool: FLOWCITYCORE_GM_BURETE                  # unealta primita la inceputul turei
     dirt-min: 55                  # murdaria initiala a unei ferestre: intre dirt-min si 100 (%)
     stroke: 25                    # cat curata o miscare (%)
     stroke-cooldown-ms: 280
@@ -927,6 +1139,7 @@ jobs:
     rain-dirt: 6                  # cat se murdareste o fereastra neterminata la fiecare 15 s de ploaie (0 = oprit)
     window-pay: 14                # plata pe fereastra (proportionala cu murdaria indepartata)
     window-xp: 3
+    squeegee-at: 25               # sub acest procent de murdarie se poate finisa cu racleta (etapa 4)
     complete-bonus: 40            # bonus cladire (pentru 3 ferestre), dupa timp
     complete-xp: 12
     par-seconds-per-stroke: 2.4   # timpul-tinta pentru nota S/A/B/C
@@ -1008,7 +1221,7 @@ jobs:
       gloves:
         name: "Manusi de protectie"
         desc: "Obligatorii pentru tura."
-        material: "LEATHER_BOOTS"
+        material: "FLOWCITYCORE_MANUSI_LUCRU"
         price: 50
         starter: 1
         required: true
@@ -1022,7 +1235,7 @@ jobs:
       disinfectant:
         name: "Dezinfectant"
         desc: "Consumabil: +10% plata per misiune."
-        material: "GLASS_BOTTLE"
+        material: "FLOWCITYCORE_GM_SOLUTIE"
         price: 30
         pack: 5
         max: 20
@@ -1043,10 +1256,16 @@ jobs:
   taxi:
     name: "Taximetrist"
     gear:   # echipament real (iteme cu eticheta PDC). Chei: name desc material price pack max starter uses required consumable consume(pay|mission) soulbound remove-on-end bonus-pay bonus-xp min-level refund enabled glow enchants
+      docs:
+        name: "Documente de transport"
+        desc: "+3% plata."
+        material: "FLOWCITYCORE_CU_DOCUMENTE"
+        price: 20
+        bonus-pay: 0.03
       license:
         name: "Licenta de taxi"
         desc: "Obligatorie pentru tura."
-        material: "PAPER"
+        material: "FLOWCITYCORE_TX_PERMIS"
         price: 200
         starter: 1
         required: true
@@ -1054,7 +1273,7 @@ jobs:
       meter:
         name: "Taximetru"
         desc: "+5% plata."
-        material: "CLOCK"
+        material: "FLOWCITYCORE_TX_APARAT"
         price: 150
         bonus-pay: 0.05
       lamp:
@@ -1118,10 +1337,39 @@ jobs:
   mechanic:
     name: "Mecanic"
     gear:   # echipament real (iteme cu eticheta PDC). Chei: name desc material price pack max starter uses required consumable consume(pay|mission) soulbound remove-on-end bonus-pay bonus-xp min-level refund enabled glow enchants
+      toolbox:
+        name: "Trusa mecanica"
+        desc: "+5% plata."
+        material: "FLOWCITYCORE_ME_TRUSA"
+        price: 180
+        bonus-pay: 0.05
+      jack:
+        name: "Cric hidraulic"
+        desc: "+6% XP. Nivel 3."
+        material: "FLOWCITYCORE_ME_CRIC"
+        price: 220
+        min-level: 3
+        bonus-xp: 0.06
+      canister:
+        name: "Canistra de combustibil"
+        desc: "Consumabil: +5% plata per interventie."
+        material: "FLOWCITYCORE_ME_CANISTRA"
+        price: 30
+        pack: 2
+        max: 6
+        consumable: true
+        consume: "mission"
+        bonus-pay: 0.05
+      hammer:
+        name: "Ciocan"
+        desc: "+3% XP."
+        material: "FLOWCITYCORE_ME_CIOCAN"
+        price: 80
+        bonus-xp: 0.03
       wrench:
         name: "Cheie franceza"
         desc: "Obligatorie. Se uzeaza treptat."
-        material: "IRON_NUGGET"
+        material: "FLOWCITYCORE_ME_CHEIE"
         price: 100
         starter: 1
         uses: 300
@@ -1129,7 +1377,7 @@ jobs:
       parts:
         name: "Piese de schimb"
         desc: "Consumabil: +10% plata per reparatie."
-        material: "IRON_INGOT"
+        material: "FLOWCITYCORE_ME_PIESE"
         price: 80
         pack: 5
         max: 15
@@ -1139,7 +1387,7 @@ jobs:
       oil:
         name: "Ulei de motor"
         desc: "Consumabil: +8% XP per reparatie."
-        material: "GLASS_BOTTLE"
+        material: "FLOWCITYCORE_ME_ULEI"
         price: 35
         pack: 5
         max: 20
