@@ -41,7 +41,9 @@ phone:
       - Vodafone
       - Digi
     number-format: "07## ### ###"   # # = cifra aleatoare; numerele sunt unice pe server
-    material: PAPER                 # materialul itemului de cartela (marcat server-side, nu se poate falsifica)
+    material: AUTO                  # materialul itemului de cartela (marcat server-side, nu se poate falsifica)
+    blank-material: FLOWCITYCORE_SIM_CARD   # itemul "Card SIM" din mod (creative tab); cel fara ID se activeaza din telefon si primeste numar unic
+    accept-blank: true              # false = doar cartelele cumparate din telefon
     allow-transfer: true            # true = cine tine cartela fizic o poate introduce (devine proprietar); false = doar proprietarul
     max-in-inventory: 3             # cate cartele poate avea cumparatorul in inventar odata
     emergency-without-sim: true     # apelul la 112 merge si fara SIM

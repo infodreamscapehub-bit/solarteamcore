@@ -60,6 +60,7 @@ public final class PhoneState {
     }
 
     public static SimInfo simInstalled;
+    public static int simBlank;
     public static final List<SimInfo> simInv = new ArrayList<>();
     public static final List<String> simOps = new ArrayList<>();
     public static double simPrice;
@@ -100,6 +101,7 @@ public final class PhoneState {
         myNumber = "";
         simInstalled = null;
         simInv.clear();
+        simBlank = 0;
         simStatus = "NONE";
         operator = "";
         signal = 4;

@@ -381,6 +381,7 @@ public final class PhoneModule extends JsonModule {
             inv.add(j);
         }
         o.add("inv", inv);
+        o.addProperty("blank", plugin.getConfig().getBoolean("phone.sim.accept-blank", true) ? sims.blankCount(p) : 0);
         o.addProperty("price", plugin.getConfig().getDouble("phone.sim.price", 200.0));
         JsonArray ops = new JsonArray();
         for (String op : operators()) ops.add(op);
@@ -402,6 +403,10 @@ public final class PhoneModule extends JsonModule {
     private void simInsert(Player p, JsonObject j) {
         if (!ok(p) || !simRate(p)) return;
         String id = str(j, "id", "");
+        if ("NEW".equals(id)) {
+            simInsertBlank(p, j);
+            return;
+        }
         SimStore.Sim s = sims.get(id);
         if (s == null) {
             plugin.channel().toast(p, "Cartela nu exista sau nu mai este valida.", true);
@@ -432,6 +437,39 @@ public final class PhoneModule extends JsonModule {
         else p.getInventory().removeItem(it);
         sims.install(s, p.getUniqueId());
         plugin.channel().toast(p, "Cartela SIM instalata: " + NumberLogic.phoneDisplay(s.number), false);
+        sendSim(p);
+        sendState(p);
+    }
+
+    /** Cartela "Card SIM" luata din creative/mod (fara ID): serverul o transforma intr-o cartela reala (numar unic) si o instaleaza. */
+    private void simInsertBlank(Player p, JsonObject j) {
+        if (!plugin.getConfig().getBoolean("phone.sim.accept-blank", true)) {
+            plugin.channel().toast(p, "Cartelele noi nu sunt acceptate. Cumpara una din telefon.", true);
+            return;
+        }
+        if (!needPhone(p)) return;
+        if (sims.installed(p.getUniqueId()) != null) {
+            plugin.channel().toast(p, "Telefonul are deja o cartela. Scoate-o mai intai.", true);
+            return;
+        }
+        if (sims.blankCount(p) <= 0) {
+            plugin.channel().toast(p, "Nu ai nicio cartela noua in inventar.", true);
+            return;
+        }
+        List<String> ops = operators();
+        String op = str(j, "operator", ops.get(0));
+        for (String o : ops) if (o.equalsIgnoreCase(op)) op = o;
+        SimStore.Sim s = sims.create(p.getUniqueId(), op, numberFormat());
+        if (s == null) {
+            plugin.channel().toast(p, "Nu s-a putut genera un numar liber.", true);
+            return;
+        }
+        if (!sims.takeBlank(p)) {
+            plugin.channel().toast(p, "Cartela nu mai este in inventar.", true);
+            return;
+        }
+        sims.install(s, p.getUniqueId());
+        plugin.channel().toast(p, "Cartela SIM activata: " + NumberLogic.phoneDisplay(s.number), false);
         sendSim(p);
         sendState(p);
     }

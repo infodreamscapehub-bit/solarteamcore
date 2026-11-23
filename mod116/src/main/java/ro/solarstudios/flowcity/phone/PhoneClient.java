@@ -46,6 +46,7 @@ public final class PhoneClient extends JsonClientModule {
         on("sim", d -> {
             PhoneState.simInstalled = d.has("installed") ? sim(d.getAsJsonObject("installed")) : null;
             PhoneState.simInv.clear();
+            PhoneState.simBlank = d.has("blank") ? d.get("blank").getAsInt() : 0;
             if (d.has("inv")) for (JsonElement e : d.getAsJsonArray("inv")) PhoneState.simInv.add(sim(e.getAsJsonObject()));
             PhoneState.simOps.clear();
             if (d.has("operators")) for (JsonElement e : d.getAsJsonArray("operators")) PhoneState.simOps.add(e.getAsString());
@@ -242,6 +243,13 @@ public final class PhoneClient extends JsonClientModule {
 
     public static void simInsert(String id) {
         req("sim.insert", with("id", id));
+    }
+
+    /** Cartela noua din mod (fara ID): serverul ii genereaza numarul si o instaleaza. */
+    public static void simInsertNew(String operator) {
+        JsonObject o = with("id", "NEW");
+        o.addProperty("operator", operator);
+        req("sim.insert", o);
     }
 
     public static void simEject() {

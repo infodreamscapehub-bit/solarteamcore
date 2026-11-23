@@ -877,6 +877,15 @@ public final class PhoneScreen extends FlowScreen {
         Ui.text(ms, "Cartele in inventar", x + 10, yy + 2, Sk.MUTED);
         yy += 14;
         int shown = 0;
+        if (PhoneState.simBlank > 0) {
+            shown++;
+            String bop = PhoneState.simOps.isEmpty() ? "" : PhoneState.simOps.get(PhoneState.simOpSel % PhoneState.simOps.size());
+            Ui.rect(ms, x + 8, yy + 24, w - 16, 1, 0x22FFFFFF);
+            Ui.text(ms, "Card SIM nou  x" + PhoneState.simBlank, x + 14, yy + 4, Sk.WHITE);
+            if (in == null) button(ms, "ACTIVEAZA", x + w - 74, yy + 2, 66, 16, mx, my, true, Sk.ACC_DARK, () -> PhoneClient.simInsertNew(bop));
+            else Ui.text(ms, "Scoate cartela actuala", x + 14, yy + 15, Sk.FAINT);
+            yy += 28;
+        }
         for (PhoneState.SimInfo s : PhoneState.simInv) {
             if (shown++ >= 3) break;
             Ui.rect(ms, x + 8, yy + 24, w - 16, 1, 0x22FFFFFF);

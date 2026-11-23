@@ -140,9 +140,48 @@ public final class SimStore {
 
     // ------------------------------------------------------------------ itemul
 
+    /** Itemul "Card SIM" din mod (creative tab) cand Arclight il expune ca material; altfel null. */
+    public Material blankMaterial() {
+        Material m = Material.matchMaterial(plugin.getConfig().getString("phone.sim.blank-material", "FLOWCITYCORE_SIM_CARD"));
+        return m;
+    }
+
     private Material material() {
-        Material m = Material.matchMaterial(plugin.getConfig().getString("phone.sim.material", "PAPER"));
+        String cfg = plugin.getConfig().getString("phone.sim.material", "AUTO");
+        if (cfg == null || cfg.equalsIgnoreCase("AUTO") || cfg.equalsIgnoreCase("PAPER")) {
+            Material b = blankMaterial();
+            if (b != null) return b;
+            return Material.PAPER;
+        }
+        Material m = Material.matchMaterial(cfg);
         return m == null ? Material.PAPER : m;
+    }
+
+    /** Cartele noi (itemul din mod, fara ID server) din inventar: nr. de iteme. */
+    public int blankCount(Player p) {
+        Material b = blankMaterial();
+        if (b == null) return 0;
+        int n = 0;
+        for (ItemStack it : p.getInventory().getContents()) {
+            if (it != null && it.getType() == b && idOf(it) == null) n += it.getAmount();
+        }
+        return n;
+    }
+
+    /** Consuma o cartela noua din inventar; true daca a gasit una. */
+    public boolean takeBlank(Player p) {
+        Material b = blankMaterial();
+        if (b == null) return false;
+        ItemStack[] c = p.getInventory().getContents();
+        for (int i = 0; i < c.length; i++) {
+            ItemStack it = c[i];
+            if (it != null && it.getType() == b && idOf(it) == null) {
+                if (it.getAmount() > 1) it.setAmount(it.getAmount() - 1);
+                else p.getInventory().setItem(i, null);
+                return true;
+            }
+        }
+        return false;
     }
 
     public ItemStack makeItem(Sim s) {
