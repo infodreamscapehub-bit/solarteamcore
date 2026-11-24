@@ -64,6 +64,7 @@ public final class HypeClient extends JsonClientModule {
         instance = new HypeClient();
         ClientModules.register(instance);
         MinecraftForge.EVENT_BUS.register(new HypeHud());
+        MinecraftForge.EVENT_BUS.register(new StatusHud());
     }
 
     public static void request(String action, JsonObject data) {

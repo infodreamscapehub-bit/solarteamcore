@@ -179,7 +179,7 @@ public final class HypeHud {
     private static int bottom(JsonObject s, int style) {
         int h = style == 2 ? 140 : (style == 3 ? 78 : 74);
         if (!JsonClientModule.str(s, "job", "").isEmpty()) h += 16;
-        if (JsonClientModule.bool(s, "thirstOn", false)) h += 12;
+        if (JsonClientModule.bool(s, "thirstOn", false) && !StatusHud.showsWater()) h += 12;
         return h;
     }
 
@@ -407,7 +407,7 @@ public final class HypeHud {
     }
 
     private void drawThirst(GuiGraphics ms, JsonObject s, int x, int y, float dt, double t, int ww) {
-        if (!JsonClientModule.bool(s, "thirstOn", false)) return;
+        if (!JsonClientModule.bool(s, "thirstOn", false) || StatusHud.showsWater()) return;
         float v = JsonClientModule.integer(s, "thirst", 100);
         thirstShown += (v - thirstShown) * Math.min(1f, dt * 5f);
         int col = v < 20 ? Theme.BAD : (v < 50 ? Theme.WARN : 0xFF38BDF8);

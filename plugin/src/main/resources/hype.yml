@@ -200,6 +200,9 @@ thirst:
   drain-per-minute: 4.0      # puncte (din 100) pe minut, in repaus
   sprint-multiplier: 2.5
   swim-multiplier: 1.5
+  heat-multiplier: 1.5       # in biomuri calde (temperatura >= heat-temperature) seteaza creste mai repede
+  heat-temperature: 1.0
+  slowness-below: 10         # sub aceasta valoare: Slowness I (deshidratare); 0 = oprit
   respawn-value: 60
   damage-at-zero: 1.0        # damage la fiecare damage-interval-seconds
   damage-interval-seconds: 5

@@ -68,6 +68,9 @@ public final class HudLayout {
 
     static {
         PARTS.put("hud", new String[][] {{"clock", "Ceas"}, {"title", "Titlu + logo"}, {"identity", "Nume"}, {"rank", "Rank"}, {"money", "Bani"}, {"job", "Job"}, {"thirst", "Sete"}});
+        PARTS.put("status", new String[][] {{"health", "Viață"}, {"armor", "Armură"}, {"food", "Mâncare"}, {"water", "Apă"},
+            {"pct", "Procente (oprit = valori)"}, {"anim", "Animații"}, {"wide", "Spațiere mare"}, {"hidevanilla", "Ascunde barele vanilla"},
+            {"auto", "Ascunde armura la 0"}});
     }
 
     /** Culoarea de accent aleasa pentru element, sau def daca nu a ales una. */
@@ -108,6 +111,7 @@ public final class HudLayout {
 
     static {
         add("hud", "Panou principal");
+        add("status", "Status jucător");
         add("speedo", "Bord mașină");
         add("toasts", "Notificări");
         add("news", "Știri CNN");
@@ -282,6 +286,11 @@ public final class HudLayout {
                 return ro.solarstudios.flowcity.gps.MiniMapRenderer.defaults(sw, sh);
             case "gps":
                 return new float[] {10f, sh / 2f + 40f, 156f, 64f};
+            case "status": {
+                float w = 4 * 30f + 3 * 3f;
+                float y = 8f + w > sw / 2f - 95f ? sh - 32f - 44f : sh - 32f - 8f;
+                return new float[] {8f, y, w, 32f};
+            }
             case "taxi":
                 return new float[] {10f, sh / 2f - 34f, 156f, 64f};
             case "fjobs":

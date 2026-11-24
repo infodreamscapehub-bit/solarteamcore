@@ -817,6 +817,13 @@ public final class HypeModule extends JsonModule implements Listener {
             double mult = 1.0;
             if (p.isSprinting()) mult = Math.max(mult, sprint);
             if (p.isSwimming()) mult = Math.max(mult, swim);
+            // caldura (biomuri calde: desert, savana etc.)
+            double heatAt = cfg.getDouble("thirst.heat-temperature", 1.0);
+            try {
+                if (p.getLocation().getBlock().getTemperature() >= heatAt) mult *= cfg.getDouble("thirst.heat-multiplier", 1.5);
+            } catch (RuntimeException ignored) {
+                // biom necunoscut
+            }
             double before = d.thirst;
             d.thirst = Math.max(0, d.thirst - perMin * mult * 5.0 / 60.0);
             if (Math.round(before) != Math.round(d.thirst)) d.dirty = true;
@@ -824,6 +831,10 @@ public final class HypeModule extends JsonModule implements Listener {
             if (d.thirst < warn && d.thirst > 0 && now - d.lastThirstWarn > 30_000L) {
                 d.lastThirstWarn = now;
                 p.sendMessage("§bTi-e sete! §7Bea apa sau mananca fructe (/sete).");
+            }
+            double slowBelow = cfg.getDouble("thirst.slowness-below", 10);
+            if (d.thirst < slowBelow) {
+                p.addPotionEffect(new org.bukkit.potion.PotionEffect(org.bukkit.potion.PotionEffectType.SLOW, 120, 0, true, false, true));
             }
             if (d.thirst <= 0) {
                 long interval = cfg.getInt("thirst.damage-interval-seconds", 5) * 1000L;
