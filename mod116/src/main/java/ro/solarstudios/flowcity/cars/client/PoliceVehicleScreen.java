@@ -64,6 +64,12 @@ public final class PoliceVehicleScreen extends FlowScreen {
         }
         y += 13;
         Ui.text(ms, "Proprietar: " + JsonClientModule.str(data, "owner", "-"), x, y, Theme.MUTED);
+        if (data.has("odo")) {
+            y += 11;
+            long km = Math.round(JsonClientModule.num(data, "odo", 0) / 1000.0);
+            String reg = JsonClientModule.str(data, "reg", "");
+            Ui.text(ms, "Kilometraj: " + String.format(java.util.Locale.ROOT, "%,d", km).replace(',', '.') + " km" + (reg.isEmpty() ? "" : "   Inregistrat: " + reg), x, y, Theme.MUTED);
+        }
         if (data.has("itp")) {
             long now = System.currentTimeMillis();
             long itp = JsonClientModule.lng(data, "itp", 0);

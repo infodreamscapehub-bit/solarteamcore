@@ -265,6 +265,7 @@ public final class DealerScreen extends FlowScreen {
             dy += 9.5f;
         }
         Gfx.text(ms, "trage pentru a roti", rr, 196, 5.8f, Sk.FAINT, 2);
+        Gfx.text(ms, "KILOMETRAJ  0 km  ·  NOU", rx, 196, 5.8f, Sk.ACC, 0, false, 0.8f);
         hitL(rx, 100, rw, 96, () -> dragging = true);
 
         // ---- statistici (dupa motor si roti)

@@ -73,6 +73,7 @@ public final class GaragesClient {
     public static final List<G> garages = new ArrayList<>();
     public static final List<S> stations = new ArrayList<>();
     public static KeyBinding lockKey;
+    public static KeyBinding infoKey;
     /** Lumini care clipesc la incuiere: id entitate -> {momentul, incuiat (1/0)}. */
     private static final java.util.Map<Integer, long[]> flashes = new java.util.HashMap<>();
     public static final Set<String> factions = new HashSet<>();
@@ -92,6 +93,8 @@ public final class GaragesClient {
         e.register(interact);
         lockKey = new KeyBinding("key.flowcity.carlock", InputMappings.Type.KEYSYM, GLFW.GLFW_KEY_U, "key.categories.flowcity");
         e.register(lockKey);
+        infoKey = new KeyBinding("key.flowcity.carinfo", InputMappings.Type.KEYSYM, GLFW.GLFW_KEY_I, "key.categories.flowcity");
+        e.register(infoKey);
     }
 
     public static boolean police() {
@@ -169,6 +172,9 @@ public final class GaragesClient {
                 break;
             case "odo":
                 CarHud.setOdo(JsonClientModule.integer(o, "eid", -1), JsonClientModule.num(o, "odo", 0), JsonClientModule.num(o, "trip", 0));
+                CarHud.setJourney(JsonClientModule.num(o, "journey", 0));
+                if (JsonClientModule.bool(o, "meta", false)) CarHud.setMeta(JsonClientModule.str(o, "model", ""), JsonClientModule.str(o, "plate", ""),
+                    JsonClientModule.str(o, "owner", ""), JsonClientModule.str(o, "reg", ""), JsonClientModule.str(o, "vid", ""));
                 break;
             case "inspect":
                 if (mc.screen instanceof PoliceVehicleScreen) ((PoliceVehicleScreen) mc.screen).update(o);
@@ -281,6 +287,11 @@ public final class GaragesClient {
                 boolean lk = false;
                 while (lockKey.consumeClick()) lk = true;
                 if (lk) CarsNet.send("lock", 0, 0);
+            }
+            if (infoKey != null) {
+                boolean ik = false;
+                while (infoKey.consumeClick()) ik = true;
+                if (ik && mc.player.getVehicle() != null) CarHud.showInfo = !CarHud.showInfo;
             }
             if (interact == null) return;
             boolean pressed = false;

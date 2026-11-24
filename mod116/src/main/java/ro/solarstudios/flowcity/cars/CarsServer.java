@@ -477,46 +477,119 @@ public final class CarsServer {
         return null;
     }
 
-    /** Bordul cere numarul masinii in care sta jucatorul. */
-    /** Chilometrajul: ultima pozitie esantionata per masina si ultimele valori trimise per sofer. */
-    private static final java.util.Map<Integer, Vector3d> ODO_POS = new java.util.HashMap<>();
-    private static final java.util.Map<UUID, double[]> ODO_SENT = new java.util.HashMap<>();
+    // ------------------------------------------------------------------ chilometraj (calculat doar pe server)
 
-    private static void sendOdo(ServerPlayerEntity p, Entity v, GarageData.Car c) {
-        JsonObject o = new JsonObject();
-        o.addProperty("eid", v.getId());
-        o.addProperty("odo", Math.round(c.odometerM));
-        o.addProperty("trip", Math.round(c.tripM));
-        CarsNet.reply(p, "odo", o.toString());
-        ODO_SENT.put(p.getUUID(), new double[] {c.id, c.odometerM, c.tripM});
+    /**
+     * Chilometrajul. Masinile din garaj (fcVehId) il tin in GarageData (calatoreste cu masina cand e parcata / scoasa / vanduta).
+     * Vehiculele MrCrayfish neinregistrate (ex. puse de admin) il tin in datele persistente ale entitatii (fcOdo*), salvate cu chunk-ul.
+     * Distanta = deplasarea reala a entitatii intre doua esantioane (0,5 s): sub 2 cm = stationare, peste 40 m = teleport (ignorat).
+     * Clientul nu trimite niciodata valori: doar le primeste.
+     */
+    private static final String ODO_M = "fcOdoM";
+    private static final String ODO_ID = "fcOdoId";
+    private static final String ODO_SINCE = "fcOdoSince";
+    private static final java.util.Map<String, Vector3d> ODO_POS = new java.util.HashMap<>();
+    /** Per sofer: cheia vehiculului, ultimele valori trimise (odo, trip, calatorie). */
+    private static final java.util.Map<UUID, Object[]> ODO_SENT = new java.util.HashMap<>();
+    /** Calatoria curenta per sofer: cheia vehiculului, metri, ultima data cand a condus. */
+    private static final java.util.Map<UUID, Object[]> JOURNEY = new java.util.HashMap<>();
+    private static final long JOURNEY_GAP_MS = 120_000L;
+    private static Class<?> poweredClass;
+    private static boolean poweredChecked;
+
+    private static boolean isVehicle(Entity v) {
+        if (!poweredChecked) {
+            poweredChecked = true;
+            try {
+                poweredClass = Class.forName("com.mrcrayfish.vehicle.entity.PoweredVehicleEntity");
+            } catch (ClassNotFoundException | LinkageError e) {
+                poweredClass = null;
+            }
+        }
+        return poweredClass != null && poweredClass.isInstance(v);
     }
 
-    /** La ~0,5 s: adauga distanta parcursa masinilor scoase din garaj care au sofer si trimite soferului valorile. */
+    private static String fmtDate(long ms) {
+        if (ms <= 0) return "";
+        return new java.text.SimpleDateFormat("dd.MM.yyyy").format(new java.util.Date(ms));
+    }
+
+    private static void sendOdo(ServerPlayerEntity p, Entity v, String key, double odo, double trip, double journey, GarageData.Car c) {
+        JsonObject o = new JsonObject();
+        o.addProperty("eid", v.getId());
+        o.addProperty("odo", Math.round(odo));
+        o.addProperty("trip", Math.round(trip));
+        o.addProperty("journey", Math.round(journey));
+        Object[] prev = ODO_SENT.get(p.getUUID());
+        if (prev == null || !key.equals(prev[0])) {
+            // datele fixe ale vehiculului doar la prima trimitere pentru acest vehicul
+            o.addProperty("meta", true);
+            if (c != null) {
+                o.addProperty("model", c.name);
+                o.addProperty("plate", c.plate == null ? "" : c.plate);
+                o.addProperty("owner", c.owner == null ? "Factiune " + c.faction : nameOf(p.server, c.owner));
+                o.addProperty("reg", fmtDate(c.registeredAt));
+                o.addProperty("vid", "FC-" + c.id);
+            } else {
+                o.addProperty("model", v.getDisplayName().getString());
+                o.addProperty("plate", "");
+                o.addProperty("owner", "Neinregistrat");
+                o.addProperty("reg", fmtDate(v.getPersistentData().getLong(ODO_SINCE)));
+                o.addProperty("vid", v.getPersistentData().getString(ODO_ID));
+            }
+        }
+        CarsNet.reply(p, "odo", o.toString());
+        ODO_SENT.put(p.getUUID(), new Object[] {key, odo, trip, journey});
+    }
+
+    /** La ~0,5 s: adauga distanta reala parcursa vehiculelor cu sofer si trimite soferului valorile (rar: la 50 m sau la schimbarea vehiculului). */
     private static void odoTick(MinecraftServer server, GarageData data) {
-        java.util.Set<Integer> activeCars = new java.util.HashSet<>();
+        java.util.Set<String> active = new java.util.HashSet<>();
         java.util.Set<UUID> activePlayers = new java.util.HashSet<>();
+        long now = System.currentTimeMillis();
         for (ServerPlayerEntity p : server.getPlayerList().getPlayers()) {
             Entity v = p.getVehicle();
             if (v == null || v.getControllingPassenger() != p) continue;
             GarageData.Car c = carOf(server, v);
-            if (c == null) continue;
-            activeCars.add(c.id);
+            if (c == null && (v.getPersistentData().contains(TAG) || !isVehicle(v))) continue;
+            CompoundNBT pd = v.getPersistentData();
+            if (c == null && !pd.contains(ODO_ID)) {
+                pd.putString(ODO_ID, "V-" + v.getUUID().toString().substring(0, 8).toUpperCase());
+                pd.putLong(ODO_SINCE, now);
+                pd.putDouble(ODO_M, 0);
+            }
+            String key = c != null ? "c" + c.id : "e" + v.getUUID();
+            active.add(key);
             activePlayers.add(p.getUUID());
+            Object[] j = JOURNEY.get(p.getUUID());
+            if (j == null || !key.equals(j[0]) || now - (Long) j[2] > JOURNEY_GAP_MS) j = new Object[] {key, 0.0, now};
+            j[2] = now;
+            JOURNEY.put(p.getUUID(), j);
             Vector3d pos = v.position();
-            Vector3d prev = ODO_POS.put(c.id, pos);
+            Vector3d prev = ODO_POS.put(key, pos);
             if (prev != null) {
                 double d = prev.distanceTo(pos);
                 if (d > 0.02 && d <= 40) {
-                    c.odometerM += d;
-                    c.tripM += d;
-                    data.setDirty();
+                    if (c != null) {
+                        c.odometerM += d;
+                        c.tripM += d;
+                        data.setDirty();
+                    } else {
+                        pd.putDouble(ODO_M, pd.getDouble(ODO_M) + d);
+                    }
+                    j[1] = (Double) j[1] + d;
                 }
             }
-            double[] sent = ODO_SENT.get(p.getUUID());
-            if (sent == null || (int) sent[0] != c.id || Math.abs(c.odometerM - sent[1]) >= 50) sendOdo(p, v, c);
+            double odo = c != null ? c.odometerM : pd.getDouble(ODO_M);
+            double trip = c != null ? c.tripM : (Double) j[1];
+            double jr = (Double) j[1];
+            Object[] sent = ODO_SENT.get(p.getUUID());
+            if (sent == null || !key.equals(sent[0]) || Math.abs(odo - (Double) sent[1]) >= 50 || Math.abs(jr - (Double) sent[3]) >= 50
+                || (jr < (Double) sent[3])) sendOdo(p, v, key, odo, trip, jr, c);
         }
-        ODO_POS.keySet().retainAll(activeCars);
+        ODO_POS.keySet().retainAll(active);
         ODO_SENT.keySet().retainAll(activePlayers);
+        JOURNEY.values().removeIf(j -> now - (Long) j[2] > JOURNEY_GAP_MS * 2);
     }
 
     /** Resetarea tripului: doar soferul unei masini din garaj (comanda client ".trip"). */
@@ -527,7 +600,9 @@ public final class CarsServer {
         if (c == null) return;
         c.tripM = 0;
         data.setDirty();
-        sendOdo(p, v, c);
+        Object[] j = JOURNEY.get(p.getUUID());
+        ODO_SENT.remove(p.getUUID());
+        sendOdo(p, v, "c" + c.id, c.odometerM, 0, j == null ? 0 : (Double) j[1], c);
         p.displayClientMessage(new StringTextComponent("Trip resetat."), true);
     }
 
@@ -557,7 +632,10 @@ public final class CarsServer {
             o.addProperty("owner", owner);
             o.addProperty("itp", c.itpUntil);
             o.addProperty("ins", c.insUntil);
+            o.addProperty("odo", Math.round(c.odometerM));
+            o.addProperty("reg", fmtDate(c.registeredAt));
         } else {
+            if (e.getPersistentData().contains(ODO_ID)) o.addProperty("odo", Math.round(e.getPersistentData().getDouble(ODO_M)));
             o.addProperty("plate", "");
             o.addProperty("owner", "fara acte (nu e inregistrat)");
         }
@@ -731,6 +809,14 @@ public final class CarsServer {
                 }
             }
             if (ticks % 10 == 0) odoTick(server, GarageData.get(server));
+            // salvare periodica (la 1 min) a garajelor/chilometrajului, ca un crash sa nu piarda mult
+            if (ticks % 1200 == 0 && GarageData.get(server).isDirty()) {
+                try {
+                    server.overworld().getDataStorage().save();
+                } catch (RuntimeException ex) {
+                    LOG.warn("Salvarea garajelor a esuat: {}", ex.toString());
+                }
+            }
             if (ticks % 600 == 0) {
                 for (ServerPlayerEntity p : server.getPlayerList().getPlayers()) syncTo(p, false);
                 LAST_SYNC.keySet().removeIf(id -> server.getPlayerList().getPlayer(id) == null);

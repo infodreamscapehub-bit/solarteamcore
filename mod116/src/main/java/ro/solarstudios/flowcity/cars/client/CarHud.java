@@ -35,9 +35,33 @@ public final class CarHud {
     private static int odoFor = -1;
     private static String odoDigits = "0000000";
     private static String tripStr = "0.0";
+    private static String journeyStr = "0.0";
+    private static String metaModel = "";
+    private static String metaPlate = "";
+    private static String metaOwner = "";
+    private static String metaReg = "";
+    private static String metaId = "";
+    /** Panoul de informatii (tasta "Informatii vehicul"). */
+    public static boolean showInfo;
+    private static float infoAnim;
+
+    /** Datele fixe ale vehiculului (trimise o data, cand urci in el). */
+    public static void setMeta(String model, String plate, String owner, String reg, String vid) {
+        metaModel = model == null ? "" : model;
+        metaPlate = plate == null ? "" : plate;
+        metaOwner = owner == null ? "" : owner;
+        metaReg = reg == null ? "" : reg;
+        metaId = vid == null ? "" : vid;
+    }
+
+    public static void setJourney(double m) {
+        long tt = (long) (Math.max(0, m) / 100.0);
+        journeyStr = (tt / 10) + "." + (tt % 10);
+    }
 
     /** Chilometrajul trimis de server: metri totali si metri de calatorie pentru vehiculul cu id-ul dat. */
     public static void setOdo(int entityId, double odoM, double tripM) {
+        if (odoFor != entityId) setMeta("", "", "", "", "");
         odoFor = entityId;
         long t = (long) (Math.max(0, odoM) / 100.0);
         StringBuilder sb = new StringBuilder(Long.toString(Math.min(9999999L, t)));
@@ -280,9 +304,47 @@ public final class CarHud {
             Gfx.rrect(g, qx, ty + 5.5f, pw, 16, 4, 0xFFF4F1EA);
             Gfx.text(g, pl, qx + 6, ty + 17.5f, 11, 0xFF14161A, 0, false, 0.66f);
         }
+        // panoul de informatii (tasta "Informatii vehicul"), deasupra numelui
+        infoAnim += ((showInfo ? 1f : 0f) - infoAnim) * 0.2f;
+        if (infoAnim > 0.02f) drawInfo(g, has, pl, ty - 6);
         g.pose().popPose();
         ro.solarstudios.flowcity.client.ui.HudLayout.end(g);
 
         if (fuel && f <= 0f) Gfx.text(g, "Rezervorul e gol", w / 2f, h - 64, 10, Theme.BAD, 1);
+    }
+
+    private static void drawInfo(GuiGraphics g, boolean has, String pl, float bottom) {
+        float a = infoAnim;
+        float ph = 104;
+        float y0 = bottom - ph + (1 - a) * 10;
+        int al = Math.round(a * 255) << 24;
+        int bg = (Math.round(a * 0xEE) << 24) | 0x0B111B;
+        Gfx.rrect(g, -1, y0 - 1, 302, ph + 2, 13, (Math.round(a * 0x22) << 24) | 0xFFFFFF);
+        Gfx.rrect(g, 0, y0, 300, ph, 12, bg);
+        Gfx.rrect(g, 0, y0, 4, ph, 2, al | 0x4DA3FF);
+        String model = metaModel.isEmpty() ? "Vehicul" : metaModel;
+        Gfx.text(g, "INFORMATII VEHICUL", 14, y0 + 14, 7.5f, al | 0x4DA3FF, 0, false, 1.6f);
+        if (!metaId.isEmpty()) Gfx.text(g, metaId, 288, y0 + 14, 7.5f, al | 0x7F8A99, 2);
+        Gfx.text(g, model.length() > 30 ? model.substring(0, 29) + "..." : model, 14, y0 + 31, 13, al | 0xF4F7FB, 0, true, 0f);
+        String plate = !pl.isEmpty() ? pl : (metaPlate.isEmpty() ? "-" : metaPlate);
+        String[] lab = {"KM TOTAL", "TRIP", "CALATORIE"};
+        String[] val = {has ? kmStr() : "-", has ? tripStr + " km" : "-", has ? journeyStr + " km" : "-"};
+        for (int i = 0; i < 3; i++) {
+            float cx = 14 + i * 94;
+            Gfx.rrect(g, cx, y0 + 40, 86, 30, 6, al | 0x141E2C);
+            Gfx.text(g, lab[i], cx + 7, y0 + 50, 6.5f, al | 0x7F8A99, 0, false, 1f);
+            Gfx.text(g, val[i], cx + 7, y0 + 64, 10, al | 0xF4F7FB, 0, true, 0f);
+        }
+        Gfx.text(g, "Nr: " + plate, 14, y0 + 84, 8.5f, al | 0xC9D3E0, 0);
+        Gfx.text(g, "Proprietar: " + (metaOwner.isEmpty() ? "-" : metaOwner), 14, y0 + 96, 8.5f, al | 0xC9D3E0, 0);
+        if (!metaReg.isEmpty()) Gfx.text(g, "Inregistrat " + metaReg, 288, y0 + 96, 8, al | 0x7F8A99, 2);
+    }
+
+    private static String kmStr() {
+        long t = 0;
+        for (char ch : odoDigits.toCharArray()) t = t * 10 + (ch - '0');
+        long kmInt = t / 10;
+        String s = String.format(java.util.Locale.ROOT, "%,d", kmInt).replace(',', '.');
+        return s + " km";
     }
 }

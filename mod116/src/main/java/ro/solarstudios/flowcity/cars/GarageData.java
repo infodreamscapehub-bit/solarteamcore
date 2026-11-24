@@ -115,6 +115,8 @@ public final class GarageData extends WorldSavedData {
         /** Chilometraj: metri totali parcursi si metri de calatorie (resetabil). */
         public double odometerM;
         public double tripM;
+        /** Data inregistrarii (epoch ms; 0 = masina veche, inregistrata inainte de chilometraj). */
+        public long registeredAt;
 
         CompoundNBT save() {
             CompoundNBT t = new CompoundNBT();
@@ -135,6 +137,7 @@ public final class GarageData extends WorldSavedData {
             t.putLong("ItpUntil", itpUntil);
             t.putDouble("OdoM", odometerM);
             t.putDouble("TripM", tripM);
+            t.putLong("RegAt", registeredAt);
             return t;
         }
 
@@ -157,6 +160,7 @@ public final class GarageData extends WorldSavedData {
             c.itpUntil = t.getLong("ItpUntil");
             c.odometerM = t.getDouble("OdoM");
             c.tripM = t.getDouble("TripM");
+            c.registeredAt = t.getLong("RegAt");
             return c;
         }
     }
@@ -266,6 +270,7 @@ public final class GarageData extends WorldSavedData {
         c.name = name;
         c.plate = plate;
         c.nbt = nbt;
+        c.registeredAt = System.currentTimeMillis();
         cars.put(c.id, c);
         setDirty();
         return c;
