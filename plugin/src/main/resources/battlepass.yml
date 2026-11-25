@@ -1,0 +1,35 @@
+# Battlepass FlowCity (legat de FJobs): obiective zilnice/saptamanale care se bifeaza din activitatea in tura FJobs.
+enabled: true
+xp-per-level: 100        # XP battlepass pentru fiecare nivel
+max-level: 30
+daily-count: 3           # cate obiective zilnice are fiecare jucator
+weekly-count: 3
+timezone: Europe/Bucharest
+# Recompensa implicita pe nivel: reward-base * nivel (bani). Se poate suprascrie cu rewards.<nivel>.
+reward-base: 250
+rewards:
+  10:
+    money: 5000
+    command: ""          # comanda din consola, ex: "give %player% diamond 3" (gol = nimic)
+    label: "5000$"
+  20:
+    money: 10000
+    command: ""
+    label: "10000$"
+  30:
+    money: 25000
+    command: ""
+    label: "25000$"
+# type: missions (misiuni/livrari terminate) | actions (orice actiune platita) | earn (bani castigati) | xp (XP job castigat)
+# job: id-ul jobului din fjobs.yml (gol = orice job)
+daily:
+  - {id: d_missions3, type: missions, target: 3, xp: 40, label: "Termina 3 misiuni FJobs"}
+  - {id: d_missions6, type: missions, target: 6, xp: 70, label: "Termina 6 misiuni FJobs"}
+  - {id: d_actions40, type: actions, target: 40, xp: 40, label: "Fa 40 de actiuni la job"}
+  - {id: d_earn2000, type: earn, target: 2000, xp: 50, label: "Castiga 2000$ din joburi"}
+  - {id: d_xp150, type: xp, target: 150, xp: 40, label: "Aduna 150 XP de job"}
+weekly:
+  - {id: w_missions25, type: missions, target: 25, xp: 200, label: "Termina 25 de misiuni in saptamana asta"}
+  - {id: w_earn20000, type: earn, target: 20000, xp: 220, label: "Castiga 20000$ din joburi"}
+  - {id: w_actions300, type: actions, target: 300, xp: 180, label: "Fa 300 de actiuni la job"}
+  - {id: w_xp1500, type: xp, target: 1500, xp: 200, label: "Aduna 1500 XP de job"}

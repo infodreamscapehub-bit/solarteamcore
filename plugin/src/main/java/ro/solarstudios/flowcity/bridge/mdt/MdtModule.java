@@ -137,6 +137,109 @@ public final class MdtModule extends JsonModule implements Listener {
     private final AtomicLong ids = new AtomicLong(1);
     private int unitSeq = 1;
 
+    // ---- statistici saptamanale (minute pe tip de unitate + AFK); o saptamana noua porneste pentru TOTI ofiterii
+    private static final class Week {
+        int rut, pat, raz, afk;
+        String name = "";
+    }
+
+    private final Map<String, Map<UUID, Week>> weeks = new LinkedHashMap<>(); // cheie "2026-W48" -> ofiter -> minute
+    private final Map<UUID, String> lastPos = new HashMap<>();
+    private String curWeek = "";
+
+    private static String weekKey(java.time.LocalDate d) {
+        return String.format(Locale.ROOT, "%d-W%02d", d.get(java.time.temporal.IsoFields.WEEK_BASED_YEAR),
+            d.get(java.time.temporal.IsoFields.WEEK_OF_WEEK_BASED_YEAR));
+    }
+
+    private static String weekTitle(String k) {
+        int i = k.indexOf("-W");
+        return i < 0 ? k : "Saptamana " + Integer.parseInt(k.substring(i + 2)) + "/" + k.substring(0, i);
+    }
+
+    private void loadWeekly() throws Exception {
+        plugin.db().async(c -> {
+            try (Statement st = c.createStatement()) {
+                st.execute("CREATE TABLE IF NOT EXISTS mdt_week (wk TEXT NOT NULL, uuid TEXT NOT NULL, name TEXT NOT NULL, rut INTEGER NOT NULL DEFAULT 0, pat INTEGER NOT NULL DEFAULT 0, raz INTEGER NOT NULL DEFAULT 0, afk INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (wk, uuid))");
+                try (ResultSet rs = st.executeQuery("SELECT wk,uuid,name,rut,pat,raz,afk FROM mdt_week WHERE wk IN (SELECT wk FROM mdt_week GROUP BY wk ORDER BY wk DESC LIMIT 6) ORDER BY wk")) {
+                    while (rs.next()) {
+                        UUID u = parse(rs.getString(2));
+                        if (u == null) continue;
+                        Week w = new Week();
+                        w.name = rs.getString(3);
+                        w.rut = rs.getInt(4);
+                        w.pat = rs.getInt(5);
+                        w.raz = rs.getInt(6);
+                        w.afk = rs.getInt(7);
+                        weeks.computeIfAbsent(rs.getString(1), k -> new ConcurrentHashMap<>()).put(u, w);
+                    }
+                }
+            } catch (java.sql.SQLException e) {
+                throw new RuntimeException(e);
+            }
+            return null;
+        }).get(8, TimeUnit.SECONDS);
+    }
+
+    private void saveWeek(String key, UUID u, Week w) {
+        sql("INSERT OR REPLACE INTO mdt_week(wk,uuid,name,rut,pat,raz,afk) VALUES (?,?,?,?,?,?,?)", key, u.toString(), w.name, w.rut, w.pat, w.raz, w.afk);
+    }
+
+    /** Ruleaza la 60s: trece la saptamana noua (cu randuri goale pentru toti ofiterii, istoricul ramane) si numara minutele. */
+    private void weeklyTick() {
+        String key = weekKey(java.time.LocalDate.now(java.time.ZoneId.of("Europe/Bucharest")));
+        Map<UUID, Week> cur = weeks.computeIfAbsent(key, k -> new ConcurrentHashMap<>());
+        boolean fresh = !key.equals(curWeek);
+        curWeek = key;
+        for (Officer o : officers.values()) { // si cei inactivi primesc randul saptamanii noi
+            Week w = cur.get(o.uuid);
+            if (w == null) {
+                w = new Week();
+                w.name = o.name;
+                cur.put(o.uuid, w);
+                saveWeek(key, o.uuid, w);
+            }
+        }
+        if (fresh) lastPos.clear();
+        for (Officer o : officers.values()) {
+            Player pl = Bukkit.getPlayer(o.uuid);
+            Unit un = unitOf(o.uuid);
+            if (pl == null || un == null) {
+                lastPos.remove(o.uuid);
+                continue;
+            }
+            org.bukkit.Location l = pl.getLocation();
+            String pos = l.getWorld().getName() + ":" + l.getBlockX() + ":" + l.getBlockY() + ":" + l.getBlockZ();
+            boolean still = pos.equals(lastPos.put(o.uuid, pos));
+            Week w = cur.get(o.uuid);
+            w.name = o.name;
+            if (still) w.afk++;
+            else if ("RUTIERA".equals(un.type)) w.rut++;
+            else if ("RAZIE".equals(un.type)) w.raz++;
+            else w.pat++;
+            saveWeek(key, o.uuid, w);
+        }
+        while (weeks.size() > 6) weeks.remove(weeks.keySet().iterator().next()); // in memorie doar ultimele 6 (DB pastreaza tot)
+    }
+
+    private JsonObject weekJson(String key, Map<UUID, Week> m) {
+        JsonObject o = new JsonObject();
+        o.addProperty("k", key);
+        o.addProperty("t", weekTitle(key));
+        JsonArray rows = new JsonArray();
+        for (Map.Entry<UUID, Week> e : m.entrySet()) {
+            JsonObject r = new JsonObject();
+            r.addProperty("u", e.getKey().toString());
+            r.addProperty("rut", e.getValue().rut);
+            r.addProperty("pat", e.getValue().pat);
+            r.addProperty("raz", e.getValue().raz);
+            r.addProperty("afk", e.getValue().afk);
+            rows.add(r);
+        }
+        o.add("rows", rows);
+        return o;
+    }
+
     @Override
     public String id() {
         return "mdt";
@@ -161,6 +264,7 @@ public final class MdtModule extends JsonModule implements Listener {
                 return null;
             }).get(8, TimeUnit.SECONDS);
             load();
+            loadWeekly();
         } catch (Exception e) {
             plugin.getLogger().severe("MDT: nu pot porni baza de date: " + e);
             return;
@@ -206,6 +310,7 @@ public final class MdtModule extends JsonModule implements Listener {
         on("rank_save", (p, j) -> rankSave(p, integer(j, "rank", 0), str(j, "name", ""), str(j, "up", ""), str(j, "down", "")));
         registerCommands();
         Bukkit.getScheduler().runTaskTimer(plugin, this::expireBackups, 200L, 200L);
+        Bukkit.getScheduler().runTaskTimer(plugin, this::weeklyTick, 20L, 1200L);
         for (Player p : Bukkit.getOnlinePlayers()) register(p);
     }
 
@@ -581,6 +686,13 @@ public final class MdtModule extends JsonModule implements Listener {
             of.add(x);
         }
         o.add("officers", of);
+
+        // saptamana curenta + ultimele 4 (cele mai noi primele)
+        JsonArray wk = new JsonArray();
+        List<String> keys = new ArrayList<>(weeks.keySet());
+        Collections.sort(keys, Collections.reverseOrder());
+        for (int i = 0; i < keys.size() && i < 5; i++) wk.add(weekJson(keys.get(i), weeks.get(keys.get(i))));
+        o.add("weeks", wk);
 
         JsonArray rk = new JsonArray();
         for (Rank r : ranks.values()) {

@@ -790,6 +790,7 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
             plugin.notifications().send(p, NotifyModule.Type.JOB, "Nivel profesional " + plvlAfter, "Ai deblocat joburi noi in Job Center.");
             store.addHistory(pr, "level", "", "Nivel profesional " + plvlAfter, 0);
         }
+        ro.solarstudios.flowcity.bridge.battlepass.BattlepassModule.progress(p, jd.id, mission, pay, rawXp);
         JsonObject o = new JsonObject();
         o.addProperty("pay", pay);
         o.addProperty("xp", rawXp);

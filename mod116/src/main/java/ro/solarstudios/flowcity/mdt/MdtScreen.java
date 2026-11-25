@@ -997,6 +997,20 @@ public final class MdtScreen extends FlowScreen {
                 selOfficer = -1;
             });
             if (!ok) Ui.text(ms, "Nu ai grad suficient pentru acest ofiter.", rx, cy + 108, FAINT);
+            int wy = cy + (ok ? 108 : 122);
+            int shown = 0;
+            for (JsonObject wk : list(arr(MdtState.state, "weeks"))) {
+                if (shown >= 5 || wy + 11 > cy + ch - 30) break;
+                for (JsonObject r : list(arr(wk, "rows"))) {
+                    if (!s(r, "u").equals(u)) continue;
+                    String line = s(wk, "t") + (shown == 0 ? " (curenta)" : "");
+                    Ui.text(ms, line, rx, wy, shown == 0 ? INK : DIM);
+                    Ui.textRight(ms, "R " + i(r, "rut") + "m  P " + i(r, "pat") + "m  Rz " + i(r, "raz") + "m  AFK " + i(r, "afk") + "m", rx + rw, wy, FAINT);
+                    wy += 11;
+                    break;
+                }
+                shown++;
+            }
         } else {
             Ui.text(ms, "Alege un ofiter din lista.", rx, cy + 14, FAINT);
         }
