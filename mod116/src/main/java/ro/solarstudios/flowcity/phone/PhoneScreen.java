@@ -30,7 +30,7 @@ import java.util.List;
 
 /** Telefonul ePhone: ecran principal cu aplicatii + Mesaje, Contacte, Apeluri, Banca, Setari. */
 public final class PhoneScreen extends FlowScreen {
-    private enum Page { HOME, MSG, THREAD, CONTACTS, CALLS, BANK, SETTINGS, SIM, STORE, STORE_APP, CALC, NOTES, NOTE_EDIT, CLOCK, WEATHER }
+    private enum Page { HOME, MSG, THREAD, CONTACTS, CALLS, BANK, SETTINGS, SIM, STORE, STORE_APP, CALC, NOTES, NOTE_EDIT, CLOCK, WEATHER, SNAKE }
 
     private static final int[] AVATAR = {0xFF2F6FB0, 0xFF3F7E8C, 0xFF4E7A8A, 0xFF5E5C9A, 0xFF8C7A3A, 0xFF4B5D7A, 0xFF2E8F66};
     /** 3 fundaluri intunecate + aceleasi 3 in varianta luminoasa (mod luminos). */
@@ -211,21 +211,33 @@ public final class PhoneScreen extends FlowScreen {
         float appear = Math.min(1f, (now - born) / 220f);
         float open = 1f - (1f - appear) * (1f - appear) * (1f - appear);
         Sk.background(ms, 0, 0, width, height, open);
-        int ph2 = Math.min(height - 16, 350);
+        int ph2 = Math.min(height - 44, 344);
         int x = (width - W) / 2;
-        int y = (height - ph2) / 2 + Math.round((1f - appear) * 40f);
+        int y = (height - ph2) / 2 + 4 + Math.round((1f - appear) * 40f);
         Gfx.alpha = open;
         try {
-            // corp telefon: rama metalica rotunjita, butoane laterale, ecran cu colturi rotunjite
-            Gfx.rrect(ms, x - 9, y - 7, 3, 22, 1.5f, 0xFF2A3140);
-            Gfx.rrect(ms, x - 9, y + 62, 3, 30, 1.5f, 0xFF2A3140);
-            Gfx.rrect(ms, x + W + 6, y + 70, 3, 40, 1.5f, 0xFF2A3140);
-            Gfx.rrect(ms, x - 8, y - 8, W + 16, ph2 + 16, 26f, 0xFF3A4252, 0xFF161A22);
-            Gfx.rrect(ms, x - 6.5f, y - 6.5f, W + 13, ph2 + 13, 24.5f, 0xFF0E1118, 0xFF0A0C11);
-            Gfx.rrect(ms, x - 4, y - 4, W + 8, ph2 + 8, 22f, 0xFF020304);
+            // corp telefon: rama groasa de metal argintiu, difuzor + camera in rama de sus, ecran negru incastrat
+            float bx = x - 11, by = y - 22, bw = W + 22, bh = ph2 + 36;
+            Gfx.rrect(ms, bx - 2.5f, by - 1f, 3.5f, 18f, 1.5f, 0xFFB4BAC4, 0xFF727A88); // butoane volum
+            Gfx.rrect(ms, bx - 2.5f, by + 26f, 3.5f, 18f, 1.5f, 0xFFB4BAC4, 0xFF727A88);
+            Gfx.rrect(ms, bx + bw - 1f, by + 40f, 3.5f, 32f, 1.5f, 0xFFB4BAC4, 0xFF727A88); // buton pornire
+            Gfx.rrect(ms, bx + 1.5f, by + 3f, bw, bh, 30f, 0x50000000); // umbra
+            Gfx.rrect(ms, bx - 1.5f, by - 1.5f, bw + 3f, bh + 3f, 31.5f, 0xFF12151B);
+            Gfx.rrect(ms, bx, by, bw, bh, 30f, 0xFFF0F2F6, 0xFF858D9A);
+            Gfx.rrect(ms, bx + 1.6f, by + 1.6f, bw - 3.2f, bh - 3.2f, 28.4f, 0xFFD3D8E0, 0xFF6C7482);
+            Gfx.rrect(ms, bx + 3.2f, by + 3.2f, bw - 6.4f, bh - 6.4f, 26.8f, 0xFFB9BFC9, 0xFF5B6371);
+            // difuzor (fanta) si camera
+            float mx0 = x + W / 2f;
+            Gfx.rrect(ms, mx0 - 19f, by + 9f, 38f, 5.5f, 2.75f, 0xFF1B1F27);
+            Gfx.rrect(ms, mx0 - 17.5f, by + 10.2f, 35f, 2f, 1f, 0xFF3A414D);
+            Gfx.disc(ms, mx0 + 31f, by + 11.7f, 5.2f, 0xFF8B93A0);
+            Gfx.disc(ms, mx0 + 31f, by + 11.7f, 4.2f, 0xFF10141C);
+            Gfx.disc(ms, mx0 + 31f, by + 11.7f, 2.1f, 0xFF1D3358);
+            Gfx.disc(ms, mx0 + 30.2f, by + 10.9f, 0.8f, 0xAAFFFFFF);
+            Gfx.rrect(ms, x - 3.5f, y - 3.5f, W + 7f, ph2 + 7f, 19f, 0xFF020304);
             int sx = x, sy = y, sw = W, sh = ph2;
             wallpaper(ms, sx, sy, sw, sh, now);
-            if (page != Page.HOME && page != Page.CALC && page != Page.CLOCK && page != Page.WEATHER && PhoneState.call == null) {
+            if (page != Page.HOME && page != Page.CALC && page != Page.CLOCK && page != Page.WEATHER && page != Page.SNAKE && PhoneState.call == null) {
                 Ui.rect(ms, sx, sy, sw, sh, PhoneState.light ? 0xD0060B14 : 0x8C060A12); // paginile aplicatiilor raman lizibile
             }
             pw = sw;
@@ -260,6 +272,7 @@ public final class PhoneScreen extends FlowScreen {
                     case NOTE_EDIT: noteEdit(ms, sx, sy, sw, sh, mx, my); break;
                     case CLOCK: clock(ms, sx, sy, sw, sh, mx, my); break;
                     case WEATHER: weather(ms, sx, sy, sw, sh, mx, my); break;
+                    case SNAKE: snake(ms, sx, sy, sw, sh, mx, my, now); break;
                     case MSG: messages(ms, sx, sy, sw, sh, mx, my); break;
                     case THREAD: thread(ms, sx, sy, sw, sh, mx, my); break;
                     case CONTACTS: contacts(ms, sx, sy, sw, sh, mx, my); break;
@@ -279,8 +292,6 @@ public final class PhoneScreen extends FlowScreen {
             statusBar(ms, sx, sy, sw, now);
             // colturile ecranului (masca), camera (insula) si bara home
             screenCorners(ms, sx, sy, sw, sh, 16f, 0xFF020304);
-            Gfx.rrect(ms, sx + sw / 2f - 21, sy + 4, 42, 11, 5.5f, 0xFF000000);
-            Gfx.disc(ms, sx + sw / 2f + 13, sy + 9.5f, 2.2f, 0xFF10182A);
             boolean darkBar = PhoneState.light && page == Page.HOME && call == null;
             Gfx.rrect(ms, sx + sw / 2f - 27, sy + sh - 6, 54, 3, 1.5f, darkBar ? 0xCC10243C : 0xDDF2F7FF);
             if (call == null && page != Page.HOME) hit(sx + sw / 2 - 34, sy + sh - 12, 68, 12, this::goHome);
@@ -299,6 +310,7 @@ public final class PhoneScreen extends FlowScreen {
             case NOTES: return "notes";
             case CLOCK: return "clock";
             case WEATHER: return "weather";
+            case SNAKE: return "snake";
             default: return "settings";
         }
     }
@@ -370,8 +382,13 @@ public final class PhoneScreen extends FlowScreen {
         Gfx.text(ms, t, x + 10, y + 10, 7.5f, tc, 0, true, 0.3f);
         boolean ok = PhoneState.simActive();
         int bars = ok ? Math.max(1, Math.min(4, PhoneState.signal)) : 0;
-        for (int i = 0; i < 4; i++) Ui.rect(ms, x + w - 22 + i * 3, y + 9 - (i + 1) * 2, 2, (i + 1) * 2, i < bars ? tc : 0x44808080);
-        Gfx.text(ms, simLabel(), x + w - 27, y + 10, 6.2f, ok ? tc : Sk.BAD, 2, false, 0.2f);
+        for (int i = 0; i < 4; i++) Ui.rect(ms, x + w - 38 + i * 3, y + 9 - (i + 1) * 2, 2, (i + 1) * 2, i < bars ? tc : 0x44808080);
+        Gfx.text(ms, simLabel(), x + w - 43, y + 10, 6.2f, ok ? tc : Sk.BAD, 2, false, 0.2f);
+        // baterie (doar vizuala: modul nu are sistem de baterie)
+        Gfx.rrect(ms, x + w - 22, y + 3.5f, 13f, 7f, 2f, Gfx.fade(tc, 0.55f));
+        Gfx.rrect(ms, x + w - 21f, y + 4.5f, 11f, 5f, 1.4f, 0xFF161A22);
+        Gfx.rrect(ms, x + w - 21f, y + 4.5f, 9f, 5f, 1.4f, 0xFF34C759, 0xFF22A043);
+        Gfx.rrect(ms, x + w - 8.2f, y + 5.8f, 1.6f, 2.4f, 0.8f, Gfx.fade(tc, 0.55f));
     }
 
     // ------------------------------------------------------------------ ecran principal (launcher)
@@ -711,6 +728,15 @@ public final class PhoneScreen extends FlowScreen {
                 Gfx.line(ms, cx, cy, cx + 4.5f, cy + 1.5f, 1.6f, 0xFF15181E);
                 Gfx.disc(ms, cx, cy, 1.4f, 0xFFFF9F0A);
                 break;
+            case "snake":
+                Gfx.line(ms, cx - 7f, cy + 6f, cx - 7f, cy - 1f, 3.6f, c);
+                Gfx.line(ms, cx - 7f, cy - 1f, cx + 1f, cy - 1f, 3.6f, c);
+                Gfx.line(ms, cx + 1f, cy - 1f, cx + 1f, cy - 7f, 3.6f, c);
+                Gfx.line(ms, cx + 1f, cy - 7f, cx + 7f, cy - 7f, 3.6f, c);
+                Gfx.disc(ms, cx + 7.5f, cy - 7f, 3.2f, c);
+                Gfx.disc(ms, cx + 8.2f, cy - 8.2f, 0.9f, a.color2);
+                Gfx.disc(ms, cx + 7f, cy + 5f, 2.6f, 0xFFFF5A5A);
+                break;
             case "weather":
                 Gfx.disc(ms, cx - 2.5f, cy - 3f, 5.5f, 0xFFFFD34A);
                 Gfx.disc(ms, cx + 1f, cy + 2.5f, 4f, c);
@@ -763,6 +789,7 @@ public final class PhoneScreen extends FlowScreen {
             case "notes": PhoneClient.requestNotes(); go(Page.NOTES); break;
             case "clock": go(Page.CLOCK); break;
             case "weather": go(Page.WEATHER); break;
+            case "snake": go(Page.SNAKE); break;
             default: go(Page.SETTINGS); break;
         }
     }
@@ -1102,48 +1129,61 @@ public final class PhoneScreen extends FlowScreen {
 
     private void callScreen(GuiGraphics ms, int x, int y, int w, int h, int mx, int my, PhoneState.Call c, long now) {
         int ac = avatarColor(c.with.name);
-        Gfx.rrect(ms, x, y, w, h, 0, Gfx.fade(Gfx.mixArgb(ac, 0xFF060A14, 0.75f), 0.98f), 0xFA060A14);
+        Gfx.rrect(ms, x, y, w, h, 0, Gfx.mixArgb(0xFF0F1D33, ac, 0.16f), 0xFF050810);
         float cx = x + w / 2f;
-        float cy = y + 112f;
+        // notificare sus (ca in ePhone): apare la inceput, apoi se estompeaza
+        long age = c.active ? now - c.since : 0;
+        float na = c.active ? (age < 3600 ? 1f : Math.max(0f, 1f - (age - 3600) / 500f)) : 1f;
+        if (na > 0f) {
+            String body = c.active ? "Apel acceptat. Convorbire activa." : (c.incoming ? "Apel primit de la " + c.with.name : "Se suna " + c.with.name + "...");
+            float ny = y + 17 - (1f - na) * 6f;
+            Gfx.rrect(ms, x + 7, ny, w - 14, 28, 6f, Gfx.fade(0xFF1A2434, 0.96f * na), Gfx.fade(0xFF111826, 0.96f * na));
+            Gfx.rrect(ms, x + 7, ny, 2.5f, 28, 1.2f, Gfx.fade(c.active ? GREEN : Sk.ACC, na));
+            Gfx.text(ms, "Apel", x + 15, ny + 10, 7.4f, Gfx.fade(Sk.WHITE, na), 0, true, 0.3f);
+            Gfx.text(ms, clipG(body, 6.4f, false, w - 44), x + 15, ny + 21, 6.4f, Gfx.fade(Sk.MUTED, na), 0, false, 0.1f);
+            Gfx.text(ms, "x", x + w - 16, ny + 12, 8f, Gfx.fade(Sk.MUTED, na), 1, true, 0f);
+        }
+        float cy = y + 92f;
         if (!c.active) {
             for (int k = 0; k < 3; k++) {
                 float p = (float) (((now / 1700.0) + k / 3.0) % 1.0);
-                Gfx.ring(ms, cx, cy, 34 + p * 44, 35.5f + p * 44, Gfx.fade(GREEN, (1f - p) * 0.35f), Gfx.fade(GREEN, 0f));
+                Gfx.ring(ms, cx, cy, 22 + p * 34, 23.2f + p * 34, Gfx.fade(GREEN, (1f - p) * 0.32f), Gfx.fade(GREEN, 0f));
             }
         } else {
-            Gfx.disc(ms, cx, cy, 62, Gfx.fade(GREEN, 0.16f), Gfx.fade(GREEN, 0f), 0, 0);
+            Gfx.disc(ms, cx, cy, 44, Gfx.fade(GREEN, 0.14f), Gfx.fade(GREEN, 0f), 0, 0);
         }
-        Sk.cut(ms, cx - 34, cy - 34, 68, 68, 16f, ac);
+        Gfx.rrect(ms, cx - 22, cy - 22, 44, 44, 11f, Gfx.mixArgb(ac, 0xFFFFFFFF, 0.12f), Gfx.mixArgb(ac, 0xFF000000, 0.3f));
         String ini = c.with.name == null || c.with.name.isEmpty() ? "?" : c.with.name.substring(0, 1).toUpperCase();
-        Gfx.text(ms, ini, cx, cy + 10, 30, Sk.WHITE, 1, true, 0f);
+        Gfx.text(ms, ini, cx, cy + 8, 22, Sk.WHITE, 1, true, 0f);
 
-        Gfx.text(ms, clipG(c.with.name, 14, true, w - 24), cx, y + 178, 14, Sk.WHITE, 1, true, 0.2f);
+        Gfx.text(ms, clipG(c.with.name, 13, true, w - 20), cx, y + 140, 13, Sk.WHITE, 1, true, 0.2f);
         if (c.with.id > 0) {
-            String sub = "#" + c.with.id + (c.with.number.isEmpty() ? "" : "  ·  " + c.with.number);
-            Gfx.text(ms, sub, cx, y + 192, 7.5f, Sk.MUTED, 1);
+            String sub = "#" + c.with.id + (c.with.number.isEmpty() ? "" : "  -  " + c.with.number);
+            Gfx.text(ms, sub, cx, y + 153, 7f, Sk.FAINT, 1);
         }
         if (c.active) {
-            Gfx.text(ms, clock((now - c.since) / 1000), cx, y + 212, 10, Sk.GOOD, 1, true, 0.5f);
+            Gfx.text(ms, "Apel activ", cx, y + 172, 9.5f, GREEN, 1, true, 0.3f);
+            Gfx.text(ms, clock((now - c.since) / 1000), cx, y + 190, 10.5f, Sk.WHITE, 1, true, 0.6f);
             for (int i = 0; i < 11; i++) {
-                float bh = 3f + 9f * (float) Math.abs(Math.sin(now / 220.0 + i * 0.7));
-                Gfx.rrect(ms, cx - 33 + i * 6.4f, y + 232 - bh / 2f, 3, bh, 0f, Gfx.fade(GREEN, 0.85f));
+                float bh = 3f + 8f * (float) Math.abs(Math.sin(now / 220.0 + i * 0.7));
+                Gfx.rrect(ms, cx - 33 + i * 6.4f, y + 206 - bh / 2f, 3, bh, 1f, Gfx.fade(GREEN, 0.8f));
             }
         } else {
             int dots = (int) ((now / 400) % 4);
             String base = c.incoming ? "Apel primit" : "Se sună";
-            Gfx.text(ms, base + "...".substring(0, dots), cx, y + 212, 9, Sk.MUTED, 1);
+            Gfx.text(ms, base + "...".substring(0, dots), cx, y + 176, 9, Sk.MUTED, 1);
         }
 
-        float by = y + h - 76f;
+        float by = y + h - 62f;
         if (c.incoming && !c.active) {
             float pulse = 0.5f + 0.5f * (float) Math.sin(now / 200.0);
-            callButton(ms, cx - 46, by, 0xFFE2453F, true, "Respinge", mx, my, PhoneClient::decline, 0f);
-            callButton(ms, cx + 46, by, GREEN, false, "Răspunde", mx, my, PhoneClient::answer, pulse);
+            callButton(ms, cx - 48, by, 0xFFE2453F, true, "RESPINGE", mx, my, PhoneClient::decline, 0f);
+            callButton(ms, cx + 48, by, GREEN, false, "RASPUNDE", mx, my, PhoneClient::answer, pulse);
         } else {
-            callButton(ms, cx, by, 0xFFE2453F, true, "Închide", mx, my, PhoneClient::hangup, 0f);
+            callButton(ms, cx, by, 0xFFE2453F, true, "INCHIDE", mx, my, PhoneClient::hangup, 0f);
             if (c.active) {
-                toggle(ms, cx - 46, by - 52, "Mut", PhoneState.callMuted, mx, my, () -> PhoneState.callMuted = !PhoneState.callMuted);
-                toggle(ms, cx + 46, by - 52, "Difuzor", PhoneState.callSpeaker, mx, my, () -> PhoneState.callSpeaker = !PhoneState.callSpeaker);
+                toggle(ms, cx - 48, by - 50, "Mut", PhoneState.callMuted, mx, my, () -> PhoneState.callMuted = !PhoneState.callMuted);
+                toggle(ms, cx + 48, by - 50, "Difuzor", PhoneState.callSpeaker, mx, my, () -> PhoneState.callSpeaker = !PhoneState.callSpeaker);
             }
         }
     }
@@ -1157,13 +1197,21 @@ public final class PhoneScreen extends FlowScreen {
         hit((int) bx - 22, (int) by - 10, 44, 20, r);
     }
 
-    private void callButton(GuiGraphics ms, float bx, float by, int color, boolean down, String label, int mx, int my, Runnable r, float pulse) {
-        boolean hov = Ui.in(mx, my, (int) bx - 25, (int) by - 25, 50, 50);
-        if (pulse > 0f) Gfx.disc(ms, bx, by, 25 + pulse * 6, Gfx.fade(color, 0.3f * (1f - pulse * 0.5f)), Gfx.fade(color, 0f), 0, 0);
-        Sk.cut(ms, bx - 25, by - 25, 50, 50, 12f, Gfx.mixArgb(color, 0xFFFFFFFF, hov ? 0.3f : 0.0f));
-        handset(ms, bx, by, 19, 0xFFFFFFFF, down);
-        Gfx.text(ms, label, bx, by + 40, 7, Sk.MUTED, 1);
-        hit((int) bx - 25, (int) by - 25, 50, 50, r);
+    /** Buton mare de apel (patrat rotunjit): X = inchide/respinge, altfel receptor (raspunde). */
+    private void callButton(GuiGraphics ms, float bx, float by, int color, boolean cross, String label, int mx, int my, Runnable r, float pulse) {
+        boolean hov = Ui.in(mx, my, (int) bx - 24, (int) by - 24, 48, 48);
+        if (pulse > 0f) Gfx.disc(ms, bx, by, 27 + pulse * 6, Gfx.fade(color, 0.3f * (1f - pulse * 0.5f)), Gfx.fade(color, 0f), 0, 0);
+        Gfx.rrect(ms, bx - 24, by - 22.5f, 48, 48, 10f, 0x55000000);
+        Gfx.rrect(ms, bx - 24, by - 24, 48, 48, 10f, Gfx.mixArgb(color, 0xFFFFFFFF, hov ? 0.28f : 0.06f), Gfx.mixArgb(color, 0xFF000000, 0.28f));
+        Gfx.rrect(ms, bx - 22.5f, by - 23f, 45, 17, 8f, 0x30FFFFFF, 0x00FFFFFF);
+        if (cross) {
+            Gfx.line(ms, bx - 9, by - 9, bx + 9, by + 9, 4.2f, 0xFFFFFFFF);
+            Gfx.line(ms, bx - 9, by + 9, bx + 9, by - 9, 4.2f, 0xFFFFFFFF);
+        } else {
+            handset(ms, bx, by, 19, 0xFFFFFFFF, false);
+        }
+        Gfx.text(ms, label, bx, by + 39, 6.8f, Sk.MUTED, 1, true, 0.7f);
+        hit((int) bx - 24, (int) by - 24, 48, 48, r);
     }
 
     // ------------------------------------------------------------------ Banca
@@ -1704,6 +1752,128 @@ public final class PhoneScreen extends FlowScreen {
         }
     }
 
+    // ------------------------------------------------------------------ Snake
+
+    private SnakeGame snake;
+
+    private boolean snakeKey(int key) {
+        if (snake == null) snake = new SnakeGame();
+        long now = System.currentTimeMillis();
+        int dx = 0;
+        int dy = 0;
+        switch (key) {
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_UP: case org.lwjgl.glfw.GLFW.GLFW_KEY_W: dy = -1; break;
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_DOWN: case org.lwjgl.glfw.GLFW.GLFW_KEY_S: dy = 1; break;
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT: case org.lwjgl.glfw.GLFW.GLFW_KEY_A: dx = -1; break;
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT: case org.lwjgl.glfw.GLFW.GLFW_KEY_D: dx = 1; break;
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE: case org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER: case org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER:
+                if (snake.state != SnakeGame.State.RUNNING) snake.start(now);
+                return true;
+            default: return false;
+        }
+        if (snake.state == SnakeGame.State.OVER) return true;
+        snake.turn(dx, dy);
+        if (snake.state == SnakeGame.State.READY) snake.start(now);
+        return true;
+    }
+
+    private void snakeDir(int dx, int dy) {
+        if (snake == null) return;
+        long now = System.currentTimeMillis();
+        if (snake.state == SnakeGame.State.OVER) return;
+        snake.turn(dx, dy);
+        if (snake.state == SnakeGame.State.READY) snake.start(now);
+    }
+
+    private void snake(GuiGraphics ms, int x, int y, int w, int h, int mx, int my, long now) {
+        if (snake == null) snake = new SnakeGame();
+        SnakeGame g = snake;
+        g.update(now);
+        Gfx.rrect(ms, x, y, w, h, 0, 0xFF0B1A14, 0xFF050B09);
+        appHeader(ms, x, y, w, "Snake", mx, my, true);
+
+        int cell = Math.max(7, Math.min(11, (h - 172) / SnakeGame.ROWS));
+        int fw = cell * SnakeGame.COLS;
+        int fh = cell * SnakeGame.ROWS;
+        int fx = x + (w - fw) / 2;
+        int fy = y + 58;
+        Gfx.text(ms, "SCOR " + g.score, x + 12, y + 51, 7.6f, Sk.WHITE, 0, true, 0.5f);
+        Gfx.text(ms, "RECORD " + SnakeGame.best, x + w - 12, y + 51, 7.6f, 0xFFF6D365, 2, true, 0.5f);
+
+        Gfx.rrect(ms, fx - 3, fy - 3, fw + 6, fh + 6, 6f, 0xFF1F4A33);
+        Gfx.rrect(ms, fx - 1.5f, fy - 1.5f, fw + 3, fh + 3, 4.5f, 0xFF0C1F17);
+        for (int cy = 0; cy < SnakeGame.ROWS; cy++) {
+            for (int cx = 0; cx < SnakeGame.COLS; cx++) {
+                if (((cx + cy) & 1) == 0) Ui.rect(ms, fx + cx * cell, fy + cy * cell, cell, cell, 0x14FFFFFF);
+            }
+        }
+        // mar
+        float fxm = fx + g.foodX * cell + cell / 2f;
+        float fym = fy + g.foodY * cell + cell / 2f;
+        float bob = (float) Math.sin(now / 260.0) * 0.5f;
+        Gfx.disc(ms, fxm, fym + 0.4f + bob, cell * 0.42f, 0xFFFF6A5E, 0xFFC4271E, 0, 0);
+        Gfx.line(ms, fxm, fym - cell * 0.35f + bob, fxm + cell * 0.22f, fym - cell * 0.55f + bob, 1.1f, 0xFF7BE07B);
+        // sarpe
+        int n = g.body.size();
+        int i = 0;
+        for (int[] sgm : g.body) {
+            float t = n <= 1 ? 0f : i / (float) (n - 1);
+            int col = Gfx.mixArgb(0xFF58F08A, 0xFF1B9E5A, t);
+            float pad = i == 0 ? 0.3f : 0.7f;
+            Gfx.rrect(ms, fx + sgm[0] * cell + pad, fy + sgm[1] * cell + pad, cell - pad * 2, cell - pad * 2, cell * 0.32f, col);
+            if (i == 0) {
+                float ex = fx + sgm[0] * cell + cell / 2f;
+                float ey = fy + sgm[1] * cell + cell / 2f;
+                float ox = g.dy != 0 ? cell * 0.22f : 0f;
+                float oy = g.dx != 0 ? cell * 0.22f : 0f;
+                float fxo = g.dx * cell * 0.18f;
+                float fyo = g.dy * cell * 0.18f;
+                Gfx.disc(ms, ex + fxo - ox, ey + fyo - oy, cell * 0.16f, 0xFFFFFFFF);
+                Gfx.disc(ms, ex + fxo + ox, ey + fyo + oy, cell * 0.16f, 0xFFFFFFFF);
+                Gfx.disc(ms, ex + fxo * 1.4f - ox, ey + fyo * 1.4f - oy, cell * 0.08f, 0xFF10241A);
+                Gfx.disc(ms, ex + fxo * 1.4f + ox, ey + fyo * 1.4f + oy, cell * 0.08f, 0xFF10241A);
+            }
+            i++;
+        }
+        // atinge campul = start / repornire
+        hit(fx, fy, fw, fh, () -> {
+            long t = System.currentTimeMillis();
+            if (g.state != SnakeGame.State.RUNNING) g.start(t);
+        });
+        if (g.state != SnakeGame.State.RUNNING) {
+            Gfx.rrect(ms, fx, fy, fw, fh, 4f, 0xB0050B09);
+            if (g.state == SnakeGame.State.OVER) {
+                Gfx.text(ms, "JOC TERMINAT", fx + fw / 2f, fy + fh / 2f - 16, 10f, 0xFFFF6A5E, 1, true, 0.6f);
+                Gfx.text(ms, "Scor " + g.score + (g.newBest ? "  -  RECORD NOU!" : ""), fx + fw / 2f, fy + fh / 2f - 2, 7.6f, g.newBest ? 0xFFF6D365 : Sk.WHITE, 1, true, 0.3f);
+                Gfx.text(ms, "Atinge pentru a juca din nou", fx + fw / 2f, fy + fh / 2f + 14, 6.6f, Sk.MUTED, 1);
+            } else {
+                Gfx.text(ms, "SNAKE", fx + fw / 2f, fy + fh / 2f - 8, 13f, 0xFF58F08A, 1, true, 1f);
+                Gfx.text(ms, "Atinge sau foloseste sagetile", fx + fw / 2f, fy + fh / 2f + 8, 6.6f, Sk.MUTED, 1);
+            }
+        }
+        // sageti pe ecran
+        int bs = 24;
+        float pcx = x + w / 2f;
+        float pcy = Math.min(fy + fh + 38, y + h - 34);
+        dpad(ms, pcx, pcy - bs - 1, bs, 0, mx, my, 0, -1);
+        dpad(ms, pcx, pcy + bs + 1, bs, 1, mx, my, 0, 1);
+        dpad(ms, pcx - bs - 1, pcy, bs, 2, mx, my, -1, 0);
+        dpad(ms, pcx + bs + 1, pcy, bs, 3, mx, my, 1, 0);
+    }
+
+    private void dpad(GuiGraphics ms, float bx, float by, int bs, int dir, int mx, int my, int dx, int dy) {
+        boolean hov = Ui.in(mx, my, (int) (bx - bs / 2f), (int) (by - bs / 2f), bs, bs);
+        Gfx.rrect(ms, bx - bs / 2f, by - bs / 2f, bs, bs, 6f, hov ? 0xFF2E7A52 : 0xFF1E5236, hov ? 0xFF1E5236 : 0xFF143826);
+        float k = 4.2f;
+        float[] tri;
+        if (dir == 0) tri = new float[] {bx - k, by + k * 0.6f, bx, by - k * 0.8f, bx + k, by + k * 0.6f};
+        else if (dir == 1) tri = new float[] {bx - k, by - k * 0.6f, bx, by + k * 0.8f, bx + k, by - k * 0.6f};
+        else if (dir == 2) tri = new float[] {bx + k * 0.6f, by - k, bx - k * 0.8f, by, bx + k * 0.6f, by + k};
+        else tri = new float[] {bx - k * 0.6f, by - k, bx + k * 0.8f, by, bx - k * 0.6f, by + k};
+        Gfx.poly(ms, tri, 0xFFE8FFF1);
+        hit((int) (bx - bs / 2f), (int) (by - bs / 2f), bs, bs, () -> snakeDir(dx, dy));
+    }
+
     // ------------------------------------------------------------------ Note
 
     private int noteIdx = -1;
@@ -2164,6 +2334,7 @@ public final class PhoneScreen extends FlowScreen {
                 return true;
             }
         }
+        if (!typing && page == Page.SNAKE && PhoneState.call == null && snakeKey(key)) return true;
         if (!typing && PhoneClient.openKey != null && PhoneClient.openKey.matches(key, scan)) {
             onClose();
             return true;

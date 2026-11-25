@@ -64,6 +64,7 @@ phone:
       notes: 0
       clock: 0
       weather: 0
+      snake: 0
   signal:
     dead-zones: []                  # zone fara semnal, ex: "world,1200,-300,150" (lume,x,z,raza)
   call:

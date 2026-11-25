@@ -62,6 +62,7 @@ public final class PhoneApps {
         add(new App("calc", "Calculator", 0xFF4A4F5A, 0xFF24272E, "Utilitare", 2, false, false, "Calculator rapid: adunare, scadere, inmultire, impartire, procente."));
         add(new App("notes", "Note", 0xFFF6D365, 0xFFE0A52C, "Utilitare", 3, false, false, "Notite personale salvate pe server: numere, adrese, liste."));
         add(new App("clock", "Ceas", 0xFF262A33, 0xFF0B0D12, "Utilitare", 4, false, false, "Ora reala si ora din joc, cronometru si temporizator cu alarma."));
+        add(new App("snake", "Snake", 0xFF3DD16A, 0xFF157A36, "Distractie", 2, false, false, "Clasicul joc cu sarpele: mananca mere, creste si bate-ti recordul. Scorul se salveaza pe calculatorul tau."));
         add(new App("weather", "Vremea", 0xFF4FA8F0, 0xFF2A6FC4, "Info", 7, false, false, "Vremea din lumea jocului unde te afli: ploaie, furtuna, temperatura biomului."));
     }
 

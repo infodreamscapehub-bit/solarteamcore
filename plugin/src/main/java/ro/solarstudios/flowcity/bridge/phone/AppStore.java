@@ -32,7 +32,7 @@ public final class AppStore {
     public static final List<String> CORE = Collections.unmodifiableList(Arrays.asList("phone", "messages", "contacts", "store", "settings", "sim"));
     /** Aplicatiile din magazin (doar cele care functioneaza real in mod). */
     public static final List<String> OPTIONAL = Collections.unmodifiableList(Arrays.asList(
-        "cnn", "ads", "bank", "notify", "gps", "jobs", "wheel", "calc", "notes", "clock", "weather"));
+        "cnn", "ads", "bank", "notify", "gps", "jobs", "wheel", "calc", "notes", "clock", "weather", "snake"));
     private static final List<String> DEFAULT_EXTRA = Arrays.asList("cnn", "bank", "notify", "gps", "jobs", "ads");
 
     public static final int MAX_NOTES = 30;
