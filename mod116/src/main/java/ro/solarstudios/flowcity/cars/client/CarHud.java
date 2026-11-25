@@ -182,7 +182,6 @@ public final class CarHud {
     private static String sGear = "N";
     private static String sName = "";
     private static String sPlate = "";
-    private static float infoAnim;
 
     /** Citeste datele REALE ale vehiculului (reflectie MrCrayfish) si le pastreaza pentru desen. */
     private static void read(Minecraft mc, Entity v, long now) {
