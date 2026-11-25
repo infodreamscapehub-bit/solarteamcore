@@ -37,6 +37,11 @@ public final class IdsClient extends JsonClientModule {
         on("upd", d -> put(str(d, "uuid", ""), integer(d, "id", 0)));
     }
 
+    /** True daca deasupra capului jucatorului se afiseaza acum #ID-ul (folosit de badge-ul de incepator). */
+    public static boolean showsId(UUID u) {
+        return overhead && IDS.containsKey(u);
+    }
+
     private static void put(String uuid, int id) {
         try {
             UUID u = UUID.fromString(uuid);

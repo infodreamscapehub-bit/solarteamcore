@@ -1,0 +1,12 @@
+# Jucatori INCEPATORI: badge deasupra capului pentru cei sub pragul de ore jucate (timp real de joc, din statisticile serverului).
+# Se configureaza din meniul grafic (tasta "Incepatori (staff)" din Controls > FlowCity, implicit F10; permisiune flowcity.beginner.admin).
+enabled: true
+hours: 10.0            # pragul: sub atatea ore jucate esti incepator
+text: "INCEPATOR"
+icon: star             # star, spark, diamond, clover, cross, arrow, none
+show-time: true        # arata timpul ramas pana iese din statutul de incepator
+color: "#4DD2FF"       # culoarea textului
+time-color: "#B8C4D6"  # culoarea timpului ramas
+distance: 24           # la ce distanta (blocuri) se vede badge-ul
+offset: 0.55           # inaltimea deasupra numelui (blocuri)
+hide-with-id: false    # true = ascunde badge-ul cand deasupra capului se afiseaza si #ID-ul
