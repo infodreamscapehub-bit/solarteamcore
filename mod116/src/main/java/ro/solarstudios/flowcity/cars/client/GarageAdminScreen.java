@@ -356,7 +356,7 @@ public final class GarageAdminScreen extends Screen {
             tx(ms, (int) gar.mx + " " + (int) gar.my + " " + (int) gar.mz, x + 30, y + 11.4f, 5.6f, Sk.MUTED);
             float px = x + 170;
             px = pill(ms, typeLabel(gar), px, y + 2.5f, typeColor(gar));
-            txr(ms, "P:" + (gar.store ? "da" : "nu") + "  L:" + gar.slots, x + w - 6, y + 11.2f, 5.8f, gar.store && gar.slots > 0 ? Sk.GOOD : Sk.WARN);
+            txr(ms, "P:" + (gar.store ? "da" : "nu") + "  L:" + gar.slots + "  B:" + gar.boatSlots, x + w - 6, y + 11.2f, 5.8f, gar.store && gar.slots > 0 ? Sk.GOOD : Sk.WARN);
             hitL(x, y, w, ROW_H - 2, () -> selectedId = gar.id);
         }
         float py = 254;
@@ -379,16 +379,17 @@ public final class GarageAdminScreen extends Screen {
         txb(ms, clip(s.name, 8.4f, true, w - 16), x + 8, 54, 8.4f, Sk.WHITE);
         tx(ms, "#" + s.id + "  " + typeLabel(s) + "  " + dimShort(s.dim), x + 8, 65, 5.8f, Sk.MUTED);
         tx(ms, "Marker: " + (int) s.mx + " " + (int) s.my + " " + (int) s.mz, x + 8, 74, 5.8f, Sk.MUTED);
-        tx(ms, "Parcare: " + (s.store ? "da (raza " + (int) s.r + ")" : "nu") + "   Locuri: " + s.slots, x + 8, 82, 5.8f, Sk.MUTED);
+        tx(ms, "Parcare: " + (s.store ? "da (raza " + (int) s.r + ")" : "nu") + "   Teren: " + s.slots + "  Barci: " + s.boatSlots, x + 8, 82, 5.8f, Sk.MUTED);
         float bw = (w - 22) / 2f;
-        float by = 94;
+        float by = 92;
         final int id = s.id;
-        abtn(ms, "TELEPORT", x + 8, by, bw, 16, true, 3, () -> send(4, id, "", "Teleport..."));
-        abtn(ms, "MUTA AICI", x + 14 + bw, by, bw, 16, true, 0, () -> send(3, id, "", "Marker mutat aici."));
-        abtn(ms, "PARCARE AICI", x + 8, by + 20, bw, 16, true, 0, () -> send(8, id, "", "Zona de parcare setata."));
-        abtn(ms, "LOC SPAWN +", x + 14 + bw, by + 20, bw, 16, true, 0, () -> send(9, id, "", "Loc de spawn adaugat."));
-        abtn(ms, "STERGE LOCURI", x + 8, by + 40, bw, 16, s.slots > 0, 4, () -> send(10, id, "", "Locuri sterse."));
-        abtn(ms, "STERGE", x + 14 + bw, by + 40, bw, 16, true, 2, this::deleteSelected);
+        abtn(ms, "TELEPORT", x + 8, by, bw, 15, true, 3, () -> send(4, id, "", "Teleport..."));
+        abtn(ms, "MUTA AICI", x + 14 + bw, by, bw, 15, true, 0, () -> send(3, id, "", "Marker mutat aici."));
+        abtn(ms, "PARCARE AICI", x + 8, by + 18, bw, 15, true, 0, () -> send(8, id, "", "Zona de parcare setata."));
+        abtn(ms, "LOC SPAWN +", x + 14 + bw, by + 18, bw, 15, true, 0, () -> send(9, id, "", "Loc de spawn adaugat."));
+        abtn(ms, "SPAWN BARCA +", x + 8, by + 36, bw, 15, true, 3, () -> send(11, id, "", "Punct de spawn barca adaugat."));
+        abtn(ms, "STERGE LOCURI", x + 14 + bw, by + 36, bw, 15, s.slots > 0 || s.boatSlots > 0, 4, () -> send(10, id, "", "Locuri sterse."));
+        abtn(ms, "STERGE GARAJ", x + 8, by + 54, w - 16, 15, true, 2, this::deleteSelected);
     }
 
     private static String dimShort(String d) {

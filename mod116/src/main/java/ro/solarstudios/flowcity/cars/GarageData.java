@@ -34,7 +34,8 @@ public final class GarageData extends WorldSavedData {
         public boolean hasStore;
         public double sx, sy, sz;               // zona de parcare
         public float radius = 4f;
-        public final List<double[]> slots = new ArrayList<>(); // x, y, z, yaw
+        public final List<double[]> slots = new ArrayList<>(); // terestre: x, y, z, yaw (si cele vechi, migrate automat)
+        public final List<double[]> boatSlots = new ArrayList<>(); // barci: x, y, z, yaw
 
         CompoundNBT save() {
             CompoundNBT t = new CompoundNBT();
@@ -61,6 +62,16 @@ public final class GarageData extends WorldSavedData {
                 l.add(c);
             }
             t.put("Slots", l);
+            ListNBT bl = new ListNBT();
+            for (double[] s : boatSlots) {
+                CompoundNBT c = new CompoundNBT();
+                c.putDouble("X", s[0]);
+                c.putDouble("Y", s[1]);
+                c.putDouble("Z", s[2]);
+                c.putDouble("Yaw", s[3]);
+                bl.add(c);
+            }
+            t.put("BoatSlots", bl);
             return t;
         }
 
@@ -83,6 +94,11 @@ public final class GarageData extends WorldSavedData {
             for (int i = 0; i < l.size(); i++) {
                 CompoundNBT c = l.getCompound(i);
                 g.slots.add(new double[] {c.getDouble("X"), c.getDouble("Y"), c.getDouble("Z"), c.getDouble("Yaw")});
+            }
+            ListNBT bl = t.getList("BoatSlots", net.minecraftforge.common.util.Constants.NBT.TAG_COMPOUND);
+            for (int i = 0; i < bl.size(); i++) {
+                CompoundNBT c = bl.getCompound(i);
+                g.boatSlots.add(new double[] {c.getDouble("X"), c.getDouble("Y"), c.getDouble("Z"), c.getDouble("Yaw")});
             }
             return g;
         }

@@ -277,9 +277,16 @@ public final class CarsServer {
         } else if (GarageData.FACTION.equals(g.type) != (c.owner == null)) {
             msg = "Masina nu poate fi scoasa din acest garaj.";
         } else {
-            Entity e = spawn(p.getLevel(), g, c);
+            boolean boat = isBoat(c);
+            Entity e = null;
+            if (boat && g.boatSlots.isEmpty()) {
+                msg = "Acest garaj nu are puncte de spawn pentru barci. Cere unui admin sa adauge unul.";
+            } else {
+                e = spawn(p.getLevel(), g, c);
+                msg = e != null ? c.name + " (" + c.plate + ") te asteapta in " + (boat ? "port." : "parcare.")
+                    : boat ? "Toate punctele de spawn pentru barci sunt ocupate." : "Toate locurile de parcare sunt ocupate.";
+            }
             ok = e != null;
-            msg = ok ? c.name + " (" + c.plate + ") te asteapta in parcare." : "Toate locurile de parcare sunt ocupate.";
             if (ok && c.owner != null && !hasKeyItem(p, c)) {
                 giveKey(p, c, true);
                 msg += " Ai primit o cheie noua (cele vechi nu mai merg).";
@@ -344,11 +351,25 @@ public final class CarsServer {
         }
     }
 
+    /** Barca dupa numele din registru (MrCrayfish & co nu au API comun); completat in spawn() si cu instanceof BoatEntity. */
+    static boolean isBoat(GarageData.Car c) {
+        String t = c.type == null ? "" : c.type.toLowerCase(java.util.Locale.ROOT);
+        return t.contains("boat") || t.contains("ship") || t.contains("jetski") || t.contains("jet_ski") || t.contains("yacht")
+            || t.contains("kayak") || t.contains("canoe") || t.contains("speedboat");
+    }
+
     private static Entity spawn(ServerWorld level, GarageData.Garage g, GarageData.Car c) {
         EntityType<?> type = EntityType.byString(c.type).orElse(null);
         if (type == null) return null;
-        List<double[]> spots = new ArrayList<>(g.slots);
-        if (spots.isEmpty()) {
+        boolean boat = isBoat(c);
+        if (!boat) {
+            Entity probe = type.create(level);
+            boat = probe instanceof net.minecraft.entity.item.BoatEntity;
+        }
+        List<double[]> spots = new ArrayList<>(boat ? g.boatSlots : g.slots);
+        if (boat) {
+            if (spots.isEmpty()) return null;
+        } else if (spots.isEmpty()) {
             for (int d = 3; d <= 7; d += 2) spots.add(new double[] {g.mx + d, g.my, g.mz, 0});
         }
         for (double[] s : spots) {
@@ -690,6 +711,7 @@ public final class CarsServer {
             j.addProperty("mz", g.mz);
             j.addProperty("store", g.hasStore);
             j.addProperty("slots", g.slots.size());
+            j.addProperty("bslots", g.boatSlots.size());
             j.addProperty("sx", g.sx);
             j.addProperty("sy", g.sy);
             j.addProperty("sz", g.sz);
@@ -1074,7 +1096,7 @@ public final class CarsServer {
     /**
      * Ecranul de administrare (/garaje). op: 0 reimprospatare, 1 sterge (b = garaj), 2 sterge toate, 3 muta aici (b), 4 teleporteaza (b),
      * 5 creeaza public (text = nume), 6 creeaza pound (text = nume), 7 creeaza factiune (text = "factiune:nume"),
-     * 8 zona de parcare aici (b), 9 loc de spawn aici (b), 10 sterge locurile (b).
+     * 8 zona de parcare aici (b), 9 loc de spawn aici (b), 10 sterge locurile (terestre + barci) (b), 11 punct spawn barca aici (b).
      */
     private static void gadmin(ServerPlayerEntity p, int op, int id, String text) {
         if (!p.hasPermissions(2)) {
@@ -1145,8 +1167,20 @@ public final class CarsServer {
                     break;
                 }
                 g.slots.clear();
+                g.boatSlots.clear();
                 data.setDirty();
-                res = "Locurile de spawn au fost sterse.";
+                res = "Locurile de spawn (terestre si barci) au fost sterse.";
+                break;
+            }
+            case 11: {
+                GarageData.Garage g = data.garage(id);
+                if (g == null) {
+                    res = "Garajul nu exista.";
+                    break;
+                }
+                g.boatSlots.add(new double[] {p.getX(), p.getY(), p.getZ(), p.yRot});
+                data.setDirty();
+                res = "Punct spawn barca #" + g.boatSlots.size() + " adaugat (pune-l pe apa, barca va fi intoarsa cum privesti).";
                 break;
             }
             default:
