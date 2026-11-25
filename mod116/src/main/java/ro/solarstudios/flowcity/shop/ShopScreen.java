@@ -35,16 +35,24 @@ import ro.solarstudios.flowcity.module.JsonClientModule;
  * permisiunea, valideaza si salveaza, apoi trimite "update" (lista noua) si "editres" (rezultatul).
  */
 public final class ShopScreen extends FlowScreen {
-    private static final int W = 480;
-    private static final int H = 300;
+    private static final int W = 560;
+    private static final int H = 320;
+    private static final int SBW = 100;
     private static final int COLS = 4;
-    private static final int CW = 101;
-    private static final int CH = 68;
     private static final int GAP = 8;
-    private static final int GX = 22;
-    private static final int GY = 86;
-    private static final int GH = 146;
-    private static final int VIS_ROWS = 2;
+    private static final int GX = 112;
+    private static final int GY = 60;
+    private static final int CW = (W - GX - 12 - (COLS - 1) * GAP) / COLS;
+    private static final int CH = 88;
+    private static final int ROWS = 2;
+    private static final int PER = COLS * ROWS;
+    private static final int GH = ROWS * CH + (ROWS - 1) * GAP;
+    /** Accent portocaliu-rosu al magazinului (diferit de cyan-ul telefonului). */
+    private static final int HOT = 0xFFFF5A2E;
+    private static final int HOT_D = 0xFF7A2A14;
+    private static final int SIDE = 0xFF0B0E14;
+    private static final int CARD = 0xFF141922;
+    private static final int CARD_HOT = 0xFF1D2430;
 
     private static final class It {
         String name;
@@ -74,8 +82,6 @@ public final class ShopScreen extends FlowScreen {
     private int sel = -1;
     private int qty = 1;
     private int scrollRow;
-    private float scrollY;
-    private float tabX = -1f;
     private boolean confirm;
     private String msg = "";
     private boolean msgOk;
@@ -284,8 +290,8 @@ public final class ShopScreen extends FlowScreen {
         return items().size() + (editMode() ? 1 : 0);
     }
 
-    private int rowsTotal() {
-        return (gridCount() + COLS - 1) / COLS;
+    private int pages() {
+        return Math.max(1, (gridCount() + PER - 1) / PER);
     }
 
     private int realCat() {
@@ -293,7 +299,7 @@ public final class ShopScreen extends FlowScreen {
     }
 
     private int maxRow() {
-        return Math.max(0, rowsTotal() - VIS_ROWS);
+        return pages() - 1;
     }
 
     private void setCat(int c) {
@@ -301,7 +307,6 @@ public final class ShopScreen extends FlowScreen {
         cat = c;
         sel = -1;
         scrollRow = 0;
-        scrollY = 0;
         qty = 1;
         confirm = false;
         animStart = System.currentTimeMillis();
@@ -310,10 +315,7 @@ public final class ShopScreen extends FlowScreen {
     private void select(int i) {
         sel = i;
         qty = 1;
-        int row = i / COLS;
-        if (row < scrollRow) scrollRow = row;
-        else if (row >= scrollRow + VIS_ROWS) scrollRow = row - VIS_ROWS + 1;
-        scrollRow = Math.max(0, Math.min(maxRow(), scrollRow));
+        scrollRow = Math.max(0, Math.min(maxRow(), i / PER));
     }
 
     private void doBuy() {
@@ -400,7 +402,7 @@ public final class ShopScreen extends FlowScreen {
         ms.pose().pushPose();
         ms.pose().translate(offX, offY, 0);
         ms.pose().scale(scale, scale, scale);
-        Sk.background(ms, -offX / scale, -offY / scale, (width - offX) / scale, (height - offY) / scale, open);
+        Gfx.rrect(ms, -offX / scale, -offY / scale, (width) / scale, (height) / scale, 0, Gfx.fade(0xFF10131A, 0.97f * open), Gfx.fade(0xFF07080C, 0.98f * open));
         Gfx.alpha = open;
         try {
             content(ms, lmx, lmy, open);
@@ -413,104 +415,107 @@ public final class ShopScreen extends FlowScreen {
 
     private void content(GuiGraphics ms, float lmx, float lmy, float open) {
         long now = System.currentTimeMillis();
-        // antet: breadcrumb + titlu + solduri
-        Gfx.text(ms, "FLOWCITY  ›  " + title, 17, 27, 6.4f, Sk.MUTED, 0, false, 1.2f);
-        Gfx.text(ms, title, 16, 45, 17, Sk.WHITE, 0, true, 0f);
-        Sk.close(ms, W - 34, 14, lmx, lmy);
-        hitL(W - 34, 14, 20, 20, this::onClose);
+        // bara laterala cu categorii
+        Gfx.rrect(ms, 0, -3000, SBW, 7000, 0, SIDE);
+        Gfx.rrect(ms, SBW, -3000, 1, 7000, 0, 0x22FFFFFF);
+        Gfx.text(ms, "FLOWCITY", 14, 24, 9.5f, HOT, 0, true, 1.6f);
+        Gfx.text(ms, clip(title, 6.2f, SBW - 20).toUpperCase(), 14, 35, 6.2f, Sk.MUTED, 0, false, 1.0f);
+        Gfx.rrect(ms, 14, 41, 22, 2, 0, HOT);
+        boolean plusTab = editMode() && catNames.size() < 8;
+        float cy0 = 52;
+        for (int i = 0; i < catNames.size(); i++) {
+            float y = cy0 + i * 30;
+            boolean on = i == cat;
+            boolean hot = Sk.in(lmx, lmy, 6, y, SBW - 12, 26);
+            if (on) {
+                Gfx.rrect(ms, 6, y, SBW - 12, 26, 4, 0xFF2A1810);
+                Gfx.rrect(ms, 6, y + 4, 2, 18, 0, HOT);
+            } else if (hot) {
+                Gfx.rrect(ms, 6, y, SBW - 12, 26, 4, 0xFF161B24);
+            }
+            Gfx.rrect(ms, 14, y + 6, 14, 14, 3, on ? HOT : 0xFF2A3140);
+            String nm0 = catNames.get(i);
+            Gfx.text(ms, nm0.isEmpty() ? "?" : nm0.substring(0, 1).toUpperCase(), 21, y + 16.2f, 8f, on ? 0xFF160A04 : Sk.MUTED, 1, true, 0f);
+            Gfx.text(ms, clip(nm0, 7.4f, SBW - 48), 34, y + 16.2f, 7.4f, on ? Sk.WHITE : (hot ? Sk.WHITE : Sk.MUTED), 0, on, 0.2f);
+            final int ci = i;
+            hitL(6, y, SBW - 12, 26, () -> setCat(ci));
+        }
+        if (plusTab) {
+            float y = cy0 + catNames.size() * 30;
+            boolean hp = Sk.in(lmx, lmy, 6, y, SBW - 12, 26);
+            Gfx.rrect(ms, 6, y, SBW - 12, 26, 4, hp ? 0xFF161B24 : 0x600B0E14);
+            Gfx.text(ms, "+  CATEGORIE", 14, y + 16.2f, 6.8f, hp ? Sk.WHITE : Sk.MUTED, 0, true, 0.3f);
+            hitL(6, y, SBW - 12, 26, this::openCatNew);
+        }
+
+        // antet: breadcrumb + titlu + butoane
+        Gfx.text(ms, "FLOWCITY  ›  " + title + (catNames.isEmpty() || cat >= catNames.size() ? "" : "  ›  " + catNames.get(cat)), GX, 24, 6.4f, Sk.MUTED, 0, false, 1.1f);
+        Gfx.text(ms, clip(cat >= 0 && cat < catNames.size() ? catNames.get(cat) : title, 16f, 220), GX, 46, 16, Sk.WHITE, 0, true, 0f);
+        boolean hc = Sk.in(lmx, lmy, W - 88, 12, 76, 22);
+        Gfx.rrect(ms, W - 88, 12, 76, 22, 4, hc ? HOT : 0xFF2A1810);
+        Gfx.text(ms, "ÎNCHIDE", W - 50, 26.6f, 7.6f, hc ? 0xFF160A04 : HOT, 1, true, 0.6f);
+        hitL(W - 88, 12, 76, 22, this::onClose);
         if (admin) {
-            boolean he = Sk.in(lmx, lmy, W - 132, 14, 90, 20);
-            Sk.button(ms, editing ? "GATA" : "EDITARE", W - 132, 14, 90, 20, true, editing, he);
-            hitL(W - 132, 14, 90, 20, () -> {
+            boolean he = Sk.in(lmx, lmy, W - 180, 12, 84, 22);
+            Gfx.rrect(ms, W - 180, 12, 84, 22, 4, editing ? HOT : (he ? 0xFF2A3140 : 0xFF1D2430));
+            Gfx.text(ms, editing ? "GATA" : "EDITARE", W - 138, 26.6f, 7.6f, editing ? 0xFF160A04 : Sk.WHITE, 1, true, 0.6f);
+            hitL(W - 180, 12, 84, 22, () -> {
                 editing = !editing;
                 confirm = false;
                 sel = -1;
                 scrollRow = 0;
-                scrollY = 0;
                 animStart = System.currentTimeMillis();
             });
         }
-        if (bank >= 0 || cash >= 0) {
-            float rx = W - 44;
-            if (bank >= 0) {
-                String b = "CARD  " + money(bank) + " RON";
-                Gfx.text(ms, b, rx, 41, 6.8f, Sk.WHITE, 2, false, 0.4f);
-                rx -= Gfx.width(b, 6.8f, false) + 16;
-            }
-            if (cash >= 0) Gfx.text(ms, "CASH  " + money(cash) + " RON", rx, 41, 6.8f, Sk.MUTED, 2, false, 0.4f);
-        }
 
-        // tab-uri de categorii
-        boolean plusTab = editMode() && catNames.size() < 8;
-        int nc = Math.max(1, catNames.size() + (plusTab ? 1 : 0));
-        float tw = Math.min(104f, (W - 32f - (nc - 1) * 4f) / nc);
-        float targetX = 16 + cat * (tw + 4);
-        if (tabX < 0) tabX = targetX;
-        tabX += (targetX - tabX) * 0.28f;
-        float ty = 54;
-        for (int i = 0; i < catNames.size(); i++) {
-            float x = 16 + i * (tw + 4);
-            boolean hot = Sk.in(lmx, lmy, x, ty, tw, 22);
-            Sk.slant(ms, x, ty, tw, 22, 6f, hot ? Sk.ROW_HOT : Sk.ROW);
-        }
-        if (plusTab) {
-            float px2 = 16 + catNames.size() * (tw + 4);
-            boolean hp = Sk.in(lmx, lmy, px2, ty, tw, 22);
-            Sk.slant(ms, px2, ty, tw, 22, 6f, hp ? Sk.ROW_HOT : Sk.ROW);
-            Gfx.text(ms, tw >= 80 ? "+  CATEGORIE" : "+", px2 + tw / 2f + 3, ty + 14.6f, 7.4f, hp ? Sk.WHITE : Sk.MUTED, 1, true, 0.3f);
-            hitL(px2, ty, tw, 22, this::openCatNew);
-        }
-        if (!catNames.isEmpty()) Sk.slant(ms, tabX, ty, tw, 22, 6f, Sk.ACC);
-        for (int i = 0; i < catNames.size(); i++) {
-            float x = 16 + i * (tw + 4);
-            boolean on = Math.abs(tabX - x) < tw / 2f;
-            boolean hot = Sk.in(lmx, lmy, x, ty, tw, 22);
-            Gfx.text(ms, clip(catNames.get(i), 8.2f, tw - 14), x + tw / 2f + 3, ty + 14.6f, 8.2f, on ? 0xFF061426 : (hot ? Sk.WHITE : Sk.MUTED), 1, true, 0.3f);
-            final int ci = i;
-            hitL(x, ty, tw, 22, () -> setCat(ci));
-        }
-
-        // grila de carduri
+        // grila de carduri (pagina curenta)
         List<It> its = items();
-        Gfx.rrect(ms, GX - 6, GY - 4, W - 2 * (GX - 6), GH + 8, 0, 0x14FFFFFF);
-        scrollY += (scrollRow * (CH + GAP) - scrollY) * 0.3f;
+        scrollRow = Math.max(0, Math.min(maxRow(), scrollRow));
         int count = gridCount();
-        for (int i = 0; i < count; i++) {
-            int col = i % COLS;
-            int row = i / COLS;
+        int from = scrollRow * PER;
+        int to = Math.min(count, from + PER);
+        for (int i = from; i < to; i++) {
+            int k = i - from;
+            int col = k % COLS;
+            int row = k / COLS;
             float x = GX + col * (CW + GAP);
-            float y = GY + row * (CH + GAP) - scrollY;
-            if (y + CH < GY || y > GY + GH) continue;
-            float edge = clamp01(Math.min(y + CH - GY, GY + GH - y) / 18f);
-            float t = easeOut((now - animStart - 80 - i * 35L) / 260f);
+            float y = GY + row * (CH + GAP);
+            float t = easeOut((now - animStart - 60 - k * 30L) / 240f);
             if (t <= 0f) continue;
-            float a = open * t * edge;
-            if (a <= 0.02f) continue;
-            float yy = y + (1f - t) * 10f;
+            float a = open * t;
+            float yy = y + (1f - t) * 8f;
             Gfx.alpha = a;
             boolean isAdd = i >= its.size();
             if (isAdd) drawAddCard(ms, x, yy, lmx, lmy);
             else drawCard(ms, its.get(i), i, x, yy, lmx, lmy, a);
             Gfx.alpha = open;
             final int fi = i;
-            float hy = Math.max(y, GY);
-            float hh = Math.min(y + CH, GY + GH) - hy;
-            if (hh > 4) {
-                if (isAdd) hitL(x, hy, CW, hh, () -> openItemForm(-1));
-                else hitL(x, hy, CW, hh, () -> select(fi));
-            }
-            if (!isAdd && editMode() && yy >= GY - 2 && yy + 16 <= GY + GH) {
+            if (isAdd) hitL(x, y, CW, CH, () -> openItemForm(-1));
+            else hitL(x, y, CW, CH, () -> select(fi));
+            if (!isAdd && editMode()) {
                 hitL(x + 3, yy + 3, 44, 13, () -> openItemForm(fi));
                 hitL(x + CW - 47, yy + 3, 44, 13, () -> openDelItem(fi));
             }
         }
-        if (its.isEmpty() && !editMode()) Gfx.text(ms, "Nimic de vândut aici.", W / 2f, GY + 76, 8.4f, Sk.MUTED, 1);
-        if (maxRow() > 0) {
-            float total = rowsTotal() * (CH + GAP) - GAP;
-            float th = Math.max(20, GH * GH / total);
-            float tp = GY + (GH - th) * (scrollY / (maxRow() * (CH + GAP)));
-            Gfx.rrect(ms, W - 21, GY, 2, GH, 0, 0xFF14202F);
-            Gfx.rrect(ms, W - 21, tp, 2, th, 0, Sk.ACC);
+        if (its.isEmpty() && !editMode()) Gfx.text(ms, "Nimic de vândut aici.", GX + (W - GX - 12) / 2f, GY + 76, 8.4f, Sk.MUTED, 1);
+
+        // paginare
+        float py = GY + GH + 6;
+        int pg = scrollRow + 1;
+        int np = pages();
+        Gfx.text(ms, count == 0 ? "AFIȘARE 0 DIN 0" : "AFIȘARE " + (from + 1) + " – " + to + " DIN " + count, GX, py + 10, 6.4f, Sk.MUTED, 0, false, 1.0f);
+        float cx = GX + (W - GX - 12) / 2f;
+        pageBtn(ms, cx - 70, py, "<", scrollRow > 0, lmx, lmy, () -> scrollRow = Math.max(0, scrollRow - 1));
+        Gfx.text(ms, "PAGINA " + pg + " / " + np, cx, py + 10.4f, 7f, Sk.WHITE, 1, true, 1.0f);
+        pageBtn(ms, cx + 54, py, ">", scrollRow < np - 1, lmx, lmy, () -> scrollRow = Math.min(maxRow(), scrollRow + 1));
+        if (bank >= 0 || cash >= 0) {
+            float rx = W - 14;
+            if (bank >= 0) {
+                String b = "CARD  " + money(bank) + " RON";
+                Gfx.text(ms, b, rx, H - 4, 6.8f, Sk.WHITE, 2, true, 0.4f);
+                rx -= Gfx.width(b, 6.8f, true) + 16;
+            }
+            if (cash >= 0) Gfx.text(ms, "CASH  " + money(cash) + " RON", rx, H - 4, 6.8f, Sk.MUTED, 2, false, 0.4f);
         }
 
         bottomBar(ms, lmx, lmy);
@@ -526,48 +531,87 @@ public final class ShopScreen extends FlowScreen {
         }
     }
 
+    private static String rarity(double price) {
+        if (price < 500) return "COMMON";
+        if (price < 2500) return "UNCOMMON";
+        if (price < 10000) return "RARE";
+        if (price < 50000) return "EPIC";
+        return "LEGENDARY";
+    }
+
+    private static int rarityColor(String r) {
+        switch (r) {
+            case "UNCOMMON": return 0xFF4CD964;
+            case "RARE": return 0xFF4C9BFF;
+            case "EPIC": return 0xFFB45CFF;
+            case "LEGENDARY": return 0xFFFFB02E;
+            default: return 0xFF9AA3B2;
+        }
+    }
+
+    private void pageBtn(GuiGraphics ms, float x, float y, String l, boolean on, float lmx, float lmy, Runnable r) {
+        boolean hv = on && Sk.in(lmx, lmy, x, y, 16, 14);
+        Gfx.rrect(ms, x, y, 16, 14, 3, hv ? HOT : (on ? 0xFF1D2430 : 0xFF11151C));
+        Gfx.text(ms, l, x + 8, y + 10.6f, 8f, hv ? 0xFF160A04 : (on ? Sk.WHITE : Sk.FAINT), 1, true, 0f);
+        if (on) hitL(x, y, 16, 14, r);
+    }
+
     private void drawCard(GuiGraphics ms, It it, int i, float x, float y, float lmx, float lmy, float a) {
         boolean lk = locked(it);
         boolean ow = owned(it);
         boolean chosen = i == sel;
-        boolean hot = Sk.in(lmx, lmy, x, y, CW, CH) && lmy >= GY && lmy < GY + GH;
-        if (chosen) Sk.cut(ms, x - 2, y - 2, CW + 4, CH + 4, 10, lk ? Sk.FAINT : Sk.ACC);
-        Sk.cut(ms, x, y, CW, CH, 8, lk ? 0x90101620 : (chosen || hot ? Sk.ROW_HOT : Sk.ROW));
+        boolean hot = Sk.in(lmx, lmy, x, y, CW, CH);
+        String rar = rarity(it.price);
+        int rc = rarityColor(rar);
+        if (chosen) Gfx.rrect(ms, x - 1.5f, y - 1.5f, CW + 3, CH + 3, 6, lk ? Sk.FAINT : HOT);
+        Gfx.rrect(ms, x, y, CW, CH, 5, lk ? 0xFF10141B : (chosen || hot ? CARD_HOT : CARD));
+        Gfx.rrect(ms, x + 8, y + 1, CW - 16, 1.5f, 0, lk ? Sk.FAINT : rc);
+        // iconita
+        Gfx.rrect(ms, x + CW / 2f - 20, y + 7, 40, 34, 4, 0xFF0D1117);
         if (!it.stack.isEmpty() && a > 0.6f) {
             ms.pose().pushPose();
-            ms.pose().translate(x + CW / 2f - 16, y + 5, 0);
+            ms.pose().translate(x + CW / 2f - 16, y + 8, 0);
             ms.pose().scale(2f, 2f, 1f);
             ms.renderItem(it.stack, 0, 0);
             ms.pose().popPose();
         } else if (it.stack.isEmpty()) {
-            Gfx.disc(ms, x + CW / 2f, y + 21, 12, 0xFF14202F);
-            Gfx.text(ms, "?", x + CW / 2f, y + 26, 12, Sk.MUTED, 1, true, 0f);
+            Gfx.text(ms, "?", x + CW / 2f, y + 31, 12, Sk.MUTED, 1, true, 0f);
         }
         if (lk) {
-            Gfx.rrect(ms, x + CW / 2f - 19, y + 3, 38, 36, 4, 0xAA070C14);
-            lock(ms, x + CW / 2f - 5, y + 14, Sk.MUTED);
+            Gfx.rrect(ms, x + CW / 2f - 20, y + 7, 40, 34, 4, 0xAA070C14);
+            lock(ms, x + CW / 2f - 5, y + 18, Sk.MUTED);
         }
-        String nm = clip(it.name, 7.6f, CW - 10);
-        Gfx.text(ms, nm, x + CW / 2f, y + 48, 7.6f, lk ? Sk.MUTED : Sk.WHITE, 1);
-        if (ow) {
-            Gfx.text(ms, "DEȚINUT", x + CW / 2f, y + 60, 7f, Sk.GOOD, 1, true, 0.6f);
-        } else {
-            Gfx.text(ms, money(it.price) + " RON", x + CW / 2f, y + 60, 7.2f, lk ? Sk.FAINT : Sk.ACC, 1);
-        }
+        Gfx.text(ms, clip(it.name, 7.6f, CW - 10), x + CW / 2f, y + 52, 7.6f, lk ? Sk.MUTED : Sk.WHITE, 1, true, 0f);
+        Gfx.text(ms, rar, x + 6, y + 63, 5.6f, lk ? Sk.FAINT : rc, 0, true, 0.7f);
+        Gfx.text(ms, "STOC: INF", x + CW - 6, y + 63, 5.6f, Sk.MUTED, 2, false, 0.5f);
         boolean ed = editMode();
         if (ed) {
             boolean he = Sk.in(lmx, lmy, x + 3, y + 3, 44, 13);
             boolean hd = Sk.in(lmx, lmy, x + CW - 47, y + 3, 44, 13);
-            Gfx.rrect(ms, x + 3, y + 3, 44, 13, 2, he ? Sk.ACC : 0xE0061426);
-            Gfx.text(ms, "EDIT", x + 25, y + 12.2f, 6.6f, he ? 0xFF061426 : Sk.ACC, 1, true, 0.5f);
+            Gfx.rrect(ms, x + 3, y + 3, 44, 13, 2, he ? HOT : 0xE0061426);
+            Gfx.text(ms, "EDIT", x + 25, y + 12.2f, 6.6f, he ? 0xFF160A04 : HOT, 1, true, 0.5f);
             Gfx.rrect(ms, x + CW - 47, y + 3, 44, 13, 2, hd ? Sk.BAD : 0xE0061426);
             Gfx.text(ms, "ȘTERGE", x + CW - 25, y + 12.2f, 6.6f, hd ? 0xFF061426 : Sk.BAD, 1, true, 0.5f);
         }
+        // pret + buton CUMPARA
+        boolean canBuy = !lk && !ow;
+        float bw = CW - 12;
+        boolean hb = canBuy && Sk.in(lmx, lmy, x + 6, y + CH - 18, bw, 14);
+        Gfx.rrect(ms, x + 6, y + CH - 18, bw, 14, 3, ow ? 0xFF16301F : (lk ? 0xFF1A1F29 : (hb ? 0xFFFF7A52 : HOT)));
+        String lab = ow ? "DEȚINUT" : (lk ? "BLOCAT" : "CUMPĂRĂ  " + money(it.price));
+        Gfx.text(ms, clip(lab, 6.6f, bw - 6), x + 6 + bw / 2f, y + CH - 8.2f, 6.6f, ow ? Sk.GOOD : (lk ? Sk.FAINT : 0xFF160A04), 1, true, 0.4f);
+        if (canBuy) {
+            final int fi = i;
+            hitL(x + 6, y + CH - 18, bw, 14, () -> {
+                select(fi);
+                if (!editMode()) confirm = true;
+            });
+        }
         if (it.amount > 1 && !ed) {
             String b = "x" + it.amount;
-            float bw = Gfx.width(b, 6.4f, false) + 8;
-            Gfx.rrect(ms, x + CW - bw - 3, y + 3, bw, 11, 2, 0xB0061426);
-            Gfx.text(ms, b, x + CW - bw / 2f - 3, y + 11.2f, 6.4f, Sk.WHITE, 1);
+            float bw2 = Gfx.width(b, 6.4f, false) + 8;
+            Gfx.rrect(ms, x + CW - bw2 - 3, y + 3, bw2, 11, 2, 0xB0061426);
+            Gfx.text(ms, b, x + CW - bw2 / 2f - 3, y + 11.2f, 6.4f, Sk.WHITE, 1);
         }
         if (!it.permit.isEmpty() && !ow && !ed) {
             Gfx.rrect(ms, x + 3, y + 3, 34, 11, 2, 0xB0061426);
@@ -587,34 +631,35 @@ public final class ShopScreen extends FlowScreen {
 
     private void bottomBar(GuiGraphics ms, float lmx, float lmy) {
         float by = H - 56;
-        Sk.slant(ms, 12, by, W - 36, 40, 8f, Sk.PANEL);
+        Gfx.rrect(ms, GX - 4, by - 6, W - GX - 8, 40, 5, 0xFF10141B);
         if (editMode()) {
             editBar(ms, by, lmx, lmy);
             return;
         }
         It it = selected();
         if (it == null) {
-            Gfx.text(ms, "Alege un articol (săgeți sau click).", 32, by + 24, 8.6f, Sk.FAINT, 0);
+            Gfx.text(ms, "Alege un articol (săgeți sau click).", GX + 10, by + 18, 8.6f, Sk.FAINT, 0);
             return;
         }
         boolean lk = locked(it);
         boolean ow = owned(it);
         boolean single = !it.permit.isEmpty();
-        Gfx.text(ms, clip(it.name, 10f, 190), 32, by + 17, 10, Sk.WHITE, 0, true, 0f);
-        if (lk) Gfx.text(ms, clip(lockText(it), 7f, 200), 32, by + 30, 7f, Sk.WARN, 0, true, 0.2f);
-        else if (!it.desc.isEmpty()) Gfx.text(ms, clip(it.desc, 7.2f, 200), 32, by + 30, 7.2f, Sk.MUTED, 0);
+        Gfx.text(ms, clip(it.name, 10f, 140), GX + 10, by + 8, 10, Sk.WHITE, 0, true, 0f);
+        if (lk) Gfx.text(ms, clip(lockText(it), 7f, 150), GX + 10, by + 21, 7f, Sk.WARN, 0, true, 0.2f);
+        else if (!it.desc.isEmpty()) Gfx.text(ms, clip(it.desc, 7.2f, 150), GX + 10, by + 21, 7.2f, Sk.MUTED, 0);
         if (!single && !lk && !ow) {
             float qx = W - 290;
-            step(ms, qx, by + 9, "-", lmx, lmy, () -> qty = Math.max(1, qty - 1));
-            Gfx.text(ms, String.valueOf(qty), qx + 40, by + 25, 11, Sk.WHITE, 1, true, 0f);
-            step(ms, qx + 58, by + 9, "+", lmx, lmy, () -> qty = Math.min(64, qty + 1));
+            step(ms, qx, by - 1, "-", lmx, lmy, () -> qty = Math.max(1, qty - 1));
+            Gfx.text(ms, String.valueOf(qty), qx + 40, by + 15, 11, Sk.WHITE, 1, true, 0f);
+            step(ms, qx + 58, by - 1, "+", lmx, lmy, () -> qty = Math.min(64, qty + 1));
         }
         boolean ok = !lk && !ow;
         double total = it.price * (single ? 1 : qty);
         String label = ow ? "DEȚINUT" : (lk ? "BLOCAT" : "CUMPĂRĂ  " + money(total) + " RON");
-        boolean hb = ok && Sk.in(lmx, lmy, W - 176, by + 6, 146, 28);
-        Sk.button(ms, label, W - 176, by + 6, 146, 28, ok, true, hb);
-        if (ok) hitL(W - 176, by + 6, 146, 28, () -> confirm = true);
+        boolean hb = ok && Sk.in(lmx, lmy, W - 176, by - 3, 156, 28);
+        Gfx.rrect(ms, W - 176, by - 3, 156, 28, 4, ow ? 0xFF16301F : (lk ? 0xFF1A1F29 : (hb ? 0xFFFF7A52 : HOT)));
+        Gfx.text(ms, label, W - 98, by + 14.4f, 8f, ow ? Sk.GOOD : (lk ? Sk.FAINT : 0xFF160A04), 1, true, 0.4f);
+        if (ok) hitL(W - 176, by - 3, 156, 28, () -> confirm = true);
     }
 
     private void step(GuiGraphics ms, float x, float y, String label, float lmx, float lmy, Runnable r) {
@@ -640,7 +685,7 @@ public final class ShopScreen extends FlowScreen {
         float by = H / 2f - bh / 2f;
         Gfx.rrect(ms, bx - 1, by - 1, bw + 2, bh + 2, 9, 0x40FFFFFF);
         Gfx.rrect(ms, bx, by, bw, bh, 8, 0xFF14202F, 0xFF0B1320);
-        Gfx.rrect(ms, bx + 16, by + 1, 36, 2, 0, Sk.ACC);
+        Gfx.rrect(ms, bx + 16, by + 1, 36, 2, 0, HOT);
         Gfx.text(ms, "CONFIRMI CUMPĂRAREA?", bx + 16, by + 22, 11, Sk.WHITE, 0, true, 0f);
         Gfx.text(ms, clip(q + " x " + it.name, 8f, bw - 32), bx + 16, by + 40, 8f, Sk.MUTED, 0);
         Gfx.text(ms, "Total de plată", bx + 16, by + 66, 6.4f, Sk.FAINT, 0);
@@ -658,21 +703,21 @@ public final class ShopScreen extends FlowScreen {
     // ------------------------------------------------------------------ editor
 
     private void drawAddCard(GuiGraphics ms, float x, float y, float lmx, float lmy) {
-        boolean hot = Sk.in(lmx, lmy, x, y, CW, CH) && lmy >= GY && lmy < GY + GH;
-        Sk.cut(ms, x, y, CW, CH, 8, hot ? Sk.ROW_HOT : 0x60111A28);
-        int c = hot ? Sk.ACC : Sk.MUTED;
-        Gfx.line(ms, x + CW / 2f - 9, y + 25, x + CW / 2f + 9, y + 25, 2.2f, c);
-        Gfx.line(ms, x + CW / 2f, y + 16, x + CW / 2f, y + 34, 2.2f, c);
-        Gfx.text(ms, "ADAUGĂ ARTICOL", x + CW / 2f, y + 54, 7.2f, hot ? Sk.WHITE : Sk.MUTED, 1, true, 0.5f);
+        boolean hot = Sk.in(lmx, lmy, x, y, CW, CH);
+        Gfx.rrect(ms, x, y, CW, CH, 5, hot ? CARD_HOT : 0x80141922);
+        int c = hot ? HOT : Sk.MUTED;
+        Gfx.line(ms, x + CW / 2f - 9, y + 34, x + CW / 2f + 9, y + 34, 2.2f, c);
+        Gfx.line(ms, x + CW / 2f, y + 25, x + CW / 2f, y + 43, 2.2f, c);
+        Gfx.text(ms, "ADAUGĂ ARTICOL", x + CW / 2f, y + 62, 7.2f, hot ? Sk.WHITE : Sk.MUTED, 1, true, 0.5f);
     }
 
     private void editBar(GuiGraphics ms, float by, float lmx, float lmy) {
         boolean has = cat >= 0 && cat < cats.size();
         String cn = has ? catNames.get(cat) : "—";
-        Gfx.text(ms, "MOD EDITARE", 32, by + 15, 6.4f, Sk.WARN, 0, true, 1.2f);
-        Gfx.text(ms, clip("Categorie: " + cn + "  ·  " + items().size() + " articole", 8.6f, 190), 32, by + 29, 8.6f, Sk.WHITE, 0);
-        btnE(ms, "REDENUMEȘTE", W - 316, by + 6, 134, 28, has, false, lmx, lmy, this::openCatRename);
-        btnE(ms, "ȘTERGE CATEGORIA", W - 176, by + 6, 146, 28, has, false, lmx, lmy, this::openDelCat);
+        Gfx.text(ms, "MOD EDITARE", GX + 10, by + 5, 6.4f, Sk.WARN, 0, true, 1.2f);
+        Gfx.text(ms, clip("Categorie: " + cn + "  ·  " + items().size() + " articole", 8.6f, 140), GX + 10, by + 19, 8.6f, Sk.WHITE, 0);
+        btnE(ms, "REDENUMEȘTE", W - 316, by - 3, 134, 28, has, false, lmx, lmy, this::openCatRename);
+        btnE(ms, "ȘTERGE CATEGORIA", W - 176, by - 3, 146, 28, has, false, lmx, lmy, this::openDelCat);
     }
 
     private void btnE(GuiGraphics ms, String label, float x, float y, float w, float h, boolean enabled, boolean filled, float lmx, float lmy, Runnable r) {
@@ -935,7 +980,7 @@ public final class ShopScreen extends FlowScreen {
     private void frame(GuiGraphics ms, float bx, float by, float bw, float bh) {
         Gfx.rrect(ms, bx - 1, by - 1, bw + 2, bh + 2, 9, 0x40FFFFFF);
         Gfx.rrect(ms, bx, by, bw, bh, 8, 0xFF14202F, 0xFF0B1320);
-        Gfx.rrect(ms, bx + 16, by + 1, 36, 2, 0, Sk.ACC);
+        Gfx.rrect(ms, bx + 16, by + 1, 36, 2, 0, HOT);
     }
 
     private void itemForm(GuiGraphics ms, float lmx, float lmy) {
