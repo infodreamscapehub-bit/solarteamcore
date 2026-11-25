@@ -36,14 +36,16 @@ public final class MdtScreen extends FlowScreen {
     private static final int RED = Sk.BAD;
     private static final int GREEN = Sk.GOOD;
     private static final int DARK = 0xFF061426;
-    private static final int RAIL = 0;
+    private static final int RAIL = 108;
     private static final int HD = 30;
-    private static final int TB = 22;
+    private static final int TB = 0;
     private static final int TAB_W = 82;
     private static final int TOP = HD + TB;
     private static final int LIST = 152;
     private static final DateTimeFormatter CLOCK = DateTimeFormatter.ofPattern("HH:mm");
-    private static final String[] TABS = {"Cetateni", "Urmariti", "Vehicule", "Dispecerat", "Echipa"};
+    private static final String[] TABS = {"Cetateni", "Urmariti", "Vehicule", "Dispecerat", "Info politie", "BK & Coduri", "Administrator"};
+    /** Ordinea in bara laterala (indicii din TABS). */
+    private static final int[] SIDE_ORDER = {0, 3, 1, 5, 4, 2, 6};
     private static final String[] SUBS = {"Cazier", "Amenzi", "Vehicule", "Locuinte"};
     private static final String[] SUB_KEYS = {"records", "fines", "vehicles", "props"};
     private static final String[] UNIT_TYPES = {"PATRULA", "RUTIERA", "RAZIE"};
@@ -88,9 +90,22 @@ public final class MdtScreen extends FlowScreen {
     private final TextFieldWidget rkName = field("Nume grad", 24, null);
     private final TextFieldWidget rkUp = field("Comanda la promovare (%player%)", 120, null);
     private final TextFieldWidget rkDown = field("Comanda la retrogradare (%player%)", 120, null);
+    private final TextFieldWidget gGrp = field("ex. politist", 32, null);
+    private final TextFieldWidget gMinH = field("min", 4, null);
+    private final TextFieldWidget gMaxH = field("max", 4, null);
+    private final TextFieldWidget gSal = field("ex. 5000", 8, null);
+    private final TextFieldWidget gMinF = field("min", 4, null);
+    private final TextFieldWidget gMaxF = field("max", 4, null);
+    private final TextFieldWidget[] gH = new TextFieldWidget[5];
+    private final TextFieldWidget[] gF = new TextFieldWidget[5];
+    private String adminNote = "";
 
     public MdtScreen() {
-        super("MDT", 540, 310);
+        super("MDT", 650, 330);
+        for (int k = 0; k < 5; k++) {
+            gH[k] = field("T" + (k + 1), 8, null);
+            gF[k] = field("T" + (k + 1), 8, null);
+        }
         plateField.setTextColor(0xFF12161C);
     }
 
@@ -237,7 +252,17 @@ public final class MdtScreen extends FlowScreen {
         if (tab == 0) l.add(search);
         else if (tab == 2) l.add(plateField);
         else if (tab == 3) l.add(unitName);
-        else if (tab == 4 && rankConfig) {
+        else if (tab == 6) {
+            l.add(rkName);
+            l.add(gGrp);
+            l.add(gMinH);
+            l.add(gMaxH);
+            l.add(gSal);
+            l.add(gMinF);
+            l.add(gMaxF);
+            for (TextFieldWidget f : gH) l.add(f);
+            for (TextFieldWidget f : gF) l.add(f);
+        } else if (tab == 4 && rankConfig) {
             l.add(rkName);
             l.add(rkUp);
             l.add(rkDown);
@@ -287,10 +312,12 @@ public final class MdtScreen extends FlowScreen {
     }
 
     private void setTab(int t) {
+        if (t == 6 && !b(me(), "admin")) return;
         unfocusAll();
         tab = t;
         modal = 0;
         rankConfig = false;
+        if (t == 6) loadRank(cfgRank);
     }
 
     private void selectCitizen(String uuid) {
@@ -421,6 +448,12 @@ public final class MdtScreen extends FlowScreen {
             case 3:
                 drawDispatch(ms, mx, my, cx, cy, cw, ch);
                 break;
+            case 5:
+                drawCodes(ms, mx, my, cx, cy, cw, ch);
+                break;
+            case 6:
+                drawAdmin(ms, mx, my, cx, cy, cw, ch);
+                break;
             default:
                 drawTeam(ms, mx, my, cx, cy, cw, ch);
                 break;
@@ -458,8 +491,10 @@ public final class MdtScreen extends FlowScreen {
         xr -= 24;
         Ui.textRight(ms, LocalTime.now().format(CLOCK), xr, py + 11, DIM);
         xr -= Ui.width("00:00") + 8;
-        for (int k = 0; k < 4; k++) Ui.rect(ms, xr - 14 + k * 4, py + 20 - (k + 1) * 2 - 1, 3, (k + 1) * 2 + 1, k < 3 ? GREEN : FAINT);
-        xr -= 22;
+        String sys = "SYS: ACTIVE";
+        Ui.textRight(ms, sys, xr, py + 11, GREEN);
+        Gfx.disc(ms, xr - Ui.width(sys) - 6, py + 14.5f, 2.6f, GREEN);
+        xr -= Ui.width(sys) + 20;
         JsonObject m = me();
         String rank = s(m, "rankName") + "  " + s(m, "name");
         Ui.textRight(ms, rank, xr, py + 11, DIM);
@@ -484,32 +519,39 @@ public final class MdtScreen extends FlowScreen {
 
     private void drawTabs(GuiGraphics ms, int mx, int my, long now) {
         int y0 = py + HD;
-        Ui.rect(ms, px + 8, y0, pw - 16, TB, 0x80080D16);
+        Ui.rect(ms, px + 1, y0, RAIL, ph - HD - 1, SIDE);
+        Ui.rect(ms, px + RAIL, y0, 1, ph - HD - 1, RULE);
         int wantedN = arr(MdtState.state, "wanted").size();
         int bkN = arr(MdtState.state, "backups").size();
-        float target = px + 10 + tab * TAB_W;
-        indX = indX < 0 ? target : indX + (target - indX) * 0.28f;
-        for (int k = 0; k < TABS.length; k++) {
-            int x = px + 10 + k * TAB_W;
-            boolean on = tab == k;
-            boolean hover = Ui.in(mx, my, x, y0, TAB_W - 4, TB);
-            if (hover && !on) Sk.slant(ms, x, y0 + 2, TAB_W - 4, TB - 4, 4f, Sk.ROW_HOT);
-            glyph(ms, k, x + 8, y0 + 6, on ? INK : DIM);
-            Ui.smallCaps(ms, TABS[k], x + 22, y0 + 7, on ? INK : DIM);
-            int badge = k == 1 ? wantedN : k == 3 ? bkN : 0;
+        boolean admin = b(me(), "admin");
+        int row = 0;
+        for (int idx : SIDE_ORDER) {
+            if (idx == 6 && !admin) continue;
+            int x = px + 6;
+            int y = y0 + 8 + row * 28;
+            int w = RAIL - 12;
+            row++;
+            boolean on = tab == idx;
+            boolean hover = Ui.in(mx, my, x, y, w, 24);
+            if (on) {
+                Sk.slant(ms, x, y, w, 24, 5f, 0xFF10263F);
+                Ui.rect(ms, x, y + 4, 2, 16, Sk.ACC);
+            } else if (hover) {
+                Sk.slant(ms, x, y, w, 24, 5f, Sk.ROW_HOT);
+            }
+            glyph(ms, idx, x + 10, y + 7, on ? Sk.ACC : DIM);
+            Ui.smallCaps(ms, Ui.clip(TABS[idx], w - 34), x + 26, y + 8, on ? INK : DIM);
+            int badge = idx == 1 ? wantedN : idx == 3 ? bkN : 0;
             if (badge > 0) {
                 String t = String.valueOf(badge);
-                int w = Ui.width(t) + 6;
-                Ui.rect(ms, x + TAB_W - w - 8, y0 + 5, w, 11, RED);
-                Ui.text(ms, t, x + TAB_W - w - 5, y0 + 7, DARK);
+                int bw = Ui.width(t) + 6;
+                Ui.rect(ms, x + w - bw - 3, y + 6, bw, 11, RED);
+                Ui.text(ms, t, x + w - bw, y + 8, DARK);
             }
-            final int kk = k;
-            hit(x, y0, TAB_W - 4, TB, () -> setTab(kk));
+            final int kk = idx;
+            hit(x, y, w, 24, () -> setTab(kk));
         }
-        int ix = Math.round(indX);
-        Ui.rect(ms, ix, y0 + TB - 3, TAB_W - 4, 3, Sk.ACC);
-        Ui.rect(ms, ix, y0 + TB - 7, TAB_W - 4, 4, Gfx.fade(Sk.ACC, 0.18f));
-        button(ms, "Panica", px + pw - 74, y0 + 3, 62, 16, mx, my, true, 0xFF6A2A26, () -> MdtClient.act("panic"));
+        button(ms, "Panica", px + 8, py + ph - 26, RAIL - 16, 18, mx, my, true, 0xFF6A2A26, () -> MdtClient.act("panic"));
     }
 
     /** Pictograme simple (10x10) desenate din dreptunghiuri. */
@@ -1037,7 +1079,140 @@ public final class MdtScreen extends FlowScreen {
             rkName.setValue(s(k, "name"));
             rkUp.setValue(s(k, "up"));
             rkDown.setValue(s(k, "down"));
+            gGrp.setValue(s(k, "grp"));
+            gMinH.setValue(numStr(k.has("minh") ? k.get("minh").getAsDouble() : 0));
+            gMaxH.setValue(numStr(k.has("maxh") ? k.get("maxh").getAsDouble() : 0));
+            gSal.setValue(String.valueOf(i(k, "sal")));
+            gMinF.setValue(String.valueOf(i(k, "minf")));
+            gMaxF.setValue(String.valueOf(i(k, "maxf")));
+            for (int t = 0; t < 5; t++) {
+                gH[t].setValue(k.has("ht") && k.getAsJsonArray("ht").size() > t ? String.valueOf(k.getAsJsonArray("ht").get(t).getAsInt()) : "0");
+                gF[t].setValue(k.has("ft") && k.getAsJsonArray("ft").size() > t ? String.valueOf(k.getAsJsonArray("ft").get(t).getAsInt()) : "0");
+            }
         }
+    }
+
+    private static String numStr(double d) {
+        return d == Math.floor(d) ? String.valueOf((long) d) : String.valueOf(d);
+    }
+
+    private static double parseD(TextFieldWidget f) {
+        try {
+            return Double.parseDouble(f.getValue().trim().replace(',', '.'));
+        } catch (NumberFormatException ex) {
+            return 0;
+        }
+    }
+
+    private static int parseI(TextFieldWidget f) {
+        try {
+            return (int) Math.max(0, Math.min(Integer.MAX_VALUE, Long.parseLong(f.getValue().trim())));
+        } catch (NumberFormatException ex) {
+            return 0;
+        }
+    }
+
+    private void saveAdminRank() {
+        if (parseD(gMinH) > parseD(gMaxH) || parseI(gMinF) > parseI(gMaxF)) {
+            adminNote = "Minimul nu poate fi mai mare decat maximul.";
+            return;
+        }
+        adminNote = "";
+        MdtClient.act("rank_save", "rank", cfgRank, "name", rkName.getValue(), "up", rkUp.getValue(), "down", rkDown.getValue());
+        MdtClient.act("rank_cfg", "rank", cfgRank, "grp", gGrp.getValue().trim(),
+            "minh", parseD(gMinH), "maxh", parseD(gMaxH), "sal", parseI(gSal), "minf", parseI(gMinF), "maxf", parseI(gMaxF),
+            "h1", parseI(gH[0]), "h2", parseI(gH[1]), "h3", parseI(gH[2]), "h4", parseI(gH[3]), "h5", parseI(gH[4]),
+            "f1", parseI(gF[0]), "f2", parseI(gF[1]), "f3", parseI(gF[2]), "f4", parseI(gF[3]), "f5", parseI(gF[4]));
+    }
+
+    // ------------------------------------------------------------------ tab 5: BK & coduri
+
+    private void drawCodes(GuiGraphics ms, int mx, int my, int cx, int cy, int cw, int ch) {
+        int x = cx + 14;
+        title(ms, "Backup si coduri", x, cy + 10);
+        Ui.text(ms, "Cere ajutor din terminal sau cu tastele rapide (le schimbi din Controale > FlowCity).", x, cy + 30, FAINT);
+        String[][] codes = {
+            {"1", "Backup urgent", "NUMPAD 1", "Pericol imediat, toate unitatile"},
+            {"2", "Backup transport", "NUMPAD 2", "Escorta sau transport de detinut"},
+            {"3", "Backup urmarire", "NUMPAD 3", "Urmarire activa, trimite pozitia"}
+        };
+        int y = cy + 46;
+        for (String[] c : codes) {
+            int code = Integer.parseInt(c[0]);
+            Ui.rect(ms, x, y, cw - 28, 34, CARD);
+            Ui.rect(ms, x, y, 3, 34, AMBER);
+            Ui.text(ms, "COD " + c[0], x + 12, y + 7, AMBER);
+            Ui.text(ms, c[1], x + 12, y + 20, INK);
+            Ui.text(ms, Ui.clip(c[3], cw - 300), x + 100, y + 14, DIM);
+            Ui.textRight(ms, c[2], x + cw - 28 - 110, y + 14, FAINT);
+            button(ms, "Trimite", x + cw - 28 - 64, y + 9, 56, 16, mx, my, true, 0xFF24467A, () -> MdtClient.act("backup", "code", code));
+            y += 40;
+        }
+        Ui.rect(ms, x, y, cw - 28, 34, CARD);
+        Ui.rect(ms, x, y, 3, 34, RED);
+        Ui.text(ms, "COD 99", x + 12, y + 7, RED);
+        Ui.text(ms, "Panica", x + 12, y + 20, INK);
+        Ui.text(ms, Ui.clip("Ofiter in pericol, alerta pentru toata politia", cw - 300), x + 100, y + 14, DIM);
+        Ui.textRight(ms, "NUMPAD 0", x + cw - 28 - 110, y + 14, FAINT);
+        button(ms, "Panica", x + cw - 28 - 64, y + 9, 56, 16, mx, my, true, 0xFF6A2A26, () -> MdtClient.act("panic"));
+        y += 46;
+        int n = arr(MdtState.state, "backups").size();
+        Ui.text(ms, n == 0 ? "Nicio cerere de backup activa." : n + " cereri de backup active — le vezi in Dispecerat.", x, y, n == 0 ? FAINT : AMBER);
+    }
+
+    // ------------------------------------------------------------------ tab 6: configurare administrator
+
+    private void drawAdmin(GuiGraphics ms, int mx, int my, int cx, int cy, int cw, int ch) {
+        title(ms, "Configurare administrator", cx + 14, cy + 6);
+        Ui.rect(ms, cx + 130, cy + 28, 1, ch - 32, RULE);
+        Ui.smallCaps(ms, "Grade politie", cx + 12, cy + 30, FAINT);
+        int ly = cy + 42;
+        for (int r = 1; r <= 6; r++) {
+            final int rr = r;
+            boolean on = cfgRank == r;
+            boolean hover = Ui.in(mx, my, cx + 8, ly, 116, 24);
+            if (on) {
+                Sk.slant(ms, cx + 8, ly, 116, 24, 5f, Sk.ACC);
+            } else if (hover) {
+                Sk.slant(ms, cx + 8, ly, 116, 24, 5f, Sk.ROW_HOT);
+            }
+            Ui.text(ms, r + "  " + Ui.clip(rankLabel(r), 90), cx + 16, ly + 8, on ? DARK : INK);
+            hit(cx + 8, ly, 116, 24, () -> {
+                unfocusAll();
+                loadRank(rr);
+            });
+            ly += 28;
+        }
+        int fx = cx + 142;
+        int fw = cw - 142 - 12;
+        int half = (fw - 12) / 2;
+        int y = cy + 32;
+        Ui.text(ms, "Nume grad", fx, y, FAINT);
+        Ui.text(ms, "Grup permisiuni (LuckPerms)", fx + half + 12, y, FAINT);
+        drawField(ms, rkName, fx, y + 10, half, 16, mx, my);
+        drawField(ms, gGrp, fx + half + 12, y + 10, half, 16, mx, my);
+        y += 38;
+        Ui.text(ms, "Ore / zi (min – max)", fx, y, FAINT);
+        Ui.text(ms, "Salariu de baza (RON)", fx + half + 12, y, FAINT);
+        int q = (half - 8) / 2;
+        drawField(ms, gMinH, fx, y + 10, q, 16, mx, my);
+        drawField(ms, gMaxH, fx + q + 8, y + 10, q, 16, mx, my);
+        drawField(ms, gSal, fx + half + 12, y + 10, half, 16, mx, my);
+        y += 38;
+        Ui.text(ms, "Amenzi / zi (min – max)", fx, y, FAINT);
+        drawField(ms, gMinF, fx, y + 10, q, 16, mx, my);
+        drawField(ms, gMaxF, fx + q + 8, y + 10, q, 16, mx, my);
+        y += 38;
+        int tw = (fw - 4 * 6) / 5;
+        Ui.text(ms, "Bonus pe trepte de ore (T1 – T5)", fx, y, FAINT);
+        for (int t = 0; t < 5; t++) drawField(ms, gH[t], fx + t * (tw + 6), y + 10, tw, 16, mx, my);
+        y += 38;
+        Ui.text(ms, "Bonus pe trepte de amenzi (T1 – T5)", fx, y, FAINT);
+        for (int t = 0; t < 5; t++) drawField(ms, gF[t], fx + t * (tw + 6), y + 10, tw, 16, mx, my);
+        y += 40;
+        button(ms, "SALVEAZA", fx, y, 110, 20, mx, my, true, 0xFF1F4D38, this::saveAdminRank);
+        if (!adminNote.isEmpty()) Ui.text(ms, Ui.clip(adminNote, fw - 126), fx + 120, y + 6, RED);
+        Ui.text(ms, Ui.clip("Grupul se aplica din consola la angajare/promovare in acest grad. Bonusurile se pastreaza pentru calculul salariilor.", fw), fx, y + 28, FAINT);
     }
 
     private void drawRankConfig(GuiGraphics ms, int mx, int my, int rx, int rw, int cy) {

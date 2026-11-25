@@ -105,6 +105,15 @@ public final class MdtModule extends JsonModule implements Listener {
         String name;
         String up = "";
         String down = "";
+        // configurare administrator (din GUI): grup de permisiuni, ore/zi, salariu, amenzi/zi, trepte de bonus T1..T5
+        String grp = "";
+        double minH;
+        double maxH;
+        int salary;
+        int minF;
+        int maxF;
+        final int[] hTier = new int[5];
+        final int[] fTier = new int[5];
     }
 
     private static final class Unit {
@@ -260,6 +269,7 @@ public final class MdtModule extends JsonModule implements Listener {
                     st.execute("CREATE TABLE IF NOT EXISTS mdt_prop (id INTEGER PRIMARY KEY, uuid TEXT NOT NULL, addr TEXT NOT NULL)");
                     st.execute("CREATE TABLE IF NOT EXISTS mdt_officer (uuid TEXT PRIMARY KEY, name TEXT NOT NULL, rank INTEGER NOT NULL)");
                     st.execute("CREATE TABLE IF NOT EXISTS mdt_rank (rank INTEGER PRIMARY KEY, name TEXT NOT NULL, up TEXT NOT NULL DEFAULT '', down TEXT NOT NULL DEFAULT '')");
+                    st.execute("CREATE TABLE IF NOT EXISTS mdt_rank_cfg (rank INTEGER PRIMARY KEY, grp TEXT NOT NULL DEFAULT '', min_h REAL NOT NULL DEFAULT 0, max_h REAL NOT NULL DEFAULT 0, salary INTEGER NOT NULL DEFAULT 0, min_f INTEGER NOT NULL DEFAULT 0, max_f INTEGER NOT NULL DEFAULT 0, h_tiers TEXT NOT NULL DEFAULT '', f_tiers TEXT NOT NULL DEFAULT '')");
                 }
                 return null;
             }).get(8, TimeUnit.SECONDS);
@@ -307,6 +317,7 @@ public final class MdtModule extends JsonModule implements Listener {
         on("officer_add", (p, j) -> officerAdd(p, str(j, "name", ""), integer(j, "rank", 1)));
         on("officer_set", (p, j) -> officerSet(p, uuid(j, "u"), integer(j, "rank", 1)));
         on("officer_fire", (p, j) -> officerFire(p, uuid(j, "u")));
+        on("rank_cfg", (p, j) -> rankCfg(p, j));
         on("rank_save", (p, j) -> rankSave(p, integer(j, "rank", 0), str(j, "name", ""), str(j, "up", ""), str(j, "down", "")));
         registerCommands();
         Bukkit.getScheduler().runTaskTimer(plugin, this::expireBackups, 200L, 200L);
@@ -405,6 +416,20 @@ public final class MdtModule extends JsonModule implements Listener {
                         r.up = rs.getString(3);
                         r.down = rs.getString(4);
                         if (r.num >= 1 && r.num <= MAX_RANK) ranks.put(r.num, r);
+                    }
+                }
+                try (ResultSet rs = st.executeQuery("SELECT rank,grp,min_h,max_h,salary,min_f,max_f,h_tiers,f_tiers FROM mdt_rank_cfg")) {
+                    while (rs.next()) {
+                        Rank r = ranks.get(rs.getInt(1));
+                        if (r == null) continue;
+                        r.grp = rs.getString(2);
+                        r.minH = rs.getDouble(3);
+                        r.maxH = rs.getDouble(4);
+                        r.salary = rs.getInt(5);
+                        r.minF = rs.getInt(6);
+                        r.maxF = rs.getInt(7);
+                        parseTiers(rs.getString(8), r.hTier);
+                        parseTiers(rs.getString(9), r.fTier);
                     }
                 }
             }
@@ -702,6 +727,20 @@ public final class MdtModule extends JsonModule implements Listener {
             if (admin(p)) {
                 x.addProperty("up", r.up == null ? "" : r.up);
                 x.addProperty("down", r.down == null ? "" : r.down);
+                x.addProperty("grp", r.grp == null ? "" : r.grp);
+                x.addProperty("minh", r.minH);
+                x.addProperty("maxh", r.maxH);
+                x.addProperty("sal", r.salary);
+                x.addProperty("minf", r.minF);
+                x.addProperty("maxf", r.maxF);
+                JsonArray ha = new JsonArray();
+                JsonArray fa = new JsonArray();
+                for (int t = 0; t < 5; t++) {
+                    ha.add(r.hTier[t]);
+                    fa.add(r.fTier[t]);
+                }
+                x.add("ht", ha);
+                x.add("ft", fa);
             }
             rk.add(x);
         }
@@ -1377,6 +1416,87 @@ public final class MdtModule extends JsonModule implements Listener {
         }
         o.rank = rank;
         sql("INSERT OR REPLACE INTO mdt_officer(uuid,name,rank) VALUES (?,?,?)", u.toString(), o.name, rank);
+        Rank cfg = ranks.get(rank);
+        if (cfg != null && cfg.grp != null && !cfg.grp.isEmpty() && GROUP_RE.matcher(cfg.grp).matches()) {
+            console("lp user %player% parent set " + cfg.grp, o.name);
+        }
+    }
+
+    private static final java.util.regex.Pattern GROUP_RE = java.util.regex.Pattern.compile("[A-Za-z0-9_.-]{1,32}");
+
+    private static void parseTiers(String csv, int[] out) {
+        if (csv == null || csv.isEmpty()) return;
+        String[] a = csv.split(",");
+        for (int i = 0; i < a.length && i < out.length; i++) {
+            try {
+                out[i] = Math.max(0, Integer.parseInt(a[i].trim()));
+            } catch (NumberFormatException ignored) {
+                out[i] = 0;
+            }
+        }
+    }
+
+    private static String tiersCsv(int[] t) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < t.length; i++) sb.append(i == 0 ? "" : ",").append(t[i]);
+        return sb.toString();
+    }
+
+    /** Configurarea unui grad din GUI (doar admin MDT): validata aici, salvata in baza de date; grupul se aplica la promovare. */
+    private void rankCfg(Player p, JsonObject j) {
+        if (!guard(p)) return;
+        if (!admin(p)) {
+            tell(p, "Doar administratorii pot configura gradele.", true);
+            return;
+        }
+        int num = integer(j, "rank", 0);
+        if (num < 1 || num > MAX_RANK) return;
+        String grp = str(j, "grp", "").trim();
+        if (!grp.isEmpty() && !GROUP_RE.matcher(grp).matches()) {
+            tell(p, "Grup invalid (litere, cifre, _ . - , maxim 32).", true);
+            return;
+        }
+        double minH = num(j, "minh", 0);
+        double maxH = num(j, "maxh", 0);
+        int sal = integer(j, "sal", 0);
+        int minF = integer(j, "minf", 0);
+        int maxF = integer(j, "maxf", 0);
+        if (minH < 0 || maxH < 0 || maxH > 24 || minH > maxH) {
+            tell(p, "Ore/zi: 0 <= minim <= maxim <= 24.", true);
+            return;
+        }
+        if (minF < 0 || maxF < 0 || maxF > 1000 || minF > maxF) {
+            tell(p, "Amenzi/zi: 0 <= minim <= maxim <= 1000.", true);
+            return;
+        }
+        if (sal < 0 || sal > 10_000_000) {
+            tell(p, "Salariu invalid (0 - 10.000.000).", true);
+            return;
+        }
+        int[] ht = new int[5];
+        int[] ft = new int[5];
+        for (int t = 0; t < 5; t++) {
+            ht[t] = integer(j, "h" + (t + 1), 0);
+            ft[t] = integer(j, "f" + (t + 1), 0);
+            if (ht[t] < 0 || ht[t] > 10_000_000 || ft[t] < 0 || ft[t] > 10_000_000) {
+                tell(p, "Bonusurile trebuie sa fie intre 0 si 10.000.000.", true);
+                return;
+            }
+        }
+        Rank r = ranks.get(num);
+        if (r == null) return;
+        r.grp = grp;
+        r.minH = Math.round(minH * 10.0) / 10.0;
+        r.maxH = Math.round(maxH * 10.0) / 10.0;
+        r.salary = sal;
+        r.minF = minF;
+        r.maxF = maxF;
+        System.arraycopy(ht, 0, r.hTier, 0, 5);
+        System.arraycopy(ft, 0, r.fTier, 0, 5);
+        sql("INSERT OR REPLACE INTO mdt_rank_cfg(rank,grp,min_h,max_h,salary,min_f,max_f,h_tiers,f_tiers) VALUES (?,?,?,?,?,?,?,?,?)",
+            num, r.grp, r.minH, r.maxH, r.salary, r.minF, r.maxF, tiersCsv(r.hTier), tiersCsv(r.fTier));
+        tell(p, "Configurarea gradului " + num + " a fost salvata.", false);
+        pushAll();
     }
 
     private void console(String template, String player) {
