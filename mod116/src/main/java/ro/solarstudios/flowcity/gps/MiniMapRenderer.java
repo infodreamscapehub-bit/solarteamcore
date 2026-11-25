@@ -50,10 +50,19 @@ public final class MiniMapRenderer {
             }
             clipRad = r;
         } else {
-            float c = Math.min(3.5f, s * 0.04f);
-            float[] p = {c, 0, s - c, 0, s, c, s, s - c, s - c, s, c, s, 0, s - c, 0, c};
-            clipN = 8;
-            System.arraycopy(p, 0, clip, 0, p.length);
+            float c = Math.min(8f, s * 0.075f);
+            int n = 0;
+            float[][] cen = {{c, c}, {s - c, c}, {s - c, s - c}, {c, s - c}};
+            double[] a0 = {Math.PI, Math.PI * 1.5, 0.0, Math.PI * 0.5};
+            for (int k = 0; k < 4; k++) {
+                for (int i = 0; i <= 4; i++) {
+                    double a = a0[k] + Math.PI * 0.5 * i / 4.0;
+                    clip[n * 2] = cen[k][0] + (float) Math.cos(a) * c;
+                    clip[n * 2 + 1] = cen[k][1] + (float) Math.sin(a) * c;
+                    n++;
+                }
+            }
+            clipN = n;
             clipRad = r * 1.4143f;
         }
     }
@@ -191,7 +200,7 @@ public final class MiniMapRenderer {
             if (circle) {
                 Gfx.disc(g, r, r + 1.5f, r + 1.5f, Gfx.fade(0x66000000, op));
             } else {
-                Gfx.rrect(g, -2f, 1f, size + 4f, size + 4f, 4f, Gfx.fade(0x66000000, op));
+                Gfx.rrect(g, -2f, 1f, size + 4f, size + 4f, 9f, Gfx.fade(0x66000000, op));
             }
             fan(g, clip, clipN, Gfx.fade(0xFF0B1626, op));
 
@@ -259,8 +268,7 @@ public final class MiniMapRenderer {
             if (GpsNav.isTarget(l.id)) continue;
             project(l.x, l.z);
             if (!MiniMapClip.inside(clip, clipN, outX, outY)) continue;
-            float u = Math.max(3.6f, Math.min(6f, 4.6f * l.size / 100f));
-            GpsIcons.pin(g, l.icon, outX, outY, u, l.color, 1f, false);
+            GpsIcons.drop(g, outX, outY + 2f, 2.9f, 0xFFFFFFFF, l.color, 1f);
             drawn++;
         }
     }
@@ -296,7 +304,7 @@ public final class MiniMapRenderer {
         for (GpsWps.Wp w : GpsWps.all()) {
             if (!w.dim.equals(dim) || GpsNav.isTarget("wp:" + w.id)) continue;
             project(w.x, w.z);
-            if (MiniMapClip.inside(clip, clipN, outX, outY)) GpsIcons.pin(g, "pin", outX, outY, 4.4f, w.color, 1f, false);
+            if (MiniMapClip.inside(clip, clipN, outX, outY)) GpsIcons.drop(g, outX, outY + 2f, 3.1f, 0xFF22D3EE, 0xFF06323B, 1f);
         }
     }
 
@@ -313,7 +321,7 @@ public final class MiniMapRenderer {
         float s = clipSize;
         if (MiniMapClip.inside(clip, clipN, px, py)) {
             Gfx.ring(g, px, py, 5f + t * 9f, 5.8f + t * 9f, Gfx.fade(GpsNav.color, 0.8f * (1f - t)), Gfx.fade(GpsNav.color, 0.8f * (1f - t)));
-            GpsIcons.pin(g, "pin", px, py, 5.2f, GpsNav.color, 1f, true);
+            GpsIcons.drop(g, px, py + 2f, 3.7f, GpsNav.color, 0xFF0A1220, 1f);
             return;
         }
         // in afara razei: sageata pe margine, spre destinatie
@@ -343,14 +351,14 @@ public final class MiniMapRenderer {
 
     private static void drawPlayer(GuiGraphics g, float yaw) {
         float ph = (System.currentTimeMillis() % 2000L) / 2000f;
-        Gfx.ring(g, cx, cy, 5f + ph * 7f, 5.6f + ph * 7f, Gfx.fade(0xFF4DA3FF, 0.6f * (1f - ph)), Gfx.fade(0xFF4DA3FF, 0.6f * (1f - ph)));
+        Gfx.ring(g, cx, cy, 5f + ph * 7f, 5.6f + ph * 7f, Gfx.fade(0xFF22D3EE, 0.6f * (1f - ph)), Gfx.fade(0xFF22D3EE, 0.6f * (1f - ph)));
         double ang = MiniMapSettings.rotate ? 0.0 : Math.toRadians(yaw - 180f);
         Gfx.disc(g, cx, cy, 6.6f, 0x88000000);
-        GpsIcons.arrow(g, cx, cy, 5.6f, ang, 0xFFFFFFFF, 0xFF1B6FD1);
+        GpsIcons.arrow(g, cx, cy, 5.6f, ang, 0xFF22D3EE, 0xFF0B4F63);
     }
 
     private static void drawFrame(GuiGraphics g, float size, boolean circle) {
-        int line = Gfx.fade(0xFF4DA3FF, 0.55f);
+        int line = Gfx.fade(0xFF5FD8F0, 0.75f);
         int dark = 0xFF0A1220;
         if (circle) {
             float r = size / 2f;
@@ -369,17 +377,15 @@ public final class MiniMapRenderer {
     }
 
     private static void drawCompass(GuiGraphics g, float size, boolean circle) {
-        String[] names = {"N", "E", "S", "V"};
-        double[][] dirs = {{0, -1}, {1, 0}, {0, 1}, {-1, 0}};
+        // doar nordul, discret (litera pe margine, urmareste rotatia hartii)
+        double vx = 0 * ct - (-1) * st;
+        double vy = 0 * st + (-1) * ct;
         float half = size / 2f - 7f;
-        for (int i = 0; i < 4; i++) {
-            double vx = dirs[i][0] * ct - dirs[i][1] * st;
-            double vy = dirs[i][0] * st + dirs[i][1] * ct;
-            float k = circle ? half : (float) (half / Math.max(Math.abs(vx), Math.abs(vy)));
-            float lx = cx + (float) vx * k;
-            float ly = cy + (float) vy * k;
-            Gfx.textS(g, names[i], lx, ly + 2.4f, 6.8f, i == 0 ? 0xFFFF8A80 : Sk.WHITE, 1, true, 0f);
-        }
+        float k = circle ? half : (float) (half / Math.max(Math.abs(vx), Math.abs(vy)));
+        float lx = cx + (float) vx * k;
+        float ly = cy + (float) vy * k;
+        Gfx.disc(g, lx, ly, 5.2f, 0xB0081018);
+        Gfx.textS(g, "N", lx, ly + 2.4f, 6.8f, 0xFFFF8A80, 1, true, 0f);
     }
 
     private static void drawZoomNote(GuiGraphics g, float size) {

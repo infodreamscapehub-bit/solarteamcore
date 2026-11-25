@@ -19,6 +19,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
+import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.material.MaterialColor;
 import net.minecraft.client.Minecraft;
@@ -508,40 +509,99 @@ public final class GpsMap {
                 }
                 if (st == null || y <= 0) continue;
                 int rgb;
-                if (!st.getFluidState().isEmpty()) {
+                // blocurile subtiri (garduri, ziduri joase, gratii, panouri) si geamul nu se deseneaza ca pixel plin: se coboara spre sol
+                boolean glass = false;
+                int yy = y;
+                BlockState cur = st;
+                int kind = K_NORMAL;
+                for (int k = 0; k < 10 && yy > 0; k++) {
+                    POS.set(wx, yy, wz);
+                    cur = w.getBlockState(POS);
+                    if (cur.isAir(w, POS)) {
+                        yy--;
+                        continue;
+                    }
+                    if (!cur.getFluidState().isEmpty()) {
+                        kind = K_NORMAL;
+                        break;
+                    }
+                    kind = kindOf(cur.getBlock());
+                    if (kind == K_GLASS) glass = true;
+                    if (kind != K_THIN && kind != K_GLASS) break;
+                    yy--;
+                }
+                if (yy <= 0) continue;
+                POS.set(wx, yy, wz);
+                cur = w.getBlockState(POS);
+                boolean water = !cur.getFluidState().isEmpty();
+                // vecinii pe inaltime (cu 4 directii; la marginea chunk-ului se cere vecinul doar daca e incarcat)
+                int hn = nbH(w, hs, wx0, wz0, x, z - 1, h);
+                int hsu = nbH(w, hs, wx0, wz0, x, z + 1, h);
+                int hw = nbH(w, hs, wx0, wz0, x - 1, z, h);
+                int he = nbH(w, hs, wx0, wz0, x + 1, z, h);
+                if (water) {
                     int depth = 1;
-                    for (int k = 1; k < 14 && y - k > 0; k++) {
-                        POS.set(wx, y - k, wz);
+                    for (int k = 1; k < 14 && yy - k > 0; k++) {
+                        POS.set(wx, yy - k, wz);
                         if (w.getBlockState(POS).getFluidState().isEmpty()) break;
                         depth++;
                     }
-                    rgb = mix(0x4FA3D8, 0x143F78, Math.min(1f, depth / 12f));
+                    float dt = Math.min(1f, depth / 10f);
+                    rgb = mix(0x62C4EE, 0x1A4C9A, dt);
+                    // luciu discret: carouri usoare, ca apa sa nu fie o suprafata moarta
+                    if (((wx + wz) & 1) == 0) rgb = mix(rgb, 0xFFFFFF, 0.035f);
                 } else {
                     int col = 0;
-                    int yy = y;
-                    BlockState cur = st;
-                    for (int k = 0; k < 6 && yy > 0; k++) {
-                        POS.set(wx, yy, wz);
-                        MaterialColor mc = cur.getMapColor(w, POS);
+                    BlockState c2 = cur;
+                    int y2 = yy;
+                    for (int k = 0; k < 6 && y2 > 0; k++) {
+                        POS.set(wx, y2, wz);
+                        MaterialColor mc = c2.getMapColor(w, POS);
                         col = mc == null ? 0 : mc.col;
                         if (col != 0) break;
-                        yy--;
-                        POS.set(wx, yy, wz);
-                        cur = w.getBlockState(POS);
+                        y2--;
+                        POS.set(wx, y2, wz);
+                        c2 = w.getBlockState(POS);
                     }
                     if (col == 0) col = 0x404040;
-                    // relief: lumina din NV; gradient pe ambele axe (vecinii din chunk, la margine ramane inaltimea proprie)
-                    int hn = z > 0 ? hs[((z - 1) << 4) | x] : h;
-                    int hsu = z < 15 ? hs[((z + 1) << 4) | x] : h;
-                    int hw = x > 0 ? hs[(z << 4) | (x - 1)] : h;
-                    int he = x < 15 ? hs[(z << 4) | (x + 1)] : h;
+                    int hash = (wx * 73856093) ^ (wz * 19349663);
+                    boolean roadLike = false;
+                    if (kind == K_GRASS) {
+                        int v = (hash >>> 8) & 3;
+                        col = mix(0x7AB83F, 0x68A236, v / 3f);
+                    } else if (kind == K_LEAVES) {
+                        int v = ((wx ^ wz) & 1) + ((hash >>> 9) & 1);
+                        col = v == 0 ? 0x2F7A26 : (v == 1 ? 0x3A8A2D : 0x479A35);
+                    } else if (kind == K_SAND) {
+                        col = mix(0xE6D59C, 0xDCC98E, ((hash >>> 8) & 3) / 3f);
+                    } else {
+                        // gri/negru fara nuanta (beton, blackstone, asfalt) = drum: culoare unica, curata, fara relief puternic
+                        int r0 = (col >> 16) & 255;
+                        int g0 = (col >> 8) & 255;
+                        int b0 = col & 255;
+                        int mxc = Math.max(r0, Math.max(g0, b0));
+                        int mnc = Math.min(r0, Math.min(g0, b0));
+                        if (mxc - mnc < 22 && mxc < 0x62) {
+                            col = 0x3A3E46;
+                            roadLike = true;
+                        }
+                    }
+                    // relief: lumina din NV; gradient pe ambele axe
                     float slope = Math.max(-4f, Math.min(4f, ((hsu - hn) + (he - hw)) * 0.5f + ((h - hn) + (h - hw)) * 0.5f));
                     float hi = Math.max(-0.07f, Math.min(0.10f, (h - 64) / 220f));
-                    float f = (1f + slope * 0.065f) * (1f + hi);
+                    float f = (1f + slope * (roadLike ? 0.02f : 0.065f)) * (1f + hi);
                     int r = clamp(((col >> 16) & 255) * f);
                     int g = clamp(((col >> 8) & 255) * f);
                     int b = clamp((col & 255) * f);
                     rgb = (r << 16) | (g << 8) | b;
+                    if (glass) rgb = mix(rgb, 0xBFE8F4, 0.38f);
+                    // contur de constructii: marginea de sus a unui perete (cadere >= 3 blocuri) se deschide, baza lui (urcare >= 3) se umbreste
+                    if (kind != K_LEAVES) {
+                        int drop = Math.max(Math.max(h - hn, h - hsu), Math.max(h - hw, h - he));
+                        int rise = Math.max(Math.max(hn - h, hsu - h), Math.max(hw - h, he - h));
+                        if (drop >= 3) rgb = mix(rgb, 0xFFFFFF, 0.42f);
+                        else if (rise >= 3) rgb = mix(rgb, 0x000000, 0.30f);
+                    }
                 }
                 int abgr = 0xFF000000 | ((rgb & 255) << 16) | (rgb & 0xFF00) | ((rgb >> 16) & 255);
                 int px = ox + x;
@@ -559,6 +619,40 @@ public final class GpsMap {
             t.diskDirty = true;
             touchGroup(t.tx, t.tz);
         }
+    }
+
+    private static final int K_NORMAL = 0;
+    private static final int K_THIN = 1;
+    private static final int K_GLASS = 2;
+    private static final int K_LEAVES = 3;
+    private static final int K_GRASS = 4;
+    private static final int K_SAND = 5;
+    private static final Map<Block, Integer> KINDS = new HashMap<>();
+
+    /** Tipul de bloc pentru paleta hartii (cache pe bloc; decis dupa numele din registru). */
+    private static int kindOf(Block b) {
+        Integer k = KINDS.get(b);
+        if (k != null) return k;
+        ResourceLocation rl = b.getRegistryName();
+        String p = rl == null ? "" : rl.getPath();
+        int v = K_NORMAL;
+        if (p.contains("fence") || p.endsWith("_wall") || p.contains("bars") || p.contains("pane") || p.contains("rail")
+            || p.contains("ladder") || p.contains("chain") || p.contains("scaffolding")) v = K_THIN;
+        else if (p.contains("glass")) v = K_GLASS;
+        else if (p.endsWith("leaves")) v = K_LEAVES;
+        else if (p.equals("grass_block")) v = K_GRASS;
+        else if (p.equals("sand")) v = K_SAND;
+        KINDS.put(b, v);
+        return v;
+    }
+
+    /** Inaltimea (MOTION_BLOCKING) a unui vecin; in afara chunk-ului curent doar daca acela e incarcat, altfel inaltimea proprie. */
+    private static int nbH(ClientWorld w, int[] hs, int wx0, int wz0, int x, int z, int own) {
+        if (x >= 0 && x < 16 && z >= 0 && z < 16) return hs[(z << 4) | x];
+        int wx = wx0 + x;
+        int wz = wz0 + z;
+        if (w.getChunkSource().getChunk(wx >> 4, wz >> 4, ChunkStatus.FULL, false) == null) return own;
+        return w.getHeight(Heightmap.Type.MOTION_BLOCKING, wx, wz);
     }
 
     private static int clamp(float v) {

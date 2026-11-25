@@ -50,10 +50,13 @@ public final class GpsScreen extends FlowScreen {
     private int totalInDim;
     private String filter = "TOATE";
     private int scroll;
-    private boolean panelOpen = true;
+    private boolean panelOpen = false;
     private float panelAnim = 1f;
     private boolean menuOpen;
     private final GpsSidebar side = new GpsSidebar(this);
+    private final GpsLeftBar bar = new GpsLeftBar(this);
+    private boolean limit;
+    private float leftW;
     private boolean layersOpen;
     private boolean showZones;
     private long lastRefresh;
@@ -83,7 +86,7 @@ public final class GpsScreen extends FlowScreen {
         super("GPS", 520, 290);
         GpsPrefs.load();
         Minecraft mc = Minecraft.getInstance();
-        menuOpen = mc.getWindow().getGuiScaledWidth() >= 700;
+        menuOpen = false;
         showZones = GpsPrefs.showZones != null ? GpsPrefs.showZones : GpsData.showZonesDefault;
         zoom = GpsPrefs.zoom > 0f ? GpsPrefs.zoom : (float) GpsData.defaultZoom;
         if (mc.player != null) {
@@ -139,6 +142,30 @@ public final class GpsScreen extends FlowScreen {
 
 
     // ------------------------------------------------------------------ legatura cu meniul lateral
+
+    int screenW() {
+        return width;
+    }
+
+    float leftW() {
+        return leftW;
+    }
+
+    float zoomValue() {
+        return zoom;
+    }
+
+    void zoomStep(float factor) {
+        zoomBy(factor, mapCx, mapCy);
+    }
+
+    boolean limitOn() {
+        return limit;
+    }
+
+    void toggleLimit() {
+        limit = !limit;
+    }
 
     void markDirty() {
         dirty = true;
@@ -425,7 +452,7 @@ public final class GpsScreen extends FlowScreen {
     // ------------------------------------------------------------------ input
 
     private boolean overPanel(double mx, double my) {
-        return (panelAnim > 0.05f && mx >= panelX + shift && my >= M && my <= height - M) || side.over(mx, my);
+        return (panelAnim > 0.05f && mx >= panelX + shift && my >= M && my <= height - M) || side.over(mx, my) || bar.over(mx, my);
     }
 
     @Override
@@ -433,7 +460,7 @@ public final class GpsScreen extends FlowScreen {
         if (button == 0) {
             if (super.mouseClicked(mx, my, button)) return true;
             if (overPanel(mx, my)) return true;
-            if (GpsNav.active && mx < M + cardW() && my > height - M - 74) return true;
+            if (GpsNav.active && mx < M + leftW + cardW() && my > height - M - 74) return true;
             layersOpen = false;
             pressMap = true;
             moved = false;
@@ -490,7 +517,9 @@ public final class GpsScreen extends FlowScreen {
 
     @Override
     public boolean mouseScrolled(double mx, double my, double delta) {
-        if (side.over(mx, my)) {
+        if (bar.over(mx, my) && !side.over(mx, my)) {
+            bar.scrollBy(-(int) Math.signum(delta));
+        } else if (side.over(mx, my)) {
             side.scrollBy(-(int) Math.signum(delta));
         } else if (overPanel(mx, my)) {
             scroll -= (int) Math.signum(delta) * 2;
@@ -619,12 +648,20 @@ public final class GpsScreen extends FlowScreen {
         panelX = width - panelW - M;
         shift = (1f - Math.min(panelAnim, open)) * (panelW + M + 12f);
         areaRight = width - (panelW + M) * panelAnim;
-        mapCx = areaRight / 2f;
+        leftW = bar.width();
+        mapCx = leftW + (areaRight - leftW) / 2f;
         mapCy = height / 2f;
         if (anim) {
             camX += (tgtX - camX) * Math.min(1f, dt * 7f);
             camZ += (tgtZ - camZ) * Math.min(1f, dt * 7f);
             if (Math.abs(tgtX - camX) < 0.3 && Math.abs(tgtZ - camZ) < 0.3) anim = false;
+        }
+        if (limit) {
+            int[] eb = GpsMap.explored();
+            if (eb != null) {
+                camX = Math.max(eb[0] - 128.0, Math.min(eb[2] + 128.0, camX));
+                camZ = Math.max(eb[1] - 128.0, Math.min(eb[3] + 128.0, camZ));
+            }
         }
         if (dirty) rebuild();
 
@@ -643,6 +680,7 @@ public final class GpsScreen extends FlowScreen {
         drawPlayer(g, mc, t);
 
         // interfata
+        bar.draw(g, mx, my, dt, height);
         drawTop(g, mc, mx, my);
         drawCard(g, mc, mx, my);
         drawControls(g, mx, my);
@@ -938,7 +976,7 @@ public final class GpsScreen extends FlowScreen {
 
     private void drawTop(GuiGraphics g, Minecraft mc, int mx, int my) {
         // meniu (hamburger)
-        float bx = M;
+        float bx = M + leftW;
         float by = M;
         float hs = 40f;
         boolean hov = Sk.in(mx, my, bx, by, hs, hs);
@@ -960,7 +998,7 @@ public final class GpsScreen extends FlowScreen {
         // busola: litere pe marginile hartii
         compass(g, "N", mapCx, 76f);
         compass(g, "S", mapCx, height - 14f);
-        compass(g, "V", 16f, mapCy + 4f);
+        compass(g, "V", leftW + 16f, mapCy + 4f);
         compass(g, "E", areaRight - 16f, mapCy + 4f);
         if (!overPanel(mx, my)) {
             long cx = Math.round(camX + (mx - mapCx) / zoom);
@@ -981,7 +1019,7 @@ public final class GpsScreen extends FlowScreen {
         float w = 214f;
         float rowH = 26f;
         float h = (LAYERS.length + 1) * rowH + 40f;
-        float x = M + 280f;
+        float x = M + leftW + 280f;
         float y = M + 48f;
         box(g, x, y, w, h, 14f, 0xF40A1220, 0xFF2A3A55);
         Gfx.text(g, "STRATURI", x + 14, y + 20, 8f, Sk.ACC, 0, true, 1.4f);
@@ -1022,15 +1060,16 @@ public final class GpsScreen extends FlowScreen {
         float h = 74f;
         if (showZones && !GpsData.zones.isEmpty()) {
             float ly = height - M - (GpsNav.active ? h + 8f : 0f) - 26f;
-            box(g, M, ly, 160, 26, 13f, 0xE80B1424, 0xFF22344D);
-            Gfx.rrect(g, M + 12, ly + 8.5f, 9, 9, 3, 0xFF2FBF71);
-            Gfx.text(g, "LEGAL", M + 26, ly + 17, 6.8f, Sk.WHITE, 0, true, 0.6f);
-            Gfx.rrect(g, M + 80, ly + 8.5f, 9, 9, 3, 0xFFE5484D);
-            Gfx.text(g, "ILEGAL", M + 94, ly + 17, 6.8f, Sk.WHITE, 0, true, 0.6f);
+            float lx = M + leftW;
+            box(g, lx, ly, 160, 26, 13f, 0xE80B1424, 0xFF22344D);
+            Gfx.rrect(g, lx + 12, ly + 8.5f, 9, 9, 3, 0xFF2FBF71);
+            Gfx.text(g, "LEGAL", lx + 26, ly + 17, 6.8f, Sk.WHITE, 0, true, 0.6f);
+            Gfx.rrect(g, lx + 80, ly + 8.5f, 9, 9, 3, 0xFFE5484D);
+            Gfx.text(g, "ILEGAL", lx + 94, ly + 17, 6.8f, Sk.WHITE, 0, true, 0.6f);
         }
         if (!GpsNav.active) return;
         float w = cardW();
-        float x = M;
+        float x = M + leftW;
         float y = height - M - h;
         box(g, x, y, w, h, 15f, 0xF00A1220, 0xFF2A3A55);
         Gfx.rrect(g, x + 8, y + 12, 3.5f, h - 24, 1.7f, GpsNav.color);

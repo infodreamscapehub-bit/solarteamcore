@@ -357,7 +357,7 @@ final class GpsSidebar {
         if (anim < 0.02f) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return;
-        float m = GpsScreen.M;
+        float m = GpsScreen.M + s.leftW();
         x0 = m - (1f - anim) * (W + m + 12f);
         y0 = top;
         h0 = Math.max(120f, bottom - top);

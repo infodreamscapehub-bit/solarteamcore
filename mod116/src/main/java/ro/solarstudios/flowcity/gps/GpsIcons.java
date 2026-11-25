@@ -65,6 +65,19 @@ public final class GpsIcons {
         glyph(g, icon, cx, cy, u, Gfx.fade(color, alpha), alpha);
     }
 
+    /** Pin in forma de picatura: varful la (x, y), r = raza capului. Contur inchis + gaura centrala. */
+    public static void drop(GuiGraphics g, float x, float y, float r, int fill, int hole, float alpha) {
+        for (int pass = 0; pass < 2; pass++) {
+            float rr = pass == 0 ? r + 1f : r;
+            float cy = y - r * 2.05f;
+            int col = pass == 0 ? Gfx.fade(0xFF050B14, alpha) : Gfx.fade(fill, alpha);
+            float ty = pass == 0 ? y + 1.2f : y;
+            Gfx.disc(g, x, cy, rr, col);
+            Gfx.poly(g, new float[] {x - rr * 0.86f, cy + rr * 0.5f, x + rr * 0.86f, cy + rr * 0.5f, x, ty}, col);
+        }
+        Gfx.disc(g, x, y - r * 2.05f, r * 0.4f, Gfx.fade(hole, alpha));
+    }
+
     /** Doar simbolul (fara insemn), u = unitate (aprox. jumatate din raza insemnului). */
     public static void glyph(GuiGraphics g, String icon, float cx, float cy, float u, int col, float alpha) {
         int dk = Gfx.fade(DARK, alpha);
