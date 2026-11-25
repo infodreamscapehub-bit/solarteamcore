@@ -98,7 +98,7 @@ jobs:
           path: restarter/build/libs/FlowCityRestart-*.jar
 
   release:
-    name: Publish jars (release "latest")
+    name: Publish jars (build-N + latest)
     needs: [mod, mod116, plugin, restarter]
     # publicam si daca versiunea 1.16.5 nu s-a compilat (atunci lipseste doar jar-ul ei)
     if: always() && github.ref == 'refs/heads/main' && needs.mod.result == 'success' && needs.plugin.result == 'success'
@@ -118,7 +118,19 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           ls -la dist
+          N="${{ github.run_number }}"
+          SHORT="$(echo "$GITHUB_SHA" | cut -c1-7)"
+          SUBJECT="$(git log -n 1 --pretty='%s' | sed 's/Co-Authored-By.*//' | cut -c1-80)"
+          { echo "Build #$N  ·  commit $SHORT"; echo; git log -n 8 --no-merges --pretty='- %s' | sed 's/Co-Authored-By.*//' ; } > notes.txt
+          # 1) release permanent per build (istoric): build-N
+          gh release delete "build-$N" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
+          gh release create "build-$N" dist/*.jar --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "Build #$N - $SUBJECT" --notes-file notes.txt --latest=false
+          # 2) "latest" = mereu ultimul build (cum era pana acum)
           gh release delete latest --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
-          { echo "build=${{ github.run_number }}"; git log -n 8 --no-merges --pretty='- %s' | sed 's/Co-Authored-By.*//' ; } > notes.txt
           gh release create latest dist/*.jar --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --title "FlowCity (build automat)" --notes-file notes.txt
+            --title "FlowCity - ultimul build (#$N)" --notes-file notes.txt --latest
+          # 3) pastreaza doar ultimele 30 de build-uri
+          gh release list --repo "$GITHUB_REPOSITORY" --limit 200 --json tagName,createdAt \
+            -q '[.[]|select(.tagName|startswith("build-"))]|sort_by(.createdAt)|reverse|.[30:]|.[].tagName' \
+            | while read -r t; do gh release delete "$t" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true; done
