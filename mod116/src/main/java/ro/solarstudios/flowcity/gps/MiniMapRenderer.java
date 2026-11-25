@@ -66,26 +66,29 @@ public final class MiniMapRenderer {
     private static int defSh;
     private static int defSize;
     private static boolean defCoords;
+    private static boolean defStrip;
 
-    /** Dreptunghiul implicit {x, y, w, h}: colt dreapta-sus, sub panoul principal de HUD (nu se suprapune cu el). Vector comun, nu-l modifica. */
+    /**
+     * Dreptunghiul implicit {x, y, w, h}: colt stanga-jos (ca in jocurile de roleplay), cu loc dedesubt pentru randul compact de
+     * status cand e activ. Vector comun, nu-l modifica.
+     */
     public static float[] defaults(int sw, int sh) {
         long now = System.currentTimeMillis();
-        if (now - defAt < 500 && sw == defSw && sh == defSh && defSize == MiniMapSettings.size && defCoords == MiniMapSettings.showCoords) return DEF;
+        boolean strip = ro.solarstudios.flowcity.hype.StatusHud.compactActive();
+        if (now - defAt < 500 && sw == defSw && sh == defSh && defSize == MiniMapSettings.size && defCoords == MiniMapSettings.showCoords && defStrip == strip) return DEF;
         defAt = now;
         defSw = sw;
         defSh = sh;
         defSize = MiniMapSettings.size;
         defCoords = MiniMapSettings.showCoords;
+        defStrip = strip;
         float w = MiniMapSettings.size;
         float h = w + (MiniMapSettings.showCoords ? 16f : 0f);
-        float x = sw - w - 8f;
-        float y = 6f;
-        HudLayout.El hud = HudLayout.get("hud");
-        if (hud != null && hud.visible) {
-            float[] r = HudLayout.live(hud) ? HudLayout.rect("hud") : HudLayout.defaults("hud", sw, sh);
-            if (r[0] + r[2] > x - 4f) y = Math.max(y, r[1] + r[3] + 6f);
-        }
-        if (y + h > sh - 40f) y = Math.max(4f, sh - 40f - h);
+        float x = 8f;
+        float y = sh - 8f - h - (strip ? ro.solarstudios.flowcity.hype.StatusHud.COMPACT_H + 3f : 0f);
+        // pe ecrane foarte inguste hotbar-ul ajunge sub minimap: il ocolim urcand harta
+        if (x + w > sw / 2f - 95f) y = Math.min(y, sh - 34f - h - (strip ? ro.solarstudios.flowcity.hype.StatusHud.COMPACT_H + 3f : 0f));
+        y = Math.max(4f, y);
         DEF[0] = x;
         DEF[1] = y;
         DEF[2] = w;

@@ -141,203 +141,200 @@ public final class CarHud {
             Minecraft mc = Minecraft.getInstance();
             if (mc.player == null || mc.options.hideGui) return;
             Entity v = mc.player.getVehicle();
-            if (v == null || !powered.isInstance(v)) return;
-            if (!portHudOff) disablePortHud();
+            boolean in = v != null && powered.isInstance(v);
+            long now = System.currentTimeMillis();
+            float dt = Math.min(0.1f, (now - lastFrame) / 1000f);
+            lastFrame = now;
+            appear += ((in ? 1f : 0f) - appear) * Math.min(1f, dt * 9f);
             try {
-                draw(new GuiGraphics(e.getMatrixStack()), mc, v);
+                if (in) {
+                    if (!portHudOff) disablePortHud();
+                    read(mc, v, now);
+                } else {
+                    // iesit din vehicul: cifrele coboara spre 0 si bordul dispare animat
+                    shownSpeed += (0f - shownSpeed) * 0.2f;
+                    shownFrac += (0f - shownFrac) * 0.25f;
+                }
+                if (appear > 0.02f && snap) draw(new GuiGraphics(e.getMatrixStack()), mc, now);
             } catch (RuntimeException ignored) {
                 // un vehicul ciudat nu trebuie sa strice HUD-ul
             }
         }
     }
 
-    private static final int SEGMENTS = 24;
-    private static final float[] SEG_POS = {0f, 0.5f, 0.78f, 1f};
-    private static final int[] SEG_COL = {0xFF4DA3FF, 0xFFEAF4FF, 0xFFFFB84D, 0xFFE2453F};
+    private static final int OFF = 0xFF1B2430;
     private static final int GREEN = 0xFF6DBE6F;
-    private static final int OFF = 0xFF1E2733;
     private static final int MUTED = 0xFF7F8A99;
+    private static final int CYAN = 0xFF22D3EE;
+    private static final float[] SEG_POS = {0f, 0.62f, 0.82f, 1f};
+    private static final int[] SEG_COL = {0xFF22D3EE, 0xFF22D3EE, 0xFFFFB84D, 0xFFE2453F};
 
-    /**
-     * Bordul FlowCity (design nou): arc segmentat de viteza albastru -> alb -> rosu, viteza mare in centru, treapta D/N/R,
-     * iar in dreapta chilometrajul cu cifre in casute, tripul, combustibilul si starea. Coordonatele sunt ale unei machete
-     * de 300 x 145 care se scaleaza dupa ecran.
-     */
-    private static void draw(GuiGraphics g, Minecraft mc, Entity v) {
-        int w = mc.getWindow().getGuiScaledWidth();
-        int h = mc.getWindow().getGuiScaledHeight();
-        long now = System.currentTimeMillis();
+    private static long lastFrame = System.currentTimeMillis();
+    private static float appear;
+    private static boolean snap;
+    private static int dialMax = 60;
+    private static boolean sEngine;
+    private static boolean sBoost;
+    private static boolean sFuel;
+    private static float sFrac = 1f;
+    private static float sHp = 1f;
+    private static boolean sHas;
+    private static String sGear = "N";
+    private static String sName = "";
+    private static String sPlate = "";
+    private static float infoAnim;
 
-        // numarul de inmatriculare: il cerem o data pe vehicul
+    /** Citeste datele REALE ale vehiculului (reflectie MrCrayfish) si le pastreaza pentru desen. */
+    private static void read(Minecraft mc, Entity v, long now) {
         int id = v.getId();
         if (plateFor != id && (askedFor != id || now - askedAt > 5000)) {
             askedFor = id;
             askedAt = now;
             CarsNet.send("plate", id, 0);
         }
-        String pl = plateFor == id ? plate : "";
-
-        // valori
+        sPlate = plateFor == id ? plate : "";
         double rawSpeed = num(v, "getSpeed", 0);
         double speed = Math.abs(rawSpeed);
         float kmh = (float) Math.abs(num(v, "getKilometersPreHour", 0));
         if (speed > 0.5 && kmh > 1) kmhPerUnit = kmh / speed;
         double max = num(v, "getActualMaxSpeed", num(v, "getMaxSpeed", 0));
-        int dialMax = (int) Math.max(60, Math.ceil(max * kmhPerUnit / 30.0) * 30);
+        dialMax = (int) Math.max(60, Math.ceil(max * kmhPerUnit / 30.0) * 30);
         shownSpeed += (kmh - shownSpeed) * 0.25f;
         float frac = Math.min(1f, shownSpeed / dialMax);
         shownFrac += (frac - shownFrac) * 0.3f;
-        boolean engine = bool(v, "isEnginePowered", true);
-        boolean boost = bool(v, "isBoosting", false);
+        sEngine = bool(v, "isEnginePowered", true);
+        sBoost = bool(v, "isBoosting", false);
         double maxHp = num(v, "getMaxHealth", 0);
-        float hp = maxHp <= 0 ? 1f : (float) (num(v, "getHealth", maxHp) / maxHp);
-        boolean fuel = bool(v, "requiresFuel", false);
-        float f = 1f;
-        if (fuel) {
+        sHp = maxHp <= 0 ? 1f : (float) (num(v, "getHealth", maxHp) / maxHp);
+        sFuel = bool(v, "requiresFuel", false);
+        sFrac = 1f;
+        if (sFuel) {
             double cap = num(v, "getFuelCapacity", 0);
-            f = cap <= 0 ? 0 : (float) (num(v, "getCurrentFuel", 0) / cap);
+            sFrac = cap <= 0 ? 0 : (float) (num(v, "getCurrentFuel", 0) / cap);
         }
-        boolean low = fuel && f < 0.12f;
-        boolean blink = low && (now / 400) % 2 == 0;
-        String gear = shownSpeed < 1.5f ? "N" : (rawSpeed < -0.01 ? "R" : "D");
+        sGear = shownSpeed < 1.5f ? "N" : (rawSpeed < -0.01 ? "R" : "D");
+        sHas = odoFor == id;
+        String name = v.getDisplayName().getString();
+        sName = name.length() > 24 ? name.substring(0, 23) + "..." : name;
+        snap = true;
+    }
 
-        // asezare: panou lat 300 x 145, dreapta jos
-        float rw = Math.max(140f, Math.min(210f, h * 0.5f));
-        float k = rw / 300f;
-        float rh = 145f * k;
-        float px = w - 17 - rw;
-        float py = h - 13 - rh;
-        if (!ro.solarstudios.flowcity.client.ui.HudLayout.begin(g, "speedo", px, py, rw, rh)) return;
+    /** Dimensiunea implicita a bordului (aceeasi formula in editorul de HUD). */
+    public static float[] defaultRect(int sw, int sh) {
+        float rw = Math.max(130f, Math.min(215f, sh * 0.40f));
+        float rh = 150f * rw / 190f;
+        return new float[] {sw - 14f - rw, sh - 10f - rh, rw, rh};
+    }
+
+    /**
+     * Bord compact: vitezometru circular cu arc cyan (spre rosu la viteza mare), viteza si treapta in centru, un cadran mic de
+     * combustibil in stanga, indicatori reali deasupra cifrei si kilometrajul total + trip discret dedesubt. Coordonatele sunt
+     * ale unei machete de 190 x 150 care se scaleaza dupa ecran si se poate muta/scala din editorul de HUD.
+     */
+    private static void draw(GuiGraphics g, Minecraft mc, long now) {
+        int w = mc.getWindow().getGuiScaledWidth();
+        int h = mc.getWindow().getGuiScaledHeight();
+        float[] d = defaultRect(w, h);
+        float k = d[2] / 190f;
+        if (!ro.solarstudios.flowcity.client.ui.HudLayout.begin(g, "speedo", d[0], d[1], d[2], d[3])) return;
+        float ap = Math.max(0f, Math.min(1f, appear));
+        Gfx.alpha *= ap;
         g.pose().pushPose();
-        g.pose().translate(px, py, 0);
+        g.pose().translate(d[0], d[1] + (1f - ap) * 14f, 0);
         g.pose().scale(k, k, 1f);
-
         final int acc = ro.solarstudios.flowcity.client.ui.HudLayout.accent("speedo", 0);
 
-        // panou
-        Gfx.rrect(g, 0, 8, 300, 145, 16, 0x50000000);
-        Gfx.rrect(g, -1, -1, 302, 147, 15, 0x22FFFFFF);
-        Gfx.rrect(g, 0, 0, 300, 145, 14, 0xF0101A28, 0xF0070B12);
-        Gfx.line(g, 178, 16, 178, 129, 1f, 0x1FFFFFFF);
+        boolean fuel = sFuel;
+        boolean low = fuel && sFrac < 0.12f;
+        boolean blink = low && (now / 400) % 2 == 0;
+        float cx = 124f;
+        float cy = 66f;
+        float r = 56f;
 
-        // arcul segmentat
-        float cx = 96;
-        float cy = 84;
-        float r = 66;
-        float span = 270f / SEGMENTS;
-        for (int i = 0; i < SEGMENTS; i++) {
-            float t = (i + 0.5f) / SEGMENTS;
-            float d0 = 135 + i * span + 1.6f;
-            float d1 = 135 + (i + 1) * span - 1.6f;
-            boolean lit = t <= shownFrac + 0.002f;
-            final int col = acc != 0 ? acc : Gfx.stops(t, SEG_POS, SEG_COL);
-            if (lit) {
-                Gfx.arc(g, cx, cy, r, 13, d0, d1, (x, y) -> col, 0.13f);
-                Gfx.arc(g, cx, cy, r, 7, d0, d1, (x, y) -> col, 1f);
-            } else {
-                Gfx.arc(g, cx, cy, r, 7, d0, d1, (x, y) -> OFF, 1f);
-            }
+        // fundal discret, ca cifrele sa se citeasca si pe cer deschis
+        Gfx.disc(g, cx, cy, r + 9f, 0x55000000);
+        Gfx.disc(g, cx, cy, r - 6f, 0x66070B12);
+
+        // arcul: fundal intreg + parte aprinsa in felii (cyan -> portocaliu -> rosu)
+        Gfx.arc(g, cx, cy, r, 7f, 135f, 405f, (x, y) -> OFF, 1f);
+        float lit = 270f * Math.max(0f, Math.min(1f, shownFrac));
+        int n = Math.max(0, (int) Math.ceil(lit / 9f));
+        for (int i = 0; i < n; i++) {
+            float a0 = 135f + i * 9f;
+            float a1 = Math.min(135f + lit, 135f + (i + 1) * 9f + 0.5f);
+            final int col = acc != 0 ? acc : Gfx.stops(Math.min(1f, (a0 - 135f + 4.5f) / 270f), SEG_POS, SEG_COL);
+            Gfx.arc(g, cx, cy, r, 7f, a0, a1, (x, y) -> col, 1f);
         }
-        // cifre in interiorul arcului
-        for (int i = 0; i <= 6; i++) {
-            float t = i / 6f;
-            double a = Math.toRadians(135 + 270.0 * t);
-            float tr = r - 15;
-            Gfx.text(g, String.valueOf(Math.round(dialMax * t)), cx + (float) Math.cos(a) * tr, cy + (float) Math.sin(a) * tr + 3f, 8f,
-                t <= shownFrac + 0.001f ? 0xFFC9D3E0 : 0xFF4A5666, 1);
+        if (lit > 1f) {
+            final int tip = acc != 0 ? acc : Gfx.stops(shownFrac, SEG_POS, SEG_COL);
+            Gfx.arc(g, cx, cy, r, 14f, 135f, 135f + lit, (x, y) -> tip, 0.12f);
         }
 
-        // lumini: motor + rezerva
-        Gfx.disc(g, cx - 14, 50, 3.5f, engine ? GREEN : 0xFF3A4350);
-        if (engine) Gfx.disc(g, cx - 14, 50, 6.5f, 0x2A6DBE6F);
-        Gfx.disc(g, cx + 14, 50, 3.5f, low ? (blink ? 0xFFFF6A5E : 0xFF8A2F2A) : 0xFF2A323D);
+        // indicatori reali deasupra cifrei: motor, rezerva, boost, stare
+        float dy = cy - 30f;
+        Gfx.disc(g, cx - 13.5f, dy, 2.6f, sEngine ? GREEN : 0xFF2C3540);
+        Gfx.disc(g, cx - 4.5f, dy, 2.6f, low ? (blink ? 0xFFFF6A5E : 0xFF8A2F2A) : 0xFF2C3540);
+        Gfx.disc(g, cx + 4.5f, dy, 2.6f, sBoost ? CYAN : 0xFF2C3540);
+        Gfx.disc(g, cx + 13.5f, dy, 2.6f, sHp < 0.3f ? 0xFFFFB84D : 0xFF2C3540);
 
-        // viteza + treapta
-        Gfx.text(g, String.valueOf(Math.round(shownSpeed)), cx, 94, 44, 0xFFF4F7FB, 1, true, -1f);
-        Gfx.text(g, boost ? "BOOST" : "KM/H", cx, 108, 9, boost ? Theme.ACCENT : MUTED, 1, false, 2.4f);
-        Gfx.text(g, gear, cx, 131, 13, acc != 0 ? acc : 0xFF4DA3FF, 1, true, 0f);
+        // viteza + unitate + treapta
+        Gfx.text(g, String.valueOf(Math.round(shownSpeed)), cx, cy + 12f, 36f, 0xFFF4F7FB, 1, true, -1f);
+        Gfx.text(g, sBoost ? "BOOST" : "KM/H", cx, cy + 25f, 7.5f, sBoost ? CYAN : MUTED, 1, false, 2.2f);
+        Gfx.rrect(g, cx - 11f, cy + 33f, 22f, 12f, 4f, 0xB0101A28);
+        Gfx.text(g, sGear, cx, cy + 42.5f, 9.5f, acc != 0 ? acc : CYAN, 1, true, 0f);
 
-        // chilometraj: cifre in casute
-        boolean has = odoFor == id;
-        Gfx.text(g, "ODOMETRU", 188, 29, 8.5f, MUTED, 0, false, 1.6f);
-        for (int i = 0; i < 7; i++) {
-            float bx = 188 + i * 14 + (i == 6 ? 5 : 0);
-            Gfx.rrect(g, bx, 35, 12, 18, 3, 0xFF141E2C, 0xFF0A1018);
-            Gfx.text(g, has ? odoDigits.substring(i, i + 1) : "-", bx + 6, 48.5f, 14, i == 6 ? 0xFF4DA3FF : 0xFFF4F7FB, 1);
-        }
-        Gfx.disc(g, 188 + 6 * 14 + 1.5f, 50.5f, 1.4f, 0xFF4DA3FF);
-        Gfx.text(g, "km", 290, 62, 8, MUTED, 2);
-
-        // trip
-        Gfx.text(g, "TRIP", 188, 78, 8.5f, MUTED, 0, false, 1.6f);
-        Gfx.text(g, has ? tripStr + " km" : "- km", 290, 79, 15, 0xFFF4F7FB, 2, true, 0f);
-
-        // combustibil + stare
-        float ry = 98;
+        // combustibil: cadran mic in stanga
         if (fuel) {
-            int col = low ? Theme.BAD : Theme.ACCENT;
-            Gfx.text(g, "COMB.", 188, ry + 5.5f, 8, blink ? 0xFFFF6A5E : MUTED, 0, false, 1.2f);
-            Gfx.bar(g, 222, ry + 1, 46, 5, f, OFF, col);
-            Gfx.text(g, Math.round(f * 100) + "%", 290, ry + 6, 8.5f, blink ? 0xFFFF6A5E : 0xFFB5BFCC, 2);
-            ry += 16;
-        } else {
-            ry += 8;
+            float fx = 33f;
+            float fy = 98f;
+            float fr = 22f;
+            int fc = low ? (blink ? 0xFFFF6A5E : Theme.BAD) : (acc != 0 ? acc : CYAN);
+            Gfx.disc(g, fx, fy, fr + 5f, 0x55000000);
+            Gfx.arc(g, fx, fy, fr, 4.5f, 135f, 405f, (x, y) -> OFF, 1f);
+            if (sFrac > 0.01f) Gfx.arc(g, fx, fy, fr, 4.5f, 135f, 135f + 270f * Math.min(1f, sFrac), (x, y) -> fc, 1f);
+            Gfx.text(g, Math.round(Math.min(1f, sFrac) * 100f) + "%", fx, fy + 3.5f, 10f, blink ? 0xFFFF6A5E : 0xFFF4F7FB, 1, true, 0f);
+            Gfx.text(g, "COMB.", fx, fy + 17f, 5.8f, MUTED, 1, false, 1.2f);
         }
-        int hc = hp < 0.3f ? Theme.BAD : GREEN;
-        Gfx.text(g, "STARE", 188, ry + 5.5f, 8, MUTED, 0, false, 1.2f);
-        Gfx.bar(g, 222, ry + 1, 46, 5, hp, OFF, hc);
-        Gfx.text(g, Math.round(hp * 100) + "%", 290, ry + 6, 8.5f, hp < 0.3f ? Theme.BAD : 0xFFB5BFCC, 2);
 
-        // nume + numar deasupra panoului
-        String name = v.getDisplayName().getString();
-        if (name.length() > 24) name = name.substring(0, 23) + "...";
-        float nw = Gfx.width(name, 13, false);
-        float pw = pl.isEmpty() ? 0 : Gfx.width(pl, 11, false) + 0.66f * (pl.length() - 1) + 12;
-        float tw = 24 + nw + (pl.isEmpty() ? 0 : 8 + pw);
-        float tx = 300 - tw;
-        float ty = -37;
-        Gfx.rrect(g, tx - 1, ty - 1, tw + 2, 29, 10, 0x12FFFFFF);
-        Gfx.rrect(g, tx, ty, tw, 27, 9, 0xD10E0F12);
-        Gfx.text(g, name, tx + 12, ty + 18.5f, 13, 0xFFEDEDEA, 0);
-        if (!pl.isEmpty()) {
-            float qx = tx + 12 + nw + 8;
-            Gfx.rrect(g, qx, ty + 5.5f, pw, 16, 4, 0xFFF4F1EA);
-            Gfx.text(g, pl, qx + 6, ty + 17.5f, 11, 0xFF14161A, 0, false, 0.66f);
+        // kilometraj total + trip, discret, sub vitezometru
+        String a = sHas ? kmStr() : "- km";
+        String b = sHas ? "TRIP " + tripStr : "";
+        float wa = Gfx.width(a, 8.5f, false);
+        float wb = b.isEmpty() ? 0f : Gfx.width(b, 7.5f, false) + 9f;
+        float x0 = cx - (wa + wb) / 2f;
+        Gfx.text(g, a, x0, 143f, 8.5f, 0xFFDCE4F0, 0);
+        if (!b.isEmpty()) {
+            Gfx.disc(g, x0 + wa + 4.5f, 140.8f, 1f, 0xFF4A5666);
+            Gfx.text(g, b, x0 + wa + 9f, 143f, 7.5f, MUTED, 0);
         }
-        // panoul de informatii (tasta "Informatii vehicul"), deasupra numelui
+
+        // eticheta (tasta "Informatii vehicul"): nume + numar + proprietar, mica, deasupra bordului
         infoAnim += ((showInfo ? 1f : 0f) - infoAnim) * 0.2f;
-        if (infoAnim > 0.02f) drawInfo(g, has, pl, ty - 6);
+        if (infoAnim > 0.02f) {
+            float ia = infoAnim;
+            String nm = sName.isEmpty() ? "Vehicul" : sName;
+            String pl = !sPlate.isEmpty() ? sPlate : metaPlate;
+            float nw = Gfx.width(nm, 11f, false);
+            float pw = pl.isEmpty() ? 0f : Gfx.width(pl, 9f, false) + 0.5f * (pl.length() - 1) + 10f;
+            float tw = 20f + nw + (pl.isEmpty() ? 0f : 8f + pw);
+            float tx = 190f - tw;
+            float ty = -4f;
+            String own = metaOwner.isEmpty() ? "" : "Proprietar: " + metaOwner;
+            float th = own.isEmpty() ? 22f : 34f;
+            ty -= th;
+            Gfx.rrect(g, tx, ty, tw, th, 8f, (Math.round(ia * 0xD0) << 24) | 0x0E1118);
+            Gfx.text(g, nm, tx + 10f, ty + 15f, 11f, (Math.round(ia * 255) << 24) | 0xEDEDEA, 0);
+            if (!pl.isEmpty()) {
+                float qx = tx + 10f + nw + 8f;
+                Gfx.rrect(g, qx, ty + 4.5f, pw, 13f, 3f, (Math.round(ia * 255) << 24) | 0xF4F1EA);
+                Gfx.text(g, pl, qx + 5f, ty + 14f, 9f, (Math.round(ia * 255) << 24) | 0x14161A, 0, false, 0.5f);
+            }
+            if (!own.isEmpty()) Gfx.text(g, own.length() > 30 ? own.substring(0, 29) + "..." : own, tx + 10f, ty + 28f, 7.5f, (Math.round(ia * 255) << 24) | 0x9AA5B5, 0);
+        }
         g.pose().popPose();
         ro.solarstudios.flowcity.client.ui.HudLayout.end(g);
 
-        if (fuel && f <= 0f) Gfx.text(g, "Rezervorul e gol", w / 2f, h - 64, 10, Theme.BAD, 1);
-    }
-
-    private static void drawInfo(GuiGraphics g, boolean has, String pl, float bottom) {
-        float a = infoAnim;
-        float ph = 104;
-        float y0 = bottom - ph + (1 - a) * 10;
-        int al = Math.round(a * 255) << 24;
-        int bg = (Math.round(a * 0xEE) << 24) | 0x0B111B;
-        Gfx.rrect(g, -1, y0 - 1, 302, ph + 2, 13, (Math.round(a * 0x22) << 24) | 0xFFFFFF);
-        Gfx.rrect(g, 0, y0, 300, ph, 12, bg);
-        Gfx.rrect(g, 0, y0, 4, ph, 2, al | 0x4DA3FF);
-        String model = metaModel.isEmpty() ? "Vehicul" : metaModel;
-        Gfx.text(g, "INFORMATII VEHICUL", 14, y0 + 14, 7.5f, al | 0x4DA3FF, 0, false, 1.6f);
-        if (!metaId.isEmpty()) Gfx.text(g, metaId, 288, y0 + 14, 7.5f, al | 0x7F8A99, 2);
-        Gfx.text(g, model.length() > 30 ? model.substring(0, 29) + "..." : model, 14, y0 + 31, 13, al | 0xF4F7FB, 0, true, 0f);
-        String plate = !pl.isEmpty() ? pl : (metaPlate.isEmpty() ? "-" : metaPlate);
-        String[] lab = {"KM TOTAL", "TRIP", "CALATORIE"};
-        String[] val = {has ? kmStr() : "-", has ? tripStr + " km" : "-", has ? journeyStr + " km" : "-"};
-        for (int i = 0; i < 3; i++) {
-            float cx = 14 + i * 94;
-            Gfx.rrect(g, cx, y0 + 40, 86, 30, 6, al | 0x141E2C);
-            Gfx.text(g, lab[i], cx + 7, y0 + 50, 6.5f, al | 0x7F8A99, 0, false, 1f);
-            Gfx.text(g, val[i], cx + 7, y0 + 64, 10, al | 0xF4F7FB, 0, true, 0f);
-        }
-        Gfx.text(g, "Nr: " + plate, 14, y0 + 84, 8.5f, al | 0xC9D3E0, 0);
-        Gfx.text(g, "Proprietar: " + (metaOwner.isEmpty() ? "-" : metaOwner), 14, y0 + 96, 8.5f, al | 0xC9D3E0, 0);
-        if (!metaReg.isEmpty()) Gfx.text(g, "Inregistrat " + metaReg, 288, y0 + 96, 8, al | 0x7F8A99, 2);
+        if (fuel && sFrac <= 0f && appear > 0.9f) Gfx.text(g, "Rezervorul e gol", w / 2f, h - 64, 10, Theme.BAD, 1);
     }
 
     private static String kmStr() {

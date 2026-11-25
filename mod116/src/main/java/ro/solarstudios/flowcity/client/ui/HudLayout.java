@@ -70,7 +70,7 @@ public final class HudLayout {
         PARTS.put("hud", new String[][] {{"clock", "Ceas"}, {"title", "Titlu + logo"}, {"identity", "Nume"}, {"rank", "Rank"}, {"money", "Bani"}, {"job", "Job"}, {"thirst", "Sete"}});
         PARTS.put("status", new String[][] {{"health", "Viață"}, {"armor", "Armură"}, {"food", "Mâncare"}, {"water", "Apă"},
             {"pct", "Procente (oprit = valori)"}, {"anim", "Animații"}, {"wide", "Spațiere mare"}, {"hidevanilla", "Ascunde barele vanilla"},
-            {"auto", "Ascunde armura la 0"}});
+            {"auto", "Ascunde armura la 0"}, {"compact", "Compact sub minimap (oprit = cercuri mari)"}});
     }
 
     /** Culoarea de accent aleasa pentru element, sau def daca nu a ales una. */
@@ -272,10 +272,8 @@ public final class HudLayout {
                 float w = ro.solarstudios.flowcity.hype.HypeHud.widthOf(st);
                 return new float[] {sw - (w + 12f), 3f, w + 8f, ro.solarstudios.flowcity.hype.HypeHud.heightOf(st) + 6f};
             }
-            case "speedo": {
-                float d = Math.max(90f, Math.min(128f, sh * 0.24f));
-                return new float[] {sw - 17f - d, sh - 13f - d, d, d};
-            }
+            case "speedo":
+                return ro.solarstudios.flowcity.cars.client.CarHud.defaultRect(sw, sh);
             case "toasts":
                 return new float[] {sw - 218f, Math.max(8f, ro.solarstudios.flowcity.hype.HypeHud.occupiedBottom), 208f, 64f};
             case "news": {
@@ -284,9 +282,16 @@ public final class HudLayout {
             }
             case "minimap":
                 return ro.solarstudios.flowcity.gps.MiniMapRenderer.defaults(sw, sh);
-            case "gps":
+            case "gps": {
+                if (ro.solarstudios.flowcity.gps.MiniMapSettings.enabled) {
+                    // alaturi de minimap (jos-stanga), ca sa nu se suprapuna cu el
+                    float[] m = ro.solarstudios.flowcity.gps.MiniMapRenderer.defaults(sw, sh);
+                    return new float[] {m[0] + m[2] + 8f, m[1], 156f, 64f};
+                }
                 return new float[] {10f, sh / 2f + 40f, 156f, 64f};
+            }
             case "status": {
+                if (ro.solarstudios.flowcity.hype.StatusHud.compactActive()) return ro.solarstudios.flowcity.hype.StatusHud.compactRect(sw, sh, 4);
                 float w = 4 * 30f + 3 * 3f;
                 float y = 8f + w > sw / 2f - 95f ? sh - 32f - 44f : sh - 32f - 8f;
                 return new float[] {8f, y, w, 32f};

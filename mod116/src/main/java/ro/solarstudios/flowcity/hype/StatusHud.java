@@ -37,6 +37,30 @@ public final class StatusHud {
             && JsonClientModule.bool(HypeState.state, "thirstOn", false);
     }
 
+    /** Inaltimea randului compact (patrat + valoare dedesubt). */
+    public static final float COMPACT_H = 31f;
+    private static final float CELL = 22f;
+    private static final float CGAP = 4f;
+
+    /** Randul compact sub minimap e activ (optiunea e pornita implicit si minimap-ul e vizibil)? */
+    public static boolean compactActive() {
+        HudLayout.El m = HudLayout.get("minimap");
+        HudLayout.El e = HudLayout.get(ID);
+        return e != null && e.visible && HudLayout.part(ID, "compact")
+            && ro.solarstudios.flowcity.gps.MiniMapSettings.enabled && !ro.solarstudios.flowcity.gps.MiniMapSettings.tempHidden
+            && m != null && m.visible;
+    }
+
+    /** Pozitia implicita a randului compact: imediat sub minimap (urmeaza minimap-ul si cand e mutat). */
+    public static float[] compactRect(int sw, int sh, int n) {
+        HudLayout.El m = HudLayout.get("minimap");
+        float[] r = m != null && HudLayout.live(m) ? HudLayout.rect("minimap") : ro.solarstudios.flowcity.gps.MiniMapRenderer.defaults(sw, sh);
+        float w = Math.max(1, n) * CELL + Math.max(0, n - 1) * CGAP;
+        float y = r[1] + r[3] + 3f;
+        if (y + COMPACT_H > sh - 2f) y = sh - 2f - COMPACT_H;
+        return new float[] {r[0], y, w, COMPACT_H};
+    }
+
     private static boolean active() {
         HudLayout.El e = HudLayout.get(ID);
         return HypeState.hudOn && e != null && e.visible;
@@ -98,6 +122,24 @@ public final class StatusHud {
         for (boolean b : show) if (b) n++;
         int sw = mc.getWindow().getGuiScaledWidth();
         int sh = mc.getWindow().getGuiScaledHeight();
+        if (compactActive()) {
+            float[] cr = compactRect(sw, sh, Math.max(1, n));
+            if (!HudLayout.begin(g, ID, cr[0], cr[1], cr[2], cr[3])) return;
+            try {
+                long now = System.currentTimeMillis();
+                float x = cr[0];
+                for (int i = 0; i < 4; i++) {
+                    if (shown[i] < 0 || !anim) shown[i] = target[i];
+                    else shown[i] += (target[i] - shown[i]) * Math.min(1f, dt * 7f);
+                    if (!show[i]) continue;
+                    cell(g, i, x, cr[1], shown[i], target[i], col[i], pct ? Math.round(target[i]) + "%" : raw[i], now, anim);
+                    x += CELL + CGAP;
+                }
+            } finally {
+                HudLayout.end(g);
+            }
+            return;
+        }
         float d = 30f;
         float gap = HudLayout.part(ID, "wide") ? 8f : 3f;
         float w = Math.max(d, n * d + Math.max(0, n - 1) * gap);
@@ -120,6 +162,27 @@ public final class StatusHud {
         } finally {
             HudLayout.end(g);
         }
+    }
+
+    /** Varianta compacta: patrat mic cu nivelul care se umple de jos, iconita si valoarea dedesubt (stil roleplay). */
+    private static void cell(GuiGraphics g, int kind, float x, float y, float value, float real, int color, String label, long now, boolean anim) {
+        float v = Math.max(0f, Math.min(100f, value)) / 100f;
+        int c = color;
+        float pulse = 0f;
+        if (real < 70f && real >= 30f) c = Gfx.mixArgb(color, 0xFF000000, 0.12f);
+        else if (real < 30f && real > 0f) {
+            c = Gfx.mixArgb(color, 0xFFFFFFFF, 0.1f);
+            pulse = anim ? (float) (0.5 + 0.5 * Math.sin(now / 180.0)) : 1f;
+        } else if (real <= 0f) {
+            c = 0xFFFF3B30;
+            pulse = anim ? (float) (0.5 + 0.5 * Math.sin(now / 110.0)) : 1f;
+        }
+        Gfx.rrect(g, x - 0.8f, y - 0.8f, CELL + 1.6f, CELL + 1.6f, 5f, Gfx.fade(c, 0.35f + 0.45f * pulse));
+        Gfx.rrect(g, x, y, CELL, CELL, 4.4f, 0xE00B0F15);
+        float fh = (CELL - 2f) * v;
+        if (fh > 0.5f) Gfx.rrect(g, x + 1f, y + CELL - 1f - fh, CELL - 2f, fh, 3f, Gfx.fade(c, 0.34f));
+        icon(g, kind, x + CELL / 2f, y + CELL / 2f - 0.2f, c);
+        Gfx.text(g, label, x + CELL / 2f, y + CELL + 7.2f, label.length() > 4 ? 5f : 5.8f, 0xFFE6EDF7, 1, true, 0f);
     }
 
     private static String fmt(float v) {
