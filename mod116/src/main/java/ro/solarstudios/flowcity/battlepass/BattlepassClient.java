@@ -82,6 +82,11 @@ public final class BattlepassClient extends JsonClientModule {
         });
     }
 
+    @Override
+    public String id() {
+        return "battlepass";
+    }
+
     public static void register() {
         instance = new BattlepassClient();
         ClientModules.register(instance);
