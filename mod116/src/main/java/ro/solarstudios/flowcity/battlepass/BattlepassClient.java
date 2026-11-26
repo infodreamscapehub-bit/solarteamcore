@@ -215,8 +215,9 @@ public final class BattlepassClient extends JsonClientModule {
         if (instance != null) instance.send("admin", new JsonObject());
     }
 
-    static void send(String action, JsonObject o) {
-        if (instance != null) instance.send(action, o);
+    /** Trimite o actiune de administrare catre server. */
+    static void action(String name, JsonObject o) {
+        if (instance != null) instance.send(name, o);
     }
 
     static void refresh() {

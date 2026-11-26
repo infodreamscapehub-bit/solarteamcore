@@ -185,7 +185,7 @@ public final class BattlepassAdminScreen extends FlowScreen {
             true, BattlepassClient.adminSeason.enabled ? Theme.OK : Theme.PANEL_3, () -> {
                 JsonObject o = new JsonObject();
                 o.addProperty("enabled", !BattlepassClient.adminSeason.enabled);
-                BattlepassClient.send("admin_season", o);
+                BattlepassClient.action("admin_season", o);
             });
         button(g, "SALVEAZA SEZONUL", x + w + 12, y, w, 16, mx, my, true, Theme.ACCENT, this::saveSeason);
         y += 26;
@@ -197,7 +197,7 @@ public final class BattlepassAdminScreen extends FlowScreen {
             JsonObject o = new JsonObject();
             o.addProperty("newId", sNewId.getValue().trim());
             o.addProperty("name", sName.getValue().trim());
-            BattlepassClient.send("admin_season", o);
+            BattlepassClient.action("admin_season", o);
             sNewId.setValue("");
         });
     }
@@ -211,7 +211,7 @@ public final class BattlepassAdminScreen extends FlowScreen {
         o.addProperty("levels", intOr(sLevels.getValue(), 30));
         o.addProperty("xpPerLevel", intOr(sXp.getValue(), 100));
         o.addProperty("premiumCost", dblOr(sCost.getValue(), 0));
-        BattlepassClient.send("admin_season", o);
+        BattlepassClient.action("admin_season", o);
     }
 
     // ------------------------------------------------------------------ NIVELURI
@@ -287,7 +287,7 @@ public final class BattlepassAdminScreen extends FlowScreen {
             o.addProperty("level", selLevel);
             o.addProperty("track", selTrack);
             o.addProperty("type", "");
-            BattlepassClient.send("admin_reward", o);
+            BattlepassClient.action("admin_reward", o);
         });
     }
 
@@ -300,7 +300,7 @@ public final class BattlepassAdminScreen extends FlowScreen {
         o.addProperty("material", rMaterial.getValue().trim());
         o.addProperty("command", rCommand.getValue().trim());
         o.addProperty("label", rLabel.getValue().trim());
-        BattlepassClient.send("admin_reward", o);
+        BattlepassClient.action("admin_reward", o);
     }
 
     // ------------------------------------------------------------------ MISIUNI
@@ -390,7 +390,7 @@ public final class BattlepassAdminScreen extends FlowScreen {
         o.addProperty("target", dblOr(mTarget.getValue(), 1));
         o.addProperty("xp", intOr(mXp.getValue(), 10));
         o.addProperty("label", mLabel.getValue().trim());
-        BattlepassClient.send("admin_mission", o);
+        BattlepassClient.action("admin_mission", o);
     }
 
     @Override
