@@ -138,6 +138,14 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
         return "fjobs";
     }
 
+    /** Jucatorul e in tura acum? Folosit de battlepass pentru misiunile pe ore lucrate. */
+    public static boolean inShift(Player p) {
+        FJobsModule m = instance;
+        if (m == null || m.store == null) return false;
+        FJobsData.Profile pr = m.store.peek(p.getUniqueId());
+        return pr != null && pr.inShift();
+    }
+
     /** Nivelul profesional la jobul curent (0 daca nu are job). */
     public int currentJobLevel(Player p) {
         FJobsData.Profile pr = store == null ? null : store.peek(p.getUniqueId());

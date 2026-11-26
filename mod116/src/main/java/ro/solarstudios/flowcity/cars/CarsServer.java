@@ -610,6 +610,24 @@ public final class CarsServer {
     }
 
     /** La ~0,5 s: adauga distanta reala parcursa vehiculelor cu sofer si trimite soferului valorile (rar: la 50 m sau la schimbarea vehiculului). */
+    /** Metri condusi de la ultimul raport catre plugin (misiunile de battlepass pe distanta). */
+    private static final java.util.Map<UUID, Double> BP_METERS = new java.util.HashMap<>();
+
+    /** Raporteaza pluginului distanta parcursa, rar (la fiecare 200 m). Daca pluginul lipseste, nu se intampla nimic. */
+    private static void reportDistance(MinecraftServer server, ServerPlayerEntity p, double meters) {
+        UUID u = p.getUUID();
+        double acc = BP_METERS.merge(u, meters, Double::sum);
+        if (acc < 200) return;
+        long whole = (long) acc;
+        BP_METERS.put(u, acc - whole);
+        try {
+            server.getCommands().performCommand(server.createCommandSourceStack(),
+                "fcbp drive " + p.getGameProfile().getName() + " " + whole);
+        } catch (RuntimeException ex) {
+            // pluginul lipseste sau comanda nu a putut fi rulata: kilometrajul propriu nu e afectat
+        }
+    }
+
     private static void odoTick(MinecraftServer server, GarageData data) {
         java.util.Set<String> active = new java.util.HashSet<>();
         java.util.Set<UUID> activePlayers = new java.util.HashSet<>();
@@ -643,6 +661,7 @@ public final class CarsServer {
                         pd.putDouble(TRIP_A, pd.getDouble(TRIP_A) + d);
                         pd.putDouble(TRIP_B, pd.getDouble(TRIP_B) + d);
                     }
+                    reportDistance(server, p, d);
                 }
             }
             double odo = c != null ? c.odometerM : pd.getDouble(ODO_M);
@@ -654,6 +673,7 @@ public final class CarsServer {
         }
         ODO_POS.keySet().retainAll(active);
         ODO_SENT.keySet().retainAll(activePlayers);
+        BP_METERS.keySet().retainAll(activePlayers);
         TRIP_RESET_AT.values().removeIf(t -> now - t > 60_000L);
     }
 

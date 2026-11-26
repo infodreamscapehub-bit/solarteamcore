@@ -84,7 +84,11 @@ public final class PhoneModule extends JsonModule implements org.bukkit.event.Li
 
         sims = new SimStore(plugin);
         store = new AppStore(plugin);
-        on("store.req", (p, j) -> sendStore(p));
+        // ecranul telefonului cere lista de aplicatii la deschidere: aici se vede ca telefonul a fost folosit
+        on("store.req", (p, j) -> {
+            ro.solarstudios.flowcity.bridge.battlepass.BattlepassModule.phoneUsed(p);
+            sendStore(p);
+        });
         on("store.install", this::storeInstall);
         on("store.remove", this::storeRemove);
         on("store.order", (p, j) -> {

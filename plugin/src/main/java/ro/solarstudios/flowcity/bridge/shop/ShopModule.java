@@ -382,6 +382,7 @@ public final class ShopModule extends JsonModule {
                 }
             }
             result(p, true, "Ai cumparat " + q + " x " + it.name + ".");
+            ro.solarstudios.flowcity.bridge.battlepass.BattlepassModule.bought(p, q);
             sendState(p);
             return true;
         }, msg -> result(p, false, msg));

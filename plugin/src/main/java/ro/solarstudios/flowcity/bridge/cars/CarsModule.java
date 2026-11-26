@@ -364,6 +364,9 @@ public final class CarsModule extends JsonModule {
             }
             plugin.service().logTransaction(f.player, f.card ? "FUEL_CARD" : "FUEL_CASH", used, "Benzinarie", delivered + " L");
         }
+        if (p != null && delivered > 0) {
+            ro.solarstudios.flowcity.bridge.battlepass.BattlepassModule.fueled(p, Math.round(delivered));
+        }
         if (p == null) return;
         JsonObject o = new JsonObject();
         o.addProperty("ok", true);

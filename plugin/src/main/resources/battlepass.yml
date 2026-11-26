@@ -1,26 +1,49 @@
-# Battlepass FlowCity (legat de FJobs): obiective zilnice/saptamanale care se bifeaza din activitatea in tura FJobs.
+# Battlepass FlowCity 2.0 - sezoane, doua trasee (FREE / PREMIUM) si misiuni cu progres din joc.
+# Totul se poate edita si din joc: meniul Battlepass (tasta B) > EDITOR (permisiune flowcity.battlepass.admin).
 enabled: true
-xp-per-level: 100        # XP battlepass pentru fiecare nivel
-max-level: 30
-daily-count: 3           # cate obiective zilnice are fiecare jucator
-weekly-count: 3
 timezone: Europe/Bucharest
-# Recompensa implicita pe nivel: reward-base * nivel (bani). Se poate suprascrie cu rewards.<nivel>.
-reward-base: 250
+
+season:
+  id: s1                 # schimba id-ul ca sa incepi un sezon nou; progresul vechi ramane salvat sub id-ul lui
+  name: "Sezonul 1"
+  descr: ""
+  start: ""              # AAAA-LL-ZZ, gol = fara limita
+  end: ""                # dupa aceasta data progresul se opreste, dar recompensele deblocate se pot lua
+  levels: 30
+  xp-per-level: 100
+  premium-cost: 50000    # cat costa traseul premium (din banii jucatorului)
+  premium-buyable: true
+
+daily-count: 3           # cate misiuni zilnice primeste fiecare jucator
+weekly-count: 3
+
+# Recompense pe nivel, pe fiecare traseu.
+# type: money (cash) | bank | item (+ material) | xp (experienta vanilla) | command (vehicul, voucher, grad...)
+# amount = suma sau cantitatea; label = textul afisat (gol = generat automat)
 rewards:
+  1:
+    free: {type: money, amount: 500, label: "500$"}
+    premium: {type: bank, amount: 2000, label: "2.000$ banca"}
+  5:
+    free: {type: money, amount: 1000, label: "1.000$"}
+    premium: {type: item, material: DIAMOND, amount: 8, label: "8x diamant"}
   10:
-    money: 5000
-    command: ""          # comanda din consola, ex: "give %player% diamond 3" (gol = nimic)
-    label: "5000$"
+    free: {type: money, amount: 2500, label: "2.500$"}
+    premium: {type: bank, amount: 10000, label: "10.000$ banca"}
   20:
-    money: 10000
-    command: ""
-    label: "10000$"
+    free: {type: money, amount: 5000, label: "5.000$"}
+    premium: {type: bank, amount: 25000, label: "25.000$ banca"}
   30:
-    money: 25000
-    command: ""
-    label: "25000$"
-# type: missions (misiuni/livrari terminate) | actions (orice actiune platita) | earn (bani castigati) | xp (XP job castigat)
+    free: {type: money, amount: 10000, label: "10.000$"}
+    # exemplu de premiu special: vehicul din dealer, voucher, grad etc.
+    premium: {type: command, command: 'fccars give %player% "logan" 0 "benzina" ""', label: "Dacia Logan"}
+
+# Tipuri de misiune si ce masoara fiecare (toate vin din evenimente reale):
+#   missions - misiuni/livrari FJobs terminate      actions - actiuni platite in tura
+#   earn     - bani castigati din joburi ($)        xp      - XP de job castigat
+#   hours    - minute petrecute in tura             drive   - metri condusi (odometrul vehiculului)
+#   fuel     - litri alimentati la benzinarie       shop    - articole cumparate din magazin
+#   phone    - de cate ori ai deschis telefonul
 # job: id-ul jobului din fjobs.yml (gol = orice job)
 daily:
   - {id: d_missions3, type: missions, target: 3, xp: 40, label: "Termina 3 misiuni FJobs"}
@@ -28,8 +51,16 @@ daily:
   - {id: d_actions40, type: actions, target: 40, xp: 40, label: "Fa 40 de actiuni la job"}
   - {id: d_earn2000, type: earn, target: 2000, xp: 50, label: "Castiga 2000$ din joburi"}
   - {id: d_xp150, type: xp, target: 150, xp: 40, label: "Aduna 150 XP de job"}
+  - {id: d_drive2km, type: drive, target: 2000, xp: 45, label: "Condu 2 km"}
+  - {id: d_hours30, type: hours, target: 30, xp: 45, label: "Lucreaza 30 de minute"}
+  - {id: d_fuel20, type: fuel, target: 20, xp: 30, label: "Alimenteaza 20 de litri"}
+  - {id: d_shop3, type: shop, target: 3, xp: 25, label: "Cumpara 3 articole din magazin"}
+  - {id: d_phone1, type: phone, target: 1, xp: 15, label: "Deschide telefonul"}
 weekly:
   - {id: w_missions25, type: missions, target: 25, xp: 200, label: "Termina 25 de misiuni in saptamana asta"}
   - {id: w_earn20000, type: earn, target: 20000, xp: 220, label: "Castiga 20000$ din joburi"}
   - {id: w_actions300, type: actions, target: 300, xp: 180, label: "Fa 300 de actiuni la job"}
   - {id: w_xp1500, type: xp, target: 1500, xp: 200, label: "Aduna 1500 XP de job"}
+  - {id: w_drive50km, type: drive, target: 50000, xp: 240, label: "Condu 50 km"}
+  - {id: w_hours300, type: hours, target: 300, xp: 220, label: "Lucreaza 5 ore"}
+  - {id: w_fuel200, type: fuel, target: 200, xp: 150, label: "Alimenteaza 200 de litri"}
