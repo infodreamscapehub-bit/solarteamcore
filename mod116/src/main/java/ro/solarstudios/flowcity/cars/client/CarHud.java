@@ -12,7 +12,6 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import ro.solarstudios.flowcity.cars.CarsNet;
 import ro.solarstudios.flowcity.client.ui.Gfx;
 import ro.solarstudios.flowcity.client.ui.Theme;
-import ro.solarstudios.flowcity.client.ui.Ui;
 import ro.solarstudios.flowcity.compat.GuiGraphics;
 
 /**
@@ -189,12 +188,14 @@ public final class CarHud {
         }
     }
 
-    private static final int OFF = 0xFF1B2430;
-    private static final int GREEN = 0xFF6DBE6F;
-    private static final int MUTED = 0xFF7F8A99;
-    private static final int CYAN = 0xFF22D3EE;
-    private static final float[] SEG_POS = {0f, 0.62f, 0.82f, 1f};
-    private static final int[] SEG_COL = {0xFF22D3EE, 0xFF22D3EE, 0xFFFFB84D, 0xFFE2453F};
+    private static final int WHITE = 0xFFF2F1EC;
+    private static final int MUTED = 0xFF8C8A84;
+    private static final int MINT = 0xFF52E3A4;
+    private static final int AMBER = 0xFFF2B544;
+    private static final int RED = 0xFFE5534B;
+    /** Arcul vitezometrului: ~285 grade, gol jos-dreapta (0 = dreapta, sensul acelor de ceasornic). */
+    private static final float A0 = 115f;
+    private static final float SWEEP = 285f;
 
     private static long lastFrame = System.currentTimeMillis();
     private static float appear;
@@ -205,6 +206,7 @@ public final class CarHud {
     private static boolean sFuel;
     private static float sFrac = 1f;
     private static float sHp = 1f;
+    private static boolean sHpKnown;
     private static boolean sHas;
     private static String sGear = "N";
     private static String sName = "";
@@ -231,7 +233,8 @@ public final class CarHud {
         sEngine = bool(v, "isEnginePowered", true);
         sBoost = bool(v, "isBoosting", false);
         double maxHp = num(v, "getMaxHealth", 0);
-        sHp = maxHp <= 0 ? 1f : (float) (num(v, "getHealth", maxHp) / maxHp);
+        sHpKnown = maxHp > 0;
+        sHp = maxHp <= 0 ? 1f : (float) Math.max(0.0, Math.min(1.0, num(v, "getHealth", maxHp) / maxHp));
         sFuel = bool(v, "requiresFuel", false);
         sFrac = 1f;
         if (sFuel) {
@@ -253,9 +256,9 @@ public final class CarHud {
     }
 
     /**
-     * Bord compact: vitezometru circular cu arc cyan (spre rosu la viteza mare), viteza si treapta in centru, un cadran mic de
-     * combustibil in stanga, indicatori reali deasupra cifrei si kilometrajul total + trip discret dedesubt. Coordonatele sunt
-     * ale unei machete de 190 x 150 care se scaleaza dupa ecran si se poate muta/scala din editorul de HUD.
+     * Bord in stil „NEO”: arc deschis (~285 grade) cu viteza in alb, scala de viteza cu repere si cifre, viteza mare in centru,
+     * treapta si kilometrajul text dedesubt, combustibil in stanga-jos, 3 indicatori reali sus-dreapta si un arc mic de stare a
+     * vehiculului (doar daca modul da valoarea reala). Coordonatele sunt ale unei machete de 190 x 150, scalabila din editorul de HUD.
      */
     private static void draw(GuiGraphics g, Minecraft mc, long now) {
         int w = mc.getWindow().getGuiScaledWidth();
@@ -266,69 +269,93 @@ public final class CarHud {
         float ap = Math.max(0f, Math.min(1f, appear));
         Gfx.alpha *= ap;
         g.pose().pushPose();
-        g.pose().translate(d[0], d[1] + (1f - ap) * 14f, 0);
+        g.pose().translate(d[0], d[1] + (1f - ap) * 10f, 0);
         g.pose().scale(k, k, 1f);
         final int acc = ro.solarstudios.flowcity.client.ui.HudLayout.accent("speedo", 0);
+        final int main = acc != 0 ? acc : WHITE;
 
         boolean fuel = sFuel;
-        boolean low = fuel && sFrac < 0.12f;
+        boolean low = fuel && sFrac < 0.15f;
         boolean blink = low && (now / 400) % 2 == 0;
-        float cx = 124f;
-        float cy = 66f;
-        float r = 56f;
+        float cx = 96f;
+        float cy = 74f;
 
-        // fundal discret, ca cifrele sa se citeasca si pe cer deschis
-        Gfx.disc(g, cx, cy, r + 9f, 0x55000000);
-        Gfx.disc(g, cx, cy, r - 6f, 0x66070B12);
+        // umbra foarte discreta, doar ca sa se citeasca pe cer deschis
+        Gfx.disc(g, cx, cy, 67f, 0x26000000);
 
-        // arcul: fundal intreg + parte aprinsa in felii (cyan -> portocaliu -> rosu)
-        Gfx.arc(g, cx, cy, r, 7f, 135f, 405f, (x, y) -> OFF, 1f);
-        float lit = 270f * Math.max(0f, Math.min(1f, shownFrac));
-        int n = Math.max(0, (int) Math.ceil(lit / 9f));
-        for (int i = 0; i < n; i++) {
-            float a0 = 135f + i * 9f;
-            float a1 = Math.min(135f + lit, 135f + (i + 1) * 9f + 0.5f);
-            final int col = acc != 0 ? acc : Gfx.stops(Math.min(1f, (a0 - 135f + 4.5f) / 270f), SEG_POS, SEG_COL);
-            Gfx.arc(g, cx, cy, r, 7f, a0, a1, (x, y) -> col, 1f);
-        }
-        if (lit > 1f) {
-            final int tip = acc != 0 ? acc : Gfx.stops(shownFrac, SEG_POS, SEG_COL);
-            Gfx.arc(g, cx, cy, r, 14f, 135f, 135f + lit, (x, y) -> tip, 0.12f);
-        }
-
-        // indicatori reali deasupra cifrei: motor, rezerva, boost, stare
-        float dy = cy - 30f;
-        Gfx.disc(g, cx - 13.5f, dy, 2.6f, sEngine ? GREEN : 0xFF2C3540);
-        Gfx.disc(g, cx - 4.5f, dy, 2.6f, low ? (blink ? 0xFFFF6A5E : 0xFF8A2F2A) : 0xFF2C3540);
-        Gfx.disc(g, cx + 4.5f, dy, 2.6f, sBoost ? CYAN : 0xFF2C3540);
-        Gfx.disc(g, cx + 13.5f, dy, 2.6f, sHp < 0.3f ? 0xFFFFB84D : 0xFF2C3540);
-
-        // viteza + unitate + treapta
-        Gfx.text(g, String.valueOf(Math.round(shownSpeed)), cx, cy + 12f, 36f, 0xFFF4F7FB, 1, true, -1f);
-        Gfx.text(g, sBoost ? "BOOST" : "KM/H", cx, cy + 25f, 7.5f, sBoost ? CYAN : MUTED, 1, false, 2.2f);
-        Gfx.rrect(g, cx - 11f, cy + 33f, 22f, 12f, 4f, 0xB0101A28);
-        Gfx.text(g, sGear, cx, cy + 42.5f, 9.5f, acc != 0 ? acc : CYAN, 1, true, 0f);
-
-        // combustibil: cadran mic in stanga
-        if (fuel) {
-            float fx = 33f;
-            float fy = 98f;
-            float fr = 22f;
-            int fc = low ? (blink ? 0xFFFF6A5E : Theme.BAD) : (acc != 0 ? acc : CYAN);
-            Gfx.disc(g, fx, fy, fr + 5f, 0x55000000);
-            Gfx.arc(g, fx, fy, fr, 4.5f, 135f, 405f, (x, y) -> OFF, 1f);
-            if (sFrac > 0.01f) Gfx.arc(g, fx, fy, fr, 4.5f, 135f, 135f + 270f * Math.min(1f, sFrac), (x, y) -> fc, 1f);
-            Gfx.text(g, Math.round(Math.min(1f, sFrac) * 100f) + "%", fx, fy + 3.5f, 10f, blink ? 0xFFFF6A5E : 0xFFF4F7FB, 1, true, 0f);
-            Gfx.text(g, "COMB.", fx, fy + 17f, 5.8f, MUTED, 1, false, 1.2f);
+        // inelul exterior subtire + scala (repere si cifre)
+        Gfx.arc(g, cx, cy, 65f, 1.3f, A0, A0 + SWEEP, (x, y) -> 0x44FFFFFF, 1f);
+        int step = dialMax > 300 ? 60 : 30;
+        int sub = step / 3;
+        for (int val = 0; val <= dialMax; val += sub) {
+            boolean major = val % step == 0;
+            double a = Math.toRadians(A0 + SWEEP * val / dialMax);
+            float c = (float) Math.cos(a);
+            float sn = (float) Math.sin(a);
+            boolean on = val <= shownSpeed + 0.5f;
+            float r0 = major ? 59f : 60.2f;
+            float r1 = major ? 62.8f : 62f;
+            int col = on ? (major ? 0xF0F2F1EC : 0x99F2F1EC) : (major ? 0x66F2F1EC : 0x33F2F1EC);
+            Gfx.line(g, cx + c * r0, cy + sn * r0, cx + c * r1, cy + sn * r1, major ? 1.25f : 0.75f, col);
+            if (major) Gfx.text(g, String.valueOf(val), cx + c * 54f, cy + sn * 54f + 1.9f, 5.2f, on ? 0xE6F2F1EC : 0x66F2F1EC, 1);
         }
 
-        // odometru mecanic (tambur) + trip A/B, sub vitezometru
+        // arcul vitezei: pista slaba + parte alba (animata lin)
+        Gfx.arc(g, cx, cy, 45.5f, 5f, A0, A0 + SWEEP, (x, y) -> 0x1FFFFFFF, 1f);
+        float lit = SWEEP * Math.max(0f, Math.min(1f, shownFrac));
+        if (lit > 0.6f) Gfx.arc(g, cx, cy, 45.5f, 5f, A0, A0 + lit, (x, y) -> main, 1f);
+
+        // starea vehiculului (arc exterior stanga) - doar cu valoare reala de la mod
+        if (sHpKnown) {
+            Gfx.arc(g, cx, cy, 69.5f, 2.4f, 195f, 285f, (x, y) -> 0x22FFFFFF, 1f);
+            int hc = sHp > 0.6f ? MINT : (sHp > 0.3f ? AMBER : RED);
+            if (sHp > 0.02f) Gfx.arc(g, cx, cy, 69.5f, 2.4f, 195f, 195f + 90f * sHp, (x, y) -> hc, 1f);
+        }
+
+        // viteza: cifre pe celule fixe (tabular), ca numarul sa nu salte
+        int spd = Math.round(shownSpeed);
+        String sp = String.valueOf(Math.min(spd, 999));
+        float fs = 34f;
+        float cell = Gfx.width("0", fs, true) + 0.8f;
+        float x0 = cx - cell * sp.length() / 2f;
+        for (int i = 0; i < sp.length(); i++) Gfx.text(g, String.valueOf(sp.charAt(i)), x0 + cell * (i + 0.5f), cy + 12f, fs, 0xFFF7F6F2, 1, true, 0f);
+        Gfx.text(g, sBoost ? "BOOST" : "KM/H", cx, cy + 23f, 6.2f, sBoost ? main : MUTED, 1, false, 1.8f);
+        Gfx.text(g, sGear, cx, cy + 35f, 9f, shownSpeed < 1.5f ? MUTED : main, 1, true, 0f);
+
+        // kilometraj (text curat) + trip A/B
         advanceOdo(now);
         if (sHas) {
-            drawOdometer(g, cx, 123f, 8.6f, 12f, dispOdo, now);
-            drawTrip(g, cx, 138f);
+            Gfx.text(g, fmtKm(dispOdo, true) + " km", cx, cy + 47f, 7.8f, 0xFFE9E8E3, 1);
+            Gfx.text(g, "TRIP " + (tripSel == 0 ? "A" : "B") + "   " + fmtKm(tripSel == 0 ? dispA : dispB, false) + " km", cx, cy + 56f, 6.2f, MUTED, 1, false, 0.4f);
+            if (resetHeld > 0) {
+                float prog = Math.min(1f, resetHeld / 1000f);
+                Gfx.rrect(g, cx - 26f, cy + 59f, 52f, 1.8f, 0.9f, 0x33FFFFFF);
+                Gfx.rrect(g, cx - 26f, cy + 59f, Math.max(1f, 52f * prog), 1.8f, 0.9f, RED);
+            }
         } else {
-            Gfx.text(g, "- km", cx, 133f, 8.5f, MUTED, 1);
+            Gfx.text(g, "- km", cx, cy + 47f, 7.8f, MUTED, 1);
+        }
+
+        // indicatori reali sus-dreapta: motor, stare, boost (stinsi cand nu sunt active)
+        float iy = 13f;
+        iconEngine(g, 141f, iy, sEngine ? 0xFFF2F1EC : 0x44F2F1EC);
+        Gfx.text(g, "MOTOR", 141f, iy + 11f, 4.4f, MUTED, 1, false, 0.8f);
+        if (sHpKnown) {
+            iconWarn(g, 157f, iy, sHp < 0.3f ? RED : (sHp < 0.6f ? AMBER : 0x44F2F1EC));
+            Gfx.text(g, "STARE", 157f, iy + 11f, 4.4f, MUTED, 1, false, 0.8f);
+        }
+        iconBolt(g, 173f, iy, sBoost ? main : 0x44F2F1EC);
+        Gfx.text(g, "BOOST", 173f, iy + 11f, 4.4f, MUTED, 1, false, 0.8f);
+
+        // combustibil: cerc mic stanga-jos
+        if (fuel) {
+            float fx = 21f;
+            float fy = 114f;
+            int fc = low ? (blink ? 0xFFFF7468 : RED) : main;
+            Gfx.arc(g, fx, fy, 11f, 2.4f, 135f, 405f, (x, y) -> 0x26FFFFFF, 1f);
+            if (sFrac > 0.01f) Gfx.arc(g, fx, fy, 11f, 2.4f, 135f, 135f + 270f * Math.min(1f, sFrac), (x, y) -> fc, 1f);
+            iconPump(g, fx, fy - 0.5f, low ? fc : 0xFFF2F1EC);
+            Gfx.text(g, Math.round(Math.min(1f, sFrac) * 100f) + "%", fx, fy + 20f, 5.6f, low ? fc : MUTED, 1, false, 0.4f);
         }
 
         // eticheta (tasta "Informatii vehicul"): nume + numar + proprietar, mica, deasupra bordului
@@ -358,7 +385,7 @@ public final class CarHud {
                 float prevA = Gfx.alpha;
                 Gfx.alpha *= ia;
                 Gfx.text(g, "ODO", tx + 10f, oy + 9f, 6.5f, MUTED, 0, false, 1.4f);
-                drawOdometer(g, tx + 10f + 18f + 36f, oy, 6.8f, 10f, dispOdo, now);
+                Gfx.text(g, fmtKm(dispOdo, true) + " km", tx + 34f, oy + 9f, 7.8f, 0xFFEDEDEA, 0);
                 Gfx.alpha = prevA;
             }
         }
@@ -366,6 +393,51 @@ public final class CarHud {
         ro.solarstudios.flowcity.client.ui.HudLayout.end(g);
 
         if (fuel && sFrac <= 0f && appear > 0.9f) Gfx.text(g, "Rezervorul e gol", w / 2f, h - 64, 10, Theme.BAD, 1);
+    }
+
+    /** Metri -> "123.456,7" (grupare cu punct, o zecimala cu virgula) sau, fara grupare, "12,3". */
+    private static String fmtKm(double meters, boolean group) {
+        long tenths = Math.max(0L, Math.round(Math.min(meters, 999_999_999.0) / 100.0));
+        long ip = tenths / 10L;
+        long dp = tenths % 10L;
+        String s = Long.toString(ip);
+        if (group && s.length() > 3) {
+            StringBuilder b = new StringBuilder();
+            int first = s.length() % 3;
+            if (first > 0) b.append(s, 0, first);
+            for (int i = first; i < s.length(); i += 3) {
+                if (b.length() > 0) b.append('.');
+                b.append(s, i, i + 3);
+            }
+            s = b.toString();
+        }
+        return s + "," + dp;
+    }
+
+    private static void iconEngine(GuiGraphics g, float x, float y, int c) {
+        Gfx.rrect(g, x - 3.6f, y - 2.2f, 7.2f, 5.2f, 1f, c);
+        Gfx.rrect(g, x - 1.6f, y - 4.4f, 3.2f, 2.2f, 0.6f, c);
+        Gfx.rrect(g, x - 5.8f, y - 0.9f, 2.2f, 2.6f, 0.5f, c);
+        Gfx.rrect(g, x + 3.6f, y - 1.8f, 2.2f, 3.8f, 0.5f, c);
+    }
+
+    private static void iconWarn(GuiGraphics g, float x, float y, int c) {
+        Gfx.poly(g, new float[] {x, y - 4.6f, x + 5f, y + 3.8f, x - 5f, y + 3.8f}, c);
+        Gfx.line(g, x, y - 1.4f, x, y + 1f, 1.1f, 0xFF101214);
+        Gfx.disc(g, x, y + 2.4f, 0.7f, 0xFF101214);
+    }
+
+    private static void iconBolt(GuiGraphics g, float x, float y, int c) {
+        Gfx.poly(g, new float[] {x + 1.6f, y - 5f, x - 3f, y + 0.8f, x - 0.1f, y + 0.8f}, c);
+        Gfx.poly(g, new float[] {x - 1.6f, y + 5f, x + 3f, y - 0.8f, x + 0.1f, y - 0.8f}, c);
+    }
+
+    private static void iconPump(GuiGraphics g, float x, float y, int c) {
+        Gfx.rrect(g, x - 4f, y - 5f, 6.4f, 9.4f, 1.2f, c);
+        Gfx.rrect(g, x - 2.8f, y - 3.7f, 4f, 3f, 0.6f, 0xCC0B0D10);
+        Gfx.rrect(g, x - 5f, y + 3.9f, 8.4f, 1.4f, 0.5f, c);
+        Gfx.line(g, x + 2.4f, y - 2.6f, x + 4.7f, y - 1.2f, 1f, c);
+        Gfx.line(g, x + 4.7f, y - 1.2f, x + 4.7f, y + 2.8f, 1f, c);
     }
 
     private static long lastAdv = System.currentTimeMillis();
@@ -378,98 +450,5 @@ public final class CarHud {
         dispOdo = Math.max(srvOdo, Math.min(dispOdo + step, srvOdo + 55.0));
         dispA = Math.max(srvA, Math.min(dispA + step, srvA + 55.0));
         dispB = Math.max(srvB, Math.min(dispB + step, srvB + 55.0));
-    }
-
-    private static final int DRUM_BG = 0xFF0A0E15;
-    private static final int DRUM_EDGE = 0xFF2B3546;
-    private static final int DRUM_TXT = 0xFFF1F5FA;
-    private static final int DEC_BG = 0xFFE9E4D6;
-    private static final int DEC_TXT = 0xFF14171C;
-
-    /** Decupare dreptunghiulara in coordonatele locale ale matricei curente (tine cont de mutarea/scalarea din editorul HUD). */
-    private static void clipBegin(GuiGraphics g, float x, float y, float w, float h) {
-        net.minecraft.util.math.vector.Matrix4f m = g.pose().last().pose();
-        net.minecraft.util.math.vector.Vector4f a = new net.minecraft.util.math.vector.Vector4f(x, y, 0f, 1f);
-        net.minecraft.util.math.vector.Vector4f b = new net.minecraft.util.math.vector.Vector4f(x + w, y + h, 0f, 1f);
-        a.transform(m);
-        b.transform(m);
-        int x0 = (int) Math.floor(Math.min(a.x(), b.x()));
-        int y0 = (int) Math.floor(Math.min(a.y(), b.y()));
-        int x1 = (int) Math.ceil(Math.max(a.x(), b.x()));
-        int y1 = (int) Math.ceil(Math.max(a.y(), b.y()));
-        Ui.scissor(x0, y0, Math.max(0, x1 - x0), Math.max(0, y1 - y0));
-    }
-
-    /** O cifra de tambur: se rostogoleste vertical cand cifra de mai jos trece de la 9 la 0 (ultima cifra se misca continuu). */
-    private static void drum(GuiGraphics g, float x, float y, float cw, float ch, double pos, int i, boolean dec) {
-        double t = pos / Math.pow(10.0, i);
-        double base = Math.floor(t);
-        double f = t - base;
-        int digit = (int) (((long) base) % 10L);
-        float r = (float) (i == 0 ? f : Math.max(0.0, (f - 0.9) / 0.1));
-        r = r * r * (3f - 2f * r);
-        Gfx.rrect(g, x - 0.8f, y - 0.8f, cw + 1.6f, ch + 1.6f, 2.6f, DRUM_EDGE);
-        Gfx.rrect(g, x, y, cw, ch, 2f, dec ? DEC_BG : DRUM_BG);
-        clipBegin(g, x, y, cw, ch);
-        float size = ch * 0.78f;
-        int col = dec ? DEC_TXT : DRUM_TXT;
-        Gfx.text(g, String.valueOf(digit), x + cw / 2f, y + ch * 0.80f - r * ch, size, col, 1);
-        if (r > 0.001f) Gfx.text(g, String.valueOf((digit + 1) % 10), x + cw / 2f, y + ch * 0.80f + (1f - r) * ch, size, col, 1);
-        // umbra de cilindru sus/jos
-        Gfx.rrect(g, x, y, cw, ch * 0.30f, 0f, dec ? 0x55000000 : 0xAA000000, 0x00000000);
-        Gfx.rrect(g, x, y + ch * 0.70f, cw, ch * 0.30f, 0f, 0x00000000, dec ? 0x55000000 : 0xAA000000);
-        Ui.endScissor();
-    }
-
-    /** Odometru 000.000,0 (6 cifre + o zecimala pe fundal deschis), centrat la cx. */
-    private static void drawOdometer(GuiGraphics g, float cx, float y, float cw, float ch, double meters, long now) {
-        double pos = Math.min(9_999_999.0, Math.max(0.0, meters / 100.0)); // zecimi de km
-        float gap = 1.3f;
-        float sep = cw * 0.45f;
-        float total = 7 * cw + 6 * gap + 2 * sep;
-        float x = cx - total / 2f;
-        for (int i = 6; i >= 0; i--) {
-            drum(g, x, y, cw, ch, pos, i, i == 0);
-            x += cw + gap;
-            if (i == 4 || i == 1) {
-                Gfx.text(g, i == 4 ? "." : ",", x - gap / 2f + sep / 2f - 0.3f, y + ch * 0.92f, ch * 0.7f, 0xFFB8C2D1, 1);
-                x += sep;
-            }
-        }
-    }
-
-    /** Trip curent (A/B) langa odometru: selector A|B + 4 cifre si o zecimala; la resetare apare o bara de progres. */
-    private static void drawTrip(GuiGraphics g, float cx, float y) {
-        double meters = tripSel == 0 ? dispA : dispB;
-        double pos = Math.min(99_999.0, Math.max(0.0, meters / 100.0));
-        float cw = 6.2f;
-        float ch = 9f;
-        float gap = 1.1f;
-        float sep = 3f;
-        float pill = 7.5f;
-        float drumW = 5 * cw + 4 * gap + sep;
-        float total = 2 * pill + 1.5f + 5f + drumW + 4f + 8f;
-        float x = cx - total / 2f;
-        for (int k = 0; k < 2; k++) {
-            boolean on = tripSel == k;
-            Gfx.rrect(g, x, y, pill, ch, 2.4f, on ? 0xFF22D3EE : 0xFF1B2430);
-            Gfx.text(g, k == 0 ? "A" : "B", x + pill / 2f, y + ch * 0.80f, 7f, on ? 0xFF06222A : MUTED, 1);
-            x += pill + 1.5f;
-        }
-        x += 5f;
-        for (int i = 4; i >= 0; i--) {
-            drum(g, x, y, cw, ch, pos, i, i == 0);
-            x += cw + gap;
-            if (i == 1) {
-                Gfx.text(g, ",", x - gap / 2f + sep / 2f - 0.3f, y + ch * 0.95f, 6.5f, 0xFFB8C2D1, 1);
-                x += sep;
-            }
-        }
-        Gfx.text(g, "km", x + 3f, y + ch * 0.80f, 6.5f, MUTED, 0);
-        if (resetHeld > 0) {
-            float prog = Math.min(1f, resetHeld / 1000f);
-            Gfx.rrect(g, cx - total / 2f, y + ch + 2f, total, 2f, 1f, 0xFF1B2430);
-            Gfx.rrect(g, cx - total / 2f, y + ch + 2f, Math.max(1f, total * prog), 2f, 1f, 0xFFFF6A5E);
-        }
     }
 }
