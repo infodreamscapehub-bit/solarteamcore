@@ -622,11 +622,10 @@ final class RoadEditor {
             s.say("Bloc invalid.", false);
             return;
         }
-        if (!"minecraft".equals(rl.getNamespace())) {
-            s.say("Doar blocuri vanilla (" + rl + " nu e acceptat de scanare).", false);
-            return;
-        }
-        String name = rl.getPath().toUpperCase(java.util.Locale.ROOT);
+        // blocurile vanilla merg dupa nume (STONE); cele din alte moduri (Saro's Road Blocks etc.) dupa cheia completa
+        String name = "minecraft".equals(rl.getNamespace())
+            ? rl.getPath().toUpperCase(java.util.Locale.ROOT)
+            : rl.toString();
         if (blocks.contains(name)) {
             s.say(name + " e deja în listă.", false);
             return;

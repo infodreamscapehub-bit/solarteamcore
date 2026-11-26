@@ -728,6 +728,8 @@ public final class GpsModule extends JsonModule {
         int nz;
         int step;
         Set<Material> mats = new HashSet<>();
+        /** Chei complete de bloc ("saros_road_blocks_mod:asphalt"), pentru blocurile din alte moduri. */
+        Set<String> keys = new HashSet<>();
         byte[] road;
         int cursor;
         int loaded;
@@ -770,12 +772,18 @@ public final class GpsModule extends JsonModule {
         }
         if (j.has("blocks") && j.get("blocks").isJsonArray()) {
             for (JsonElement e : j.getAsJsonArray("blocks")) {
-                if (s.mats.size() >= 24) break;
-                Material m = Material.matchMaterial(e.getAsString());
-                if (m != null && m.isBlock()) s.mats.add(m);
+                if (s.mats.size() + s.keys.size() >= 24) break;
+                String raw = e.getAsString();
+                // forma veche: nume de Material vanilla (STONE); forma noua: cheia completa (mod:bloc)
+                Material m = Material.matchMaterial(raw);
+                if (m != null && m.isBlock()) {
+                    s.mats.add(m);
+                } else if (raw.indexOf(':') > 0) {
+                    s.keys.add(raw.toLowerCase(java.util.Locale.ROOT));
+                }
             }
         }
-        if (s.mats.isEmpty()) {
+        if (s.mats.isEmpty() && s.keys.isEmpty()) {
             reply(p, "scan.start", false, "Alege cel puțin un tip de bloc pentru drum.");
             return;
         }
@@ -789,6 +797,18 @@ public final class GpsModule extends JsonModule {
         Scan s = scan;
         scan = null;
         if (s != null && s.task != null) s.task.cancel();
+    }
+
+    /** Blocul e de tip drum? Materialele vanilla direct, cele din alte moduri (Saro's Road Blocks etc.) dupa cheie. */
+    private boolean matchRoad(Scan s, Block b) {
+        Material t = b.getType();
+        if (s.mats.contains(t)) return true;
+        if (s.keys.isEmpty()) return false;
+        try {
+            return s.keys.contains(t.getKey().toString().toLowerCase(java.util.Locale.ROOT));
+        } catch (RuntimeException | NoSuchMethodError e) {
+            return false;
+        }
     }
 
     private void scanTick(Scan s) {
@@ -806,7 +826,7 @@ public final class GpsModule extends JsonModule {
             if (!s.world.isChunkLoaded(x >> 4, z >> 4)) continue;
             s.loaded++;
             Block b = s.world.getHighestBlockAt(x, z);
-            if (s.mats.contains(b.getType()) || s.mats.contains(b.getRelative(0, -1, 0).getType())) s.road[idx] = 1;
+            if (matchRoad(s, b) || matchRoad(s, b.getRelative(0, -1, 0))) s.road[idx] = 1;
         }
         long now = System.currentTimeMillis();
         if (s.cursor < total) {
