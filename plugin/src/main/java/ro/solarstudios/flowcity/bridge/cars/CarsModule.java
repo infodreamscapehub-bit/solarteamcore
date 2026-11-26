@@ -165,13 +165,9 @@ public final class CarsModule extends JsonModule {
         on("pound_pay", this::poundPay);
         on("parking_fine", this::parkingFine);
         on("impound", this::impound);
-        on("fuel_info", (p, j) -> {
-            JsonObject o = new JsonObject();
-            o.addProperty("price", fuelPrice());
-            o.addProperty("money", plugin.money().balance(p.getUniqueId()));
-            send(p, "fuel_info", o);
-        });
+        on("fuel_info", (p, j) -> sendFuelInfo(p));
         on("fuel_buy", this::fuelBuy);
+        registerFuelCommand();
         // tag-urile de factiune pentru garaje: politistii din MDT primesc fc_politie, restul dupa permisiuni
         Bukkit.getScheduler().runTaskTimer(plugin, this::syncFactions, 100L, 400L);
     }
@@ -232,37 +228,184 @@ public final class CarsModule extends JsonModule {
         });
     }
 
+    // ------------------------------------------------------------------ benzinarie
+
     private double fuelPrice() {
         return Math.max(0, cfg.getDouble("fuel.price-per-liter", 8));
     }
 
-    /** Benzinarie: platesti litrii (cash sau card), apoi modul pune benzina in masina (fccars fuel). */
+    private double fuelMax() {
+        return Math.max(1, cfg.getDouble("fuel.max-liters", 120));
+    }
+
+    private int fuelSeconds() {
+        return Math.max(1, Math.min(120, cfg.getInt("fuel.seconds", 8)));
+    }
+
+    private boolean fuelMethod(String m) {
+        java.util.List<String> ms = cfg.getStringList("fuel.methods");
+        if (ms.isEmpty()) return true;
+        for (String s : ms) if (s.equalsIgnoreCase(m)) return true;
+        return false;
+    }
+
+    /** O alimentare platita, in curs: banii sunt luati, modul raporteaza cat a livrat si returnam diferenta. */
+    private static final class Fuelling {
+        final UUID player;
+        final int tx;
+        final boolean card;
+        final double liters;
+        final double paid;
+        double delivered;
+        long touched = System.currentTimeMillis();
+        boolean closed;
+
+        Fuelling(UUID player, int tx, boolean card, double liters, double paid) {
+            this.player = player;
+            this.tx = tx;
+            this.card = card;
+            this.liters = liters;
+            this.paid = paid;
+        }
+    }
+
+    private final Map<UUID, Fuelling> fuelling = new HashMap<>();
+    private int nextTx = 1;
+
+    private void sendFuelInfo(Player p) {
+        JsonObject o = new JsonObject();
+        o.addProperty("price", fuelPrice());
+        o.addProperty("max", fuelMax());
+        o.addProperty("seconds", fuelSeconds());
+        o.addProperty("cash", plugin.money().balance(p.getUniqueId()));
+        o.addProperty("bank", plugin.bank().balance(p.getUniqueId()));
+        o.addProperty("card", PayModule.instance != null && PayModule.instance.cardOk(p));
+        o.addProperty("money", plugin.money().balance(p.getUniqueId()));
+        o.addProperty("cashOk", fuelMethod("cash"));
+        o.addProperty("cardOk", fuelMethod("card"));
+        send(p, "fuel_info", o);
+    }
+
+    /**
+     * Benzinarie: jucatorul a ales litrii si metoda in meniu. Luam banii (cash sau card = contul bancar), apoi modul
+     * porneste alimentarea treptata. Daca pompa refuza, banii se intorc pe loc; daca alimentarea se intrerupe mai
+     * tarziu, modul raporteaza cat a livrat si returnam restul (vezi {@link #fuelReport}).
+     */
     private void fuelBuy(Player p, JsonObject j) {
         long now = System.currentTimeMillis();
-        if (now - lastBuy.getOrDefault(p.getUniqueId(), 0L) < 1500) return;
-        lastBuy.put(p.getUniqueId(), now);
-        int station = (int) num(j, "station", 0);
-        int entity = (int) num(j, "entity", 0);
-        double liters = Math.max(0, Math.min(200, num(j, "liters", 0)));
+        UUID u = p.getUniqueId();
+        if (now - lastBuy.getOrDefault(u, 0L) < 1200) return;
+        lastBuy.put(u, now);
+        if (fuelling.containsKey(u)) {
+            fuelReply(p, false, "Alimentezi deja: asteapta sa se termine.", 0, 0);
+            return;
+        }
+        double liters = Math.max(0, Math.min(fuelMax(), num(j, "liters", 0)));
         liters = Math.round(liters * 10) / 10.0;
-        double cost = Math.round(liters * fuelPrice() * 100) / 100.0;
-        if (station <= 0 || liters <= 0) {
+        String method = "card".equals(str(j, "method", "cash")) ? "card" : "cash";
+        if (liters <= 0.05) {
             fuelReply(p, false, "Alege cati litri vrei.", 0, 0);
             return;
         }
-        final double fl = liters;
-        PayModule.instance.request(p, "Benzina " + fl + " L", cost, () -> {
-            boolean done = console("fccars fuel " + p.getName() + " " + station + " " + entity + " " + (int) Math.round(fl * 1000));
-            if (done) fuelReply(p, true, "Ai alimentat " + fl + " L pentru " + cost + " lei.", fl, cost);
-            else fuelReply(p, false, "Pompa nu merge acum. Banii au fost returnati.", 0, 0);
-            return done;
-        }, msg -> fuelReply(p, false, msg, 0, 0));
+        if (!fuelMethod(method)) {
+            fuelReply(p, false, "Metoda de plata nu e acceptata la aceasta benzinarie.", 0, 0);
+            return;
+        }
+        double cost = Math.round(liters * fuelPrice() * 100) / 100.0;
+        PayModule.Charge ch = PayModule.instance.charge(p, method, cost, "Benzina " + liters + " L");
+        if (!ch.ok) {
+            fuelReply(p, false, ch.message, 0, 0);
+            return;
+        }
+        int tx = nextTx++;
+        boolean started = console("fccars fuelstart " + p.getName() + " " + (int) Math.round(liters * 1000) + " " + tx + " " + fuelSeconds());
+        if (!started) {
+            PayModule.instance.refund(p, ch.card, cost);
+            fuelReply(p, false, "Pompa nu poate alimenta acum. Banii au fost returnati.", 0, 0);
+            return;
+        }
+        fuelling.put(u, new Fuelling(u, tx, ch.card, liters, cost));
+        plugin.getLogger().info("Benzinarie: " + p.getName() + " tx#" + tx + " " + liters + " L, " + cost + " lei (" + method + ")");
+        fuelReply(p, true, "Plata acceptata. Alimentarea a inceput.", liters, cost);
+    }
+
+    /** Raport de la mod: cate unitati s-a livrat pana acum (1 L = 1000). La final returnam ce nu s-a livrat. */
+    private void fuelReport(String playerName, int tx, int units, boolean done) {
+        Player p = Bukkit.getPlayerExact(playerName);
+        UUID u = p != null ? p.getUniqueId() : Bukkit.getOfflinePlayer(playerName).getUniqueId();
+        Fuelling f = fuelling.get(u);
+        if (f == null || f.tx != tx || f.closed) return;
+        f.delivered = Math.max(f.delivered, Math.min(f.liters, units / 1000.0));
+        f.touched = System.currentTimeMillis();
+        if (!done) return;
+        closeFuelling(f, p);
+    }
+
+    private void closeFuelling(Fuelling f, Player p) {
+        if (f.closed) return;
+        f.closed = true;
+        fuelling.remove(f.player);
+        double delivered = Math.round(f.delivered * 10) / 10.0;
+        double used = Math.round(delivered * fuelPrice() * 100) / 100.0;
+        double back = Math.round((f.paid - used) * 100) / 100.0;
+        if (back > 0.009) {
+            if (p != null) PayModule.instance.refund(p, f.card, back);
+            else PayModule.instance.refund(f.player, f.card, back);
+        }
+        if (used > 0.009) {
+            String other = f.card ? "card" : "cash";
+            if (ro.solarstudios.flowcity.bridge.hype.HypeModule.instance != null) {
+                ro.solarstudios.flowcity.bridge.hype.HypeModule.instance.logTx(f.player, f.card ? "FUEL" : "FUEL_CASH", used, other);
+            }
+            plugin.service().logTransaction(f.player, f.card ? "FUEL_CARD" : "FUEL_CASH", used, "Benzinarie", delivered + " L");
+        }
+        if (p == null) return;
+        JsonObject o = new JsonObject();
+        o.addProperty("ok", true);
+        o.addProperty("end", true);
+        o.addProperty("liters", delivered);
+        o.addProperty("cost", used);
+        o.addProperty("back", Math.max(0, back));
+        o.addProperty("msg", back > 0.009
+            ? "Alimentare oprita: " + delivered + " L pentru " + used + " lei. Ti-am returnat " + back + " lei."
+            : "Ai alimentat " + delivered + " L pentru " + used + " lei.");
+        o.addProperty("money", plugin.money().balance(f.player));
+        send(p, "fuel_result", o);
+        if (plugin.notifications() != null) {
+            plugin.notifications().send(f.player, NotifyModule.Type.MONEY, "Benzinarie",
+                "Ai alimentat " + delivered + " L (" + used + " lei, " + (f.card ? "card" : "cash") + ").", "money");
+        }
+    }
+
+    /** Daca modul nu mai raporteaza (mod oprit, crash), inchidem sesiunea dupa un timp si returnam ce nu s-a livrat. */
+    private void fuelTimeouts() {
+        long now = System.currentTimeMillis();
+        for (Fuelling f : new java.util.ArrayList<>(fuelling.values())) {
+            if (now - f.touched > 60_000L) closeFuelling(f, Bukkit.getPlayer(f.player));
+        }
+    }
+
+    private void registerFuelCommand() {
+        Bukkit.getScheduler().runTaskTimer(plugin, this::fuelTimeouts, 200L, 200L);
+        Commands.register(plugin, "fcfuel", null, (s, c, l, a) -> {
+            // doar consola (modul): fcfuel report <jucator> <tx> <unitati> <0|1>
+            if (s instanceof Player) return true;
+            if (a.length >= 5 && "report".equalsIgnoreCase(a[0])) {
+                try {
+                    fuelReport(a[1], Integer.parseInt(a[2]), Integer.parseInt(a[3]), "1".equals(a[4]));
+                } catch (NumberFormatException ignored) {
+                    // raport invalid
+                }
+            }
+            return true;
+        }, null);
     }
 
     private void fuelReply(Player p, boolean ok, String msg, double liters, double cost) {
         JsonObject o = new JsonObject();
         o.addProperty("ok", ok);
         o.addProperty("msg", msg);
+        o.addProperty("end", false);
         if (ok) {
             o.addProperty("liters", liters);
             o.addProperty("cost", cost);

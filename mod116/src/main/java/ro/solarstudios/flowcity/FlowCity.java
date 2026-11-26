@@ -19,6 +19,7 @@ public class FlowCity {
         ro.solarstudios.flowcity.content.ModContent.register();
         ro.solarstudios.flowcity.cars.CarsNet.init();
         net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(new ro.solarstudios.flowcity.cars.CarsServer.Events());
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(new ro.solarstudios.flowcity.cars.FuelPumps.Events());
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> Bridge::init);
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> ClientInit::register);
     }

@@ -188,6 +188,21 @@ public final class GaragesClient {
                 if (mc.screen instanceof PoliceVehicleScreen) ((PoliceVehicleScreen) mc.screen).update(o);
                 else mc.setScreen(new PoliceVehicleScreen(o));
                 break;
+            case "fuel": {
+                // serverul a validat pompa si vehiculul: deschidem terminalul
+                net.minecraft.entity.Entity v = mc.level == null ? null : mc.level.getEntity(JsonClientModule.integer(o, "entity", -1));
+                if (v != null) {
+                    mc.setScreen(new FuelScreen(JsonClientModule.str(o, "name", "Benzinarie"), v,
+                        JsonClientModule.str(o, "vehicle", ""), (float) JsonClientModule.num(o, "cap", 0)));
+                }
+                break;
+            }
+            case "fuelprog":
+                if (mc.screen instanceof FuelScreen) {
+                    ((FuelScreen) mc.screen).progress(JsonClientModule.num(o, "bought", 0),
+                        JsonClientModule.num(o, "done", 0), JsonClientModule.bool(o, "end", false));
+                }
+                break;
             default:
                 break;
         }
@@ -264,7 +279,7 @@ public final class GaragesClient {
                     final S fs = st;
                     final Entity veh = root;
                     prompt = "Alimenteaza (" + st.name + ")";
-                    action = () -> Minecraft.getInstance().setScreen(new FuelScreen(fs.id, fs.name, veh));
+                    action = () -> CarsNet.send("fuelopen", veh.getId(), fs.id);
                 }
             }
         }

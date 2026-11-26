@@ -84,6 +84,12 @@ public final class CarsServer {
             case "trip":
                 resetTrip(p, data, a);
                 break;
+            case "fuelopen": {
+                GarageData.Station st = stationNear(p, data, b);
+                if (st == null) tell(p, "Nu esti la o benzinarie.");
+                else FuelPumps.openStation(p, st, a);
+                break;
+            }
             default:
                 break;
         }
@@ -462,6 +468,45 @@ public final class CarsServer {
         GarageData.Station st = data.station(id);
         if (st == null || !p.level.dimension().location().toString().equals(st.dim)) return null;
         return p.position().distanceTo(new Vector3d(st.x, st.y, st.z)) <= st.radius + 4 ? st : null;
+    }
+
+    /** Mesaj scurt deasupra barei de inventar. */
+    static void tell(ServerPlayerEntity p, String text) {
+        p.displayClientMessage(new StringTextComponent(text), true);
+    }
+
+    /** Benzina din rezervor, in unitati MrCrayfish (1 L = 1000). */
+    static float currentFuel(Entity v) {
+        Object o = callNum(v, "getCurrentFuel");
+        return o instanceof Number ? ((Number) o).floatValue() : 0f;
+    }
+
+    /** Capacitatea rezervorului, in unitati MrCrayfish. */
+    static float fuelCapacity(Entity v) {
+        Object o = callNum(v, "getFuelCapacity");
+        return o instanceof Number ? ((Number) o).floatValue() : 0f;
+    }
+
+    /** Vehiculul are rezervor si consuma benzina. */
+    static boolean hasTank(Entity v) {
+        if (v == null || !v.isAlive()) return false;
+        Object req = callNum(v, "requiresFuel");
+        if (req instanceof Boolean && !((Boolean) req)) return false;
+        return fuelCapacity(v) > 0;
+    }
+
+    private static Object callNum(Entity v, String name) {
+        try {
+            java.lang.reflect.Method m = findMethod(v.getClass(), name);
+            return m == null ? null : m.invoke(v);
+        } catch (ReflectiveOperationException | RuntimeException ex) {
+            return null;
+        }
+    }
+
+    /** Varianta publica in pachet pentru alimentarea treptata (vezi FuelPumps). */
+    static boolean addFuelUnits(Entity v, float units) {
+        return addFuel(v, units);
     }
 
     /** Pune benzina in vehicul (MrCrayfish: addFuel sau setCurrentFuel, prin reflexie). */
@@ -1435,6 +1480,18 @@ public final class CarsServer {
                             if (stationNear(p, data, IntegerArgumentType.getInteger(c, "station")) == null) return fail(c, "Jucatorul nu e la benzinarie.");
                             Entity v = p.level.getEntity(IntegerArgumentType.getInteger(c, "entity"));
                             if (v == null || v.distanceTo(p) > 10 || !addFuel(v, IntegerArgumentType.getInteger(c, "units"))) return fail(c, "Vehiculul nu poate fi alimentat.");
+                            return 1;
+                        }))))))
+            // benzinarie 2.0: alimentare pe durata, cu raport catre plugin (vezi FuelPumps)
+            .then(Commands.literal("fuelstart").then(Commands.argument("player", EntityArgument.player())
+                .then(Commands.argument("units", IntegerArgumentType.integer(1, 1_000_000))
+                    .then(Commands.argument("tx", IntegerArgumentType.integer(1))
+                        .then(Commands.argument("seconds", IntegerArgumentType.integer(1, 120)).executes(c -> {
+                            ServerPlayerEntity p = EntityArgument.getPlayer(c, "player");
+                            if (!FuelPumps.start(p, IntegerArgumentType.getInteger(c, "units"),
+                                IntegerArgumentType.getInteger(c, "tx"), IntegerArgumentType.getInteger(c, "seconds"))) {
+                                return fail(c, "Pompa nu poate porni alimentarea.");
+                            }
                             return 1;
                         }))))))
             // cheie noua pentru o masina (cele vechi nu mai merg)

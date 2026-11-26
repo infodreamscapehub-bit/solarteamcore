@@ -77,6 +77,9 @@ public final class AtmScreen extends FlowScreen {
             case "WITHDRAW": return "Retragere";
             case "TRANSFER_OUT": return "Transfer catre";
             case "TRANSFER_IN": return "Primit de la";
+            case "PAYDAY": return "Salariu";
+            case "FUEL": return "Benzinarie (card)";
+            case "FUEL_CASH": return "Benzinarie (cash)";
             default: return type;
         }
     }
@@ -205,13 +208,14 @@ public final class AtmScreen extends FlowScreen {
                 if (shown >= 11 || !el.isJsonObject()) break;
                 JsonObject h = el.getAsJsonObject();
                 String type = JsonClientModule.str(h, "t", "");
-                boolean plus = type.equals("TRANSFER_IN") || type.equals("DEPOSIT");
+                boolean plus = type.equals("TRANSFER_IN") || type.equals("DEPOSIT") || type.equals("PAYDAY");
                 String who = JsonClientModule.str(h, "o", "");
-                String left = label(type) + (who.isEmpty() ? "" : " " + who);
+                boolean detail = type.startsWith("FUEL") || type.equals("PAYDAY");
+                String left = label(type) + (who.isEmpty() || detail ? "" : " " + who);
                 Sk.slant(ms, hx, hy, hw, 17, 4f, shown % 2 == 0 ? Sk.ROW : Sk.ROW_HOT);
                 Gfx.rrect(ms, hx + 7, hy + 4, 2, 9, 0, plus ? Sk.GOOD : Sk.MUTED);
                 Gfx.text(ms, clip(left, 7.4f, false, hw - 96), hx + 14, hy + 5.5f, 7.4f, Sk.WHITE, 0);
-                Gfx.text(ms, (type.equals("TRANSFER_IN") ? "+" : "") + money(JsonClientModule.num(h, "a", 0)), hx + hw - 10, hy + 5.5f, 7.4f, plus ? Sk.GOOD : Sk.MUTED, 2);
+                Gfx.text(ms, (type.equals("TRANSFER_IN") || type.equals("PAYDAY") ? "+" : "") + money(JsonClientModule.num(h, "a", 0)), hx + hw - 10, hy + 5.5f, 7.4f, plus ? Sk.GOOD : Sk.MUTED, 2);
                 hy += 19;
                 shown++;
             }

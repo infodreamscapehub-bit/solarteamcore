@@ -65,6 +65,60 @@ public final class PayModule extends JsonModule {
         instance = null;
     }
 
+    /** Rezultatul unei plati directe (metoda aleasa deja in interfata, fara promptul "cash sau card"). */
+    public static final class Charge {
+        public final boolean ok;
+        public final String message;
+        public final boolean card;
+
+        Charge(boolean ok, String message, boolean card) {
+            this.ok = ok;
+            this.message = message;
+            this.card = card;
+        }
+    }
+
+    /**
+     * Ia banii imediat, cu metoda ceruta de interfata ("cash" sau "card"). Cardul e doar un mijloc de acces la contul
+     * bancar: banii se iau din banca, nu dintr-un sold separat. Intoarce rezultatul, fara sa trimita nimic clientului.
+     */
+    public Charge charge(Player p, String method, double amount, String label) {
+        amount = Math.round(amount * 100.0) / 100.0;
+        if (amount <= 0) return new Charge(true, "", false);
+        UUID u = p.getUniqueId();
+        boolean card = "card".equals(method);
+        if (card) {
+            if (!hasCard(p)) return new Charge(false, "Nu detii un card bancar valid.", true);
+            if (!plugin.bank().has(u, amount)) return new Charge(false, "Fonduri insuficiente in cont.", true);
+            if (!plugin.bank().withdraw(u, amount)) return new Charge(false, "Tranzactia a fost refuzata de banca.", true);
+            return new Charge(true, label, true);
+        }
+        if (!plugin.money().has(u, amount)) return new Charge(false, "Nu ai destui bani cash.", false);
+        if (!plugin.money().withdraw(u, amount)) return new Charge(false, "Tranzactia a esuat.", false);
+        return new Charge(true, label, false);
+    }
+
+    /** Returneaza bani luati cu {@link #charge}, pe acelasi drum (cash sau banca). */
+    public void refund(Player p, boolean card, double amount) {
+        amount = Math.round(amount * 100.0) / 100.0;
+        if (amount <= 0) return;
+        if (card) plugin.bank().deposit(p.getUniqueId(), amount);
+        else plugin.money().deposit(p.getUniqueId(), amount);
+    }
+
+    /** Returneaza bani unui jucator offline (sesiune intrerupta). */
+    public void refund(UUID u, boolean card, double amount) {
+        amount = Math.round(amount * 100.0) / 100.0;
+        if (amount <= 0) return;
+        if (card) plugin.bank().deposit(u, amount);
+        else plugin.money().deposit(u, amount);
+    }
+
+    /** Jucatorul are un card bancar valid in inventar (sau permisiunea care tine loc de card). */
+    public boolean cardOk(Player p) {
+        return hasCard(p);
+    }
+
     private boolean hasCard(Player p) {
         if (p.hasPermission("flowcity.hype.atm.nocard")) return true;
         if (AtmService.isCard(p.getInventory().getItemInOffHand())) return true;

@@ -113,6 +113,9 @@ public final class HypeModule extends JsonModule implements Listener {
     private final Map<UUID, Trip> trips = new HashMap<>();
     private final java.util.Random rnd = new java.util.Random();
 
+    /** Instanta activa, pentru modulele care scriu in istoricul bancar (PayDay, benzinarie). */
+    public static HypeModule instance;
+
     private YamlConfiguration cfg;
     private HypeDb hdb;
     private AtmService atm;
@@ -128,10 +131,26 @@ public final class HypeModule extends JsonModule implements Listener {
         return "hype";
     }
 
+    /**
+     * Scrie o linie in istoricul de tranzactii al jucatorului (cel aratat la ATM si in aplicatia bancara).
+     * Folosit de PayDay (tip PAYDAY) si de benzinarie (FUEL / FUEL_CASH).
+     */
+    public void logTx(UUID u, String type, double amount, String other) {
+        if (hdb == null) return;
+        long now = System.currentTimeMillis();
+        PlayerData d = data.get(u);
+        if (d != null) {
+            d.history.add(0, new HypeDb.AtmEntry(type, amount, 0, other, now));
+            while (d.history.size() > 20) d.history.remove(d.history.size() - 1);
+        }
+        hdb.addTx(u, type, amount, 0, other == null ? "" : other, now);
+    }
+
     // ------------------------------------------------------------------ pornire
 
     @Override
     protected void onEnable() {
+        instance = this;
         cfg = ModConfig.load(plugin, "hype");
         try {
             Db db = new Db(new File(plugin.getDataFolder(), "hype.db"), plugin.getLogger());

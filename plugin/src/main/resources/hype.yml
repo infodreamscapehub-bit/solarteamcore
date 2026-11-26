@@ -440,8 +440,14 @@ sell:
   max-cars-per-player: 10
 
 # Benzinarii (statiile le pune adminul in joc: /benzinarie creeaza <nume>)
+# Benzinarie: jucatorul da click dreapta pe pompa (MrCrayfish) sau apasa tasta de interactiune intr-o zona de
+# benzinarie, alege litrii si plateste cash sau cu cardul (cardul ia banii din contul bancar, nu are sold propriu).
+# Benzina curge pe durata de mai jos; daca alimentarea se intrerupe, se plateste doar ce a intrat in rezervor.
 fuel:
   price-per-liter: 8
+  max-liters: 120          # cat poate cumpara dintr-o data
+  seconds: 8               # cat dureaza alimentarea completa
+  methods: [cash, card]    # metodele acceptate; lasa doar una daca vrei sa limitezi
 
 # Amenzi platite de jucator (/amenzi). Dupa plata se ruleaza aceste comenzi din consola; %player% = cel care plateste,
 # %amount% = suma. De ex. ca banii sa ajunga la un cont: "eco give politia %amount%". Gol = banii dispar pur si simplu.

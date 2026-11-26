@@ -11,6 +11,25 @@ public final class CarsClient extends JsonClientModule {
     private static CarsClient instance;
     public static JsonArray catalog = new JsonArray();
     public static double money;
+
+    /** Benzina din rezervorul unui vehicul MrCrayfish, in litri (-1 daca vehiculul nu are rezervor). */
+    public static float fuelOf(net.minecraft.entity.Entity v) {
+        if (v == null) return -1;
+        Class<?> c = v.getClass();
+        while (c != null) {
+            try {
+                java.lang.reflect.Method m = c.getDeclaredMethod("getCurrentFuel");
+                m.setAccessible(true);
+                Object o = m.invoke(v);
+                return o instanceof Number ? ((Number) o).floatValue() / 1000f : -1;
+            } catch (NoSuchMethodException e) {
+                c = c.getSuperclass();
+            } catch (ReflectiveOperationException | RuntimeException e) {
+                return -1;
+            }
+        }
+        return -1;
+    }
     public static double poundFee = 500;
     /** Oferta pregatita cu /vindmasina (se aplica in meniul garajului). */
     public static String sellBuyer = "";
@@ -52,13 +71,16 @@ public final class CarsClient extends JsonClientModule {
             }
         });
         on("fuel_info", d -> {
-            FuelScreen.info(num(d, "price", 8));
+            FuelScreen.info(num(d, "price", 8), num(d, "cash", 0), num(d, "bank", 0),
+                bool(d, "card", false), bool(d, "cashOk", true), bool(d, "cardOk", true));
             money = num(d, "money", money);
         });
         on("fuel_result", d -> {
             money = num(d, "money", money);
             Minecraft mc = Minecraft.getInstance();
-            if (mc.screen instanceof FuelScreen) ((FuelScreen) mc.screen).result(bool(d, "ok", false), str(d, "msg", ""), num(d, "liters", 0));
+            if (mc.screen instanceof FuelScreen) {
+                ((FuelScreen) mc.screen).result(bool(d, "ok", false), str(d, "msg", ""), num(d, "liters", 0), bool(d, "end", false));
+            }
         });
         on("sell_prefill", d -> {
             sellBuyer = str(d, "buyer", "");
