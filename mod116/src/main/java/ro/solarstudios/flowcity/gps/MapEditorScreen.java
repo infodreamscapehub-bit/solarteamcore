@@ -1427,9 +1427,14 @@ public final class MapEditorScreen extends FlowScreen {
             });
         }
         Gfx.text(g, locRows.size() + " locații", x, listBottom + 12, 7f, Sk.FAINT, 0);
-        btn(g, "+ LOCAȚIE NOUĂ", x, bottom - 34, w, 34, placing ? 4 : 0, mx, my, () -> {
+        float bw2 = (w - 6f) / 2f;
+        btn(g, "+ LOCAȚIE NOUĂ", x, bottom - 34, bw2, 34, placing ? 4 : 0, mx, my, () -> {
             placing = true;
             say("Click pe hartă pentru a alege punctul.", true);
+        });
+        btn(g, "IMPORTĂ", x + bw2 + 6f, bottom - 34, bw2, 34, 1, mx, my, () -> {
+            say("Se importă din gps/import/waypoints.txt...", true);
+            send("import.locs", new JsonObject());
         });
     }
 

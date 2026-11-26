@@ -268,6 +268,99 @@ public final class GpsModule extends JsonModule {
         return a / 2d;
     }
 
+    /**
+     * Importa locatii dintr-un fisier de waypoint-uri (format Xaero) pus in {@code gps/import/waypoints.txt}.
+     * Creeaza categoriile lipsa, sare peste locatiile care exista deja si nu sterge nimic.
+     */
+    private String importLocs() {
+        java.io.File f = WaypointImport.file(store);
+        if (!f.isFile()) {
+            WaypointImport.folder(store).mkdirs();
+            // lasa exemplul langa el, ca sa se vada formatul asteptat
+            java.io.File ex = new java.io.File(WaypointImport.folder(store), "exemplu.txt");
+            if (!ex.exists() && plugin.getResource("gps-import-exemplu.txt") != null) {
+                try (java.io.InputStream in = plugin.getResource("gps-import-exemplu.txt")) {
+                    java.nio.file.Files.copy(in, ex.toPath());
+                } catch (java.io.IOException ignored) {
+                    // exemplul e optional
+                }
+            }
+            return "Pune fisierul in " + f.getPath() + " si incearca din nou (vezi exemplu.txt de langa el).";
+        }
+        WaypointImport.Result r;
+        try {
+            r = WaypointImport.read(f);
+        } catch (java.io.IOException e) {
+            plugin.getLogger().warning("[GPS] Nu pot citi " + f.getPath() + ": " + e);
+            return "Nu pot citi fisierul (vezi consola).";
+        }
+        if (r.entries.isEmpty()) return "Fisierul nu contine waypoint-uri valide.";
+
+        int added = 0;
+        int skipped = 0;
+        int newCats = 0;
+        for (WaypointImport.Entry e : r.entries) {
+            if (store.locs.size() >= GpsStore.MAX_LOCS) {
+                skipped += r.entries.size() - added - skipped;
+                break;
+            }
+            if (hasLoc(e.name, e.x, e.z)) {
+                skipped++;
+                continue;
+            }
+            GpsStore.Cat cat = catByName(e.cat);
+            if (cat == null) {
+                if (store.cats.size() >= GpsStore.MAX_CATS) {
+                    skipped++;
+                    continue;
+                }
+                cat = new GpsStore.Cat();
+                cat.name = e.cat;
+                cat.icon = WaypointImport.iconFor(e.cat);
+                cat.color = WaypointImport.colorFor(e.cat);
+                cat.enabled = true;
+                String base = slugUpper(e.cat);
+                String id = base;
+                int i = 2;
+                while (store.cat(id) != null) id = base + "_" + (i++);
+                cat.id = id;
+                store.cats.add(cat);
+                newCats++;
+            }
+            GpsStore.Loc l = new GpsStore.Loc();
+            l.name = e.name;
+            l.cat = cat.id;
+            l.x = e.x;
+            l.z = e.z;
+            l.enabled = true;
+            l.id = store.uniqueId(l.name, false);
+            store.locs.add(l);
+            added++;
+        }
+        if (newCats > 0) store.saveCats(true);
+        if (added > 0) store.saveLocs(true);
+        okMsg = "Import: " + added + " locatii noi, " + (skipped + r.duplicates) + " sarite"
+            + (newCats > 0 ? ", " + newCats + " categorii create" : "")
+            + (r.bad > 0 ? ", " + r.bad + " linii gresite" : "") + ".";
+        return null;
+    }
+
+    /** Exista deja o locatie cu acelasi nume, aproape de aceste coordonate? */
+    private boolean hasLoc(String name, double x, double z) {
+        for (GpsStore.Loc l : store.locs) {
+            if (!l.name.equalsIgnoreCase(name)) continue;
+            double dx = l.x - x;
+            double dz = l.z - z;
+            if (dx * dx + dz * dz <= 24d * 24d) return true;
+        }
+        return false;
+    }
+
+    private GpsStore.Cat catByName(String name) {
+        for (GpsStore.Cat c : store.cats) if (c.name.equalsIgnoreCase(name)) return c;
+        return null;
+    }
+
     private String applyLoc(GpsStore.Loc l, JsonObject j, boolean create) {
         if (create) {
             for (String k : new String[] {"name", "cat", "x", "z"}) if (!j.has(k)) return "Lipsește câmpul '" + k + "'.";
@@ -481,6 +574,9 @@ public final class GpsModule extends JsonModule {
                 store.saveZones(true);
                 okMsg = "Zonă ștearsă: " + z.name;
                 return null;
+            }
+            case "import.locs": {
+                return importLocs();
             }
             case "cat.add": {
                 if (store.cats.size() >= GpsStore.MAX_CATS) return "Prea multe categorii (max " + GpsStore.MAX_CATS + ").";

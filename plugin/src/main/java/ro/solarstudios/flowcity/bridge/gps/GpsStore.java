@@ -154,6 +154,7 @@ final class GpsStore {
     }
 
     private final File dir;
+
     private final File backups;
     private final Logger log;
     private final Gson gson = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
@@ -167,6 +168,11 @@ final class GpsStore {
     Settings settings = new Settings();
     RoadFile roads = new RoadFile();
     private final Gson compact = new Gson();
+
+    /** Folderul gps/ al pluginului (acolo stau si fisierele de import). */
+    File folder() {
+        return dir;
+    }
 
     GpsStore(File pluginDir, Logger log) {
         this.dir = new File(pluginDir, "gps");

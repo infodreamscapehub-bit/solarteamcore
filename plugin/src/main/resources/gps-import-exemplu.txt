@@ -1,0 +1,78 @@
+# FlowCity - exemplu de fisier pentru importul locatiilor GPS
+#
+# Pune fisierul pe server in: plugins/FlowCityBridge/gps/import/waypoints.txt
+# Apoi, in joc: GPS -> Editor harta -> fila LOCATII -> butonul IMPORTA.
+#
+# Format (acelasi ca la Xaero's Minimap):
+#   waypoint:nume:initiala:x:y:z:culoare:ascuns:tip:set:rotate_on_tp:tp_yaw:visibility_type
+# Se folosesc numele, x si z. Inaltimea (y) nu se pastreaza: locatiile GPS sunt pe harta 2D.
+# Categoria se ghiceste din nume (benzinarie, politie, spital, banca, casa, shop, ...).
+# Liniile care incep cu # sunt ignorate.
+#
+#waypoint:name:initials:x:y:z:color:disabled:type:set:rotate_on_tp:tp_yaw:visibility_type:destination
+#
+waypoint:ʜᴏᴛᴇʟ sᴏʟᴀʀᴄɪᴛʏ:ʜ:-456:156:264:0:false:0:gui.xaero_default:false:0:0:false
+waypoint:taxi:T:-56:65:156:8:false:0:gui.xaero_default:false:0:0:false
+waypoint:cafenea:C:-104:78:-124:10:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴄᴏɴᴀᴄ:ᴄ:416:81:465:10:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴅᴇᴘᴏᴢɪᴛ:ᴅ:480:256:351:10:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴄᴀꜱᴀ #23:ᴄ:394:74:314:4:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴄᴀꜱᴀ #22:ᴄ:401:78:279:9:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴄᴀꜱᴀ #21:ᴄ:413:83:244:8:false:0:gui.xaero_default:false:0:0:false
+waypoint:ꜱᴛᴀᴅɪᴏɴ:ꜱ:330:99:412:3:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴍᴇᴄᴀɴɪᴄ:ᴍ:434:64:97:4:false:0:gui.xaero_default:false:0:0:false
+waypoint:ꜱʜᴏᴘ:ꜱ:383:74:-22:3:false:0:gui.xaero_default:false:0:0:false
+waypoint:casa #20:C:304:89:-134:11:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴄᴀꜱᴀ #17:ᴄ:272:77:-220:1:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴄᴀꜱᴀ #16:ᴄ:227:77:-227:13:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴄᴀꜱᴀ #15:ᴄ:231:70:-206:5:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴄᴀꜱᴀ #14:ᴄ:227:69:-181:7:false:0:gui.xaero_default:false:0:0:false
+waypoint:casa #13:C:208:83:-152:6:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴄᴀꜱᴀ #12:ᴄ:150:78:-161:3:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴄᴀꜱᴀ #11:ᴄ:106:75:-156:2:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴄᴀꜱᴀ #10:ᴄ:14:90:-194:10:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴄᴀꜱᴀ #9:ᴄ:-37:74:-190:5:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴄᴀꜱᴀ #8:ᴄ:-321:76:-191:10:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴄᴀꜱᴀ #7:ᴄ:-364:74:-190:9:false:0:gui.xaero_default:false:0:0:false
+waypoint:casa #6:C:-418:88:-186:3:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴄᴀꜱᴀ #4:ᴄ:-524:75:-167:10:false:0:gui.xaero_default:false:0:0:false
+waypoint:casa #5:C:-598:75:-81:14:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴄᴀꜱᴀ #3:ᴄ:-542:72:-198:6:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴄᴀꜱᴀ #2:ᴄ:-568:73:-175:13:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴄᴀꜱᴀ #1:ᴄ:-569:65:-140:3:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴄᴀꜱᴇ ɴᴏʀᴅ:ᴄ:-303:66:-210:6:false:0:gui.xaero_default:false:0:0:false
+waypoint:ʙᴀɴᴄᴀ:ʙ:-317:79:-67:4:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴀᴘᴀʀᴛᴀᴍᴇɴᴛᴇ :ᴀ:-321:132:-16:1:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴅᴇᴀʟᴇʀꜱʜɪᴘ:ᴅ:-440:77:54:11:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴍᴇᴛʀᴏ ꜱᴛᴀᴛɪᴏɴ ꜰᴇꜱᴛɪᴠᴀʟ:ᴍ:756:63:688:3:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴘᴇɴᴛʜᴏᴜꜱᴇ:ᴘ:130:127:155:6:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴇʟ ᴄᴏʀʟᴇᴏɴᴇ:ᴇ:-444:105:-796:4:false:0:gui.xaero_default:false:0:0:false
+waypoint:ʙᴇɴᴢɪɴᴀʀɪᴇ:ʙ:-493:84:-746:10:false:0:gui.xaero_default:false:0:0:false
+waypoint:ʙᴇɴᴢɪɴᴀʀɪᴇ:ʙ:314:70:-877:6:false:0:gui.xaero_default:false:0:0:false
+waypoint:ʙᴇɴᴢɪɴᴀʀɪᴇ:ʙ:314:70:-877:6:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴘᴀʀᴋɪɴɢ :ᴘ:-122:64:83:8:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴄᴀꜱᴇ 1:ᴄ:-162:65:-36:13:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴘᴀʀᴄᴀʀᴇ ꜱᴜʙᴛᴇʀᴀɴᴀ:ᴘ:-254:83:-83:13:false:0:gui.xaero_default:false:0:0:false
+waypoint:ʙᴇɴᴢɪɴᴀʀɪᴇ:ʙ:-249:65:-128:1:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴘᴀʀᴄ ᴅᴇ ᴅɪꜱᴛʀᴀᴄᴛɪɪ:ᴘ:-672:66:29:12:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴍᴀɢᴇɴᴛᴀ ʀᴇᴢɪᴅᴇɴᴄᴇ:ᴍ:158:75:-440:5:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴍᴀɢᴇɴᴛᴀ:ᴍ:-435:144:-506:13:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴄᴇɴᴛʀᴀʟᴀ ɴᴜᴄʟᴇᴀʀᴀ:ᴄ:-247:137:-538:2:false:0:gui.xaero_default:false:0:0:false
+waypoint:ɪɴᴄʜɪꜱᴏᴀʀᴇ:ɪ:-229:108:-408:11:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴘʟᴀᴊᴀ:ᴘ:-724:63:77:4:false:0:gui.xaero_default:false:0:0:false
+waypoint:ꜱᴏʟᴀʀꜰᴇꜱᴛɪᴠᴀʟ:ꜱ:821:63:456:4:false:0:gui.xaero_default:false:0:0:false
+waypoint:ꜱᴇᴄᴛɪᴀ ᴅᴇ ᴘᴏʟɪᴛɪᴇ ꜱᴏʟᴀʀ ᴄɪᴛʏ :ꜱ:-220:86:157:1:false:0:gui.xaero_default:false:0:0:false
+waypoint:ꜱᴇᴄᴛɪᴀ ᴅᴇ ᴘᴏʟɪᴛɪᴇ ꜱᴏʟᴀʀ ᴄɪᴛʏ :ꜱ:366:94:-88:1:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴠᴀᴍᴀ ʟᴇɢᴀʟᴀ 3:ᴠ:457:68:-232:3:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴠᴀᴍᴀ ʟᴇɢᴀʟᴀ 2:ᴠ:57:68:-219:3:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴠᴀᴍᴀ ʟᴇɢᴀʟᴀ :ᴠ:-512:67:-234:3:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴀᴇʀᴏᴘᴏʀᴛ:ᴀ:-334:78:573:6:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴘᴏʀᴛ:ᴘ:174:256:473:6:false:0:gui.xaero_default:false:0:0:false
+waypoint:ꜱᴘɪᴛᴀʟ:ꜱ:33:95:263:4:false:0:gui.xaero_default:false:0:0:false
+waypoint:ʙᴀɴᴄᴀ ɴᴀᴛɪᴏɴᴀʟᴀ:ʙ:28:256:60:3:false:0:gui.xaero_default:false:0:0:false
+waypoint:ᴘʀɪᴍᴀʀɪᴇ:ᴘ:282:140:91:13:false:0:gui.xaero_default:false:0:0:false
+waypoint:kfc:K:-108:76:273:4:false:0:gui.xaero_default:false:0:0:false
+waypoint:fermier:F:521:69:-143:6:false:0:gui.xaero_default:false:0:0:false
+waypoint:ꜰᴇʀᴍɪᴇʀ:F:521:69:-143:6:false:0:gui.xaero_default:false:0:0:false
+waypoint:kfc nord:S:-85:74:-213:4:false:0:gui.xaero_default:false:0:0:false
+waypoint:CAYO:C:519:69:937:3:false:0:gui.xaero_default:false:0:0:false
