@@ -105,6 +105,7 @@ public final class GpsScreen extends FlowScreen {
     private float mapCx;
     private float mapCy;
     private boolean compact;
+    private boolean detailOverlay;
 
     public GpsScreen() {
         super("GPS", 520, 290);
@@ -358,7 +359,8 @@ public final class GpsScreen extends FlowScreen {
     // ------------------------------------------------------------------ input
 
     private boolean overMap(double mx, double my) {
-        return page == P_MAP && mx >= cx0 && mx < cx1 && my >= cy0 && my < cy1;
+        if (page != P_MAP || mx < cx0 || mx >= cx1 || my < cy0 || my >= cy1) return false;
+        return !(detailOverlay && detail > 0.05f && mx > width - detailW);
     }
 
     @Override
@@ -580,10 +582,13 @@ public final class GpsScreen extends FlowScreen {
         compact = width < 620;
         railW = compact ? 54f * s : Math.max(150f, Math.min(186f, width * 0.195f)) * s;
         headH = 52f * s;
-        detailW = Math.min(width - railW - 120f, Math.max(206f, Math.min(286f, width * 0.27f)) * s);
+        detailW = Math.max(190f, Math.min(286f, width * 0.27f)) * s;
+        detailW = Math.min(detailW, Math.max(190f, width - railW - 40f));
+        // pe ecrane inguste panoul de detalii se asaza peste continut, ca sa nu il striveasca
+        detailOverlay = width - railW - detailW < 250f;
         cx0 = railW;
         cy0 = headH;
-        cx1 = width - detailW * detail;
+        cx1 = width - detailW * (detailOverlay ? 0f : detail);
         cy1 = height;
         mapCx = cx0 + (cx1 - cx0) / 2f;
         mapCy = cy0 + (cy1 - cy0) / 2f;
@@ -596,6 +601,12 @@ public final class GpsScreen extends FlowScreen {
         Ui.scissor(Math.round(cx0), Math.round(cy0), Math.round(mw), Math.round(cy1 - cy0));
         Gfx.rrect(g, cx0, cy0, mw, cy1 - cy0, 0, 0xFF0A0D13);
         GpsMap.draw(g, camX, camZ, zoom, mapCx, mapCy, width, height, open);
+        if (page != P_MAP) {
+            // harta ramane doar fundal: nu mai desenam ce oricum nu se vede prin voal
+            Ui.endScissor();
+            Gfx.rrect(g, cx0, cy0, mw, cy1 - cy0, 0, GpsTheme.SCRIM);
+            return;
+        }
         if (GpsPrefs.grid) drawGrid(g);
         if (GpsPrefs.showZones != null ? GpsPrefs.showZones : GpsData.showZonesDefault) drawZones(g);
         if (GpsPrefs.layerOn("roads") && RoadNet.hasRoads()) {
@@ -607,12 +618,7 @@ public final class GpsScreen extends FlowScreen {
         GpsData.Loc hover = drawMarkers(g, mc, mx, my, t);
         drawPlayer(g, mc, t);
         Ui.endScissor();
-        if (page != P_MAP) {
-            // paginile acopera harta: un voal, ca textul sa ramana lizibil
-            Gfx.rrect(g, cx0, cy0, mw, cy1 - cy0, 0, GpsTheme.SCRIM);
-        } else if (hover != null && GpsUi.in(mx, my, cx0, cy0, cx1 - cx0, cy1 - cy0)) {
-            tooltip(g, hover, mx, my);
-        }
+        if (hover != null && GpsUi.in(mx, my, cx0, cy0, cx1 - cx0, cy1 - cy0)) tooltip(g, hover, mx, my);
     }
 
     private void drawGrid(GuiGraphics g) {
@@ -820,7 +826,7 @@ public final class GpsScreen extends FlowScreen {
             if (!compact) Gfx.text(g, NAV_NAME[i], 42f * s, y + itemH / 2f + 3.4f * s, 9.2f * s, fg, 0, true, 0.1f);
             final int pi = i;
             hitF(6f, y, railW - 12f, itemH, () -> {
-                if (pi != P_LOC) catFilter = "";
+                if (pi == P_LOC) catFilter = "";
                 go(pi);
             });
             // numarul de favorite, ca pastila discreta
@@ -870,7 +876,8 @@ public final class GpsScreen extends FlowScreen {
         float x = railW + GpsTheme.S4;
         String title = page == P_SEARCH ? "Căutare" : NAV_NAME[page];
         Gfx.text(g, title, x, 22f * s, 13.6f * s, GpsTheme.TEXT, 0, true, 0.2f);
-        Gfx.text(g, clip(PAGE_SUB[page], 7.6f * s, true, Math.max(60f, width - railW - 330f)), x, 36f * s, 7.6f * s, GpsTheme.MUTED, 0, true, 0f);
+        float subW = width - railW - 340f * s;
+        if (subW > 70f) Gfx.text(g, clip(PAGE_SUB[page], 7.6f * s, true, subW), x, 36f * s, 7.6f * s, GpsTheme.MUTED, 0, true, 0f);
 
         // inchidere
         float cs = 28f * s;
@@ -1174,6 +1181,12 @@ public final class GpsScreen extends FlowScreen {
             return;
         }
         if (catFilter.isEmpty()) {
+            if (counts.isEmpty()) {
+                GpsUi.empty(g, "pin", "Nicio locație aici", "Serverul nu are locații în lumea în care te afli.",
+                    mapCx, cy0 + (cy1 - cy0) / 2f - 20f, w - 40f);
+                contentH = 0f;
+                return;
+            }
             y = sectionHeader(g, "CATEGORII", y, null, null, mx, my);
             int n = Math.max(1, (int) ((w + GpsTheme.S2) / (168f * s)));
             float gap = GpsTheme.S2;
@@ -1192,10 +1205,6 @@ public final class GpsScreen extends FlowScreen {
             }
             int rows = (i + n - 1) / n;
             y += rows * (62f * s + gap) + GpsTheme.S3;
-            if (counts.isEmpty()) {
-                GpsUi.empty(g, "pin", "Nicio locație aici", "Serverul nu are locații în lumea asta.", mapCx, cy0 + 150f, w - 40f);
-                y += 120f;
-            }
             contentH = y - py0() + GpsTheme.S5;
             return;
         }
@@ -1593,6 +1602,8 @@ public final class GpsScreen extends FlowScreen {
         GpsData.Loc l = selected;
         float w = detailW;
         float x = width - w * detail;
+        hitF(x, cy0, w, height - cy0, () -> {});
+        if (detailOverlay) GpsTheme.shadow(g, x, cy0, w, height - cy0, 0f);
         Gfx.rrect(g, x, cy0, w, height - cy0, 0, GpsTheme.BG2);
         Gfx.rrect(g, x, cy0, 1f, height - cy0, 0, GpsTheme.LINE);
         float px = x + GpsTheme.S4;
