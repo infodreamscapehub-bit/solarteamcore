@@ -137,7 +137,7 @@ public final class ElecCfg {
             {"cleste", "Cleste izolat", "SHEARS", "60", "1", "0", "1", "1", "+1 greseala permisa la conectarea circuitelor."},
             {"cablu", "Cablu electric", "STRING", "20", "4", "1", "0", "16", "Material consumat la cabluri deteriorate si instalatii."},
             {"siguranta", "Siguranta fuzibila", "REDSTONE", "15", "4", "1", "0", "24", "Se foloseste la inlocuirea sigurantelor arse."},
-            {"protectie", "Echipament de protectie", "GOLDEN_HELMET", "200", "1", "0", "2", "1", "Fara soc electric la esec; obligatoriu la tensiune inalta."}};
+            {"protectie", "Manusi izolante", "FLOWCITYCORE_EL_MANUSI", "200", "1", "0", "2", "1", "Fara soc electric la esec; obligatoriu la tensiune inalta."}};
         ConfigurationSection es = c == null ? null : c.getConfigurationSection("equipment");
         for (String[] r : def) {
             Equip e = new Equip();
