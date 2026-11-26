@@ -211,30 +211,12 @@ public final class PhoneScreen extends FlowScreen {
         float appear = Math.min(1f, (now - born) / 220f);
         float open = 1f - (1f - appear) * (1f - appear) * (1f - appear);
         Sk.background(ms, 0, 0, width, height, open);
-        int ph2 = Math.min(height - 44, 344);
+        int ph2 = Math.min(height - 36, 356);
         int x = (width - W) / 2;
-        int y = (height - ph2) / 2 + 4 + Math.round((1f - appear) * 40f);
+        int y = (height - ph2) / 2 + 2 + Math.round((1f - appear) * 40f);
         Gfx.alpha = open;
         try {
-            // corp telefon: rama groasa de metal argintiu, difuzor + camera in rama de sus, ecran negru incastrat
-            float bx = x - 11, by = y - 22, bw = W + 22, bh = ph2 + 36;
-            Gfx.rrect(ms, bx - 2.5f, by - 1f, 3.5f, 18f, 1.5f, 0xFFB4BAC4, 0xFF727A88); // butoane volum
-            Gfx.rrect(ms, bx - 2.5f, by + 26f, 3.5f, 18f, 1.5f, 0xFFB4BAC4, 0xFF727A88);
-            Gfx.rrect(ms, bx + bw - 1f, by + 40f, 3.5f, 32f, 1.5f, 0xFFB4BAC4, 0xFF727A88); // buton pornire
-            Gfx.rrect(ms, bx + 1.5f, by + 3f, bw, bh, 30f, 0x50000000); // umbra
-            Gfx.rrect(ms, bx - 1.5f, by - 1.5f, bw + 3f, bh + 3f, 31.5f, 0xFF12151B);
-            Gfx.rrect(ms, bx, by, bw, bh, 30f, 0xFFF0F2F6, 0xFF858D9A);
-            Gfx.rrect(ms, bx + 1.6f, by + 1.6f, bw - 3.2f, bh - 3.2f, 28.4f, 0xFFD3D8E0, 0xFF6C7482);
-            Gfx.rrect(ms, bx + 3.2f, by + 3.2f, bw - 6.4f, bh - 6.4f, 26.8f, 0xFFB9BFC9, 0xFF5B6371);
-            // difuzor (fanta) si camera
-            float mx0 = x + W / 2f;
-            Gfx.rrect(ms, mx0 - 19f, by + 9f, 38f, 5.5f, 2.75f, 0xFF1B1F27);
-            Gfx.rrect(ms, mx0 - 17.5f, by + 10.2f, 35f, 2f, 1f, 0xFF3A414D);
-            Gfx.disc(ms, mx0 + 31f, by + 11.7f, 5.2f, 0xFF8B93A0);
-            Gfx.disc(ms, mx0 + 31f, by + 11.7f, 4.2f, 0xFF10141C);
-            Gfx.disc(ms, mx0 + 31f, by + 11.7f, 2.1f, 0xFF1D3358);
-            Gfx.disc(ms, mx0 + 30.2f, by + 10.9f, 0.8f, 0xAAFFFFFF);
-            Gfx.rrect(ms, x - 3.5f, y - 3.5f, W + 7f, ph2 + 7f, 19f, 0xFF020304);
+            chassis(ms, x, y, ph2);
             int sx = x, sy = y, sw = W, sh = ph2;
             wallpaper(ms, sx, sy, sw, sh, now);
             if (page != Page.HOME && page != Page.CALC && page != Page.CLOCK && page != Page.WEATHER && page != Page.SNAKE && PhoneState.call == null) {
@@ -286,12 +268,15 @@ public final class PhoneScreen extends FlowScreen {
                     ms.pose().popPose();
                     Ui.rect(ms, sx, sy, sw, sh, ((int) ((1f - ease) * 200) << 24) | 0x060A12);
                 }
-                if (page == Page.HOME && te < 1f && homeFade) Ui.rect(ms, sx, sy, sw, sh, ((int) ((1f - ease) * 190) << 24) | 0x060A12);
+                if (page == Page.HOME && te < 1f && homeFade) Ui.rect(ms, sx, sy, sw, sh, ((int) ((1f - ease) * 150) << 24) | 0x060A12);
+                if (page == Page.HOME) closeAnim(ms, sx, sy, sw, sh, now);
                 confirmDialog(ms, sx, sy, sw, sh, mx, my);
             }
+            pollIsland(now);
             statusBar(ms, sx, sy, sw, now);
-            // colturile ecranului (masca), camera (insula) si bara home
-            screenCorners(ms, sx, sy, sw, sh, 16f, 0xFF020304);
+            island(ms, sx, sy, sw, now, call);
+            // colturile ecranului (masca) si bara home
+            screenCorners(ms, sx, sy, sw, sh, SCREEN_R, 0xFF07080B);
             boolean darkBar = PhoneState.light && page == Page.HOME && call == null;
             Gfx.rrect(ms, sx + sw / 2f - 27, sy + sh - 6, 54, 3, 1.5f, darkBar ? 0xCC10243C : 0xDDF2F7FF);
             if (call == null && page != Page.HOME) hit(sx + sw / 2 - 34, sy + sh - 12, 68, 12, this::goHome);
@@ -315,9 +300,39 @@ public final class PhoneScreen extends FlowScreen {
         }
     }
 
+    /** Iconita spre care se strange aplicatia la inchidere (animatia inversa deschiderii). */
+    private float closeToX = -1f;
+    private float closeToY = -1f;
+    private String closeAppId;
+    private long closeAt;
+
     private void goHome() {
+        if (page != Page.HOME && closeToX >= 0f) closeAt = System.currentTimeMillis();
+        else closeAt = 0L;
         go(Page.HOME);
         homeFade = true;
+    }
+
+    /** Cardul aplicatiei care se strange spre iconita ei, dupa inchidere. */
+    private void closeAnim(GuiGraphics ms, int sx, int sy, int sw, int sh, long now) {
+        if (closeAt == 0L || closeToX < 0f) return;
+        float t = (now - closeAt) / 220f;
+        if (t >= 1f) {
+            closeAt = 0L;
+            return;
+        }
+        float e = 1f - (1f - t) * (1f - t) * (1f - t);
+        float k = 1f - e;
+        float w = ICON + (sw - ICON) * k;
+        float h = ICON + (sh - ICON) * k;
+        float cx = closeToX + (sx + sw / 2f - closeToX) * k;
+        float cy = closeToY + (sy + sh / 2f - closeToY) * k;
+        PhoneApps.App a = closeAppId == null ? null : PhoneApps.get(closeAppId);
+        int c1 = a == null ? 0xFF161C28 : a.color;
+        int c2 = a == null ? 0xFF0B0F18 : a.color2;
+        float al = 1f - e * 0.85f;
+        float r = ICON * 0.235f + (SCREEN_R - ICON * 0.235f) * k;
+        Gfx.rrect(ms, cx - w / 2f, cy - h / 2f, w, h, r, Gfx.fade(c1, al * 0.9f), Gfx.fade(c2, al * 0.9f));
     }
 
     /** Masca pentru colturile rotunjite ale ecranului (evantai din fiecare colt pana la arc). */
@@ -375,20 +390,167 @@ public final class PhoneScreen extends FlowScreen {
         return PhoneState.operator.isEmpty() ? "SIM ACTIV" : PhoneState.operator.toUpperCase();
     }
 
+    /** Raza colturilor ecranului; rama urmeaza aceeasi curba, cu 4px mai mult. */
+    private static final float SCREEN_R = 19f;
+    /** Latimea ramei in jurul ecranului. */
+    private static final float BEZEL = 4.5f;
+
+    /**
+     * Corpul telefonului: rama de titan gri inchis, mat, cu muchii drepte si colturi foarte rotunjite,
+     * butoanele laterale (actiune, volum, pornire) si ecranul incastrat, aproape fara margini.
+     */
+    private void chassis(GuiGraphics ms, int x, int y, int sh) {
+        float bx = x - BEZEL;
+        float by = y - BEZEL;
+        float bw = W + BEZEL * 2f;
+        float bh = sh + BEZEL * 2f;
+        float r = SCREEN_R + BEZEL;
+        // butoane laterale: actiune + volum pe stanga, pornire pe dreapta
+        sideButton(ms, bx - 2.2f, by + 34f, 12f);
+        sideButton(ms, bx - 2.2f, by + 54f, 20f);
+        sideButton(ms, bx - 2.2f, by + 78f, 20f);
+        sideButton(ms, bx + bw - 0.8f, by + 62f, 32f);
+        // umbra, muchia exterioara si fata de titan (gradient vertical fin, mat)
+        Gfx.rrect(ms, bx + 1f, by + 3.5f, bw, bh, r, 0x55000000);
+        Gfx.rrect(ms, bx - 1.2f, by - 1.2f, bw + 2.4f, bh + 2.4f, r + 1.2f, 0xFF0C0E12);
+        Gfx.rrect(ms, bx, by, bw, bh, r, 0xFF5A6068, 0xFF2B2F36);
+        Gfx.rrect(ms, bx + 1.1f, by + 1.1f, bw - 2.2f, bh - 2.2f, r - 1.1f, 0xFF474C55, 0xFF23262C);
+        // luciu scurt pe muchia de sus si pe cea de jos (titan satinat, fara reflexii puternice)
+        Gfx.rrect(ms, bx + r * 0.5f, by + 1.4f, bw - r, 1.1f, 0.55f, 0x4CFFFFFF);
+        Gfx.rrect(ms, bx + r * 0.5f, by + bh - 2.4f, bw - r, 1.1f, 0.55f, 0x1AFFFFFF);
+        // rama neagra din jurul ecranului
+        Gfx.rrect(ms, x - 1.6f, y - 1.6f, W + 3.2f, sh + 3.2f, SCREEN_R + 1.6f, 0xFF07080B);
+    }
+
+    /** Buton lateral de titan (bara scurta, putin mai deschisa decat rama). */
+    private static void sideButton(GuiGraphics ms, float x, float y, float h) {
+        Gfx.rrect(ms, x, y, 3f, h, 1.4f, 0xFF6A7079, 0xFF3A3F47);
+        Gfx.rrect(ms, x + 0.6f, y + 1f, 1f, h - 2f, 0.5f, 0x33FFFFFF);
+    }
+
     private void statusBar(GuiGraphics ms, int x, int y, int w, long now) {
         java.util.Calendar cal = java.util.Calendar.getInstance();
         String t = String.format("%02d:%02d", cal.get(java.util.Calendar.HOUR_OF_DAY), cal.get(java.util.Calendar.MINUTE));
         int tc = homeText();
-        Gfx.text(ms, t, x + 10, y + 10, 7.5f, tc, 0, true, 0.3f);
+        Gfx.text(ms, t, x + 14, y + 11.5f, 7.8f, tc, 0, true, 0.2f);
         boolean ok = PhoneState.simActive();
         int bars = ok ? Math.max(1, Math.min(4, PhoneState.signal)) : 0;
-        for (int i = 0; i < 4; i++) Ui.rect(ms, x + w - 38 + i * 3, y + 9 - (i + 1) * 2, 2, (i + 1) * 2, i < bars ? tc : 0x44808080);
-        Gfx.text(ms, simLabel(), x + w - 43, y + 10, 6.2f, ok ? tc : Sk.BAD, 2, false, 0.2f);
+        // semnal: patru bare cu colturi rotunde, ca in iOS
+        for (int i = 0; i < 4; i++) {
+            float bh = 2f + i * 1.6f;
+            Gfx.rrect(ms, x + w - 36f + i * 3.4f, y + 9.4f - bh, 2.4f, bh, 1.1f, i < bars ? tc : Gfx.fade(tc, 0.28f));
+        }
         // baterie (doar vizuala: modul nu are sistem de baterie)
-        Gfx.rrect(ms, x + w - 22, y + 3.5f, 13f, 7f, 2f, Gfx.fade(tc, 0.55f));
-        Gfx.rrect(ms, x + w - 21f, y + 4.5f, 11f, 5f, 1.4f, 0xFF161A22);
-        Gfx.rrect(ms, x + w - 21f, y + 4.5f, 9f, 5f, 1.4f, 0xFF34C759, 0xFF22A043);
-        Gfx.rrect(ms, x + w - 8.2f, y + 5.8f, 1.6f, 2.4f, 0.8f, Gfx.fade(tc, 0.55f));
+        float bxp = x + w - 20f;
+        Gfx.rrect(ms, bxp, y + 3.4f, 13.5f, 6.6f, 2.2f, Gfx.fade(tc, 0.45f));
+        Gfx.rrect(ms, bxp + 1f, y + 4.4f, 9.6f, 4.6f, 1.5f, tc);
+        Gfx.rrect(ms, bxp + 14.2f, y + 5.2f, 1.5f, 3f, 0.7f, Gfx.fade(tc, 0.45f));
+    }
+
+    // ------------------------------------------------------------------ Dynamic Island
+
+    private float islW = 46f;
+    private float islH = 11f;
+    private int lastUnread = -1;
+    private int lastMissed = -1;
+    private int lastNotify = -1;
+    private String islandMsg = "";
+    private int islandMsgColor;
+    private long islandMsgUntil;
+
+    /** Arata o pastila scurta in insula (notificare). */
+    private void islandFlash(String text, int color) {
+        islandMsg = text;
+        islandMsgColor = color;
+        islandMsgUntil = System.currentTimeMillis() + 2600;
+    }
+
+    /** Urmareste contoarele reale si aprinde insula cand apare ceva nou cat telefonul e deschis. */
+    private void pollIsland(long now) {
+        int un = PhoneState.unread;
+        int ms2 = PhoneState.missed;
+        int nt = ro.solarstudios.flowcity.notify.NotifyState.unread;
+        if (lastUnread >= 0 && un > lastUnread) islandFlash("Mesaj nou", 0xFF34C759);
+        else if (lastMissed >= 0 && ms2 > lastMissed) islandFlash("Apel pierdut", 0xFFFF453A);
+        else if (lastNotify >= 0 && nt > lastNotify) islandFlash("Notificare noua", Sk.ACC);
+        lastUnread = un;
+        lastMissed = ms2;
+        lastNotify = nt;
+    }
+
+    /**
+     * Pastila neagra din partea de sus a ecranului. Compacta cand nu se intampla nimic; se extinde pentru
+     * apelul in curs (nume + cronometru) si pentru o notificare proaspata; lipsa cartelei apare ca punct rosu.
+     */
+    private void island(GuiGraphics ms, int sx, int sy, int sw, long now, PhoneState.Call call) {
+        boolean flash = now < islandMsgUntil;
+        float tw;
+        float th;
+        int mode;
+        if (call != null) {
+            mode = 3;
+            tw = Math.min(sw - 26f, 152f);
+            th = 26f;
+        } else if (flash) {
+            mode = 2;
+            tw = Math.min(sw - 34f, Math.max(76f, Gfx.width(islandMsg, 6.4f, false) + 36f));
+            th = 17f;
+        } else {
+            mode = PhoneState.simActive() ? 0 : 1;
+            tw = 46f;
+            th = 10f;
+        }
+        islW += (tw - islW) * 0.26f;
+        islH += (th - islH) * 0.26f;
+        if (Math.abs(tw - islW) < 0.2f) islW = tw;
+        if (Math.abs(th - islH) < 0.2f) islH = th;
+        float cx = sx + sw / 2f;
+        float ix = cx - islW / 2f;
+        float iy = sy + 2.5f;
+        float r = islH / 2f;
+        Gfx.rrect(ms, ix - 0.8f, iy - 0.8f, islW + 1.6f, islH + 1.6f, r + 0.8f, 0x66000000);
+        Gfx.rrect(ms, ix, iy, islW, islH, r, 0xFF000000);
+        float pad = r + 2f;
+        float my2 = iy + islH / 2f;
+        switch (mode) {
+            case 3: {
+                int ac = avatarColor(call.with.name);
+                Gfx.rrect(ms, ix + 5f, my2 - 7f, 14f, 14f, 4.5f, Gfx.mixArgb(ac, 0xFFFFFFFF, 0.12f), Gfx.mixArgb(ac, 0xFF000000, 0.3f));
+                String ini = call.with.name == null || call.with.name.isEmpty() ? "?" : call.with.name.substring(0, 1).toUpperCase();
+                Gfx.text(ms, ini, ix + 12f, my2 + 3f, 8f, Sk.WHITE, 1, true, 0f);
+                float tx = ix + 23f;
+                float rw = islW - 29f - 34f;
+                Gfx.text(ms, clipG(call.with.name, 7f, true, Math.max(10f, rw)), tx, my2 - 0.5f, 7f, Sk.WHITE, 0, true, 0.1f);
+                Gfx.text(ms, call.active ? "Apel activ" : (call.incoming ? "Apel primit" : "Se formeaza"), tx, my2 + 8f, 5.8f,
+                    call.active ? GREEN : Sk.MUTED, 0, false, 0.1f);
+                if (call.active) {
+                    Gfx.text(ms, clock((now - call.since) / 1000), ix + islW - 7f, my2 + 3f, 7.6f, GREEN, 2, true, 0.3f);
+                } else {
+                    // mic indicator care pulseaza cat timp suna
+                    for (int i = 0; i < 3; i++) {
+                        float ph3 = (float) Math.abs(Math.sin(now / 240.0 + i * 0.6));
+                        Gfx.rrect(ms, ix + islW - 20f + i * 4.6f, my2 - 1f - ph3 * 3.4f, 2.6f, 2f + ph3 * 6.8f, 1.2f,
+                            Gfx.fade(GREEN, 0.4f + 0.6f * ph3));
+                    }
+                }
+                break;
+            }
+            case 2: {
+                Gfx.disc(ms, ix + pad + 1f, my2, 3f, islandMsgColor);
+                Gfx.text(ms, clipG(islandMsg, 6.4f, false, islW - pad * 2f - 12f), ix + pad + 8f, my2 + 2.4f, 6.4f, Sk.WHITE, 0, false, 0.1f);
+                break;
+            }
+            case 1:
+            default: {
+                // lipsa cartelei: punct rosu in stanga pastilei (detaliile sunt in aplicatia SIM)
+                if (mode == 1) Gfx.disc(ms, ix + 7f, my2, 2.3f, Sk.BAD);
+                // obiectivul camerei, in dreapta pastilei
+                Gfx.disc(ms, ix + islW - 6.5f, my2, 3.1f, 0xFF14181F);
+                Gfx.disc(ms, ix + islW - 6.5f, my2, 1.9f, 0xFF1C2F52);
+                Gfx.disc(ms, ix + islW - 7.2f, my2 - 0.7f, 0.7f, 0x99FFFFFF);
+                break;
+            }
+        }
     }
 
     // ------------------------------------------------------------------ ecran principal (launcher)
@@ -497,12 +659,15 @@ public final class PhoneScreen extends FlowScreen {
             float dx0 = x + w / 2f - (pages.size() - 1) * 4f;
             for (int i = 0; i < pages.size(); i++) {
                 boolean on = i == homePage;
-                Gfx.disc(ms, dx0 + i * 8f, dotsY, on ? 2.4f : 1.8f, on ? homeText() : (PhoneState.light ? 0x5510243C : 0x55FFFFFF));
+                int dc2 = on ? homeText() : (PhoneState.light ? 0x5510243C : 0x55FFFFFF);
+                if (on) Gfx.rrect(ms, dx0 + i * 8f - 3.4f, dotsY - 1.7f, 6.8f, 3.4f, 1.7f, dc2);
+                else Gfx.disc(ms, dx0 + i * 8f, dotsY, 1.7f, dc2);
             }
         }
 
         // dock (sticla mata)
-        Gfx.rrect(ms, x + 6, dockY, w - 12, 44, 14f, PhoneState.light ? 0x66FFFFFF : 0x40FFFFFF, PhoneState.light ? 0x44FFFFFF : 0x22FFFFFF);
+        Gfx.rrect(ms, x + 6, dockY, w - 12, 44, 17f, PhoneState.light ? 0x59FFFFFF : 0x33FFFFFF, PhoneState.light ? 0x3DFFFFFF : 0x1AFFFFFF);
+        Gfx.rrect(ms, x + 6.8f, dockY + 0.8f, w - 13.6f, 1f, 0.5f, PhoneState.light ? 0x66FFFFFF : 0x3DFFFFFF);
         int dc = (w - 12) / 4;
         for (int k = 0; k < dock.size(); k++) appIcon(ms, dock.get(k), x + 6 + k * dc, dockY + 7, dc, mx, my, false, now);
 
@@ -594,17 +759,19 @@ public final class PhoneScreen extends FlowScreen {
         }
         float sz = press ? ICON - 3 : ICON;
         boolean lock = locked(a);
-        Gfx.rrect(ms, ox + 0.5f, oy + 1.5f, sz, sz, 8.5f, 0x40000000); // umbra
+        float ir = sz * 0.235f; // raza de squircle, ca pe iOS
+        Gfx.rrect(ms, ox + 0.4f, oy + 1.6f, sz, sz, ir, 0x4D000000); // umbra
         int c1 = hover ? Theme.lighten(a.color, 14) : a.color;
-        Gfx.rrect(ms, ox, oy, sz, sz, 8.5f, c1, a.color2);
-        Gfx.rrect(ms, ox + 1.5f, oy + 1f, sz - 3f, sz * 0.42f, 7f, 0x2EFFFFFF, 0x00FFFFFF); // luciu
+        Gfx.rrect(ms, ox, oy, sz, sz, ir, c1, a.color2);
+        Gfx.rrect(ms, ox + 1.2f, oy + 0.9f, sz - 2.4f, sz * 0.46f, ir - 1.2f, 0x26FFFFFF, 0x00FFFFFF); // luciu
+        Gfx.rrect(ms, ox + 0.5f, oy + 0.5f, sz - 1f, sz - 1f, ir - 0.5f, 0x1FFFFFFF, 0x0A000000); // muchie
         ms.pose().pushPose();
         float scl = sz / ICON;
         ms.pose().translate(ox + sz / 2f, oy + sz / 2f, 0);
         ms.pose().scale(scl, scl, 1f);
         glyph(ms, id, 0, 0, a);
         ms.pose().popPose();
-        if (lock || prog >= 0) Gfx.rrect(ms, ox, oy, sz, sz, 8.5f, 0x99060A12);
+        if (lock || prog >= 0) Gfx.rrect(ms, ox, oy, sz, sz, ir, 0x99060A12);
         if (lock) lockGlyph(ms, ox + sz / 2f, oy + sz / 2f);
         if (prog >= 0) {
             Gfx.ring(ms, ox + sz / 2f, oy + sz / 2f, 7f, 9f, 0x55FFFFFF, 0x55FFFFFF);
@@ -754,6 +921,11 @@ public final class PhoneScreen extends FlowScreen {
         openFromX = r.ix + ICON / 2f;
         openFromY = r.iy + ICON / 2f;
         openApp(r.id);
+        if (page != Page.HOME) {
+            closeToX = openFromX;
+            closeToY = openFromY;
+            closeAppId = r.id;
+        }
     }
 
     private void openApp(String id) {
@@ -1131,17 +1303,11 @@ public final class PhoneScreen extends FlowScreen {
         int ac = avatarColor(c.with.name);
         Gfx.rrect(ms, x, y, w, h, 0, Gfx.mixArgb(0xFF0F1D33, ac, 0.16f), 0xFF050810);
         float cx = x + w / 2f;
-        // notificare sus (ca in ePhone): apare la inceput, apoi se estompeaza
-        long age = c.active ? now - c.since : 0;
-        float na = c.active ? (age < 3600 ? 1f : Math.max(0f, 1f - (age - 3600) / 500f)) : 1f;
-        if (na > 0f) {
-            String body = c.active ? "Apel acceptat. Convorbire activa." : (c.incoming ? "Apel primit de la " + c.with.name : "Suna: " + (c.with.number.isEmpty() ? c.with.name : c.with.number));
-            float ny = y + 17 - (1f - na) * 6f;
-            Gfx.rrect(ms, x + 7, ny, w - 14, 28, 6f, Gfx.fade(0xFF1A2434, 0.96f * na), Gfx.fade(0xFF111826, 0.96f * na));
-            Gfx.rrect(ms, x + 7, ny, 2.5f, 28, 1.2f, Gfx.fade(c.active ? GREEN : Sk.ACC, na));
-            Gfx.text(ms, "Apel", x + 15, ny + 10, 7.4f, Gfx.fade(Sk.WHITE, na), 0, true, 0.3f);
-            Gfx.text(ms, clipG(body, 6.4f, false, w - 44), x + 15, ny + 21, 6.4f, Gfx.fade(Sk.MUTED, na), 0, false, 0.1f);
-            Gfx.text(ms, "x", x + w - 16, ny + 12, 8f, Gfx.fade(Sk.MUTED, na), 1, true, 0f);
+        // starea apelului sta in Dynamic Island (sus); aici ramane doar ecranul propriu-zis
+        if (!c.active) {
+            String body = c.incoming ? "Apel primit de la " + c.with.name
+                : "Suna: " + (c.with.number.isEmpty() ? c.with.name : c.with.number);
+            Gfx.text(ms, clipG(body, 6.4f, false, w - 28), cx, y + 40, 6.4f, Sk.MUTED, 1, false, 0.1f);
         }
         float cy = y + 92f;
         if (!c.active) {
