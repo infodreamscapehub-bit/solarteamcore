@@ -1135,7 +1135,7 @@ public final class PhoneScreen extends FlowScreen {
         long age = c.active ? now - c.since : 0;
         float na = c.active ? (age < 3600 ? 1f : Math.max(0f, 1f - (age - 3600) / 500f)) : 1f;
         if (na > 0f) {
-            String body = c.active ? "Apel acceptat. Convorbire activa." : (c.incoming ? "Apel primit de la " + c.with.name : "Se suna " + c.with.name + "...");
+            String body = c.active ? "Apel acceptat. Convorbire activa." : (c.incoming ? "Apel primit de la " + c.with.name : "Suna: " + (c.with.number.isEmpty() ? c.with.name : c.with.number));
             float ny = y + 17 - (1f - na) * 6f;
             Gfx.rrect(ms, x + 7, ny, w - 14, 28, 6f, Gfx.fade(0xFF1A2434, 0.96f * na), Gfx.fade(0xFF111826, 0.96f * na));
             Gfx.rrect(ms, x + 7, ny, 2.5f, 28, 1.2f, Gfx.fade(c.active ? GREEN : Sk.ACC, na));
@@ -1170,8 +1170,12 @@ public final class PhoneScreen extends FlowScreen {
             }
         } else {
             int dots = (int) ((now / 400) % 4);
-            String base = c.incoming ? "Apel primit" : "Se sună";
-            Gfx.text(ms, base + "...".substring(0, dots), cx, y + 176, 9, Sk.MUTED, 1);
+            String base = c.incoming ? "Apel primit" : "Se formează";
+            if (!c.incoming) {
+                float sh = (float) Math.sin(now / 90.0) * (((now / 1100) % 2 == 0) ? 1.4f : 0f);
+                handset(ms, cx + sh, y + 166, 9, Sk.MUTED, true);
+            }
+            Gfx.text(ms, base + "...".substring(0, dots), cx, y + 182, 9, Sk.MUTED, 1);
         }
 
         float by = y + h - 62f;
