@@ -157,6 +157,20 @@ public final class SimStore {
         return m == null ? Material.PAPER : m;
     }
 
+    /** Itemul e o cartela "noua" (itemul din mod, fara ID de server)? */
+    public boolean isBlankItem(ItemStack it) {
+        if (it == null || it.getType() == Material.AIR) return false;
+        Material b = blankMaterial();
+        return b != null && it.getType() == b && idOf(it) == null;
+    }
+
+    /** Consuma un singur item din stiva data (din inventarul jucatorului). */
+    public void consumeOne(Player p, ItemStack it) {
+        if (it == null) return;
+        if (it.getAmount() > 1) it.setAmount(it.getAmount() - 1);
+        else p.getInventory().removeItem(it);
+    }
+
     /** Cartele noi (itemul din mod, fara ID server) din inventar: nr. de iteme. */
     public int blankCount(Player p) {
         Material b = blankMaterial();

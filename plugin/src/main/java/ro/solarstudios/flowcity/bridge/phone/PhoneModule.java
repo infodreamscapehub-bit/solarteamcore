@@ -23,7 +23,7 @@ import ro.solarstudios.flowcity.bridge.module.JsonModule;
  * ePhone: contacte, mesaje (SMS, si offline), apeluri cu sunat/raspuns/respins si istoric.
  * Tabele: core_phone_contacts, core_phone_msgs, core_phone_calls. Permisiune: flowcity.phone (implicit toti).
  */
-public final class PhoneModule extends JsonModule {
+public final class PhoneModule extends JsonModule implements org.bukkit.event.Listener {
     private static final int MAX_CONTACTS = 60;
     private static final int MAX_TEXT = 200;
 
@@ -65,6 +65,7 @@ public final class PhoneModule extends JsonModule {
         Commands.permission("flowcity.phone", "Foloseste telefonul", PermissionDefault.TRUE);
         Commands.permission("flowcity.phone.give", "Da telefon (/telefon da)", PermissionDefault.OP);
         Commands.permission("flowcity.phone.bypass", "Foloseste telefonul fara item", PermissionDefault.OP);
+        Commands.permission("flowcity.phone.sim.admin", "Blocheaza / deblocheaza cartele SIM", PermissionDefault.OP);
         try {
             plugin.db().async(c -> {
                 try (Statement st = c.createStatement()) {
@@ -122,6 +123,7 @@ public final class PhoneModule extends JsonModule {
         on("calls", (p, j) -> sendCalls(p));
 
         Bukkit.getScheduler().runTaskTimer(plugin, this::tickRing, 20L, 20L);
+        Bukkit.getPluginManager().registerEvents(this, plugin);
         Commands.register(plugin, "telefon", "flowcity.phone", (s, c, l, a) -> {
             if (!(s instanceof Player)) return true;
             Player p = (Player) s;
@@ -137,6 +139,14 @@ public final class PhoneModule extends JsonModule {
                 }
                 Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "give " + target.getName() + " " + PHONE_ITEMS[0]);
                 s.sendMessage("§aTelefon dat lui " + target.getName() + ".");
+                return true;
+            }
+            if (a.length >= 3 && a[0].equalsIgnoreCase("sim")) {
+                if (!s.hasPermission("flowcity.phone.sim.admin")) {
+                    s.sendMessage("\u00a7cNu ai permisiunea.");
+                    return true;
+                }
+                simAdmin(s, a[1], a[2]);
                 return true;
             }
             if (!needPhone(p)) return true;
@@ -308,7 +318,7 @@ public final class PhoneModule extends JsonModule {
         if (!needPhone(p)) return false;
         SimStore.Sim s = sims.installed(p.getUniqueId());
         if (s == null) {
-            plugin.channel().toast(p, "Fara SIM: introdu o cartela din Telefon > SIM.", true);
+            plugin.channel().toast(p, "Introdu o cartela SIM pentru a utiliza serviciile telefonice.", true);
             return false;
         }
         if (!s.active()) {
@@ -423,92 +433,186 @@ public final class PhoneModule extends JsonModule {
         if (!ok(p) || !simRate(p)) return;
         String id = str(j, "id", "");
         if ("NEW".equals(id)) {
-            simInsertBlank(p, j);
+            simInsertBlank(p, str(j, "operator", ""), null);
             return;
         }
         SimStore.Sim s = sims.get(id);
         if (s == null) {
-            plugin.channel().toast(p, "Cartela nu exista sau nu mai este valida.", true);
+            simFail(p, "Cartela nu exista sau nu mai este valida.");
             return;
         }
+        doInsert(p, s, null);
+    }
+
+    /** Introducerea propriu-zisa: toate verificarile din spec, pe server. itemHint = stiva din mana (click dreapta) sau null. */
+    private void doInsert(Player p, SimStore.Sim s, org.bukkit.inventory.ItemStack itemHint) {
+        if (!needPhone(p)) return;
         if (sims.installed(p.getUniqueId()) != null) {
-            plugin.channel().toast(p, "Telefonul are deja o cartela. Scoate-o mai intai.", true);
+            simFail(p, "Telefonul are deja o cartela. Scoate-o mai intai.");
             return;
         }
         if (!s.active()) {
-            plugin.channel().toast(p, "Cartela este blocata.", true);
+            simFail(p, "Cartela este blocata.");
             return;
         }
         if (s.installed != null) {
-            plugin.channel().toast(p, "Cartela este deja folosita de alt telefon.", true);
+            simFail(p, "Cartela este deja folosita de alt telefon.");
             return;
         }
         if (!plugin.getConfig().getBoolean("phone.sim.allow-transfer", true) && s.owner != null && !s.owner.equals(p.getUniqueId())) {
-            plugin.channel().toast(p, "Cartela apartine altui jucator.", true);
+            simFail(p, "Cartela apartine altui jucator.");
             return;
         }
-        org.bukkit.inventory.ItemStack it = sims.findValidItem(p, s);
+        org.bukkit.inventory.ItemStack it = itemHint;
+        if (it == null || !s.id.equals(sims.idOf(it))) it = sims.findValidItem(p, s);
         if (it == null) {
-            plugin.channel().toast(p, "Cartela nu este in inventar (sau este o copie invalida).", true);
+            simFail(p, "Cartela nu este in inventar (sau este o copie invalida).");
             return;
         }
-        if (it.getAmount() > 1) it.setAmount(it.getAmount() - 1);
-        else p.getInventory().removeItem(it);
+        sims.consumeOne(p, it);
         sims.install(s, p.getUniqueId());
-        plugin.channel().toast(p, "Cartela SIM instalata: " + NumberLogic.phoneDisplay(s.number), false);
+        simOk(p, "SIM introdus cu succes!",
+            "Numar: " + NumberLogic.phoneDisplay(s.number) + " - Operator: " + s.operator + " - Status: Activ");
         sendSim(p);
         sendState(p);
     }
 
     /** Cartela "Card SIM" luata din creative/mod (fara ID): serverul o transforma intr-o cartela reala (numar unic) si o instaleaza. */
-    private void simInsertBlank(Player p, JsonObject j) {
+    private void simInsertBlank(Player p, String wantedOp, org.bukkit.inventory.ItemStack itemHint) {
         if (!plugin.getConfig().getBoolean("phone.sim.accept-blank", true)) {
-            plugin.channel().toast(p, "Cartelele noi nu sunt acceptate. Cumpara una din telefon.", true);
+            simFail(p, "Cartelele noi nu sunt acceptate. Cumpara una din telefon.");
             return;
         }
         if (!needPhone(p)) return;
         if (sims.installed(p.getUniqueId()) != null) {
-            plugin.channel().toast(p, "Telefonul are deja o cartela. Scoate-o mai intai.", true);
+            simFail(p, "Telefonul are deja o cartela. Scoate-o mai intai.");
             return;
         }
-        if (sims.blankCount(p) <= 0) {
-            plugin.channel().toast(p, "Nu ai nicio cartela noua in inventar.", true);
+        if (itemHint == null && sims.blankCount(p) <= 0) {
+            simFail(p, "Nu ai nicio cartela noua in inventar.");
             return;
         }
         List<String> ops = operators();
-        String op = str(j, "operator", ops.get(0));
+        String op = wantedOp == null || wantedOp.isEmpty() ? ops.get(0) : wantedOp;
         for (String o : ops) if (o.equalsIgnoreCase(op)) op = o;
+        boolean known = false;
+        for (String o : ops) if (o.equals(op)) known = true;
+        if (!known) op = ops.get(0);
         SimStore.Sim s = sims.create(p.getUniqueId(), op, numberFormat());
         if (s == null) {
-            plugin.channel().toast(p, "Nu s-a putut genera un numar liber.", true);
+            simFail(p, "Numar de telefon indisponibil: nu s-a putut genera un numar liber.");
             return;
         }
-        if (!sims.takeBlank(p)) {
-            plugin.channel().toast(p, "Cartela nu mai este in inventar.", true);
+        boolean taken = itemHint != null && sims.isBlankItem(itemHint);
+        if (taken) sims.consumeOne(p, itemHint);
+        else taken = sims.takeBlank(p);
+        if (!taken) {
+            simFail(p, "Cartela nu mai este in inventar.");
             return;
         }
         sims.install(s, p.getUniqueId());
-        plugin.channel().toast(p, "Cartela SIM activata: " + NumberLogic.phoneDisplay(s.number), false);
+        simOk(p, "SIM activat cu succes!",
+            "Numar: " + NumberLogic.phoneDisplay(s.number) + " - Operator: " + s.operator + " - Status: Activ");
         sendSim(p);
         sendState(p);
+    }
+
+    /** Click dreapta cu cartela in mana: introduce SIM-ul fara sa mai deschizi aplicatia. */
+    @org.bukkit.event.EventHandler(ignoreCancelled = true)
+    public void onSimUse(org.bukkit.event.player.PlayerInteractEvent e) {
+        if (e.getHand() != org.bukkit.inventory.EquipmentSlot.HAND) return;
+        org.bukkit.event.block.Action a = e.getAction();
+        if (a != org.bukkit.event.block.Action.RIGHT_CLICK_AIR && a != org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK) return;
+        org.bukkit.inventory.ItemStack it = e.getItem();
+        if (it == null) return;
+        String id = sims.idOf(it);
+        boolean blank = id == null && sims.isBlankItem(it);
+        if (id == null && !blank) return;
+        e.setCancelled(true);
+        Player p = e.getPlayer();
+        if (!ok(p) || !simRate(p)) return;
+        if (blank) {
+            simInsertBlank(p, "", it);
+            return;
+        }
+        SimStore.Sim s = sims.get(id);
+        if (s == null) {
+            simFail(p, "Cartela nu exista sau nu mai este valida.");
+            return;
+        }
+        doInsert(p, s, it);
+    }
+
+    /** Staff: blocheaza sau deblocheaza cartela instalata a unui jucator (notificare reala catre el). */
+    private void simAdmin(org.bukkit.command.CommandSender s, String who, String what) {
+        org.bukkit.OfflinePlayer t = Bukkit.getPlayerExact(who);
+        if (t == null) t = Bukkit.getOfflinePlayer(who);
+        if (t == null || t.getUniqueId() == null) {
+            s.sendMessage("\u00a7cJucator necunoscut.");
+            return;
+        }
+        SimStore.Sim sim = sims.installed(t.getUniqueId());
+        if (sim == null) {
+            s.sendMessage("\u00a7cJucatorul nu are nicio cartela in telefon.");
+            return;
+        }
+        boolean block = what.equalsIgnoreCase("block") || what.equalsIgnoreCase("blocheaza");
+        boolean unblock = what.equalsIgnoreCase("unblock") || what.equalsIgnoreCase("deblocheaza");
+        if (!block && !unblock) {
+            s.sendMessage("\u00a77Folosire: /telefon sim <jucator> block|unblock");
+            return;
+        }
+        sims.setStatus(sim, block ? "BLOCKED" : "ACTIVE");
+        s.sendMessage("\u00a7aCartela " + NumberLogic.phoneDisplay(sim.number) + ": " + (block ? "blocata" : "activa") + ".");
+        if (plugin.notifications() != null) {
+            plugin.notifications().send(t.getUniqueId(),
+                block ? ro.solarstudios.flowcity.bridge.notify.NotifyModule.Type.BAD : ro.solarstudios.flowcity.bridge.notify.NotifyModule.Type.OK,
+                block ? "SIM dezactivat" : "SIM activat",
+                "Numarul " + NumberLogic.phoneDisplay(sim.number) + (block ? " a fost blocat." : " este din nou activ."), null, "sim");
+        }
+        Player op = Bukkit.getPlayer(t.getUniqueId());
+        if (op != null) {
+            if (block) {
+                Call c = calls.get(op.getUniqueId());
+                if (c != null) end(op, false);
+            }
+            sendSim(op);
+            sendState(op);
+        }
+    }
+
+    /** Confirmare SIM: toast + notificare reala in Notification Center (aplicatia SIM). */
+    private void simOk(Player p, String title, String text) {
+        plugin.channel().toast(p, title + " " + text, false);
+        if (plugin.notifications() != null) {
+            plugin.notifications().send(p.getUniqueId(), ro.solarstudios.flowcity.bridge.notify.NotifyModule.Type.OK, title, text, null, "sim");
+        }
+    }
+
+    /** Eroare SIM: toast + notificare reala, ca jucatorul sa vada motivul si mai tarziu. */
+    private void simFail(Player p, String text) {
+        plugin.channel().toast(p, text, true);
+        if (plugin.notifications() != null) {
+            plugin.notifications().send(p.getUniqueId(), ro.solarstudios.flowcity.bridge.notify.NotifyModule.Type.BAD, "Cartela SIM", text, null, "sim");
+        }
     }
 
     private void simEject(Player p) {
         if (!simRate(p)) return;
         SimStore.Sim s = sims.installed(p.getUniqueId());
         if (s == null) {
-            plugin.channel().toast(p, "Nu ai nicio cartela in telefon.", true);
+            simFail(p, "Nu ai nicio cartela in telefon.");
             return;
         }
         if (p.getInventory().firstEmpty() < 0) {
-            plugin.channel().toast(p, "Inventar plin: fa loc pentru cartela.", true);
+            simFail(p, "Inventar plin: fa loc pentru cartela.");
             return;
         }
         Call c = calls.get(p.getUniqueId());
         if (c != null) end(p, false);
         sims.eject(s);
         p.getInventory().addItem(sims.makeItem(s));
-        plugin.channel().toast(p, "Cartela SIM a fost scoasa.", false);
+        simOk(p, "SIM scos", "Numarul " + NumberLogic.phoneDisplay(s.number) + " nu mai este activ pe acest telefon.");
         sendSim(p);
         sendState(p);
     }
@@ -1016,6 +1120,10 @@ public final class PhoneModule extends JsonModule {
             }
             return null;
         });
+        if ("ANSWERED".equals(st) && plugin.notifications() != null) {
+            plugin.notifications().send(c.callee, ro.solarstudios.flowcity.bridge.notify.NotifyModule.Type.INFO,
+                "Apel primit", "De la " + nameOf(c.caller) + " - " + dur + "s", null, "call");
+        }
         for (UUID u : new UUID[] {c.caller, c.callee}) {
             Player x = Bukkit.getPlayer(u);
             if (x == null) continue;
@@ -1039,7 +1147,7 @@ public final class PhoneModule extends JsonModule {
             }
             if (!c.active && now - c.startedAt > ringMs() && calls.containsKey(c.caller)) {
                 finish(c, "MISSED", c.caller);
-                plugin.notifications().send(c.callee, ro.solarstudios.flowcity.bridge.notify.NotifyModule.Type.INFO,
+                if (plugin.notifications() != null) plugin.notifications().send(c.callee, ro.solarstudios.flowcity.bridge.notify.NotifyModule.Type.INFO,
                     "Apel pierdut", "De la " + nameOf(c.caller), null, "call");
             }
         }
