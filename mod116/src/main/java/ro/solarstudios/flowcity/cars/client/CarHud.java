@@ -33,9 +33,17 @@ public final class CarHud {
     private static long askedAt;
     private static String plate = "";
     private static int odoFor = -1;
-    private static String odoDigits = "0000000";
-    private static String tripStr = "0.0";
-    private static String journeyStr = "0.0";
+    /** Valorile primite de la server (metri) si cele afisate (interpolate local intre doua trimiteri). */
+    private static double srvOdo;
+    private static double srvA;
+    private static double srvB;
+    private static double dispOdo;
+    private static double dispA;
+    private static double dispB;
+    /** Trip-ul afisat: 0 = A, 1 = B (doar pe client). */
+    public static int tripSel;
+    /** Cat timp e tinuta apasata tasta de resetare (ms). */
+    private static long resetHeld;
     private static String metaModel = "";
     private static String metaPlate = "";
     private static String metaOwner = "";
@@ -54,21 +62,40 @@ public final class CarHud {
         metaId = vid == null ? "" : vid;
     }
 
-    public static void setJourney(double m) {
-        long tt = (long) (Math.max(0, m) / 100.0);
-        journeyStr = (tt / 10) + "." + (tt % 10);
+    /** Kilometrajul trimis de server: metri totali + trip A + trip B pentru vehiculul cu id-ul dat. */
+    public static void setOdo(int entityId, double odoM, double aM, double bM) {
+        boolean fresh = odoFor != entityId;
+        if (fresh) setMeta("", "", "", "", "");
+        odoFor = entityId;
+        boolean resetA = aM < srvA - 1;
+        boolean resetB = bM < srvB - 1;
+        srvOdo = Math.max(0, odoM);
+        srvA = Math.max(0, aM);
+        srvB = Math.max(0, bM);
+        if (fresh) {
+            dispOdo = srvOdo;
+            dispA = srvA;
+            dispB = srvB;
+        }
+        if (resetA) dispA = srvA;
+        if (resetB) dispB = srvB;
     }
 
-    /** Chilometrajul trimis de server: metri totali si metri de calatorie pentru vehiculul cu id-ul dat. */
-    public static void setOdo(int entityId, double odoM, double tripM) {
-        if (odoFor != entityId) setMeta("", "", "", "", "");
-        odoFor = entityId;
-        long t = (long) (Math.max(0, odoM) / 100.0);
-        StringBuilder sb = new StringBuilder(Long.toString(Math.min(9999999L, t)));
-        while (sb.length() < 7) sb.insert(0, '0');
-        odoDigits = sb.toString();
-        long tt = (long) (Math.max(0, tripM) / 100.0);
-        tripStr = (tt / 10) + "." + (tt % 10);
+    /** Tasta de resetare tinuta apasata: la ~1 s trimite cererea (validata pe server). */
+    public static void tickKeys(Minecraft mc, boolean resetDown, boolean vehicle) {
+        if (!vehicle || !sHas) {
+            resetHeld = 0;
+            return;
+        }
+        if (resetDown) {
+            resetHeld += 50;
+            if (resetHeld >= 1000) {
+                CarsNet.send("trip", tripSel, 0);
+                resetHeld = -600; // pauza scurta ca sa nu repete imediat
+            }
+        } else {
+            resetHeld = 0;
+        }
     }
 
     /** Raspunsul serverului cu numarul de inmatriculare. */
@@ -295,16 +322,13 @@ public final class CarHud {
             Gfx.text(g, "COMB.", fx, fy + 17f, 5.8f, MUTED, 1, false, 1.2f);
         }
 
-        // kilometraj total + trip, discret, sub vitezometru
-        String a = sHas ? kmStr() : "- km";
-        String b = sHas ? "TRIP " + tripStr : "";
-        float wa = Gfx.width(a, 8.5f, false);
-        float wb = b.isEmpty() ? 0f : Gfx.width(b, 7.5f, false) + 9f;
-        float x0 = cx - (wa + wb) / 2f;
-        Gfx.text(g, a, x0, 143f, 8.5f, 0xFFDCE4F0, 0);
-        if (!b.isEmpty()) {
-            Gfx.disc(g, x0 + wa + 4.5f, 140.8f, 1f, 0xFF4A5666);
-            Gfx.text(g, b, x0 + wa + 9f, 143f, 7.5f, MUTED, 0);
+        // odometru mecanic (tambur) + trip A/B, sub vitezometru
+        advanceOdo(now);
+        if (sHas) {
+            drawOdometer(g, cx, 123f, 8.6f, 12f, dispOdo, now);
+            drawTrip(g, cx, 138f);
+        } else {
+            Gfx.text(g, "- km", cx, 133f, 8.5f, MUTED, 1);
         }
 
         // eticheta (tasta "Informatii vehicul"): nume + numar + proprietar, mica, deasupra bordului
@@ -319,7 +343,7 @@ public final class CarHud {
             float tx = 190f - tw;
             float ty = -4f;
             String own = metaOwner.isEmpty() ? "" : "Proprietar: " + metaOwner;
-            float th = own.isEmpty() ? 22f : 34f;
+            float th = (own.isEmpty() ? 22f : 34f) + (sHas ? 16f : 0f);
             ty -= th;
             Gfx.rrect(g, tx, ty, tw, th, 8f, (Math.round(ia * 0xD0) << 24) | 0x0E1118);
             Gfx.text(g, nm, tx + 10f, ty + 15f, 11f, (Math.round(ia * 255) << 24) | 0xEDEDEA, 0);
@@ -329,6 +353,14 @@ public final class CarHud {
                 Gfx.text(g, pl, qx + 5f, ty + 14f, 9f, (Math.round(ia * 255) << 24) | 0x14161A, 0, false, 0.5f);
             }
             if (!own.isEmpty()) Gfx.text(g, own.length() > 30 ? own.substring(0, 29) + "..." : own, tx + 10f, ty + 28f, 7.5f, (Math.round(ia * 255) << 24) | 0x9AA5B5, 0);
+            if (sHas) {
+                float oy = ty + th - 16f;
+                float prevA = Gfx.alpha;
+                Gfx.alpha *= ia;
+                Gfx.text(g, "ODO", tx + 10f, oy + 9f, 6.5f, MUTED, 0, false, 1.4f);
+                drawOdometer(g, tx + 10f + 18f + 36f, oy, 6.8f, 10f, dispOdo, now);
+                Gfx.alpha = prevA;
+            }
         }
         g.pose().popPose();
         ro.solarstudios.flowcity.client.ui.HudLayout.end(g);
@@ -336,11 +368,108 @@ public final class CarHud {
         if (fuel && sFrac <= 0f && appear > 0.9f) Gfx.text(g, "Rezervorul e gol", w / 2f, h - 64, 10, Theme.BAD, 1);
     }
 
-    private static String kmStr() {
-        long t = 0;
-        for (char ch : odoDigits.toCharArray()) t = t * 10 + (ch - '0');
-        long kmInt = t / 10;
-        String s = String.format(java.util.Locale.ROOT, "%,d", kmInt).replace(',', '.');
-        return s + " km";
+    private static long lastAdv = System.currentTimeMillis();
+
+    /** Intre doua trimiteri ale serverului, valorile cresc local dupa viteza reala (cel mult 55 m peste ultima valoare primita). */
+    private static void advanceOdo(long now) {
+        double dt = Math.min(0.2, Math.max(0.0, (now - lastAdv) / 1000.0));
+        lastAdv = now;
+        double step = Math.max(0f, shownSpeed) / 3.6 * dt;
+        dispOdo = Math.max(srvOdo, Math.min(dispOdo + step, srvOdo + 55.0));
+        dispA = Math.max(srvA, Math.min(dispA + step, srvA + 55.0));
+        dispB = Math.max(srvB, Math.min(dispB + step, srvB + 55.0));
+    }
+
+    private static final int DRUM_BG = 0xFF0A0E15;
+    private static final int DRUM_EDGE = 0xFF2B3546;
+    private static final int DRUM_TXT = 0xFFF1F5FA;
+    private static final int DEC_BG = 0xFFE9E4D6;
+    private static final int DEC_TXT = 0xFF14171C;
+
+    /** Decupare dreptunghiulara in coordonatele locale ale matricei curente (tine cont de mutarea/scalarea din editorul HUD). */
+    private static void clipBegin(GuiGraphics g, float x, float y, float w, float h) {
+        net.minecraft.util.math.vector.Matrix4f m = g.pose().last().pose();
+        net.minecraft.util.math.vector.Vector4f a = new net.minecraft.util.math.vector.Vector4f(x, y, 0f, 1f);
+        net.minecraft.util.math.vector.Vector4f b = new net.minecraft.util.math.vector.Vector4f(x + w, y + h, 0f, 1f);
+        a.transform(m);
+        b.transform(m);
+        int x0 = (int) Math.floor(Math.min(a.x(), b.x()));
+        int y0 = (int) Math.floor(Math.min(a.y(), b.y()));
+        int x1 = (int) Math.ceil(Math.max(a.x(), b.x()));
+        int y1 = (int) Math.ceil(Math.max(a.y(), b.y()));
+        Ui.scissor(x0, y0, Math.max(0, x1 - x0), Math.max(0, y1 - y0));
+    }
+
+    /** O cifra de tambur: se rostogoleste vertical cand cifra de mai jos trece de la 9 la 0 (ultima cifra se misca continuu). */
+    private static void drum(GuiGraphics g, float x, float y, float cw, float ch, double pos, int i, boolean dec) {
+        double t = pos / Math.pow(10.0, i);
+        double base = Math.floor(t);
+        double f = t - base;
+        int digit = (int) (((long) base) % 10L);
+        float r = (float) (i == 0 ? f : Math.max(0.0, (f - 0.9) / 0.1));
+        r = r * r * (3f - 2f * r);
+        Gfx.rrect(g, x - 0.8f, y - 0.8f, cw + 1.6f, ch + 1.6f, 2.6f, DRUM_EDGE);
+        Gfx.rrect(g, x, y, cw, ch, 2f, dec ? DEC_BG : DRUM_BG);
+        clipBegin(g, x, y, cw, ch);
+        float size = ch * 0.78f;
+        int col = dec ? DEC_TXT : DRUM_TXT;
+        Gfx.text(g, String.valueOf(digit), x + cw / 2f, y + ch * 0.80f - r * ch, size, col, 1);
+        if (r > 0.001f) Gfx.text(g, String.valueOf((digit + 1) % 10), x + cw / 2f, y + ch * 0.80f + (1f - r) * ch, size, col, 1);
+        // umbra de cilindru sus/jos
+        Gfx.rrect(g, x, y, cw, ch * 0.30f, 0f, dec ? 0x55000000 : 0xAA000000, 0x00000000);
+        Gfx.rrect(g, x, y + ch * 0.70f, cw, ch * 0.30f, 0f, 0x00000000, dec ? 0x55000000 : 0xAA000000);
+        Ui.endScissor();
+    }
+
+    /** Odometru 000.000,0 (6 cifre + o zecimala pe fundal deschis), centrat la cx. */
+    private static void drawOdometer(GuiGraphics g, float cx, float y, float cw, float ch, double meters, long now) {
+        double pos = Math.min(9_999_999.0, Math.max(0.0, meters / 100.0)); // zecimi de km
+        float gap = 1.3f;
+        float sep = cw * 0.45f;
+        float total = 7 * cw + 6 * gap + 2 * sep;
+        float x = cx - total / 2f;
+        for (int i = 6; i >= 0; i--) {
+            drum(g, x, y, cw, ch, pos, i, i == 0);
+            x += cw + gap;
+            if (i == 4 || i == 1) {
+                Gfx.text(g, i == 4 ? "." : ",", x - gap / 2f + sep / 2f - 0.3f, y + ch * 0.92f, ch * 0.7f, 0xFFB8C2D1, 1);
+                x += sep;
+            }
+        }
+    }
+
+    /** Trip curent (A/B) langa odometru: selector A|B + 4 cifre si o zecimala; la resetare apare o bara de progres. */
+    private static void drawTrip(GuiGraphics g, float cx, float y) {
+        double meters = tripSel == 0 ? dispA : dispB;
+        double pos = Math.min(99_999.0, Math.max(0.0, meters / 100.0));
+        float cw = 6.2f;
+        float ch = 9f;
+        float gap = 1.1f;
+        float sep = 3f;
+        float pill = 7.5f;
+        float drumW = 5 * cw + 4 * gap + sep;
+        float total = 2 * pill + 1.5f + 5f + drumW + 4f + 8f;
+        float x = cx - total / 2f;
+        for (int k = 0; k < 2; k++) {
+            boolean on = tripSel == k;
+            Gfx.rrect(g, x, y, pill, ch, 2.4f, on ? 0xFF22D3EE : 0xFF1B2430);
+            Gfx.text(g, k == 0 ? "A" : "B", x + pill / 2f, y + ch * 0.80f, 7f, on ? 0xFF06222A : MUTED, 1);
+            x += pill + 1.5f;
+        }
+        x += 5f;
+        for (int i = 4; i >= 0; i--) {
+            drum(g, x, y, cw, ch, pos, i, i == 0);
+            x += cw + gap;
+            if (i == 1) {
+                Gfx.text(g, ",", x - gap / 2f + sep / 2f - 0.3f, y + ch * 0.95f, 6.5f, 0xFFB8C2D1, 1);
+                x += sep;
+            }
+        }
+        Gfx.text(g, "km", x + 3f, y + ch * 0.80f, 6.5f, MUTED, 0);
+        if (resetHeld > 0) {
+            float prog = Math.min(1f, resetHeld / 1000f);
+            Gfx.rrect(g, cx - total / 2f, y + ch + 2f, total, 2f, 1f, 0xFF1B2430);
+            Gfx.rrect(g, cx - total / 2f, y + ch + 2f, Math.max(1f, total * prog), 2f, 1f, 0xFFFF6A5E);
+        }
     }
 }

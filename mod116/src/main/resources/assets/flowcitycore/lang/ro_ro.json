@@ -35,6 +35,8 @@
   "key.flowcity.interact": "Interactiune (garaj / politie)",
   "item.flowcitycore.cheie_masina": "Cheie masina",
   "key.flowcity.carinfo": "Informatii vehicul (kilometraj)",
+  "key.flowcity.tripswitch": "Trip: comuta A / B",
+  "key.flowcity.tripreset": "Trip: reseteaza (tine apasat)",
   "key.flowcity.carlock": "Incuie / descuie masina",
   "key.flowcity.hudedit": "Editor HUD (muta elementele)",
   "item.flowcitycore.el_trusa": "Trusa electrician",

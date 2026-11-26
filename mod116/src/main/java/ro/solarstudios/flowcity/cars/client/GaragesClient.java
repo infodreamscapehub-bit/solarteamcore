@@ -75,6 +75,8 @@ public final class GaragesClient {
     public static final List<S> stations = new ArrayList<>();
     public static KeyBinding lockKey;
     public static KeyBinding infoKey;
+    public static KeyBinding tripSwitchKey;
+    public static KeyBinding tripResetKey;
     /** Lumini care clipesc la incuiere: id entitate -> {momentul, incuiat (1/0)}. */
     private static final java.util.Map<Integer, long[]> flashes = new java.util.HashMap<>();
     public static final Set<String> factions = new HashSet<>();
@@ -96,6 +98,10 @@ public final class GaragesClient {
         e.register(lockKey);
         infoKey = new KeyBinding("key.flowcity.carinfo", InputMappings.Type.KEYSYM, GLFW.GLFW_KEY_I, "key.categories.flowcity");
         e.register(infoKey);
+        tripSwitchKey = new KeyBinding("key.flowcity.tripswitch", InputMappings.Type.KEYSYM, GLFW.GLFW_KEY_LEFT_BRACKET, "key.categories.flowcity");
+        e.register(tripSwitchKey);
+        tripResetKey = new KeyBinding("key.flowcity.tripreset", InputMappings.Type.KEYSYM, GLFW.GLFW_KEY_RIGHT_BRACKET, "key.categories.flowcity");
+        e.register(tripResetKey);
     }
 
     public static boolean police() {
@@ -173,8 +179,8 @@ public final class GaragesClient {
                 CarHud.setPlate(o.has("id") ? o.get("id").getAsInt() : -1, o.has("plate") ? o.get("plate").getAsString() : "");
                 break;
             case "odo":
-                CarHud.setOdo(JsonClientModule.integer(o, "eid", -1), JsonClientModule.num(o, "odo", 0), JsonClientModule.num(o, "trip", 0));
-                CarHud.setJourney(JsonClientModule.num(o, "journey", 0));
+                CarHud.setOdo(JsonClientModule.integer(o, "eid", -1), JsonClientModule.num(o, "odo", 0), JsonClientModule.num(o, "tripA", 0),
+                    JsonClientModule.num(o, "tripB", 0));
                 if (JsonClientModule.bool(o, "meta", false)) CarHud.setMeta(JsonClientModule.str(o, "model", ""), JsonClientModule.str(o, "plate", ""),
                     JsonClientModule.str(o, "owner", ""), JsonClientModule.str(o, "reg", ""), JsonClientModule.str(o, "vid", ""));
                 break;
@@ -283,7 +289,17 @@ public final class GaragesClient {
                 prompt = null;
                 return;
             }
-            if (mc.screen != null) return;
+            if (mc.screen != null) {
+                CarHud.tickKeys(mc, false, false);
+                return;
+            }
+            boolean inVeh = mc.player.getVehicle() != null;
+            if (tripSwitchKey != null) {
+                boolean sw = false;
+                while (tripSwitchKey.consumeClick()) sw = true;
+                if (sw && inVeh) CarHud.tripSel ^= 1;
+            }
+            CarHud.tickKeys(mc, tripResetKey != null && tripResetKey.isDown(), inVeh);
             findPrompt(mc);
             if (lockKey != null) {
                 boolean lk = false;

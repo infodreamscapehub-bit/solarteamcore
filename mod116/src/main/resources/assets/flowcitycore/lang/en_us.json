@@ -38,6 +38,8 @@
   "item.flowcitycore.cheie_masina": "Car key",
   "key.flowcity.hudedit": "HUD editor (move elements)",
   "key.flowcity.carinfo": "Vehicle info (odometer)",
+  "key.flowcity.tripswitch": "Trip: switch A / B",
+  "key.flowcity.tripreset": "Trip: reset (hold)",
   "key.flowcity.carlock": "Lock / unlock car",
   "item.flowcitycore.el_trusa": "Electrician kit",
   "item.flowcitycore.el_surubelnita": "Insulated screwdriver",

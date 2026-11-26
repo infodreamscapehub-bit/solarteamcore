@@ -82,7 +82,7 @@ public final class CarsServer {
                 tuneList(p, data);
                 break;
             case "trip":
-                resetTrip(p, data);
+                resetTrip(p, data, a);
                 break;
             default:
                 break;
@@ -509,12 +509,13 @@ public final class CarsServer {
     private static final String ODO_M = "fcOdoM";
     private static final String ODO_ID = "fcOdoId";
     private static final String ODO_SINCE = "fcOdoSince";
+    /** Trip A / trip B ale vehiculelor neinregistrate (metri, in datele persistente ale entitatii). */
+    private static final String TRIP_A = "fcTripA";
+    private static final String TRIP_B = "fcTripB";
     private static final java.util.Map<String, Vector3d> ODO_POS = new java.util.HashMap<>();
-    /** Per sofer: cheia vehiculului, ultimele valori trimise (odo, trip, calatorie). */
+    /** Per sofer: cheia vehiculului, ultimele valori trimise (odo, trip A, trip B). */
     private static final java.util.Map<UUID, Object[]> ODO_SENT = new java.util.HashMap<>();
-    /** Calatoria curenta per sofer: cheia vehiculului, metri, ultima data cand a condus. */
-    private static final java.util.Map<UUID, Object[]> JOURNEY = new java.util.HashMap<>();
-    private static final long JOURNEY_GAP_MS = 120_000L;
+    private static final java.util.Map<UUID, Long> TRIP_RESET_AT = new java.util.HashMap<>();
     private static Class<?> poweredClass;
     private static boolean poweredChecked;
 
@@ -535,12 +536,12 @@ public final class CarsServer {
         return new java.text.SimpleDateFormat("dd.MM.yyyy").format(new java.util.Date(ms));
     }
 
-    private static void sendOdo(ServerPlayerEntity p, Entity v, String key, double odo, double trip, double journey, GarageData.Car c) {
+    private static void sendOdo(ServerPlayerEntity p, Entity v, String key, double odo, double tripA, double tripB, GarageData.Car c) {
         JsonObject o = new JsonObject();
         o.addProperty("eid", v.getId());
         o.addProperty("odo", Math.round(odo));
-        o.addProperty("trip", Math.round(trip));
-        o.addProperty("journey", Math.round(journey));
+        o.addProperty("tripA", Math.round(tripA));
+        o.addProperty("tripB", Math.round(tripB));
         Object[] prev = ODO_SENT.get(p.getUUID());
         if (prev == null || !key.equals(prev[0])) {
             // datele fixe ale vehiculului doar la prima trimitere pentru acest vehicul
@@ -560,7 +561,7 @@ public final class CarsServer {
             }
         }
         CarsNet.reply(p, "odo", o.toString());
-        ODO_SENT.put(p.getUUID(), new Object[] {key, odo, trip, journey});
+        ODO_SENT.put(p.getUUID(), new Object[] {key, odo, tripA, tripB});
     }
 
     /** La ~0,5 s: adauga distanta reala parcursa vehiculelor cu sofer si trimite soferului valorile (rar: la 50 m sau la schimbarea vehiculului). */
@@ -582,10 +583,6 @@ public final class CarsServer {
             String key = c != null ? "c" + c.id : "e" + v.getUUID();
             active.add(key);
             activePlayers.add(p.getUUID());
-            Object[] j = JOURNEY.get(p.getUUID());
-            if (j == null || !key.equals(j[0]) || now - (Long) j[2] > JOURNEY_GAP_MS) j = new Object[] {key, 0.0, now};
-            j[2] = now;
-            JOURNEY.put(p.getUUID(), j);
             Vector3d pos = v.position();
             Vector3d prev = ODO_POS.put(key, pos);
             if (prev != null) {
@@ -594,37 +591,51 @@ public final class CarsServer {
                     if (c != null) {
                         c.odometerM += d;
                         c.tripM += d;
+                        c.tripBM += d;
                         data.setDirty();
                     } else {
                         pd.putDouble(ODO_M, pd.getDouble(ODO_M) + d);
+                        pd.putDouble(TRIP_A, pd.getDouble(TRIP_A) + d);
+                        pd.putDouble(TRIP_B, pd.getDouble(TRIP_B) + d);
                     }
-                    j[1] = (Double) j[1] + d;
                 }
             }
             double odo = c != null ? c.odometerM : pd.getDouble(ODO_M);
-            double trip = c != null ? c.tripM : (Double) j[1];
-            double jr = (Double) j[1];
+            double ta = c != null ? c.tripM : pd.getDouble(TRIP_A);
+            double tb = c != null ? c.tripBM : pd.getDouble(TRIP_B);
             Object[] sent = ODO_SENT.get(p.getUUID());
-            if (sent == null || !key.equals(sent[0]) || Math.abs(odo - (Double) sent[1]) >= 50 || Math.abs(jr - (Double) sent[3]) >= 50
-                || (jr < (Double) sent[3])) sendOdo(p, v, key, odo, trip, jr, c);
+            // rar: la fiecare 50 m parcursi sau cand se schimba vehiculul (clientul interpoleaza intre timp)
+            if (sent == null || !key.equals(sent[0]) || Math.abs(odo - (Double) sent[1]) >= 50) sendOdo(p, v, key, odo, ta, tb, c);
         }
         ODO_POS.keySet().retainAll(active);
         ODO_SENT.keySet().retainAll(activePlayers);
-        JOURNEY.values().removeIf(j -> now - (Long) j[2] > JOURNEY_GAP_MS * 2);
+        TRIP_RESET_AT.values().removeIf(t -> now - t > 60_000L);
     }
 
-    /** Resetarea tripului: doar soferul unei masini din garaj (comanda client ".trip"). */
-    private static void resetTrip(ServerPlayerEntity p, GarageData data) {
+    /** Resetarea unui trip (0 = A, 1 = B): doar soferul vehiculului, validat pe server, cel mult o data pe secunda. */
+    private static void resetTrip(ServerPlayerEntity p, GarageData data, int which) {
+        if (which != 0 && which != 1) return;
         Entity v = p.getVehicle();
         if (v == null || v.getControllingPassenger() != p) return;
+        long now = System.currentTimeMillis();
+        Long last = TRIP_RESET_AT.get(p.getUUID());
+        if (last != null && now - last < 1000L) return;
         GarageData.Car c = carOf(p.server, v);
-        if (c == null) return;
-        c.tripM = 0;
-        data.setDirty();
-        Object[] j = JOURNEY.get(p.getUUID());
+        CompoundNBT pd = v.getPersistentData();
+        if (c == null && !pd.contains(ODO_ID)) return;
+        TRIP_RESET_AT.put(p.getUUID(), now);
+        if (c != null) {
+            if (which == 0) c.tripM = 0;
+            else c.tripBM = 0;
+            data.setDirty();
+        } else {
+            pd.putDouble(which == 0 ? TRIP_A : TRIP_B, 0);
+        }
+        String key = c != null ? "c" + c.id : "e" + v.getUUID();
         ODO_SENT.remove(p.getUUID());
-        sendOdo(p, v, "c" + c.id, c.odometerM, 0, j == null ? 0 : (Double) j[1], c);
-        p.displayClientMessage(new StringTextComponent("Trip resetat."), true);
+        double odo = c != null ? c.odometerM : pd.getDouble(ODO_M);
+        sendOdo(p, v, key, odo, c != null ? c.tripM : pd.getDouble(TRIP_A), c != null ? c.tripBM : pd.getDouble(TRIP_B), c);
+        p.displayClientMessage(new StringTextComponent("Trip " + (which == 0 ? "A" : "B") + " resetat."), true);
     }
 
     private static void plate(ServerPlayerEntity p, GarageData data, int entityId) {

@@ -110,10 +110,6 @@ public final class ClientInit {
                         Minecraft.getInstance().player.displayClientMessage(new StringTextComponent("\u00a7b[FlowCity] \u00a77Folosire: \u00a7f.hudstyle <1-3>"), false);
                     }
                 }
-            } else if (m.equals(".trip")) {
-                e.setCanceled(true);
-                Minecraft.getInstance().gui.getChat().addRecentChat(e.getMessage());
-                ro.solarstudios.flowcity.cars.CarsNet.send("trip", 0, 0);
             }
         }
 
