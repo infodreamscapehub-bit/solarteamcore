@@ -1085,6 +1085,14 @@ public final class MdtModule extends JsonModule implements Listener {
         return access(p);
     }
 
+    /** Salariul de baza configurat pentru gradul jucatorului (0 daca nu e ofiter sau gradul nu are salariu). */
+    public int rankSalary(Player p) {
+        Officer o = officers.get(p.getUniqueId());
+        if (o == null) return 0;
+        Rank r = ranks.get(o.rank);
+        return r == null ? 0 : Math.max(0, r.salary);
+    }
+
     /** Amenda de parcare: proprietarul se afla dupa numar. Intoarce numele lui sau null daca numarul nu e inregistrat. */
     public String fineByPlate(Player officer, String plate, int amount, String reason) {
         Citizen ct = plateOwner(normPlate(plate));

@@ -25,15 +25,18 @@ public final class NotifyToasts {
         final String type;
         final String title;
         final List<String> lines;
+        /** Doar la salariu: suma scrisa mare deasupra randurilor (ex. "+1 500 lei"). */
+        final String big;
         final long at = System.currentTimeMillis();
         final float h;
         float y = Float.NaN;
 
-        Toast(String type, String title, List<String> lines) {
+        Toast(String type, String title, List<String> lines, String big) {
             this.type = type;
             this.title = title;
             this.lines = lines;
-            this.h = 38f + 9f * lines.size();
+            this.big = big;
+            this.h = (big == null ? 38f : 52f) + 9f * lines.size();
         }
     }
 
@@ -45,8 +48,19 @@ public final class NotifyToasts {
     }
 
     public static void add(String type, String title, String text, String soundName) {
-        List<String> ls = NotifyUi.wrap(text, 7.6f, W - TEXT_X - 12, 2);
-        TOASTS.add(new Toast(type, NotifyUi.clip(title, 8.8f, W - TEXT_X - 12), ls));
+        // la salariu textul vine despartit cu "|": prima parte e suma (scrisa mare), restul sunt randuri de detaliu
+        String big = null;
+        String rest = text;
+        if ("PAYDAY".equals(type) && text != null && text.indexOf('|') > 0) {
+            int i = text.indexOf('|');
+            big = text.substring(0, i).trim();
+            rest = text.substring(i + 1).replace('|', '\n');
+        }
+        List<String> ls = new ArrayList<>();
+        for (String part : rest == null ? new String[0] : rest.split("\n")) {
+            if (!part.trim().isEmpty()) ls.addAll(NotifyUi.wrap(part.trim(), 7.6f, W - TEXT_X - 12, 2));
+        }
+        TOASTS.add(new Toast(type, NotifyUi.clip(title, 8.8f, W - TEXT_X - 12), ls, big));
         while (TOASTS.size() > 5) TOASTS.remove(0);
         if (soundName != null && !soundName.isEmpty()) ro.solarstudios.flowcity.client.ui.FlowSounds.play(soundName, 0.8F);
         else sound(type);
@@ -166,6 +180,11 @@ public final class NotifyToasts {
         // text
         Gfx.text(g, t.title, x + TEXT_X, y + 17, 8.8f, Gfx.fade(0xFFF4F1EA, a), 0);
         float ty = y + 28;
+        if (t.big != null) {
+            float pp = Math.min(1f, age / 520f);
+            Gfx.text(g, t.big, x + TEXT_X, y + 42, 15f * (0.86f + 0.14f * easeOutBack(pp)), Gfx.fade(c, a), 0, true, 0);
+            ty = y + 52;
+        }
         for (String l : t.lines) {
             Gfx.text(g, l, x + TEXT_X, ty, 7.6f, Gfx.fade(0xFFA19F98, a), 0);
             ty += 9;

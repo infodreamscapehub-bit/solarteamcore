@@ -9,9 +9,22 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import ro.solarstudios.flowcity.bridge.core.Commands;
 import ro.solarstudios.flowcity.bridge.core.ModConfig;
+import ro.solarstudios.flowcity.bridge.hype.HypeModule;
+import ro.solarstudios.flowcity.bridge.mdt.MdtModule;
 import ro.solarstudios.flowcity.bridge.module.JsonModule;
+import ro.solarstudios.flowcity.bridge.notify.NotifyModule;
 
-/** PayDay: salariu periodic pe timp de joc activ (fara AFK), in functie de permisiunea flowcity.payday.<grup>. */
+/**
+ * PayDay: salariul periodic, virat DIRECT in contul bancar (nu in cash).
+ *
+ * <p>Salariul de baza vine din permisiunea {@code flowcity.payday.<grup>} (cea mai mare se ia in calcul). Peste el se
+ * adauga, daca sunt pornite in payday.yml: salariul gradului de politie configurat in MDT si un spor pentru nivelul
+ * profesional din FJobs. Din brut se scade impozitul, iar netul intra in banca, se trece in istoricul bancar (tip
+ * PAYDAY, vizibil la ATM si in aplicatia bancara) si se anunta printr-o notificare laterala.
+ *
+ * <p>Conditiile de eligibilitate (timp activ, fara AFK, salariu minim, permisiune obligatorie) sunt in payday.yml.
+ * Jucatorii nu pot modifica nimic: comenzile de administrare cer {@code flowcity.payday.admin}.
+ */
 public final class PaydayModule extends JsonModule {
     private YamlConfiguration cfg;
     private final Map<UUID, Integer> minutes = new HashMap<>();
@@ -46,9 +59,7 @@ public final class PaydayModule extends JsonModule {
                 } else {
                     int g = salary(t);
                     int tx = (int) Math.round(g * cfg.getDouble("tax-percent", 5) / 100.0);
-                    String txt = "TEST: ai primit salariul: +" + (g - tx) + " lei (brut " + g + ", impozit " + tx + ")";
-                    if (plugin.notifications() != null) plugin.notifications().send(t.getUniqueId(), ro.solarstudios.flowcity.bridge.notify.NotifyModule.Type.MONEY, "Primăria Flow City", txt, "payday");
-                    else t.sendMessage("§9§l[Primăria Flow City] §f" + txt);
+                    notifyPaid(t, g - tx, g, tx, plugin.bank().balance(t.getUniqueId()), true);
                     s.sendMessage("§aNotificare PayDay de test trimisa lui " + t.getName() + " (fara bani).");
                 }
                 return true;
@@ -62,6 +73,9 @@ public final class PaydayModule extends JsonModule {
         }, null, "salariu");
     }
 
+    // ------------------------------------------------------------------ salariu
+
+    /** Salariul brut: grupul cel mai bine platit, plus gradul de politie si nivelul profesional, daca sunt pornite. */
     private int salary(Player p) {
         int best = cfg.getInt("base-salary", 200);
         ConfigurationSection g = cfg.getConfigurationSection("groups");
@@ -70,8 +84,36 @@ public final class PaydayModule extends JsonModule {
                 if (p.hasPermission("flowcity.payday." + k)) best = Math.max(best, g.getInt(k));
             }
         }
-        return best;
+        if (cfg.getBoolean("bonuses.use-mdt-rank", true) && MdtModule.instance != null) {
+            best = Math.max(best, Math.max(0, MdtModule.instance.rankSalary(p)));
+        }
+        int perLevel = cfg.getInt("bonuses.per-job-level", 0);
+        int maxLevel = cfg.getInt("bonuses.max-job-level", 20);
+        if (perLevel > 0) {
+            int lvl = Math.min(maxLevel, Math.max(0, jobLevel(p)));
+            best += perLevel * lvl;
+        }
+        return Math.max(0, best);
     }
+
+    /** Nivelul profesional din FJobs la jobul curent (0 daca nu are job sau modulul lipseste). */
+    private int jobLevel(Player p) {
+        try {
+            ro.solarstudios.flowcity.bridge.fjobs.FJobsModule f = ro.solarstudios.flowcity.bridge.fjobs.FJobsModule.instance;
+            return f == null ? 0 : f.currentJobLevel(p);
+        } catch (RuntimeException | NoClassDefFoundError ex) {
+            return 0;
+        }
+    }
+
+    /** Conditiile din config: permisiune obligatorie si salariu minim. */
+    private boolean eligible(Player p, int gross) {
+        String perm = cfg.getString("require-permission", "");
+        if (perm != null && !perm.isEmpty() && !p.hasPermission(perm)) return false;
+        return gross >= cfg.getInt("min-salary", 1);
+    }
+
+    // ------------------------------------------------------------------ ceas
 
     private void tick() {
         int interval = Math.max(1, cfg.getInt("interval-minutes", 60));
@@ -93,16 +135,49 @@ public final class PaydayModule extends JsonModule {
         minutes.keySet().removeIf(u -> Bukkit.getPlayer(u) == null);
     }
 
+    // ------------------------------------------------------------------ plata
+
     private void pay(Player p) {
         int gross = salary(p);
+        if (!eligible(p, gross)) return;
         int tax = (int) Math.round(gross * cfg.getDouble("tax-percent", 5) / 100.0);
         int net = gross - tax;
-        if (plugin.money() == null || !plugin.money().deposit(p.getUniqueId(), net)) {
-            p.sendMessage("§cPayDay: nu am putut depune salariul.");
+        if (net <= 0) return;
+        UUID u = p.getUniqueId();
+        if (plugin.bank() == null || !plugin.bank().deposit(u, net)) {
+            p.sendMessage("§cPayDay: nu am putut vira salariul in cont.");
             return;
         }
-        String txt = "Ai primit salariul: +" + net + " lei (brut " + gross + ", impozit " + tax + ")";
-        if (plugin.notifications() != null) plugin.notifications().send(p.getUniqueId(), ro.solarstudios.flowcity.bridge.notify.NotifyModule.Type.MONEY, "Primăria Flow City", txt, "payday");
-        else p.sendMessage("§9§l[Primăria Flow City] §f" + txt);
+        double balance = plugin.bank().balance(u);
+        if (HypeModule.instance != null) HypeModule.instance.logTx(u, "PAYDAY", net, "Salariu");
+        if (plugin.service() != null) plugin.service().logTransaction(u, "PAYDAY", net, "Salariu", "brut " + gross + ", impozit " + tax);
+        notifyPaid(p, net, gross, tax, balance, false);
+    }
+
+    /** Notificarea laterala: suma mare, metoda, sursa si soldul nou. */
+    private void notifyPaid(Player p, int net, int gross, int tax, double balance, boolean test) {
+        String title = cfg.getString("messages.title", "FlowCity PayDay");
+        String source = cfg.getString("messages.source", "Salariu");
+        String method = cfg.getString("messages.method", "Transfer bancar");
+        String text = (test ? "TEST " : "") + "+" + money(net) + " lei"
+            + "|" + method + " · " + source
+            + "|Sold nou: " + money(balance) + " lei"
+            + (tax > 0 ? "|Brut " + money(gross) + " lei, impozit " + money(tax) + " lei" : "");
+        if (plugin.notifications() != null) {
+            plugin.notifications().send(p.getUniqueId(), NotifyModule.Type.PAYDAY, title, text, "payday", "bank");
+        } else {
+            p.sendMessage("§a§l[" + title + "] §r§f+" + money(net) + " lei in cont (sold " + money(balance) + ").");
+        }
+    }
+
+    private static String money(double v) {
+        long n = Math.round(v);
+        String s = String.valueOf(Math.abs(n));
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < s.length(); i++) {
+            if (i > 0 && (s.length() - i) % 3 == 0) b.append(' ');
+            b.append(s.charAt(i));
+        }
+        return (n < 0 ? "-" : "") + b;
     }
 }

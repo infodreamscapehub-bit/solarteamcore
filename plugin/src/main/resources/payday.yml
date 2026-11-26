@@ -1,10 +1,28 @@
 # PayDay: la fiecare "interval-minutes" minute de joc activ jucatorul primeste salariul.
-# Salariul = cel mai mare dintre permisiunile flowcity.payday.<grup> pe care le are (grupurile de mai jos).
-# Jucatorii AFK (nemiscati) nu acumuleaza timp.
+# Salariul intra DIRECT IN CONTUL BANCAR (nu in cash), se trece in istoricul bancar (tip PAYDAY, vizibil la ATM si in
+# aplicatia bancara din telefon) si se anunta printr-o notificare laterala.
+# Salariul de baza = cel mai mare dintre permisiunile flowcity.payday.<grup> pe care le are (grupurile de mai jos).
+# Jucatorii AFK (nemiscati) nu acumuleaza timp. Doar staff-ul poate schimba salariile (flowcity.payday.admin).
 enabled: true
 interval-minutes: 60
 afk-minutes: 5
 base-salary: 200
+
+# Conditii ca sa primeasca salariul
+require-permission: ""   # gol = oricine; ex. "flowcity.payday.ok" ca sa plateasca doar celor cu permisiunea
+min-salary: 1            # sub atat nu se plateste nimic
+
+# Sporuri peste salariul de baza
+bonuses:
+  use-mdt-rank: true     # politistii primesc salariul gradului configurat in MDT (Administrator -> grade)
+  per-job-level: 0       # lei in plus pentru fiecare nivel profesional FJobs la jobul curent (0 = oprit)
+  max-job-level: 20      # peste acest nivel sporul nu mai creste
+
+# Textele notificarii
+messages:
+  title: "FlowCity PayDay"
+  method: "Transfer bancar"
+  source: "Salariu"
 # grup -> salariu (da jucatorului permisiunea flowcity.payday.<grup>)
 groups:
   vip: 400

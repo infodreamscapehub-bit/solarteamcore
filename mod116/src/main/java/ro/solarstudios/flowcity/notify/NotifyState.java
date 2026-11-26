@@ -45,6 +45,7 @@ public final class NotifyState {
             case "WARN": return Theme.WARN;
             case "BAD": return Theme.BAD;
             case "MONEY": return 0xFFF5C451;
+            case "PAYDAY": return 0xFF5BC47F;
             case "JOB": return Theme.VIOLET;
             case "NEWS": return 0xFF5BA8FF;
             default: return Theme.ACCENT;
@@ -57,6 +58,7 @@ public final class NotifyState {
             case "WARN": return "!";
             case "BAD": return "x";
             case "MONEY": return "$";
+            case "PAYDAY": return "$";
             case "JOB": return "J";
             case "NEWS": return "N";
             default: return "i";

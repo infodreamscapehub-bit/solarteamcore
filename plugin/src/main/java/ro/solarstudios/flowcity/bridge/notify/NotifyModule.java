@@ -26,7 +26,7 @@ import ro.solarstudios.flowcity.bridge.module.JsonModule;
  */
 public final class NotifyModule extends JsonModule implements Listener {
     public enum Type {
-        INFO("§b"), OK("§a"), WARN("§e"), BAD("§c"), MONEY("§6"), JOB("§d"), NEWS("§9");
+        INFO("§b"), OK("§a"), WARN("§e"), BAD("§c"), MONEY("§6"), JOB("§d"), NEWS("§9"), PAYDAY("§a");
 
         final String color;
 
@@ -146,7 +146,7 @@ public final class NotifyModule extends JsonModule implements Listener {
                 if (sound != null && !sound.isEmpty()) o.addProperty("sound", sound);
                 send(p, "push", o);
             } else {
-                p.sendMessage(type.color + "§l[!] §r§f" + ti + (tx.isEmpty() ? "" : " §7- " + tx));
+                p.sendMessage(type.color + "§l[!] §r§f" + ti + (tx.isEmpty() ? "" : " §7- " + tx.replace("|", " · ")));
             }
         }));
     }

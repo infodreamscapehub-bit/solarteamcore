@@ -70,6 +70,13 @@ public final class NotifyUi {
             case "MONEY":
                 Gfx.text(g, "$", cx, cy + 4.4f * k, 12.5f * k, gl, 1, false, 0f);
                 break;
+            case "PAYDAY": {
+                // banca: fronton, coloane si soclu
+                Gfx.poly(g, new float[] {cx, cy - 6.4f * k, cx + 6.6f * k, cy - 2.6f * k, cx - 6.6f * k, cy - 2.6f * k}, gl);
+                for (int i = -1; i <= 1; i++) Gfx.rrect(g, cx + i * 3.6f * k - 0.9f * k, cy - 1.8f * k, 1.8f * k, 5.4f * k, 0.6f * k, gl);
+                Gfx.rrect(g, cx - 6.4f * k, cy + 3.8f * k, 12.8f * k, 2.2f * k, 0.8f * k, gl);
+                break;
+            }
             case "JOB": {
                 Gfx.rrect(g, cx - 6f * k, cy - 3f * k, 12f * k, 9f * k, 2f * k, gl);
                 Gfx.rrect(g, cx - 2.6f * k, cy - 6.2f * k, 5.2f * k, 3.6f * k, 1.4f * k, gl);

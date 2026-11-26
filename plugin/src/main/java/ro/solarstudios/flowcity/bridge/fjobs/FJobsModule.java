@@ -105,7 +105,8 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
         }
     }
 
-    private static volatile FJobsModule instance;
+    /** Instanta activa (si pentru modulele care au nevoie de nivelul profesional, ex. PayDay). */
+    public static volatile FJobsModule instance;
 
     public static final String PERM_USE = "flowcity.fjobs.use";
     public static final String PERM_ADMIN = "flowcity.fjobs.admin";
@@ -135,6 +136,13 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
     @Override
     public String id() {
         return "fjobs";
+    }
+
+    /** Nivelul profesional la jobul curent (0 daca nu are job). */
+    public int currentJobLevel(Player p) {
+        FJobsData.Profile pr = store == null ? null : store.peek(p.getUniqueId());
+        if (pr == null || pr.job == null || pr.job.isEmpty()) return 0;
+        return jobLevel(pr, pr.job);
     }
 
     // ------------------------------------------------------------------ pornire
