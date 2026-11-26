@@ -74,6 +74,78 @@ public final class AtmService {
 
     public static final String NO_CARD = "Introdu cardul bancar! Ai nevoie de un card in inventar.";
 
+    /** Cheia PDC cu proprietarul cardului (UUID). Se scrie la prima folosire, daca atm.card-bind e pornit. */
+    private org.bukkit.NamespacedKey ownerKey;
+
+    private org.bukkit.NamespacedKey ownerKey() {
+        if (ownerKey == null) ownerKey = new org.bukkit.NamespacedKey(plugin, "card_owner");
+        return ownerKey;
+    }
+
+    /** Legarea cardului de proprietar e pornita? (atm.card-bind, implicit da) */
+    public boolean bindEnabled() {
+        return cfg.getBoolean("atm.card-bind", true);
+    }
+
+    /** Proprietarul scris in card sau null daca nu e legat inca. */
+    public java.util.UUID cardOwner(org.bukkit.inventory.ItemStack it) {
+        if (it == null || !it.hasItemMeta()) return null;
+        String s = it.getItemMeta().getPersistentDataContainer()
+            .get(ownerKey(), org.bukkit.persistence.PersistentDataType.STRING);
+        if (s == null || s.isEmpty()) return null;
+        try {
+            return java.util.UUID.fromString(s);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    /** Leaga cardul de jucator (prima folosire) si ii scrie numele in lore. */
+    public void bindCard(Player p, org.bukkit.inventory.ItemStack it) {
+        if (it == null || !bindEnabled()) return;
+        org.bukkit.inventory.meta.ItemMeta m = it.getItemMeta();
+        if (m == null) return;
+        m.getPersistentDataContainer().set(ownerKey(), org.bukkit.persistence.PersistentDataType.STRING, p.getUniqueId().toString());
+        java.util.List<String> lore = m.hasLore() ? m.getLore() : new java.util.ArrayList<>();
+        if (lore == null) lore = new java.util.ArrayList<>();
+        lore.removeIf(l -> l != null && l.contains("Titular:"));
+        lore.add("\u00a77Titular: \u00a7f" + p.getName());
+        m.setLore(lore);
+        it.setItemMeta(m);
+    }
+
+    /**
+     * Cardul din mana (sau din inventar) e al jucatorului? Daca nu e legat inca, il leaga acum.
+     * Intoarce null daca totul e in regula, altfel motivul refuzului.
+     */
+    public String cardOwnerCheck(Player p) {
+        if (!cardRequired(p) || !bindEnabled()) return null;
+        org.bukkit.inventory.ItemStack free = null;
+        for (org.bukkit.inventory.ItemStack it : p.getInventory().getContents()) {
+            if (!isCard(it)) continue;
+            java.util.UUID o = cardOwner(it);
+            if (o == null) {
+                if (free == null) free = it;
+            } else if (o.equals(p.getUniqueId())) {
+                return null;
+            }
+        }
+        org.bukkit.inventory.ItemStack off = p.getInventory().getItemInOffHand();
+        if (isCard(off)) {
+            java.util.UUID o = cardOwner(off);
+            if (o == null) {
+                if (free == null) free = off;
+            } else if (o.equals(p.getUniqueId())) {
+                return null;
+            }
+        }
+        if (free != null) {
+            bindCard(p, free);
+            return null;
+        }
+        return "Cardul bancar apartine altui jucator.";
+    }
+
     public static boolean isCard(org.bukkit.inventory.ItemStack it) {
         if (it == null || it.getType() == org.bukkit.Material.AIR) return false;
         String n = it.getType().name().toLowerCase(java.util.Locale.ROOT);
@@ -94,9 +166,17 @@ public final class AtmService {
     /** Card in orice loc din inventar (pentru operatiile din ATM deja deschis si pentru ATM-ul din telefon). */
     public boolean cardOk(Player p) {
         if (!cardRequired(p)) return true;
-        if (isCard(p.getInventory().getItemInOffHand())) return true;
-        for (org.bukkit.inventory.ItemStack it : p.getInventory().getContents()) if (isCard(it)) return true;
-        return false;
+        boolean any = isCard(p.getInventory().getItemInOffHand());
+        if (!any) {
+            for (org.bukkit.inventory.ItemStack it : p.getInventory().getContents()) {
+                if (isCard(it)) {
+                    any = true;
+                    break;
+                }
+            }
+        }
+        // cardul trebuie sa fie al jucatorului (daca atm.card-bind e pornit); unul nelegat se leaga acum
+        return any && cardOwnerCheck(p) == null;
     }
 
     /** Card tinut in mana (cand dai click pe un ATM fizic: "introduci" cardul). */

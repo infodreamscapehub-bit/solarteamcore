@@ -551,6 +551,73 @@ public final class HypeModule extends JsonModule implements Listener {
         }
     }
 
+    private final java.util.Map<java.util.UUID, Long> lastItemUse = new java.util.HashMap<>();
+
+    private boolean itemRate(Player p, long ms) {
+        long now = System.currentTimeMillis();
+        Long last = lastItemUse.get(p.getUniqueId());
+        if (last != null && now - last < ms) return false;
+        lastItemUse.put(p.getUniqueId(), now);
+        return true;
+    }
+
+    /** Numele itemului din mod ("flowcitycore:lanterna") sau "". */
+    private static String itemKey(org.bukkit.inventory.ItemStack it) {
+        if (it == null || it.getType() == org.bukkit.Material.AIR) return "";
+        try {
+            return it.getType().getKey().toString().toLowerCase(java.util.Locale.ROOT);
+        } catch (RuntimeException | LinkageError e) {
+            return it.getType().name().toLowerCase(java.util.Locale.ROOT);
+        }
+    }
+
+    /** Click dreapta cu un item FlowCity in mana: cardul bancar arata contul, lanterna da lumina. */
+    @EventHandler(ignoreCancelled = true)
+    public void onItemUse(PlayerInteractEvent e) {
+        if (e.getHand() != EquipmentSlot.HAND) return;
+        Action a = e.getAction();
+        if (a != Action.RIGHT_CLICK_AIR && a != Action.RIGHT_CLICK_BLOCK) return;
+        org.bukkit.inventory.ItemStack it = e.getItem();
+        if (it == null) return;
+        Player p = e.getPlayer();
+        if (atm != null && AtmService.isCard(it)) {
+            e.setCancelled(true);
+            if (!itemRate(p, 800)) return;
+            if (!p.hasPermission("flowcity.hype.atm")) {
+                p.sendMessage("\u00a7cNu ai acces la serviciile bancare.");
+                return;
+            }
+            java.util.UUID owner = atm.cardOwner(it);
+            if (owner == null && atm.bindEnabled()) {
+                atm.bindCard(p, it);
+                owner = p.getUniqueId();
+            }
+            if (owner != null && !owner.equals(p.getUniqueId())) {
+                p.sendMessage("\u00a7cCardul bancar apartine altui jucator.");
+                return;
+            }
+            p.sendMessage("\u00a7b\u00a7lCARD BANCAR");
+            p.sendMessage("\u00a77Titular: \u00a7f" + p.getName());
+            p.sendMessage("\u00a77Cont: \u00a7a$" + Fmt.money(plugin.bank().balance(p.getUniqueId()))
+                + "  \u00a77Cash: \u00a7f$" + Fmt.money(plugin.money().balance(p.getUniqueId())));
+            p.sendMessage("\u00a78Cardul nu are sold propriu: foloseste banii din cont.");
+            return;
+        }
+        if ("flowcitycore:lanterna".equals(itemKey(it))) {
+            e.setCancelled(true);
+            if (!itemRate(p, 600)) return;
+            boolean on = p.hasPotionEffect(org.bukkit.potion.PotionEffectType.NIGHT_VISION);
+            if (on) {
+                p.removePotionEffect(org.bukkit.potion.PotionEffectType.NIGHT_VISION);
+                plugin.channel().toast(p, "Lanterna: oprita.", false);
+            } else {
+                p.addPotionEffect(new org.bukkit.potion.PotionEffect(org.bukkit.potion.PotionEffectType.NIGHT_VISION,
+                    cfg.getInt("jobs.lantern-seconds", 240) * 20, 0, true, false, false));
+                plugin.channel().toast(p, "Lanterna: aprinsa.", false);
+            }
+        }
+    }
+
     @EventHandler(ignoreCancelled = true)
     public void onInteract(PlayerInteractEvent e) {
         if (e.getAction() != Action.RIGHT_CLICK_BLOCK || e.getHand() != EquipmentSlot.HAND || e.getClickedBlock() == null) return;
@@ -564,6 +631,11 @@ public final class HypeModule extends JsonModule implements Listener {
             }
             if (!atm.cardInHand(p)) {
                 noCard(p);
+                return;
+            }
+            String why = atm.cardOwnerCheck(p);
+            if (why != null) {
+                p.sendMessage("\u00a7c" + why);
                 return;
             }
             atmCommand(p, new String[0]);

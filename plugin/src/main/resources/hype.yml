@@ -22,6 +22,7 @@ hud:
     - {perm: "flowcity.rank.vip", name: "VIP"}
 
 atm:
+  card-bind: true         # cardul bancar se leaga de primul jucator care il foloseste; altcineva nu il mai poate folosi
   fee-percent: 1.0          # taxa de transfer (% din suma); 0 = fara
   fee-min: 0.5              # taxa minima per transfer (daca fee-percent > 0)
   min-amount: 1.0
