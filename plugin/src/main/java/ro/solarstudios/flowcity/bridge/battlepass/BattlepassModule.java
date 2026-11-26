@@ -171,6 +171,26 @@ public final class BattlepassModule extends JsonModule {
         if (instance != null && instance.enabled()) instance.apply(p, jobId, mission, pay, xp);
     }
 
+    /** XP de battlepass din alta sursa (ex. premiu la roata). Intoarce false daca sistemul e oprit. */
+    public static boolean grantXp(Player p, int xp, String why) {
+        if (instance == null || !instance.enabled() || xp <= 0) return false;
+        instance.addXp(p, xp, why);
+        instance.dirty = true;
+        instance.sendState(p);
+        return true;
+    }
+
+    /** Niveluri intregi de battlepass (se traduc in XP-ul necesar). */
+    public static boolean grantLevels(Player p, int levels, String why) {
+        if (instance == null || !instance.enabled() || levels <= 0) return false;
+        return grantXp(p, levels * instance.xpPerLevel(), why);
+    }
+
+    /** XP-ul necesar unui nivel, pentru etichetele altor sisteme. */
+    public static int xpForOneLevel() {
+        return instance == null ? 100 : instance.xpPerLevel();
+    }
+
     private void apply(Player p, String jobId, boolean mission, double pay, long xp) {
         UUID u = p.getUniqueId();
         rollover(u);

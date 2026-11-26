@@ -20,16 +20,31 @@ public final class WheelClient extends JsonClientModule {
                     if (!e.isJsonObject()) continue;
                     WheelState.Prize p = new WheelState.Prize();
                     p.name = str(e.getAsJsonObject(), "name", "?");
+                    p.descr = str(e.getAsJsonObject(), "descr", "");
+                    p.icon = str(e.getAsJsonObject(), "icon", "");
                     p.color = 0xFF000000 | integer(e.getAsJsonObject(), "color", 0x22D3EE);
                     WheelState.prizes.add(p);
                 }
             }
             if (d.has("recent") && d.get("recent").isJsonArray()) {
-                for (JsonElement e : d.getAsJsonArray("recent")) if (e.isJsonObject()) WheelState.recent.add(str(e.getAsJsonObject(), "name", ""));
+                for (JsonElement e : d.getAsJsonArray("recent")) {
+                    if (!e.isJsonObject()) continue;
+                    WheelState.Won w = new WheelState.Won();
+                    w.name = str(e.getAsJsonObject(), "name", "");
+                    w.ts = lng(e.getAsJsonObject(), "ts", 0);
+                    WheelState.recent.add(w);
+                }
             }
             WheelState.cooldownMs = lng(d, "cooldownMs", 0);
             WheelState.cooldownAt = System.currentTimeMillis();
             WheelState.animSeconds = Math.max(3, integer(d, "anim", 6));
+            WheelState.enabled = bool(d, "enabled", true);
+            WheelState.cost = d.has("cost") ? d.get("cost").getAsDouble() : 0;
+            WheelState.freeLeft = integer(d, "freeLeft", 0);
+            WheelState.dayLeft = integer(d, "dayLeft", 0);
+            WheelState.cash = d.has("cash") ? d.get("cash").getAsDouble() : 0;
+            WheelState.totalSpins = integer(d, "total", 0);
+            WheelState.claims = integer(d, "claims", 0);
         });
         on("result", d -> {
             WheelState.resultIndex = integer(d, "index", -1);
@@ -55,18 +70,57 @@ public final class WheelClient extends JsonClientModule {
                     WheelState.AdminPrize p = new WheelState.AdminPrize();
                     p.id = lng(o, "id", -1);
                     p.name = str(o, "name", "?");
+                    p.descr = str(o, "descr", "");
                     p.type = str(o, "type", "item");
                     p.amount = o.has("amount") ? o.get("amount").getAsDouble() : 0;
                     p.material = str(o, "material", "");
+                    p.icon = str(o, "icon", "");
+                    p.command = str(o, "command", "");
                     p.weight = integer(o, "weight", 1);
                     p.color = str(o, "color", "#22D3EE");
                     p.announce = bool(o, "announce", false);
+                    p.enabled = bool(o, "enabled", true);
                     p.pct = o.has("pct") ? o.get("pct").getAsDouble() : 0;
                     WheelState.admin.add(p);
                 }
             }
+            if (d.has("cfg") && d.get("cfg").isJsonObject()) {
+                JsonObject c = d.getAsJsonObject("cfg");
+                WheelState.cfg.enabled = bool(c, "enabled", true);
+                WheelState.cfg.cooldownHours = c.has("cooldown-hours") ? c.get("cooldown-hours").getAsDouble() : 24;
+                WheelState.cfg.cost = c.has("cost") ? c.get("cost").getAsDouble() : 0;
+                WheelState.cfg.freeSpins = integer(c, "free-spins", 1);
+                WheelState.cfg.maxPerDay = integer(c, "max-per-day", 1);
+                WheelState.cfg.animSeconds = integer(c, "animation-seconds", 6);
+            }
             Minecraft mc = Minecraft.getInstance();
             if (mc.screen instanceof WheelAdminScreen) ((WheelAdminScreen) mc.screen).refreshed();
+        });
+        on("stats", d -> {
+            WheelState.statTop.clear();
+            WheelState.statLast.clear();
+            WheelState.statSpins = lng(d, "spins", 0);
+            WheelState.statPlayers = lng(d, "players", 0);
+            if (d.has("top") && d.get("top").isJsonArray()) {
+                for (JsonElement e : d.getAsJsonArray("top")) {
+                    if (!e.isJsonObject()) continue;
+                    WheelState.Stat s = new WheelState.Stat();
+                    s.name = str(e.getAsJsonObject(), "name", "");
+                    s.n = lng(e.getAsJsonObject(), "n", 0);
+                    WheelState.statTop.add(s);
+                }
+            }
+            if (d.has("last") && d.get("last").isJsonArray()) {
+                for (JsonElement e : d.getAsJsonArray("last")) {
+                    if (!e.isJsonObject()) continue;
+                    WheelState.Stat s = new WheelState.Stat();
+                    s.who = str(e.getAsJsonObject(), "who", "");
+                    s.name = str(e.getAsJsonObject(), "name", "");
+                    s.ts = lng(e.getAsJsonObject(), "ts", 0);
+                    WheelState.statLast.add(s);
+                }
+            }
+            WheelState.statsLoaded = true;
         });
         on("open", d -> {
             Minecraft mc = Minecraft.getInstance();
@@ -103,5 +157,10 @@ public final class WheelClient extends JsonClientModule {
 
     public static void spin() {
         if (instance != null) instance.send("spin", new JsonObject());
+    }
+
+    /** Cere premiile puse deoparte (inventar plin la castig). */
+    public static void claim() {
+        if (instance != null) instance.send("claim", new JsonObject());
     }
 }

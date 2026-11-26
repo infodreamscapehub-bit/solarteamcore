@@ -197,7 +197,9 @@ public final class WheelScreen extends FlowScreen {
         Gfx.text(ms, "Revino în fiecare zi pentru un premiu.", rx, 52, 7.5f, MUTED, 0);
 
         long left = WheelState.cooldownLeft();
-        boolean can = !spinning && left <= 0 && !ps.isEmpty();
+        boolean payOk = WheelState.cost <= 0 || WheelState.cash >= WheelState.cost;
+        boolean can = !spinning && left <= 0 && !ps.isEmpty() && WheelState.enabled
+            && WheelState.dayLeft > 0 && payOk;
 
         Gfx.text(ms, "STARE", rx, 80, 6.5f, FAINT, 0, false, 0.6f);
         int sc;
@@ -205,9 +207,18 @@ public final class WheelScreen extends FlowScreen {
         if (spinning) {
             sc = Sk.WARN;
             st = "Se învârte...";
+        } else if (!WheelState.enabled) {
+            sc = Sk.MUTED;
+            st = "Roata e oprită.";
         } else if (left > 0) {
             sc = Sk.MUTED;
             st = "Următorul spin: " + Ui.duration((left + 999) / 1000);
+        } else if (WheelState.dayLeft <= 0) {
+            sc = Sk.MUTED;
+            st = "Limita zilnică atinsă.";
+        } else if (!payOk) {
+            sc = Sk.BAD;
+            st = "Îți trebuie " + (long) WheelState.cost + "$.";
         } else {
             sc = Sk.GOOD;
             st = "Spin disponibil!";
@@ -222,9 +233,37 @@ public final class WheelScreen extends FlowScreen {
         float bhh = 32f;
         boolean hov = can && inside(lmx, lmy, rx, by, rw, bhh);
         bh += ((hov ? 1f : 0f) - bh) * Math.min(1f, dt * 14f);
-        String label = can ? "ÎNVÂRTE" : (spinning ? "SE ÎNVÂRTE" : "INDISPONIBIL");
+        String label;
+        if (spinning) {
+            label = "SE ÎNVÂRTE";
+        } else if (!can) {
+            label = "INDISPONIBIL";
+        } else if (WheelState.cost > 0) {
+            label = "ÎNVÂRTE · " + (long) WheelState.cost + "$";
+        } else {
+            label = "ÎNVÂRTE";
+        }
         Sk.button(ms, label, rx, by, rw, bhh, can, true, hov);
         if (can) hitL(rx, by, rw, bhh, WheelClient::spin);
+
+        // rotiri gratuite / platite ramase azi + premii de revendicat
+        String info;
+        if (WheelState.freeLeft > 0) {
+            info = WheelState.freeLeft + " rotiri gratuite azi";
+        } else if (WheelState.cost > 0) {
+            info = "Rotire plătită · ai " + (long) WheelState.cash + "$";
+        } else {
+            info = WheelState.dayLeft + " rotiri rămase azi";
+        }
+        Gfx.text(ms, clipG(info, 7f, false, rw), rx, by + bhh + 9, 7f, MUTED, 0);
+        if (WheelState.claims > 0) {
+            float cy = by + bhh + 16f;
+            boolean ch = inside(lmx, lmy, rx, cy, rw, 16f);
+            Sk.slant(ms, rx, cy, rw, 16f, 5f, ch ? Sk.WARN : 0xFF3A2E12);
+            Gfx.text(ms, "REVENDICĂ " + WheelState.claims + " PREMII", rx + rw / 2f, cy + 5, 7.5f,
+                ch ? 0xFF061426 : Sk.WARN, 1, true, 0.6f);
+            hitL(rx, cy, rw, 16f, WheelClient::claim);
+        }
 
         // premiul castigat
         boolean win = !spinning && doneAt > 0 && !WheelState.resultName.isEmpty();
@@ -241,16 +280,30 @@ public final class WheelScreen extends FlowScreen {
         }
 
         // ultimele premii
-        float ly = win ? 226f : 166f;
-        int rows = win ? 3 : 6;
+        float ly = win ? 232f : 178f;
+        int rows = win ? 3 : 5;
         Gfx.text(ms, "ULTIMELE TALE PREMII", rx, ly, 6.5f, FAINT, 0, false, 0.6f);
+        if (WheelState.totalSpins > 0) {
+            Gfx.text(ms, WheelState.totalSpins + " rotiri", rx + rw, ly, 6.5f, FAINT, 2, false, 0.6f);
+        }
         if (WheelState.recent.isEmpty()) Gfx.text(ms, "Încă niciunul.", rx, ly + 14, 8, MUTED, 0);
         for (int i = 0; i < Math.min(rows, WheelState.recent.size()); i++) {
+            WheelState.Won w = WheelState.recent.get(i);
             float yy = ly + 14 + i * 13;
             Gfx.disc(ms, rx + 3, yy - 3, 2f, Gfx.fade(GOLD, 1f - i * 0.15f));
-            Gfx.text(ms, clipG(WheelState.recent.get(i), 8, false, rw - 14), rx + 11, yy, 8, 0xFFA19F98, 0);
+            Gfx.text(ms, clipG(w.name, 8, false, rw - 52), rx + 11, yy, 8, 0xFFA19F98, 0);
+            if (w.ts > 0) Gfx.text(ms, ago(w.ts), rx + rw, yy, 7f, 0xFF5C606A, 2);
         }
         Gfx.text(ms, "ESC închide", W - 16, H - 12, 6.5f, 0xFF5C606A, 2);
+    }
+
+    /** "acum", "3h", "2z" - cat a trecut de la un premiu. */
+    private static String ago(long ts) {
+        long s = Math.max(0, (System.currentTimeMillis() - ts) / 1000);
+        if (s < 90) return "acum";
+        if (s < 3600) return (s / 60) + "m";
+        if (s < 86400) return (s / 3600) + "h";
+        return (s / 86400) + "z";
     }
 
     private void tickSound(double t) {
