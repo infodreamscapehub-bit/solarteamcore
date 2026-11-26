@@ -25,9 +25,19 @@ public final class GpsClient extends JsonClientModule {
     private static long lastRequest;
     private static int lowTick;
 
+    /** "Pastreaza ultima destinatie": dupa reconectare, reia destinatia din istoric daca optiunea e pornita. */
+    private static void restoreLast() {
+        GpsPrefs.load();
+        if (!GpsPrefs.keepLast || GpsNav.active || GpsPrefs.history.isEmpty()) return;
+        GpsPrefs.Hist h = GpsPrefs.history.get(0);
+        if (System.currentTimeMillis() - h.at > 6L * 3600_000L) return;
+        GpsNav.set(h.id, h.name, h.x, h.z, h.dim, h.color);
+    }
+
     private GpsClient() {
         on("config", d -> {
             GpsData.apply(d);
+            restoreLast();
             Minecraft mc = Minecraft.getInstance();
             if (mc.screen instanceof GpsScreen) ((GpsScreen) mc.screen).dataChanged();
             if (mc.screen instanceof MapEditorScreen) ((MapEditorScreen) mc.screen).dataChanged();

@@ -43,6 +43,7 @@ public final class GpsHud {
             if (mc.screen != null && !editor) return;
             boolean demo = editor && !GpsNav.active;
             if (!GpsNav.active && !demo) return;
+            if (!demo && !GpsPrefs.hudOn) return;
             GuiGraphics g = new GuiGraphics(e.getMatrixStack());
             if (!demo) pill(g, mc);
             float x = 10f;

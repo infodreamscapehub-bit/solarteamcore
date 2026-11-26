@@ -30,6 +30,42 @@ public final class GpsPrefs {
     public static boolean navSound = true;
     /** Notificare + sunet cand ajungi la destinatie. */
     public static boolean notify = true;
+    /** Sageata GPS pe ecran in timpul jocului. */
+    public static boolean hudOn = true;
+    /** Clic scurt cand alegi o destinatie. */
+    public static boolean pickSound = true;
+    /** Destinatia ramane activa si dupa reconectare. */
+    public static boolean keepLast = true;
+    /** Coordonatele in antet / bara laterala / pe harta. */
+    public static boolean showCoords = true;
+    /** Distantele pe carduri si in liste. */
+    public static boolean showDist = true;
+    /** Scalarea interfetei GPS (0.85 - 1.25). */
+    public static float uiScale = 1f;
+    /** Opacitatea panourilor peste harta (0.6 - 1). */
+    public static float opacity = 1f;
+
+    /** Culorile de accent disponibile (violet, albastru, verde, chihlimbar). */
+    public static final int[] ACCENTS = {0xFF8B5CF6, 0xFF38BDF8, 0xFF22C55E, 0xFFF5B942};
+    public static int accentIdx;
+
+    public static int accent() {
+        return ACCENTS[Math.max(0, Math.min(ACCENTS.length - 1, accentIdx))];
+    }
+
+    /** Ultimele cautari din GPS (cele mai recente primele). */
+    public static final java.util.List<String> searches = new java.util.ArrayList<>();
+    public static final int SEARCH_MAX = 8;
+
+    public static void addSearch(String q) {
+        if (q == null) return;
+        String t = q.trim();
+        if (t.length() < 2) return;
+        searches.removeIf(x -> x.equalsIgnoreCase(t));
+        searches.add(0, t);
+        while (searches.size() > SEARCH_MAX) searches.remove(searches.size() - 1);
+        save();
+    }
 
     /** Intrare in istoricul destinatiilor. */
     public static final class Hist {
@@ -75,6 +111,14 @@ public final class GpsPrefs {
         showDisabled = true;
         navSound = true;
         notify = true;
+        hudOn = true;
+        pickSound = true;
+        keepLast = true;
+        showCoords = true;
+        showDist = true;
+        uiScale = 1f;
+        opacity = 1f;
+        accentIdx = 0;
         ro.solarstudios.flowcity.gps.MiniMapSettings.hiddenCats.clear();
         save();
     }
@@ -115,6 +159,20 @@ public final class GpsPrefs {
             if (o.has("grid")) grid = o.get("grid").getAsBoolean();
             if (o.has("showDisabled")) showDisabled = o.get("showDisabled").getAsBoolean();
             if (o.has("notify")) notify = o.get("notify").getAsBoolean();
+            if (o.has("hudOn")) hudOn = o.get("hudOn").getAsBoolean();
+            if (o.has("pickSound")) pickSound = o.get("pickSound").getAsBoolean();
+            if (o.has("keepLast")) keepLast = o.get("keepLast").getAsBoolean();
+            if (o.has("showCoords")) showCoords = o.get("showCoords").getAsBoolean();
+            if (o.has("showDist")) showDist = o.get("showDist").getAsBoolean();
+            if (o.has("uiScale")) uiScale = Math.max(0.85f, Math.min(1.25f, o.get("uiScale").getAsFloat()));
+            if (o.has("opacity")) opacity = Math.max(0.6f, Math.min(1f, o.get("opacity").getAsFloat()));
+            if (o.has("accent")) accentIdx = Math.max(0, Math.min(ACCENTS.length - 1, o.get("accent").getAsInt()));
+            searches.clear();
+            if (o.has("searches") && o.get("searches").isJsonArray()) {
+                for (JsonElement e : o.getAsJsonArray("searches")) {
+                    if (searches.size() < SEARCH_MAX) searches.add(e.getAsString());
+                }
+            }
             history.clear();
             if (o.has("history") && o.get("history").isJsonArray()) {
                 for (JsonElement e : o.getAsJsonArray("history")) {
@@ -152,6 +210,17 @@ public final class GpsPrefs {
             o.addProperty("grid", grid);
             o.addProperty("showDisabled", showDisabled);
             o.addProperty("notify", notify);
+            o.addProperty("hudOn", hudOn);
+            o.addProperty("pickSound", pickSound);
+            o.addProperty("keepLast", keepLast);
+            o.addProperty("showCoords", showCoords);
+            o.addProperty("showDist", showDist);
+            o.addProperty("uiScale", uiScale);
+            o.addProperty("opacity", opacity);
+            o.addProperty("accent", accentIdx);
+            JsonArray sa = new JsonArray();
+            for (String q : searches) sa.add(q);
+            o.add("searches", sa);
             JsonArray ha = new JsonArray();
             for (Hist x : history) {
                 JsonObject h = new JsonObject();
