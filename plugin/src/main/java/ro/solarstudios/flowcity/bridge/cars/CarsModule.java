@@ -51,6 +51,11 @@ public final class CarsModule extends JsonModule {
     protected void onEnable() {
         cfg = ModConfig.load(plugin, "hype");
         loadStock();
+        java.util.List<String> pumps = cfg.getStringList("fuel.pump-blocks");
+        if (!pumps.isEmpty()) {
+            Bukkit.getScheduler().runTaskLater(plugin, () ->
+                console("fccars pumpblocks " + String.join(",", pumps)), 60L);
+        }
         long every = 20L * 60 * Math.max(1, cfg.getInt("dealership.restock-minutes", 30));
         Bukkit.getScheduler().runTaskTimer(plugin, this::restock, every, every);
         on("catalog", (p, j) -> send(p, "catalog", catalog(p)));

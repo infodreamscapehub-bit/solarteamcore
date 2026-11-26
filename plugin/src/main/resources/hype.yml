@@ -448,6 +448,12 @@ fuel:
   max-liters: 120          # cat poate cumpara dintr-o data
   seconds: 8               # cat dureaza alimentarea completa
   methods: [cash, card]    # metodele acceptate; lasa doar una daca vrei sa limitezi
+  # Blocurile pe care se deschide meniul la click dreapta. Gol = cele implicite din MrCrayfish Vehicle Mod
+  # (fuel_drum, gas_pump, gas_pump_tank, fluid_extractor, fluid_pump, industrial_fuel_drum) PLUS orice bloc
+  # "vehicle:*" care contine "pump" sau "fuel_drum". Daca scrii aici o lista, se foloseste DOAR ea.
+  # Numele exact al blocului la care te uiti: comanda /fccars pumpid (doar pentru staff).
+  pump-blocks: []
+  # - vehicle:gas_pump
 
 # Amenzi platite de jucator (/amenzi). Dupa plata se ruleaza aceste comenzi din consola; %player% = cel care plateste,
 # %amount% = suma. De ex. ca banii sa ajunga la un cont: "eco give politia %amount%". Gol = banii dispar pur si simplu.

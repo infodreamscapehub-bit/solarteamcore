@@ -37,11 +37,40 @@ public final class FuelPumps {
     private static final long OFFER_MS = 120_000L;
     /** Distanta maxima intre jucator si vehicul in timpul alimentarii. */
     private static final double MAX_DIST = 10.0;
-    /** Blocurile de pompa recunoscute (MrCrayfish Vehicle Mod). */
-    private static final String[] PUMP_BLOCKS = {
+    /**
+     * Blocurile de pompa recunoscute. Implicit cele din MrCrayfish Vehicle Mod; pluginul poate trimite alta lista
+     * din hype.yml (fuel.pump-blocks) prin {@code fccars pumpblocks}. Pe langa lista, se accepta si orice bloc din
+     * spatiul "vehicle" al carui nume contine "pump" sau "fuel_drum" (acopera variantele de nume dintre versiuni).
+     */
+    private static final java.util.Set<String> PUMP_BLOCKS = new java.util.LinkedHashSet<>(java.util.Arrays.asList(
         "vehicle:fuel_drum", "vehicle:gas_pump", "vehicle:gas_pump_tank",
         "vehicle:fluid_extractor", "vehicle:fluid_pump", "vehicle:industrial_fuel_drum"
-    };
+    ));
+    /** Daca lista vine din config, nu mai folosim potrivirea dupa tipar (adminul decide exact). */
+    private static boolean fromConfig;
+
+    /** Pluginul trimite lista din hype.yml. Lista goala = ramane cea implicita. */
+    public static void setPumpBlocks(java.util.List<String> ids) {
+        if (ids == null || ids.isEmpty()) return;
+        PUMP_BLOCKS.clear();
+        for (String s : ids) {
+            String id = s.trim().toLowerCase(java.util.Locale.ROOT);
+            if (id.isEmpty()) continue;
+            if (id.indexOf(':') < 0) id = "vehicle:" + id;
+            PUMP_BLOCKS.add(id);
+        }
+        fromConfig = true;
+    }
+
+    /** Numele blocului la care se uita jucatorul si daca e recunoscut ca pompa (pentru diagnostic). */
+    public static String lookingAt(ServerPlayerEntity p) {
+        net.minecraft.util.math.RayTraceResult r = p.pick(6.0D, 0.0F, false);
+        if (!(r instanceof net.minecraft.util.math.BlockRayTraceResult)) return null;
+        BlockPos pos = ((net.minecraft.util.math.BlockRayTraceResult) r).getBlockPos();
+        ResourceLocation rl = p.level.getBlockState(pos).getBlock().getRegistryName();
+        if (rl == null) return null;
+        return rl + (isPump(p.level, pos) ? " (recunoscut ca pompa)" : " (NU e in lista de pompe)");
+    }
 
     /** O oferta: jucatorul a deschis meniul la o pompa, pentru un anume vehicul. */
     private static final class Offer {
@@ -74,8 +103,10 @@ public final class FuelPumps {
         ResourceLocation rl = w.getBlockState(pos).getBlock().getRegistryName();
         if (rl == null) return false;
         String id = rl.toString();
-        for (String s : PUMP_BLOCKS) if (s.equals(id)) return true;
-        return false;
+        if (PUMP_BLOCKS.contains(id)) return true;
+        if (fromConfig) return false;
+        return "vehicle".equals(rl.getNamespace())
+            && (rl.getPath().contains("pump") || rl.getPath().contains("fuel_drum"));
     }
 
     /** Vehiculul pe care il alimentam: cel pe care il conduce jucatorul, altfel cel mai apropiat vehicul cu rezervor. */

@@ -1483,6 +1483,19 @@ public final class CarsServer {
                             return 1;
                         }))))))
             // benzinarie 2.0: alimentare pe durata, cu raport catre plugin (vezi FuelPumps)
+            .then(Commands.literal("pumpblocks").then(Commands.argument("ids", StringArgumentType.greedyString()).executes(c -> {
+                java.util.List<String> ids = new java.util.ArrayList<>();
+                for (String s : StringArgumentType.getString(c, "ids").split(",")) ids.add(s);
+                FuelPumps.setPumpBlocks(ids);
+                return 1;
+            })))
+            .then(Commands.literal("pumpid").executes(c -> {
+                ServerPlayerEntity p = c.getSource().getPlayerOrException();
+                String id = FuelPumps.lookingAt(p);
+                c.getSource().sendSuccess(new net.minecraft.util.text.StringTextComponent(
+                    id == null ? "Nu te uiti la niciun bloc." : "Bloc: " + id), false);
+                return 1;
+            }))
             .then(Commands.literal("fuelstart").then(Commands.argument("player", EntityArgument.player())
                 .then(Commands.argument("units", IntegerArgumentType.integer(1, 1_000_000))
                     .then(Commands.argument("tx", IntegerArgumentType.integer(1))
