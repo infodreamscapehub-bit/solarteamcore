@@ -254,7 +254,7 @@ public final class WheelAdminScreen extends FlowScreen {
     @Override
     protected void header(GuiGraphics ms, String title, String subtitle, int mx, int my) {
         Gfx.text(ms, title.toUpperCase(Locale.ROOT), px + 14, py + 17, 11, Sk.WHITE, 0, true, 0f);
-        int tx = px + 24 + Gfx.width(title.toUpperCase(Locale.ROOT), 11, true);
+        int tx = px + 24 + (int) Gfx.width(title.toUpperCase(Locale.ROOT), 11, true);
         for (int i = 0; i < TABS.length; i++) {
             final int fi = i;
             int w = 62;
