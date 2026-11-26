@@ -521,6 +521,7 @@ public final class GpsScreen extends FlowScreen {
         detail = GpsTheme.to(detail, selected != null ? 1f : 0f, dt, 12f);
 
         layout();
+        if (search.isFocused() && page != P_SEARCH) go(P_SEARCH);
         if (anim) {
             camX += (tgtX - camX) * Math.min(1f, dt * 7f);
             camZ += (tgtZ - camZ) * Math.min(1f, dt * 7f);
@@ -1083,10 +1084,7 @@ public final class GpsScreen extends FlowScreen {
             Gfx.text(g, "Caută un loc sau alege unul din Locații.", x + 62f * s, y + 58f * s, 8.2f * s, GpsTheme.MUTED, 0, true, 0f);
             float bw = 112f * s;
             GpsUi.button(g, "hfind", "Caută", "search", x + w - bw - 14f * s, y + (ch - 30f * s) / 2f, bw, 30f * s, GpsUi.PRIMARY, true, mx, my);
-            hitF(x + w - bw - 14f * s, y + (ch - 30f * s) / 2f, bw, 30f * s, () -> {
-                go(P_LOC);
-                focus(search, true);
-            });
+            hitF(x + w - bw - 14f * s, y + (ch - 30f * s) / 2f, bw, 30f * s, () -> focus(search, true));
         }
         y += ch + GpsTheme.S4;
 
@@ -1634,9 +1632,10 @@ public final class GpsScreen extends FlowScreen {
         // date
         y += GpsTheme.S1;
         double d = dist(l.x, l.z);
-        y += infoRow(g, "DISTANȚĂ", d < 0 ? "—" : GpsNav.fmtDist(d), px, y, pwD);
-        y += infoRow(g, "COORDONATE", Math.round(l.x) + ", " + Math.round(l.z), px, y, pwD);
-        if (d >= 0) y += infoRow(g, "TIMP ESTIMAT", GpsNav.fmtEta(d / 4.3), px, y, pwD);
+        float limit = height - GpsTheme.S4 - 32f * s - 36f * s - 26f * s;
+        if (y < limit) y += infoRow(g, "DISTANȚĂ", d < 0 ? "—" : GpsNav.fmtDist(d), px, y, pwD);
+        if (y < limit) y += infoRow(g, "COORDONATE", Math.round(l.x) + ", " + Math.round(l.z), px, y, pwD);
+        if (d >= 0 && y < limit) infoRow(g, "TIMP ALERGÂND", GpsNav.fmtEta(d / 4.3), px, y, pwD);
 
         // actiuni
         float by = height - GpsTheme.S4 - 32f * s - 36f * s;
