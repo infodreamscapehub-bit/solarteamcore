@@ -295,13 +295,56 @@ public final class GpsModule extends JsonModule {
             return "Nu pot citi fisierul (vezi consola).";
         }
         if (r.entries.isEmpty()) return "Fisierul nu contine waypoint-uri valide.";
+        return addImported(r.entries, r.bad, r.duplicates, "Import");
+    }
 
+    /** Cate waypoint-uri primeste serverul intr-un singur mesaj de la client. */
+    private static final int IMPORT_BATCH = 300;
+
+    /**
+     * Importa locatii trimise de client (citite de el din fisierele lui de waypoint-uri). Clientul trimite doar
+     * date; permisiunea e verificata in {@link #edit}, iar aici se valideaza fiecare intrare.
+     */
+    private String importFromClient(JsonObject j) {
+        if (!j.has("items") || !j.get("items").isJsonArray()) return "Nu am primit niciun waypoint.";
+        JsonArray arr = j.getAsJsonArray("items");
+        if (arr.size() == 0) return "Nu am primit niciun waypoint.";
+        if (arr.size() > IMPORT_BATCH) return "Prea multe waypoint-uri intr-un singur mesaj (max " + IMPORT_BATCH + ").";
+        List<WaypointImport.Entry> entries = new ArrayList<>();
+        int bad = 0;
+        for (JsonElement el : arr) {
+            if (!el.isJsonObject()) {
+                bad++;
+                continue;
+            }
+            JsonObject o = el.getAsJsonObject();
+            String name = GpsStore.cut(str(o, "n", ""), 48).trim();
+            double x = num(o, "x", Double.NaN);
+            double z = num(o, "z", Double.NaN);
+            if (name.isEmpty() || !coord(x) || !coord(z)) {
+                bad++;
+                continue;
+            }
+            entries.add(new WaypointImport.Entry(name, x, z, WaypointImport.guessCategory(name)));
+        }
+        if (entries.isEmpty()) return "Niciun waypoint valid in mesaj.";
+        int part = (int) num(j, "part", 0);
+        int parts = (int) num(j, "parts", 0);
+        String label = parts > 1 ? "Import (" + part + "/" + parts + ")" : "Import";
+        return addImported(entries, bad, 0, label);
+    }
+
+    /**
+     * Adauga locatiile importate: creeaza categoriile lipsa, sare peste cele care exista deja si nu sterge nimic.
+     * Pune rezultatul in {@link #okMsg}; intoarce un mesaj de eroare doar daca nu se poate continua deloc.
+     */
+    private String addImported(List<WaypointImport.Entry> list, int bad, int dups, String label) {
         int added = 0;
         int skipped = 0;
         int newCats = 0;
-        for (WaypointImport.Entry e : r.entries) {
+        for (WaypointImport.Entry e : list) {
             if (store.locs.size() >= GpsStore.MAX_LOCS) {
-                skipped += r.entries.size() - added - skipped;
+                skipped += list.size() - added - skipped;
                 break;
             }
             if (hasLoc(e.name, e.x, e.z)) {
@@ -340,9 +383,9 @@ public final class GpsModule extends JsonModule {
         }
         if (newCats > 0) store.saveCats(true);
         if (added > 0) store.saveLocs(true);
-        okMsg = "Import: " + added + " locatii noi, " + (skipped + r.duplicates) + " sarite"
+        okMsg = label + ": " + added + " locatii noi, " + (skipped + dups) + " sarite"
             + (newCats > 0 ? ", " + newCats + " categorii create" : "")
-            + (r.bad > 0 ? ", " + r.bad + " linii gresite" : "") + ".";
+            + (bad > 0 ? ", " + bad + " linii gresite" : "") + ".";
         return null;
     }
 
@@ -579,6 +622,9 @@ public final class GpsModule extends JsonModule {
             }
             case "import.locs": {
                 return importLocs();
+            }
+            case "loc.import": {
+                return importFromClient(j);
             }
             case "cat.add": {
                 if (store.cats.size() >= GpsStore.MAX_CATS) return "Prea multe categorii (max " + GpsStore.MAX_CATS + ").";

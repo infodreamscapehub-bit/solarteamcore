@@ -121,6 +121,16 @@ public final class MapEditorScreen extends FlowScreen {
     private String modalText;
     private Runnable modalYes;
 
+    // import de waypoint-uri din fisierele jucatorului (vezi WaypointFiles)
+    /** Fisierele gasite; nu e null cat timp e deschis selectorul. */
+    private List<WaypointFiles.Source> impSources;
+    private boolean impSearching;
+    /** Ce a mai ramas de trimis din fisierul ales. */
+    private List<WaypointFiles.Entry> impQueue;
+    private String impLabel = "";
+    private int impPart;
+    private int impParts;
+
     private final List<GpsData.Loc> locRows = new ArrayList<>();
     private final List<GpsData.Zone> zoneRows = new ArrayList<>();
     private final List<GpsData.Cat> catRows = new ArrayList<>();
@@ -176,7 +186,7 @@ public final class MapEditorScreen extends FlowScreen {
     @Override
     protected List<TextFieldWidget> fields() {
         List<TextFieldWidget> l = new ArrayList<>(6);
-        if (modalText != null) return l;
+        if (modalText != null || impSources != null) return l;
         if (tab == T_LOC) {
             if (dLoc == null) {
                 l.add(fSearch);
@@ -261,6 +271,20 @@ public final class MapEditorScreen extends FlowScreen {
         say(msg, ok);
         if (op.startsWith("road.") || op.startsWith("scan.")) {
             road.onResult(op, ok, msg);
+            return;
+        }
+        if (op.equals("loc.import")) {
+            if (!ok) {
+                impQueue = null;
+            } else if (impQueue != null && !impQueue.isEmpty()) {
+                say(msg + " (" + impPart + "/" + impParts + ")", true);
+                sendImportBatch();
+            } else {
+                impQueue = null;
+                say(msg + (impParts > 1 ? " — " + impLabel + ", " + impParts + " pachete" : " — " + impLabel), true);
+            }
+            dirtyLists = true;
+            reloadPending = true;
             return;
         }
         if (!ok) return;
@@ -712,7 +736,7 @@ public final class MapEditorScreen extends FlowScreen {
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
         lastMx = mx;
-        if (modalText != null) return super.mouseClicked(mx, my, button);
+        if (modalText != null || impSources != null) return super.mouseClicked(mx, my, button);
         if (button == 0) {
             if (super.mouseClicked(mx, my, button)) return true;
             if (overPanel(mx, my)) return true;
@@ -940,7 +964,7 @@ public final class MapEditorScreen extends FlowScreen {
 
     @Override
     public boolean mouseScrolled(double mx, double my, double delta) {
-        if (modalText != null) return true;
+        if (modalText != null || impSources != null) return true;
         if (overPanel(mx, my)) {
             int d = -(int) Math.signum(delta) * 2;
             if (tab == T_LOC) scrollLoc = Math.max(0, scrollLoc + d);
@@ -958,6 +982,10 @@ public final class MapEditorScreen extends FlowScreen {
     public boolean keyPressed(int key, int scan, int mods) {
         boolean fieldFocused = false;
         for (TextFieldWidget f : fields()) if (f.isFocused()) fieldFocused = true;
+        if (impSources != null) {
+            if (key == GLFW.GLFW_KEY_ESCAPE) impSources = null;
+            return true;
+        }
         if (modalText != null) {
             if (key == GLFW.GLFW_KEY_ESCAPE) {
                 modalText = null;
@@ -1039,6 +1067,7 @@ public final class MapEditorScreen extends FlowScreen {
         drawMapUi(g, mc, mx, my);
         drawPanel(g, mx, my, t);
         drawModal(g, mx, my);
+        drawImportPicker(g, mx, my);
     }
 
     private void drawGrid(GuiGraphics g) {
@@ -1432,8 +1461,101 @@ public final class MapEditorScreen extends FlowScreen {
             placing = true;
             say("Click pe hartă pentru a alege punctul.", true);
         });
-        btn(g, "IMPORTĂ", x + bw2 + 6f, bottom - 34, bw2, 34, 1, mx, my, () -> {
-            say("Se importă din gps/import/waypoints.txt...", true);
+        btn(g, "IMPORTĂ", x + bw2 + 6f, bottom - 34, bw2, 34, impSearching ? 3 : 1, mx, my, this::startImport);
+    }
+
+    /** Cate waypoint-uri intr-un mesaj catre server (serverul accepta pana la 300). */
+    private static final int IMP_BATCH = 150;
+
+    /** Cauta fisierele de waypoint-uri ale jucatorului; daca nu gaseste, incearca fisierul de pe server. */
+    private void startImport() {
+        if (impSearching || impQueue != null) return;
+        impSearching = true;
+        say("Caut fișiere de waypoint-uri…", true);
+        Thread t = new Thread(() -> {
+            final List<WaypointFiles.Source> found = WaypointFiles.find();
+            Minecraft.getInstance().execute(() -> {
+                impSearching = false;
+                if (Minecraft.getInstance().screen != this) return;
+                if (found.isEmpty()) {
+                    // nimic local: ramane varianta veche, fisierul pus pe server
+                    say("Niciun fișier local (XaeroWaypoints/ sau flowcity/waypoints.txt lângă joc); "
+                        + "încerc fișierul de pe server…", false);
+                    send("import.locs", new JsonObject());
+                    return;
+                }
+                impSources = found;
+            });
+        }, "FlowCity-waypoints");
+        t.setDaemon(true);
+        t.start();
+    }
+
+    /** Porneste trimiterea waypoint-urilor dintr-un fisier ales. */
+    private void beginImport(WaypointFiles.Source s) {
+        impSources = null;
+        impQueue = new ArrayList<>(s.entries);
+        impLabel = s.label;
+        impPart = 0;
+        impParts = (impQueue.size() + IMP_BATCH - 1) / IMP_BATCH;
+        sendImportBatch();
+    }
+
+    /** Trimite urmatorul pachet; serverul valideaza si raspunde, apoi continuam din {@link #onResult}. */
+    private void sendImportBatch() {
+        if (impQueue == null) return;
+        if (impQueue.isEmpty()) {
+            impQueue = null;
+            return;
+        }
+        int n = Math.min(IMP_BATCH, impQueue.size());
+        JsonArray items = new JsonArray();
+        for (int i = 0; i < n; i++) {
+            WaypointFiles.Entry e = impQueue.get(i);
+            JsonObject o = new JsonObject();
+            o.addProperty("n", e.name);
+            o.addProperty("x", e.x);
+            o.addProperty("z", e.z);
+            items.add(o);
+        }
+        impQueue.subList(0, n).clear();
+        impPart++;
+        JsonObject msg = new JsonObject();
+        msg.add("items", items);
+        msg.addProperty("part", impPart);
+        msg.addProperty("parts", impParts);
+        pending = false; // pachetele merg unul dupa altul, raspunsul tocmai a sosit
+        send("loc.import", msg);
+    }
+
+    /** Selectorul de fisiere de waypoint-uri gasite pe calculatorul jucatorului. */
+    private void drawImportPicker(GuiGraphics g, int mx, int my) {
+        if (impSources == null) return;
+        g.fill(0, 0, width, height, 0xB0040810);
+        hitF(0, 0, width, height, () -> {});
+        int rows = Math.min(impSources.size(), 8);
+        float w = 380f;
+        float h = 96f + rows * 30f;
+        float x = (width - w) / 2f;
+        float y = (height - h) / 2f;
+        Sk.cut(g, x - 1, y - 1, w + 2, h + 2, 14, 0xAA7DBBFF);
+        Sk.cut(g, x, y, w, h, 14, 0xF8081018);
+        Gfx.text(g, "IMPORTĂ WAYPOINT-URI", x + 20, y + 28, 9f, Sk.ACC, 0, true, 1.4f);
+        Gfx.text(g, "Alege fișierul de pe calculatorul tău:", x + 20, y + 48, 7.6f, Sk.MUTED, 0);
+        float ry = y + 58;
+        for (int i = 0; i < rows; i++) {
+            final WaypointFiles.Source s = impSources.get(i);
+            boolean hov = Sk.in(mx, my, x + 16, ry, w - 32, 28);
+            Sk.cut(g, x + 16, ry, w - 32, 28, 8, hov ? 0xFF16293F : 0xFF0E1A28);
+            Gfx.text(g, clip(s.label, 8f, false, w - 110f), x + 26, ry + 18, 8f, Sk.WHITE, 0);
+            Gfx.text(g, s.entries.size() + " wp", x + w - 26, ry + 18, 7.6f, Sk.ACC, 2);
+            hitF(x + 16, ry, w - 32, 28, () -> beginImport(s));
+            ry += 30;
+        }
+        btn(g, "ANULEAZĂ", x + 20, y + h - 44, 140, 32, 1, mx, my, () -> impSources = null);
+        btn(g, "DE PE SERVER", x + w - 180, y + h - 44, 160, 32, 1, mx, my, () -> {
+            impSources = null;
+            say("Se importă din gps/import/waypoints.txt…", true);
             send("import.locs", new JsonObject());
         });
     }
