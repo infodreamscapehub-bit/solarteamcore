@@ -187,6 +187,16 @@ public final class FUi {
                 Gfx.line(g, cx + 2.4f * u, cy, cx - 1.8f * u, cy + 4.6f * u, w, c);
                 break;
             }
+            case "chev-down": {
+                Gfx.line(g, cx - 4.6f * u, cy - 1.8f * u, cx, cy + 2.4f * u, w, c);
+                Gfx.line(g, cx, cy + 2.4f * u, cx + 4.6f * u, cy - 1.8f * u, w, c);
+                break;
+            }
+            case "chev-up": {
+                Gfx.line(g, cx - 4.6f * u, cy + 1.8f * u, cx, cy - 2.4f * u, w, c);
+                Gfx.line(g, cx, cy - 2.4f * u, cx + 4.6f * u, cy + 1.8f * u, w, c);
+                break;
+            }
             case "chev-left": {
                 Gfx.line(g, cx + 1.8f * u, cy - 4.6f * u, cx - 2.4f * u, cy, w, c);
                 Gfx.line(g, cx - 2.4f * u, cy, cx + 1.8f * u, cy + 4.6f * u, w, c);

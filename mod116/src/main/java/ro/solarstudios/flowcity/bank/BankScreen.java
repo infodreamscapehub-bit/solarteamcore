@@ -6,24 +6,20 @@ import com.google.gson.JsonObject;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import net.minecraft.client.Minecraft;
-import ro.solarstudios.flowcity.cars.client.Sk;
-import ro.solarstudios.flowcity.client.ui.FlowScreen;
+import ro.solarstudios.flowcity.client.ui.FScreen;
+import ro.solarstudios.flowcity.client.ui.FTheme;
+import ro.solarstudios.flowcity.client.ui.FUi;
 import ro.solarstudios.flowcity.client.ui.Gfx;
 import ro.solarstudios.flowcity.compat.GuiGraphics;
 import ro.solarstudios.flowcity.module.JsonClientModule;
 
-/** Banca: sold, credit activ (datorat, scadenta, progres), oferte de credit, rambursare si seif de economii. Tema de iarna FlowCity. */
-public final class BankScreen extends FlowScreen {
-    private static final int W = 520;
-    private static final int H = 290;
-
-    private final long born = System.currentTimeMillis();
-    private String msg = "";
-    private boolean msgOk;
-    private long msgUntil;
-    private float offX;
-    private float offY;
-    private float scale = 1f;
+/**
+ * Banca: solduri separate CASH / BANCA, credit activ (datorat, scadenta, progres, rambursare din cont sau cash), oferte de
+ * credit si seiful de economii cu dobanda. Aceleasi actiuni ca inainte; serverul valideaza tot.
+ */
+public final class BankScreen extends FScreen {
+    private static final int W = 580;
+    private static final int H = 330;
 
     BankScreen() {
         super("Banca", W, H);
@@ -34,64 +30,15 @@ public final class BankScreen extends FlowScreen {
     }
 
     void result(boolean ok, String m) {
-        msg = m;
-        msgOk = ok;
-        msgUntil = System.currentTimeMillis() + 4500;
+        toast(m, !ok);
+    }
+
+    private void quick(GuiGraphics g, String id, String label, float x, float y, float w, boolean enabled, int mx, int my, Runnable r) {
+        btn(g, id, label, null, x, y, w, 20, FUi.SOFT, enabled, mx, my, r);
     }
 
     @Override
-    protected boolean framed() {
-        return false;
-    }
-
-    private static float easeOut(float t) {
-        t = Math.max(0f, Math.min(1f, t));
-        float u = 1f - t;
-        return 1f - u * u * u;
-    }
-
-    private void hitL(float x, float y, float w, float h, Runnable r) {
-        hit(Math.round(offX + x * scale), Math.round(offY + y * scale), Math.max(1, Math.round(w * scale)), Math.max(1, Math.round(h * scale)), r);
-    }
-
-    private static String money(double v) {
-        String s = String.valueOf(Math.round(v));
-        StringBuilder b = new StringBuilder();
-        for (int i = 0; i < s.length(); i++) {
-            if (i > 0 && (s.length() - i) % 3 == 0) b.append(' ');
-            b.append(s.charAt(i));
-        }
-        return b.toString();
-    }
-
-    @Override
-    protected void draw(GuiGraphics ms, int mx, int my) {
-        float open = easeOut((System.currentTimeMillis() - born) / 300f);
-        scale = Math.min(1f, Math.min((width - 8f) / W, (height - 8f) / H));
-        offX = width / 2f - W / 2f * scale;
-        offY = height / 2f - H / 2f * scale;
-        float lmx = (mx - offX) / scale;
-        float lmy = (my - offY) / scale;
-        ms.pose().pushPose();
-        ms.pose().translate(offX, offY, 0);
-        ms.pose().scale(scale, scale, scale);
-        Sk.background(ms, -offX / scale, -offY / scale, (width - offX) / scale, (height - offY) / scale, open);
-        Gfx.alpha = open;
-        try {
-            content(ms, lmx, lmy);
-        } finally {
-            Gfx.alpha = 1f;
-            ms.pose().popPose();
-        }
-    }
-
-    private void quick(GuiGraphics ms, float lmx, float lmy, String label, float x, float y, float w, boolean enabled, Runnable r) {
-        boolean h = enabled && Sk.in(lmx, lmy, x, y, w, 20);
-        Sk.button(ms, label, x, y, w, 20, enabled, false, h);
-        if (enabled) hitL(x, y, w, 20, r);
-    }
-
-    private void content(GuiGraphics ms, float lmx, float lmy) {
+    protected void paint(GuiGraphics g, int mx, int my) {
         JsonObject s = BankClient.state;
         double bank = JsonClientModule.num(s, "bank", 0);
         double cash = JsonClientModule.num(s, "cash", 0);
@@ -99,16 +46,20 @@ public final class BankScreen extends FlowScreen {
         double rate = JsonClientModule.num(s, "savingsRate", 0);
         double hours = JsonClientModule.num(s, "hours", 0);
 
-        Gfx.text(ms, "BANCA", 16, 38, 17, Sk.WHITE, 0, true, 0f);
-        Gfx.text(ms, "FLOWCITY BANK", 17, 50, 6.4f, Sk.MUTED, 0, false, 1.2f);
-        Sk.close(ms, W - 34, 14, lmx, lmy);
-        hitL(W - 34, 14, 20, 20, this::onClose);
-        Gfx.text(ms, "ÎN CONT", W - 48, 24, 6f, Sk.FAINT, 2, false, 1f);
-        Gfx.text(ms, money(bank) + " lei", W - 48, 38, 11.5f, Sk.GOOD, 2, true, 0f);
-        Gfx.text(ms, "cash " + money(cash), W - 48, 50, 6.6f, Sk.MUTED, 2);
+        shell(g);
+        top(g, "Banca", "FlowCity Bank", mx, my);
+        balance(g, "CASH", cash, W - 40, 16);
+        float bx = W - 40 - (Gfx.width(lei(cash), 8f, true) + Gfx.width("CASH", 5.6f, true) + 26f) - 8;
+        balance(g, "BANCĂ", bank, bx, 16);
 
-        // stanga: credit
-        Sk.slant(ms, 12, 62, 306, 218, 8f, Sk.ROW);
+        float y0 = 60;
+        float lw = 320;
+        float rx = 16 + lw + 16;
+        float rw = W - 16 - rx;
+        float ch = H - 16 - y0;
+
+        // ---- credit
+        card(g, 16, y0, lw, ch);
         boolean hasLoan = s.has("loan") && s.get("loan").isJsonObject();
         if (hasLoan) {
             JsonObject l = s.getAsJsonObject("loan");
@@ -116,63 +67,59 @@ public final class BankScreen extends FlowScreen {
             double total = Math.max(1, JsonClientModule.num(l, "total", owed));
             long due = (long) JsonClientModule.num(l, "due", 0);
             boolean overdue = JsonClientModule.bool(l, "overdue", false);
-            Gfx.text(ms, "CREDIT ACTIV", 26, 80, 7f, Sk.MUTED, 0, false, 1.2f);
-            Gfx.text(ms, money(owed) + " lei", 26, 100, 17, overdue ? Sk.BAD : Sk.WHITE, 0, true, 0f);
-            Gfx.text(ms, overdue ? "RESTANT" : "scadent " + new SimpleDateFormat("dd.MM.yyyy HH:mm").format(new Date(due)), 26, 114, 7f, overdue ? Sk.BAD : Sk.MUTED, 0);
+            FTheme.caption(g, "CREDIT ACTIV", 32, y0 + 22, FTheme.FAINT);
+            if (overdue) pill(g, "RESTANT", 16 + lw - 16 - 50, y0 + 12, FTheme.DANGER);
+            tx(g, lei(owed), 32, y0 + 48, 17f, overdue ? FTheme.DANGER : FTheme.TEXT);
+            t(g, overdue ? "Scadența a trecut" : "Scadent " + new SimpleDateFormat("dd.MM.yyyy HH:mm").format(new Date(due)), 32, y0 + 62, 7f, overdue ? FTheme.DANGER : FTheme.MUTED);
             float paid = (float) Math.max(0, Math.min(1, 1 - owed / total));
-            Sk.segs(ms, 26, 124, 278, 6, Math.round(paid * 20), 20, Sk.GOOD);
-            Gfx.text(ms, "rambursat " + Math.round(paid * 100) + "%", 26, 142, 6.6f, Sk.FAINT, 0);
-            float y = 154;
-            Gfx.text(ms, "RAMBURSEAZĂ DIN CONT", 26, y, 6.4f, Sk.FAINT, 0, false, 1f);
-            quick(ms, lmx, lmy, "1 000", 26, y + 8, 64, bank >= 1, () -> BankClient.repay(1000, false, false));
-            quick(ms, lmx, lmy, "5 000", 96, y + 8, 64, bank >= 1, () -> BankClient.repay(5000, false, false));
-            quick(ms, lmx, lmy, "TOT", 166, y + 8, 64, bank >= 1, () -> BankClient.repay(0, true, false));
-            Gfx.text(ms, "RAMBURSEAZĂ CASH", 26, y + 40, 6.4f, Sk.FAINT, 0, false, 1f);
-            quick(ms, lmx, lmy, "1 000", 26, y + 48, 64, true, () -> BankClient.repay(1000, false, true));
-            quick(ms, lmx, lmy, "5 000", 96, y + 48, 64, true, () -> BankClient.repay(5000, false, true));
-            quick(ms, lmx, lmy, "TOT", 166, y + 48, 64, true, () -> BankClient.repay(0, true, true));
+            FUi.progress(g, "RAMBURSAT", Math.round(paid * 100) + "%", 32, y0 + 76, lw - 32, paid, FTheme.OK);
+            float y = y0 + 108;
+            FTheme.caption(g, "RAMBURSEAZĂ DIN CONT", 32, y, FTheme.FAINT);
+            float qw = (lw - 32 - 16) / 3f;
+            quick(g, "rb1", "1.000", 32, y + 6, qw, bank >= 1, mx, my, () -> BankClient.repay(1000, false, false));
+            quick(g, "rb2", "5.000", 32 + qw + 8, y + 6, qw, bank >= 1, mx, my, () -> BankClient.repay(5000, false, false));
+            quick(g, "rb3", "Tot", 32 + 2 * (qw + 8), y + 6, qw, bank >= 1, mx, my, () -> BankClient.repay(0, true, false));
+            y += 44;
+            FTheme.caption(g, "RAMBURSEAZĂ CASH", 32, y, FTheme.FAINT);
+            quick(g, "rc1", "1.000", 32, y + 6, qw, cash >= 1, mx, my, () -> BankClient.repay(1000, false, true));
+            quick(g, "rc2", "5.000", 32 + qw + 8, y + 6, qw, cash >= 1, mx, my, () -> BankClient.repay(5000, false, true));
+            quick(g, "rc3", "Tot", 32 + 2 * (qw + 8), y + 6, qw, cash >= 1, mx, my, () -> BankClient.repay(0, true, true));
         } else {
-            Gfx.text(ms, "OFERTE DE CREDIT", 26, 78, 7f, Sk.MUTED, 0, false, 1.2f);
+            FTheme.caption(g, "OFERTE DE CREDIT", 32, y0 + 22, FTheme.FAINT);
             JsonArray offers = s.has("offers") && s.get("offers").isJsonArray() ? s.getAsJsonArray("offers") : new JsonArray();
-            float y = 88;
+            float y = y0 + 34;
             for (JsonElement e : offers) {
                 JsonObject o = e.getAsJsonObject();
                 final int idx = JsonClientModule.integer(o, "i", 0);
                 double minH = JsonClientModule.num(o, "minHours", 0);
                 boolean ok = hours + 1e-9 >= minH;
-                Sk.slant(ms, 20, y, 290, 40, 6f, 0xB0182638);
-                Gfx.text(ms, money(JsonClientModule.num(o, "amount", 0)) + " lei", 32, y + 17, 11, Sk.WHITE, 0, true, 0f);
-                Gfx.text(ms, JsonClientModule.integer(o, "days", 0) + " zile  ·  dobândă " + JsonClientModule.num(o, "rate", 0) + "%  ·  de returnat " + money(JsonClientModule.num(o, "total", 0)), 32, y + 29, 6.4f, Sk.MUTED, 0);
-                if (!ok) Gfx.text(ms, "necesită " + Math.round(minH) + " ore jucate", 32, y + 36, 5.6f, Sk.WARN, 0);
-                boolean h = ok && Sk.in(lmx, lmy, 226, y + 8, 76, 24);
-                Sk.button(ms, ok ? "ÎMPRUMUTĂ" : "BLOCAT", 226, y + 8, 76, 24, ok, ok, h);
-                if (ok) hitL(226, y + 8, 76, 24, () -> BankClient.take(idx));
-                y += 46;
+                FUi.card(g, "of" + idx, 28, y, lw - 24, 50, false, mx, my);
+                tx(g, lei(JsonClientModule.num(o, "amount", 0)), 42, y + 20, 10f, FTheme.TEXT);
+                t(g, clip(JsonClientModule.integer(o, "days", 0) + " zile · dobândă " + JsonClientModule.num(o, "rate", 0) + "% · de returnat " + num(JsonClientModule.num(o, "total", 0)), lw - 150, 6.4f, false), 42, y + 32, 6.4f, FTheme.MUTED);
+                if (!ok) t(g, "necesită " + Math.round(minH) + " ore jucate", 42, y + 43, 5.8f, FTheme.WARN);
+                btn(g, "tk" + idx, ok ? "Împrumută" : "Blocat", null, 16 + lw - 16 - 76, y + 11, 76, 28, FUi.PRIMARY, ok, mx, my, () -> BankClient.take(idx));
+                y += 56;
             }
-            if (offers.size() == 0) Gfx.text(ms, "Nicio ofertă disponibilă.", 26, 100, 8, Sk.MUTED, 0);
+            if (offers.size() == 0) FUi.empty(g, "check", "Nicio ofertă", "Nu ai oferte de credit disponibile acum.", 16 + lw / 2f, y0 + ch / 2f - 10, lw - 40);
         }
 
-        // dreapta: economii
-        Sk.slant(ms, 326, 62, 182, 218, 8f, Sk.ROW);
-        Gfx.text(ms, "ECONOMII", 340, 80, 7f, Sk.MUTED, 0, false, 1.2f);
-        Gfx.text(ms, money(savings) + " lei", 340, 100, 15, Sk.WHITE, 0, true, 0f);
-        Gfx.text(ms, "dobândă " + rate + "% / zi", 340, 114, 6.8f, Sk.ACC, 0);
-        Gfx.text(ms, "PUNE LA ECONOMII", 340, 134, 6.4f, Sk.FAINT, 0, false, 1f);
-        quick(ms, lmx, lmy, "1 000", 340, 142, 46, bank >= 1, () -> BankClient.saveIn(1000, false));
-        quick(ms, lmx, lmy, "5 000", 392, 142, 46, bank >= 1, () -> BankClient.saveIn(5000, false));
-        quick(ms, lmx, lmy, "TOT", 444, 142, 50, bank >= 1, () -> BankClient.saveIn(0, true));
-        Gfx.text(ms, "RETRAGE ÎN CONT", 340, 182, 6.4f, Sk.FAINT, 0, false, 1f);
-        quick(ms, lmx, lmy, "1 000", 340, 190, 46, savings >= 1, () -> BankClient.saveOut(1000, false));
-        quick(ms, lmx, lmy, "5 000", 392, 190, 46, savings >= 1, () -> BankClient.saveOut(5000, false));
-        quick(ms, lmx, lmy, "TOT", 444, 190, 50, savings >= 1, () -> BankClient.saveOut(0, true));
-        Gfx.text(ms, "Banii din economii cresc", 340, 232, 6.2f, Sk.FAINT, 0);
-        Gfx.text(ms, "în fiecare zi reală.", 340, 242, 6.2f, Sk.FAINT, 0);
-
-        if (System.currentTimeMillis() < msgUntil && !msg.isEmpty()) {
-            float w = Math.min(W - 60, Gfx.width(msg, 8f, false) + 28);
-            Sk.slant(ms, W / 2f - w / 2f, 12, w, 20, 6f, msgOk ? 0xFF1F6B3F : 0xFF7A2A26);
-            Gfx.text(ms, msg, W / 2f, 25.5f, 8f, Sk.WHITE, 1);
-        }
+        // ---- economii
+        card(g, rx, y0, rw, ch);
+        FTheme.caption(g, "ECONOMII", rx + 16, y0 + 22, FTheme.FAINT);
+        tx(g, lei(savings), rx + 16, y0 + 48, 15f, FTheme.TEXT);
+        t(g, "dobândă " + rate + "% / zi", rx + 16, y0 + 62, 7f, FTheme.SKY);
+        float qw2 = (rw - 32 - 16) / 3f;
+        float y = y0 + 84;
+        FTheme.caption(g, "PUNE LA ECONOMII", rx + 16, y, FTheme.FAINT);
+        quick(g, "si1", "1.000", rx + 16, y + 6, qw2, bank >= 1, mx, my, () -> BankClient.saveIn(1000, false));
+        quick(g, "si2", "5.000", rx + 16 + qw2 + 8, y + 6, qw2, bank >= 1, mx, my, () -> BankClient.saveIn(5000, false));
+        quick(g, "si3", "Tot", rx + 16 + 2 * (qw2 + 8), y + 6, qw2, bank >= 1, mx, my, () -> BankClient.saveIn(0, true));
+        y += 44;
+        FTheme.caption(g, "RETRAGE ÎN CONT", rx + 16, y, FTheme.FAINT);
+        quick(g, "so1", "1.000", rx + 16, y + 6, qw2, savings >= 1, mx, my, () -> BankClient.saveOut(1000, false));
+        quick(g, "so2", "5.000", rx + 16 + qw2 + 8, y + 6, qw2, savings >= 1, mx, my, () -> BankClient.saveOut(5000, false));
+        quick(g, "so3", "Tot", rx + 16 + 2 * (qw2 + 8), y + 6, qw2, savings >= 1, mx, my, () -> BankClient.saveOut(0, true));
+        FUi.message(g, FUi.MSG_INFO, "Economiile cresc în fiecare zi reală.", rx + 12, y0 + ch - 38, rw - 24);
     }
 
     @Override

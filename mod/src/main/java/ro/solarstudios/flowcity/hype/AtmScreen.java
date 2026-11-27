@@ -3,229 +3,199 @@ package ro.solarstudios.flowcity.hype;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import java.util.ArrayList;
-import java.util.List;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.components.EditBox;
-import ro.solarstudios.flowcity.cars.client.Sk;
-import ro.solarstudios.flowcity.client.ui.FlowScreen;
+import ro.solarstudios.flowcity.client.ui.FScreen;
+import ro.solarstudios.flowcity.client.ui.FTheme;
+import ro.solarstudios.flowcity.client.ui.FUi;
 import ro.solarstudios.flowcity.client.ui.Gfx;
 import net.minecraft.client.gui.GuiGraphics;
 import ro.solarstudios.flowcity.module.JsonClientModule;
 
-/** ATM: depunere, retragere, transfer bancar + istoric. Serverul valideaza tot; aici doar cerem actiuni. Tema de iarna FlowCity. */
-public final class AtmScreen extends FlowScreen {
-    private static final int W = 520;
-    private static final int H = 290;
-    private static final int COL = 224;
+/**
+ * ATM: solduri separate CASH si BANK (acelasi cont ca in banca si in telefon, nu un sold nou), depunere, retragere,
+ * transfer cu taxa afisata inainte si istoricul tranzactiilor. Serverul valideaza tot (card, limite, sold).
+ */
+public final class AtmScreen extends FScreen {
+    private static final int W = 580;
+    private static final int H = 330;
+    private static final int LW = 268;
+    private static final SimpleDateFormat DATE = new SimpleDateFormat("dd.MM HH:mm");
+    private static final int[] QUICK = {100, 500, 1000, 5000};
 
-    private final EditBox amount = field("Suma", 12, null);
-    private final EditBox target = field("Jucator", 16, null);
-    private final long born = System.currentTimeMillis();
-    private float offX;
-    private float offY;
-    private float scale = 1f;
+    private int mode;
+    private int scroll;
 
     public AtmScreen() {
         super("ATM", W, H);
-    }
-
-    @Override
-    protected boolean framed() {
-        return false;
-    }
-
-    @Override
-    protected List<EditBox> fields() {
-        List<EditBox> l = new ArrayList<>();
-        l.add(amount);
-        l.add(target);
-        return l;
-    }
-
-    private double parseAmount() {
-        try {
-            return Double.parseDouble(amount.getValue().trim().replace(',', '.'));
-        } catch (NumberFormatException e) {
-            return -1;
-        }
-    }
-
-    private void act(String action) {
-        double a = parseAmount();
-        if (a <= 0) {
-            toast("Introdu o suma valida.", true);
-            return;
-        }
-        JsonObject o = new JsonObject();
-        o.addProperty("amount", a);
-        if ("atm_transfer".equals(action)) {
-            String t = target.getValue().trim();
-            if (t.isEmpty()) {
-                toast("Alege un jucator.", true);
-                return;
-            }
-            o.addProperty("to", t);
-        }
-        click();
-        HypeClient.request(action, o);
     }
 
     private static String label(String type) {
         switch (type) {
             case "DEPOSIT": return "Depunere";
             case "WITHDRAW": return "Retragere";
-            case "TRANSFER_OUT": return "Transfer catre";
+            case "TRANSFER_OUT": return "Transfer către";
             case "TRANSFER_IN": return "Primit de la";
             case "PAYDAY": return "Salariu";
-            case "FUEL": return "Benzinarie (card)";
-            case "FUEL_CASH": return "Benzinarie (cash)";
+            case "FUEL": return "Benzinărie (card)";
+            case "FUEL_CASH": return "Benzinărie (cash)";
             default: return type;
         }
     }
 
-    private static float easeOut(float t) {
-        t = Math.max(0f, Math.min(1f, t));
-        float u = 1f - t;
-        return 1f - u * u * u;
+    private static boolean plus(String type) {
+        return type.equals("TRANSFER_IN") || type.equals("DEPOSIT") || type.equals("PAYDAY");
     }
 
-    private void hitL(float x, float y, float w, float h, Runnable r) {
-        hit(Math.round(offX + x * scale), Math.round(offY + y * scale), Math.max(1, Math.round(w * scale)), Math.max(1, Math.round(h * scale)), r);
-    }
-
-    private static String clip(String s, float size, boolean xl, float maxW) {
-        if (s == null) return "";
-        if (Gfx.width(s, size, xl) <= maxW) return s;
-        String t = s;
-        while (t.length() > 1 && Gfx.width(t + "...", size, xl) > maxW) t = t.substring(0, t.length() - 1);
-        return t + "...";
-    }
-
-    private static String money(double v) {
-        long n = Math.round(v);
-        String s = String.valueOf(Math.abs(n));
-        StringBuilder b = new StringBuilder();
-        for (int i = 0; i < s.length(); i++) {
-            if (i > 0 && (s.length() - i) % 3 == 0) b.append(' ');
-            b.append(s.charAt(i));
+    private double amount() {
+        try {
+            return Double.parseDouble(text("amount").trim().replace(',', '.').replace(" ", ""));
+        } catch (NumberFormatException e) {
+            return -1;
         }
-        return (n < 0 ? "-" : "") + b;
     }
 
-    /** Pozitia unui camp de text in coordonate de ecran, pe baza zonei lui din spatiul scalat. */
-    private void placeField(EditBox f, float x, float y, float w, float h) {
-        f.setX(Math.round(offX + (x + 6) * scale));
-        f.setY(Math.round(offY + (y + (h - 8) / 2f) * scale));
-        f.setWidth(Math.max(10, Math.round((w - 12) * scale)));
-    }
-
-    private void fieldBox(GuiGraphics ms, EditBox f, float x, float y, float w, float h) {
-        Sk.slant(ms, x, y, w, h, 4f, Sk.ROW);
-        Gfx.rrect(ms, x + 2, y + h - 2, w - 4, 1.5f, 0, f.isFocused() ? Sk.ACC : 0xFF22344D);
-        placeField(f, x, y, w, h);
+    private void act(String action) {
+        double a = amount();
+        if (a <= 0) {
+            toast("Introdu o sumă validă.", true);
+            return;
+        }
+        JsonObject o = new JsonObject();
+        o.addProperty("amount", a);
+        if ("atm_transfer".equals(action)) {
+            String t = text("to").trim();
+            if (t.isEmpty()) {
+                toast("Alege un jucător.", true);
+                return;
+            }
+            o.addProperty("to", t);
+        }
+        HypeClient.request(action, o);
+        setText("amount", "");
     }
 
     @Override
-    protected void draw(GuiGraphics ms, int mx, int my) {
-        float open = easeOut((System.currentTimeMillis() - born) / 300f);
-        scale = Math.min(1f, Math.min((width - 8f) / W, (height - 8f) / H));
-        offX = width / 2f - W / 2f * scale;
-        offY = height / 2f - H / 2f * scale;
-        float lmx = (mx - offX) / scale;
-        float lmy = (my - offY) / scale;
-        ms.pose().pushPose();
-        ms.pose().translate(offX, offY, 0);
-        ms.pose().scale(scale, scale, scale);
-        Sk.background(ms, -offX / scale, -offY / scale, (width - offX) / scale, (height - offY) / scale, open);
-        Gfx.alpha = open;
-        try {
-            content(ms, lmx, lmy);
-        } finally {
-            Gfx.alpha = 1f;
-            ms.pose().popPose();
-        }
-        // campurile de text se deseneaza in coordonate de ecran, dupa restaurarea transformarii
-        amount.render(ms, mx, my, 0);
-        target.render(ms, mx, my, 0);
-    }
-
-    private void content(GuiGraphics ms, float lmx, float lmy) {
+    protected void paint(GuiGraphics g, int mx, int my) {
         JsonObject d = HypeState.atm;
-        Gfx.text(ms, "ATM", 16, 38, 17, Sk.WHITE, 0, true, 0f);
-        Gfx.text(ms, "FLOWCITY BANK", 17, 50, 6.4f, Sk.MUTED, 0, false, 1.2f);
-        Sk.close(ms, W - 34, 14, lmx, lmy);
-        hitL(W - 34, 14, 20, 20, this::onClose);
+        shell(g);
+        top(g, "ATM", "FlowCity Bank", mx, my);
+        double cash = JsonClientModule.num(d, "cash", 0);
+        double bank = JsonClientModule.num(d, "bank", 0);
 
-        float lx = 12;
-        float top = 66;
-
+        float x0 = 16;
+        float y0 = 60;
         // solduri
-        Sk.slant(ms, lx, top, COL, 46, 8f, Sk.ROW);
-        Gfx.rrect(ms, lx + 14, top + 9, 3, 28, 0, Sk.GOOD);
-        Gfx.text(ms, "CASH", lx + 24, top + 15, 6f, Sk.FAINT, 0, false, 1f);
-        Gfx.text(ms, money(JsonClientModule.num(d, "cash", 0)) + " lei", lx + 24, top + 31, 10.5f, Sk.GOOD, 0, true, 0f);
-        Gfx.rrect(ms, lx + COL / 2f + 4, top + 9, 3, 28, 0, Sk.ACC);
-        Gfx.text(ms, "BANCĂ", lx + COL / 2f + 14, top + 15, 6f, Sk.FAINT, 0, false, 1f);
-        Gfx.text(ms, money(JsonClientModule.num(d, "bank", 0)) + " lei", lx + COL / 2f + 14, top + 31, 10.5f, Sk.ACC, 0, true, 0f);
+        float hw = (LW - 8) / 2f;
+        balanceCard(g, "CASH", cash, x0, y0, hw, FTheme.OK);
+        balanceCard(g, "BANCĂ", bank, x0 + hw + 8, y0, hw, FTheme.accent);
 
-        // suma + depunere/retragere
-        float y = top + 56;
-        fieldBox(ms, amount, lx, y, COL, 22);
+        // mod
+        float y = y0 + 58;
+        String[] modes = {"Depunere", "Retragere", "Transfer"};
+        float cx = x0;
+        for (int i = 0; i < modes.length; i++) {
+            final int mi = i;
+            cx += chipAt(g, "am" + i, modes[i], cx, y, 18, mode == i, mx, my, () -> mode = mi);
+        }
         y += 28;
-        float bw = (COL - 8) / 2f;
-        boolean h1 = Sk.in(lmx, lmy, lx, y, bw, 24);
-        Sk.button(ms, "DEPUNE", lx, y, bw, 24, true, true, h1);
-        hitL(lx, y, bw, 24, () -> act("atm_deposit"));
-        boolean h2 = Sk.in(lmx, lmy, lx + bw + 8, y, bw, 24);
-        Sk.button(ms, "RETRAGE", lx + bw + 8, y, bw, 24, true, true, h2);
-        hitL(lx + bw + 8, y, bw, 24, () -> act("atm_withdraw"));
+        FTheme.caption(g, "SUMA", x0 + 2, y, FTheme.FAINT);
+        input(g, "amount", "ex. 500", x0, y + 6, LW, 22, 12, mx, my);
         y += 36;
+        // sume rapide
+        double all = mode == 0 ? cash : bank;
+        float qx = x0;
+        for (int q : QUICK) {
+            final int qv = q;
+            qx += chipAt(g, "aq" + q, num(q), qx, y, 16, false, mx, my, () -> setText("amount", String.valueOf(qv)));
+        }
+        final double allv = Math.floor(all);
+        chipAt(g, "aq-all", "Tot", qx, y, 16, false, mx, my, () -> setText("amount", String.valueOf((long) allv)));
+        y += 24;
 
-        // transfer
-        Gfx.text(ms, "TRANSFER BANCAR", lx + 2, y, 6.4f, Sk.MUTED, 0, false, 1.2f);
-        y += 8;
-        fieldBox(ms, target, lx, y, COL, 22);
-        y += 28;
-        boolean h3 = Sk.in(lmx, lmy, lx, y, COL, 24);
-        Sk.button(ms, "TRANSFERĂ", lx, y, COL, 24, true, false, h3);
-        hitL(lx, y, COL, 24, () -> act("atm_transfer"));
-        y += 34;
+        double a = amount();
         double fp = JsonClientModule.num(d, "feePercent", 0);
-        Gfx.text(ms, "Taxa transfer: " + fp + "% (min " + JsonClientModule.num(d, "feeMin", 0) + " lei)", lx + 2, y, 6.6f, Sk.FAINT, 0);
+        double fmin = JsonClientModule.num(d, "feeMin", 0);
+        if (mode == 2) {
+            FTheme.caption(g, "DESTINATAR", x0 + 2, y, FTheme.FAINT);
+            input(g, "to", "Numele jucătorului", x0, y + 6, LW, 22, 16, mx, my);
+            y += 36;
+            double fee = a > 0 ? Math.max(fmin, Math.round(a * fp) / 100.0) : 0;
+            t(g, "Taxă transfer: " + fp + "% (min " + fmin + " lei)", x0 + 2, y + 4, 6.6f, FTheme.MUTED);
+            if (a > 0) t(g, "Se scad din bancă: " + lei(a + fee), x0 + 2, y + 15, 6.6f, a + fee > bank ? FTheme.DANGER : FTheme.MUTED);
+            y += 24;
+        } else {
+            y += 6;
+        }
         double wl = JsonClientModule.num(d, "withdrawLeft", -1);
-        if (wl >= 0) Gfx.text(ms, "Retragere ramasa azi: " + money(wl) + " lei", lx + 2, y + 10, 6.6f, Sk.FAINT, 0);
+        double tl = JsonClientModule.num(d, "transferLeft", -1);
+        if (mode == 1 && wl >= 0) t(g, "Mai poți retrage azi: " + lei(wl), x0 + 2, y, 6.6f, FTheme.MUTED);
+        if (mode == 2 && tl >= 0) t(g, "Mai poți transfera azi: " + lei(tl), x0 + 2, y, 6.6f, FTheme.MUTED);
+
+        // buton
+        String label = mode == 0 ? "Depune" : (mode == 1 ? "Retrage" : "Transferă");
+        float by = H - 16 - 30;
+        boolean enough = mode == 0 ? a <= cash : a <= bank;
+        boolean en = a > 0 && enough && !modalActive();
+        if (a > 0 && !enough) FUi.message(g, FUi.MSG_ERROR, mode == 0 ? "Nu ai atât cash la tine." : "Fonduri insuficiente în bancă.", x0, by - 32, LW);
+        btn(g, "atm-go", label, mode == 0 ? "chev-down" : (mode == 1 ? "chev-up" : "chev-right"), x0, by, LW, 30, FUi.PRIMARY, en, mx, my, () -> {
+            if (mode == 0) act("atm_deposit");
+            else if (mode == 1) act("atm_withdraw");
+            else openModal(() -> act("atm_transfer"));
+        });
 
         // istoric
-        float hx = lx + COL + 14;
-        float hw = W - 12 - hx;
-        Gfx.text(ms, "ULTIMELE TRANZACȚII", hx + 2, top + 4, 6.4f, Sk.MUTED, 0, false, 1.2f);
-        float hy = top + 14;
-        int shown = 0;
-        if (d.has("history") && d.get("history").isJsonArray()) {
-            JsonArray arr = d.getAsJsonArray("history");
-            for (JsonElement el : arr) {
-                if (shown >= 11 || !el.isJsonObject()) break;
-                JsonObject h = el.getAsJsonObject();
-                String type = JsonClientModule.str(h, "t", "");
-                boolean plus = type.equals("TRANSFER_IN") || type.equals("DEPOSIT") || type.equals("PAYDAY");
-                String who = JsonClientModule.str(h, "o", "");
-                boolean detail = type.startsWith("FUEL") || type.equals("PAYDAY");
-                String left = label(type) + (who.isEmpty() || detail ? "" : " " + who);
-                Sk.slant(ms, hx, hy, hw, 17, 4f, shown % 2 == 0 ? Sk.ROW : Sk.ROW_HOT);
-                Gfx.rrect(ms, hx + 7, hy + 4, 2, 9, 0, plus ? Sk.GOOD : Sk.MUTED);
-                Gfx.text(ms, clip(left, 7.4f, false, hw - 96), hx + 14, hy + 5.5f, 7.4f, Sk.WHITE, 0);
-                Gfx.text(ms, (type.equals("TRANSFER_IN") || type.equals("PAYDAY") ? "+" : "") + money(JsonClientModule.num(h, "a", 0)), hx + hw - 10, hy + 5.5f, 7.4f, plus ? Sk.GOOD : Sk.MUTED, 2);
-                hy += 19;
-                shown++;
-            }
+        float hx = x0 + LW + 16;
+        float hwid = W - 16 - hx;
+        card(g, hx, y0, hwid, H - 16 - y0);
+        FTheme.caption(g, "ISTORIC TRANZACȚII", hx + 14, y0 + 16, FTheme.FAINT);
+        JsonArray arr = d.has("history") && d.get("history").isJsonArray() ? d.getAsJsonArray("history") : new JsonArray();
+        float ly = y0 + 26;
+        float rowH = 26f;
+        int per = Math.max(1, (int) ((H - 16 - 8 - ly) / rowH));
+        scroll = Math.max(0, Math.min(scroll, Math.max(0, arr.size() - per)));
+        if (arr.size() == 0) {
+            FUi.empty(g, "clock", "Nicio tranzacție", "Depunerile, retragerile și transferurile apar aici.", hx + hwid / 2f, ly + 80, hwid - 40);
         }
-        if (shown == 0) Gfx.text(ms, "Nicio tranzacție.", hx + 2, hy + 8, 8f, Sk.FAINT, 0);
+        int i = 0;
+        float yy = ly;
+        for (JsonElement el : arr) {
+            if (!el.isJsonObject()) continue;
+            if (i++ < scroll) continue;
+            if (i - 1 >= scroll + per) break;
+            JsonObject h = el.getAsJsonObject();
+            String type = JsonClientModule.str(h, "t", "");
+            boolean pl = plus(type);
+            String who = JsonClientModule.str(h, "o", "");
+            boolean detail = type.startsWith("FUEL") || type.equals("PAYDAY");
+            Gfx.disc(g, hx + 24, yy + 11, 8f, FTheme.alpha(pl ? FTheme.OK : FTheme.MUTED, 46));
+            FUi.icon(g, pl ? "chev-down" : "chev-up", hx + 24, yy + 11, 9f, pl ? FTheme.OK : FTheme.MUTED);
+            tx(g, clip(label(type) + (who.isEmpty() || detail ? "" : " " + who), hwid - 150, 7.6f, true), hx + 40, yy + 10, 7.6f, FTheme.TEXT);
+            long ts = (long) JsonClientModule.num(h, "ts", 0);
+            double fee = JsonClientModule.num(h, "f", 0);
+            t(g, (ts > 0 ? DATE.format(new Date(ts)) : "") + (fee > 0 ? "  ·  taxă " + fee + " lei" : ""), hx + 40, yy + 20, 6.2f, FTheme.FAINT);
+            double amt = JsonClientModule.num(h, "a", 0);
+            tr(g, (pl ? "+" : "-") + num(Math.abs(amt)) + " lei", hx + hwid - 14, yy + 14, 8f, pl ? FTheme.OK : FTheme.TEXT);
+            yy += rowH;
+        }
+        if (arr.size() > per) FUi.scrollbar(g, hx + hwid - 6, ly, per * rowH, arr.size(), per, scroll);
+
+        drawModal(g, "Confirmă transferul", lei(a) + " către " + text("to").trim(), "Transferă", "Anulează", false, mx, my);
+    }
+
+    private void balanceCard(GuiGraphics g, String label, double v, float x, float y, float w, int color) {
+        card(g, x, y, w, 50);
+        Gfx.rrect(g, x + 10, y + 12, 3, 26, 1.5f, color);
+        FTheme.caption(g, label, x + 20, y + 16, FTheme.FAINT);
+        tx(g, clip(num(v) + " lei", w - 30, 10.5f, true), x + 20, y + 36, 10.5f, FTheme.TEXT);
     }
 
     @Override
-    protected void onEnter(EditBox f) {
-        act(f == target ? "atm_transfer" : "atm_deposit");
+    public boolean mouseScrolled(double mx, double my, double delta) {
+        scroll -= (int) Math.signum(delta);
+        if (scroll < 0) scroll = 0;
+        return true;
     }
 
     @Override

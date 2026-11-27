@@ -1403,22 +1403,41 @@ public final class PhoneScreen extends FlowScreen {
         });
         Ui.text(ms, "Ultimele tranzactii", x + 10, y + 132, Sk.MUTED);
         int yy = y + 146;
+        int n = 0;
         if (HypeState.atm.has("history") && HypeState.atm.get("history").isJsonArray()) {
-            int n = 0;
             for (com.google.gson.JsonElement e : HypeState.atm.getAsJsonArray("history")) {
-                if (n++ >= 8 || yy + 20 > y + h - 14) break;
                 if (!e.isJsonObject()) continue;
+                if (yy + 24 > y + h - 8) break;
                 JsonObject o = e.getAsJsonObject();
-                String type = o.has("type") ? o.get("type").getAsString() : "";
-                double amt = o.has("amount") ? o.get("amount").getAsDouble() : 0;
-                Ui.rect(ms, x + 8, yy + 18, w - 16, 1, 0x22FFFFFF);
-                Ui.text(ms, Ui.clip(type, w - 90), x + 14, yy + 5, Sk.WHITE);
-                Ui.textRight(ms, Ui.money(amt), x + w - 14, yy + 5, amt < 0 ? Sk.BAD : Sk.GOOD);
-                yy += 20;
+                // serverul trimite cheile scurte: t (tip), a (suma), f (taxa), o (celalalt jucator), ts (momentul)
+                String type = o.has("t") ? o.get("t").getAsString() : "";
+                double amt = o.has("a") ? o.get("a").getAsDouble() : 0;
+                String who = o.has("o") ? o.get("o").getAsString() : "";
+                long ts = o.has("ts") ? o.get("ts").getAsLong() : 0;
+                boolean plus = "TRANSFER_IN".equals(type) || "DEPOSIT".equals(type) || "PAYDAY".equals(type);
+                boolean detail = type.startsWith("FUEL") || "PAYDAY".equals(type);
+                String name = bankLabel(type) + (who.isEmpty() || detail ? "" : " " + who);
+                Ui.rect(ms, x + 8, yy + 22, w - 16, 1, 0x22FFFFFF);
+                Ui.text(ms, Ui.clip(name, w - 96), x + 14, yy + 3, Sk.WHITE);
+                if (ts > 0) Ui.text(ms, new java.text.SimpleDateFormat("dd.MM HH:mm").format(new java.util.Date(ts)), x + 14, yy + 13, Sk.FAINT);
+                Ui.textRight(ms, (plus ? "+" : "-") + Ui.money(Math.abs(amt)), x + w - 14, yy + 7, plus ? Sk.GOOD : Sk.WHITE);
+                yy += 26;
+                n++;
             }
-            if (n == 0) Ui.textCenter(ms, "Nicio tranzactie.", x + w / 2, yy + 8, Sk.FAINT);
-        } else {
-            Ui.textCenter(ms, "Nicio tranzactie.", x + w / 2, yy + 8, Sk.FAINT);
+        }
+        if (n == 0) Ui.textCenter(ms, "Nicio tranzactie.", x + w / 2, yy + 8, Sk.FAINT);
+    }
+
+    private static String bankLabel(String type) {
+        switch (type) {
+            case "DEPOSIT": return "Depunere";
+            case "WITHDRAW": return "Retragere";
+            case "TRANSFER_OUT": return "Transfer catre";
+            case "TRANSFER_IN": return "Primit de la";
+            case "PAYDAY": return "Salariu";
+            case "FUEL": return "Benzinarie (card)";
+            case "FUEL_CASH": return "Benzinarie (cash)";
+            default: return type;
         }
     }
 
