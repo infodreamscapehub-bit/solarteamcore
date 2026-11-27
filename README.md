@@ -41,6 +41,27 @@ Canal `flowcity:bridge`, bytes in format PacketBuffer (VarInt + UTF). Pe client:
 Plugin Messaging Bukkit (Mohist/Arclight trimit payload-urile necunoscute catre Bukkit). Clientul face handshake (HELLO)
 dupa intrare, deci `/eadmin` stie daca jucatorul are modul. Protocolul e in `Op.java` (plugin) si `Bridge.java` (mod) - trebuie sa ramana identice.
 
+## FAdmin 2.0 (panoul de staff)
+Se deschide cu **F9** sau `/fadmin` (alias `/eadmin`, `/fa`). Sectiuni: Dashboard, Jucatori, Vehicule, Economie, Joburi, Loguri, Sistem, Editor, Permisiuni;
+fiecare apare doar daca nivelul tau o permite. Serverul re-verifica nivelul la fiecare actiune; actiunile importante cer motiv si intra in jurnalul `fadm_log`
+(administrator, actiune, jucator afectat, data, valoare veche -> noua, motiv).
+
+Niveluri (permisiuni LuckPerms, fiecare include nivelul de dedesubt): `flowcity.fadmin.helper` < `moderator` < `administrator` < `manager` < `developer` < `owner`.
+Operatorii sunt Owner. Staff-ul vechi (doar `flowcity.eadmin.*`) e mapat automat (baza = Helper, `.sanction` = Moderator, `.money`/`.jobs` = Administrator).
+
+| Nivel | Poate in plus |
+|---|---|
+| Helper | dashboard, lista jucatori, kick, mute, teleport/bring, istoric |
+| Moderator | ban/unban, heal, inventar, vezi vehicule/joburi/loguri |
+| Administrator | schimba job si grad, confisca/elibereaza vehicule, vede economia |
+| Manager | adauga/scoate bani (max 50.000/operatiune), sterge vehicule, editor de salarii/taxe/preturi/cooldown/recompense, vede permisiunile |
+| Developer | sistem (module, erori), editor setari (max 1.000.000/operatiune la bani) |
+| Owner | gestioneaza nivelurile (prin LuckPerms), bani pana la 100.000.000 |
+
+Editorul schimba doar valori simple (numar / da-nu / text scurt) dintr-un catalog fix; cheile cu comenzi sau permisiuni nu se pot edita. Modificarea pastreaza
+comentariile din yml si reincarca modulul (payday, banca, hype, fjobs); taxi/case/battlepass se aplica la restart. Pragul pentru "tranzactii suspecte":
+`fadmin.suspicious-threshold` in `config.yml` (implicit 50000). Kilometrajul si teleportarea vehiculelor nu apar: datele sunt in mod, nu in evidenta MDT.
+
 ## API pentru alte plugin-uri (banca, ATM, magazine)
 ```java
 FlowCityBridge.getInstance().service().logTransaction(uuid, "DEPOSIT", 1500.0, "ATM Centru", "world 10 64 20");
