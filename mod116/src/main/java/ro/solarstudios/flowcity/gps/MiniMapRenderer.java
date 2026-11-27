@@ -302,9 +302,10 @@ public final class MiniMapRenderer {
         if (!MiniMapSettings.showWaypoint || !GpsPrefs.layerOn("waypoints")) return;
         String dim = GpsData.dimOf(mc);
         for (GpsWps.Wp w : GpsWps.all()) {
-            if (!w.dim.equals(dim) || GpsNav.isTarget("wp:" + w.id)) continue;
+            if (!w.enabled || !w.dim.equals(dim) || GpsNav.isTarget("wp:" + w.id)) continue;
             project(w.x, w.z);
-            if (MiniMapClip.inside(clip, clipN, outX, outY)) GpsIcons.drop(g, outX, outY + 2f, 3.1f, 0xFF22D3EE, 0xFF06323B, 1f);
+            // waypoint-ul isi pastreaza culoarea aleasa de jucator
+            if (MiniMapClip.inside(clip, clipN, outX, outY)) GpsIcons.drop(g, outX, outY + 2f, 3.1f, w.color, 0xFF06323B, 1f);
         }
     }
 

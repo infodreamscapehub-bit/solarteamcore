@@ -18,12 +18,23 @@ public final class GpsWps {
         public String id = "";
         public String name = "";
         public double x;
+        public double y;
         public double z;
         public String dim = "minecraft:overworld";
         public int color = 0xFFFFC857;
         public String icon = "pin";
+        /** Eticheta scurta de pe marker (initialele din fisierele de waypoint-uri). */
+        public String label = "";
+        /** Dezactivat: ramane salvat, dar nu apare pe harta si pe minimap. */
+        public boolean enabled = true;
         public boolean shared;
     }
+
+    /** Paleta de 16 culori, aceeasi cu indicii din fisierele de waypoint-uri. */
+    public static final int[] PALETTE = {
+        0xFF000000, 0xFF0000AA, 0xFF00AA00, 0xFF00AAAA, 0xFFAA0000, 0xFFAA00AA, 0xFFFFAA00, 0xFFAAAAAA,
+        0xFF555555, 0xFF5555FF, 0xFF55FF55, 0xFF55FFFF, 0xFFFF5555, 0xFFFF55FF, 0xFFFFFF55, 0xFFFFFFFF
+    };
 
     public static final List<Wp> mine = new ArrayList<>();
     public static final List<Wp> shared = new ArrayList<>();
@@ -48,10 +59,13 @@ public final class GpsWps {
             w.id = GpsClient.str(o, "id", "");
             w.name = GpsClient.str(o, "name", "");
             w.x = GpsClient.num(o, "x", 0);
+            w.y = GpsClient.num(o, "y", 0);
             w.z = GpsClient.num(o, "z", 0);
             w.dim = GpsClient.str(o, "dim", "minecraft:overworld");
             w.color = GpsData.color(GpsClient.str(o, "color", "#FFC857"), 0xFFFFC857);
             w.icon = GpsClient.str(o, "icon", "pin");
+            w.label = GpsClient.str(o, "label", "");
+            w.enabled = !o.has("enabled") || o.get("enabled").getAsBoolean();
             w.shared = sh;
             if (!w.id.isEmpty()) out.add(w);
         }
@@ -71,18 +85,32 @@ public final class GpsWps {
         errAt = System.currentTimeMillis();
     }
 
-    /** Creeaza (id gol) sau modifica un waypoint. {@code color} ARGB. */
-    public static void save(String id, String name, double x, double z, String dim, int color, boolean sh) {
+    /** Creeaza (id gol) sau modifica un waypoint, cu toate campurile. {@code color} ARGB. */
+    public static void save(String id, String name, double x, double y, double z, String dim, int color,
+                            String icon, String label, boolean enabled, boolean sh) {
         JsonObject o = new JsonObject();
         o.addProperty("id", id == null ? "" : id);
         o.addProperty("name", name);
         o.addProperty("x", x);
+        o.addProperty("y", y);
         o.addProperty("z", z);
         o.addProperty("dim", dim);
         o.addProperty("color", String.format(java.util.Locale.ROOT, "#%06X", color & 0xFFFFFF));
-        o.addProperty("icon", "pin");
+        o.addProperty("icon", icon == null || icon.isEmpty() ? "pin" : icon);
+        o.addProperty("label", label == null ? "" : label);
+        o.addProperty("enabled", enabled);
         o.addProperty("shared", sh);
         GpsClient.sendWp("wp.set", o);
+    }
+
+    /** Varianta scurta: waypoint nou, cu iconita implicita si activ. */
+    public static void save(String id, String name, double x, double z, String dim, int color, boolean sh) {
+        save(id, name, x, 0d, z, dim, color, "pin", "", true, sh);
+    }
+
+    /** Salveaza din nou un waypoint existent, cu modificarile facute pe obiect. */
+    public static void save(Wp w) {
+        save(w.id, w.name, w.x, w.y, w.z, w.dim, w.color, w.icon, w.label, w.enabled, w.shared);
     }
 
     public static void delete(Wp w) {

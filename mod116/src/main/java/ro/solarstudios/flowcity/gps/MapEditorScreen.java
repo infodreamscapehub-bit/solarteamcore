@@ -1515,7 +1515,11 @@ public final class MapEditorScreen extends FlowScreen {
             JsonObject o = new JsonObject();
             o.addProperty("n", e.name);
             o.addProperty("x", e.x);
+            o.addProperty("y", e.y);
             o.addProperty("z", e.z);
+            if (e.color >= 0) o.addProperty("c", e.color);
+            if (!e.label.isEmpty()) o.addProperty("l", e.label);
+            if (e.disabled) o.addProperty("d", true);
             items.add(o);
         }
         impQueue.subList(0, n).clear();

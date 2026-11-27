@@ -26,17 +26,46 @@ final class WaypointImport {
     /** Doua locatii cu acelasi nume mai apropiate de atat sunt considerate aceeasi locatie. */
     private static final double SAME_DIST = 24d;
 
+    /**
+     * Paleta de 16 culori a fisierelor de waypoint-uri (indicele {@code color} din linie). Ordinea e cea din
+     * format, ca sa iasa aceeasi culoare pe care o vedea jucatorul in minimap-ul lui.
+     */
+    static final int[] PALETTE = {
+        0xFF000000, 0xFF0000AA, 0xFF00AA00, 0xFF00AAAA, 0xFFAA0000, 0xFFAA00AA, 0xFFFFAA00, 0xFFAAAAAA,
+        0xFF555555, 0xFF5555FF, 0xFF55FF55, 0xFF55FFFF, 0xFFFF5555, 0xFFFF55FF, 0xFFFFFF55, 0xFFFFFFFF
+    };
+
+    /** Culoarea din paleta pentru indicele dat; indicii in afara paletei dau 0 (= foloseste culoarea categoriei). */
+    static int paletteColor(int idx) {
+        return idx >= 0 && idx < PALETTE.length ? PALETTE[idx] : 0;
+    }
+
     static final class Entry {
         final String name;
         final double x;
+        final double y;
         final double z;
         final String cat;
+        /** Culoarea din fisier (ARGB) sau 0 daca nu e data: atunci locatia ia culoarea categoriei. */
+        final int color;
+        /** Initialele din fisier, folosite ca eticheta scurta pe marker. */
+        final String label;
+        /** {@code disabled} din fisier: locatia intra ascunsa. */
+        final boolean disabled;
 
         Entry(String name, double x, double z, String cat) {
+            this(name, x, 0d, z, cat, 0, "", false);
+        }
+
+        Entry(String name, double x, double y, double z, String cat, int color, String label, boolean disabled) {
             this.name = name;
             this.x = x;
+            this.y = y;
             this.z = z;
             this.cat = cat;
+            this.color = color;
+            this.label = label;
+            this.disabled = disabled;
         }
     }
 
@@ -82,9 +111,11 @@ final class WaypointImport {
                 }
                 if (name.length() > 48) name = name.substring(0, 48).trim();
                 double x;
+                double y;
                 double z;
                 try {
                     x = Double.parseDouble(p[3].trim());
+                    y = Double.parseDouble(p[4].trim());
                     z = Double.parseDouble(p[5].trim());
                 } catch (NumberFormatException e) {
                     r.bad++;
@@ -94,13 +125,25 @@ final class WaypointImport {
                     r.bad++;
                     continue;
                 }
+                if (Double.isNaN(y) || Double.isInfinite(y)) y = 0d;
+                int color = 0;
+                if (p.length > 6) {
+                    try {
+                        color = paletteColor(Integer.parseInt(p[6].trim()));
+                    } catch (NumberFormatException ignored) {
+                        color = 0;
+                    }
+                }
+                boolean disabled = p.length > 7 && "true".equalsIgnoreCase(p[7].trim());
+                String label = p[2].trim();
+                if (label.length() > 4) label = label.substring(0, 4);
                 String key = normalize(name).toLowerCase(Locale.ROOT) + "|" + Math.round(x / SAME_DIST) + "|" + Math.round(z / SAME_DIST);
                 if (seen.contains(key)) {
                     r.duplicates++;
                     continue;
                 }
                 seen.add(key);
-                r.entries.add(new Entry(name, x, z, guessCategory(name)));
+                r.entries.add(new Entry(name, x, y, z, guessCategory(name), color, label, disabled));
             }
         }
         return r;

@@ -36,18 +36,27 @@ public final class WaypointFiles {
     /** Cat de adanc se cauta sub XaeroWaypoints/. */
     private static final int MAX_DEPTH = 4;
 
-    /** Un waypoint citit din fisier. */
+    /** Un waypoint citit din fisier, cu toate campurile pe care le putem folosi. */
     public static final class Entry {
         public final String name;
         public final double x;
         public final double y;
         public final double z;
+        /** Indicele de culoare din fisier (0-15) sau -1 daca lipseste. */
+        public final int color;
+        /** Initialele din fisier (eticheta scurta). */
+        public final String label;
+        /** {@code disabled} din fisier. */
+        public final boolean disabled;
 
-        Entry(String name, double x, double y, double z) {
+        Entry(String name, double x, double y, double z, int color, String label, boolean disabled) {
             this.name = name;
             this.x = x;
             this.y = y;
             this.z = z;
+            this.color = color;
+            this.label = label;
+            this.disabled = disabled;
         }
     }
 
@@ -150,7 +159,18 @@ public final class WaypointFiles {
                     continue;
                 }
                 if (!ok(x) || !ok(z) || Double.isNaN(y) || Double.isInfinite(y)) continue;
-                out.add(new Entry(name, x, y, z));
+                int color = -1;
+                if (p.length > 6) {
+                    try {
+                        color = Integer.parseInt(p[6].trim());
+                    } catch (NumberFormatException ignored) {
+                        color = -1;
+                    }
+                }
+                boolean disabled = p.length > 7 && "true".equalsIgnoreCase(p[7].trim());
+                String label = p[2].trim();
+                if (label.length() > 4) label = label.substring(0, 4);
+                out.add(new Entry(name, x, y, z, color, label, disabled));
             }
         } catch (IOException | RuntimeException ignored) {
             // fisier ilizibil: il tratam ca gol

@@ -77,6 +77,12 @@ public final class GpsScreen extends FlowScreen {
         if (!s.isEmpty() && page != P_SEARCH) go(P_SEARCH);
         scroll[P_SEARCH] = 0;
     });
+    private final TextFieldWidget wpName = field("Nume waypoint", 32, null);
+    /** Waypoint-ul aflat in editare (copie de lucru); null = editorul e inchis. */
+    private GpsWps.Wp edit;
+    /** Id-ul waypoint-ului editat ("" = unul nou). */
+    private String editId = "";
+    private boolean editNew;
     private boolean dirty = true;
     private final List<GpsData.Loc> shown = new ArrayList<>();
     private List<GpsData.Loc> all = new ArrayList<>();
@@ -147,13 +153,18 @@ public final class GpsScreen extends FlowScreen {
 
     @Override
     protected List<TextFieldWidget> fields() {
-        List<TextFieldWidget> l = new ArrayList<>(1);
+        List<TextFieldWidget> l = new ArrayList<>(2);
         l.add(search);
+        l.add(wpName);
         return l;
     }
 
     @Override
     protected void onEnter(TextFieldWidget f) {
+        if (f == wpName) {
+            saveEdit();
+            return;
+        }
         GpsPrefs.addSearch(search.getValue());
         if (!shown.isEmpty()) {
             List<GpsData.Loc> near = byDistance(shown);
@@ -270,10 +281,7 @@ public final class GpsScreen extends FlowScreen {
 
     private void addWpHere(Minecraft mc, boolean shared) {
         if (mc.player == null) return;
-        int n = (shared ? GpsWps.shared.size() : GpsWps.mine.size()) + 1;
-        GpsWps.save("", (shared ? "Punct " : "Waypoint ") + n, Math.round(mc.player.getX()), Math.round(mc.player.getZ()),
-            GpsData.dimOf(mc), shared ? GpsTheme.SKY : GpsTheme.GOLD, shared);
-        say(shared ? "Waypoint partajat salvat" : "Waypoint salvat");
+        openNew(mc.player.getX(), mc.player.getY(), mc.player.getZ(), shared);
     }
 
     private void setPin(double px, double py) {
@@ -400,7 +408,11 @@ public final class GpsScreen extends FlowScreen {
             return true;
         }
         if (button == 1 && overMap(mx, my)) {
-            setPin(mx, my);
+            if (hasShiftDown()) {
+                openNew(camX + (mx - mapCx) / zoom, 0d, camZ + (my - mapCy) / zoom, false);
+            } else {
+                setPin(mx, my);
+            }
             return true;
         }
         return super.mouseClicked(mx, my, button);
@@ -460,6 +472,11 @@ public final class GpsScreen extends FlowScreen {
 
     @Override
     public boolean keyPressed(int key, int scan, int mods) {
+        if (key == GLFW.GLFW_KEY_ESCAPE && edit != null) {
+            closeEdit();
+            return true;
+        }
+        if (edit != null) return super.keyPressed(key, scan, mods);
         if (key == GLFW.GLFW_KEY_ESCAPE && menuOpen && !search.isFocused()) {
             menuOpen = false;
             return true;
@@ -571,6 +588,7 @@ public final class GpsScreen extends FlowScreen {
             drawLayers(g, mx, my);
         }
         drawDetail(g, mx, my);
+        drawWpEditor(g, mx, my);
         drawNote(g);
     }
 
@@ -784,11 +802,15 @@ public final class GpsScreen extends FlowScreen {
         if (GpsPrefs.layerOn("waypoints")) {
             String wdim = GpsData.dimOf(mc);
             for (GpsWps.Wp w : GpsWps.all()) {
-                if (!w.dim.equals(wdim) || GpsNav.isTarget("wp:" + w.id)) continue;
+                if (!w.enabled || !w.dim.equals(wdim) || GpsNav.isTarget("wp:" + w.id)) continue;
                 float x = sx(w.x);
                 float y = sy(w.z);
                 if (x < mx0 - 20 || y < my0 - 20 || x > mx1 + 20 || y > my1 + 20) continue;
-                GpsIcons.pin(g, "pin", x, y, u0 * 0.95f, w.color, 1f, false);
+                GpsIcons.pin(g, w.icon, x, y, u0 * 0.95f, w.color, 1f, false);
+                // fara iconita, initialele din fisier tin loc de insemn
+                if ("pin".equals(w.icon) && !w.label.isEmpty()) {
+                    Gfx.textS(g, w.label, x, y - u0 * 0.55f + 2.6f, 6.4f, 0xFF0A1220, 1, true, 0f);
+                }
                 if (zoom >= 1.2f) Gfx.textS(g, clip(w.name, 7f, true, 110f), x, y + u0 * 1.3f + 8f, 7f, 0xFFEFF2F7, 1, true, 0.3f);
             }
         }
@@ -1432,15 +1454,17 @@ public final class GpsScreen extends FlowScreen {
 
     private float wpRow(GuiGraphics g, GpsWps.Wp wp, float x, float y, float w, int mx, int my, boolean canDelete) {
         String sub = Math.round(wp.x) + ", " + Math.round(wp.z) + (GpsPrefs.showDist ? "  ·  " + distText(wp.x, wp.z) : "");
-        return row(g, "wp" + wp.id, "flag", wp.color, wp.name, sub, x, y, w, mx, my,
+        if (!wp.enabled) sub = "ascuns  ·  " + sub;
+        return row(g, "wp" + wp.id, wp.icon, wp.color, wp.name, sub, x, y, w, mx, my,
             () -> {
                 tgtX = wp.x;
                 tgtZ = wp.z;
                 anim = true;
+                menuOpen = false;
                 go(P_MAP);
             },
             "nav", () -> navTo("wp:" + wp.id, wp.name, wp.x, wp.z, wp.dim, wp.color),
-            canDelete ? "trash" : null, canDelete ? () -> GpsWps.delete(wp) : null);
+            canDelete ? "pencil" : null, canDelete ? () -> openEdit(wp) : null);
     }
 
     // ------------------------------------------------------------------ pagina SETARI
@@ -1731,7 +1755,7 @@ public final class GpsScreen extends FlowScreen {
         float half = (pwD - GpsTheme.S2) / 2f;
         if (isPin) {
             GpsUi.button(g, "dwp", "Salvează waypoint", "flag", px, by, half, 30f * s, GpsUi.SOFT, true, mx, my);
-            hitF(px, by, half, 30f * s, () -> GpsWps.save("", "Waypoint " + (GpsWps.mine.size() + 1), l.x, l.z, l.dim, GpsTheme.GOLD, false));
+            hitF(px, by, half, 30f * s, () -> openNew(l.x, 0d, l.z, false));
         } else {
             GpsUi.button(g, "dfav", fav ? "Scoate" : "Favorit", "star-line", px, by, half, 30f * s, GpsUi.SOFT, true, mx, my);
             hitF(px, by, half, 30f * s, () -> toggleFav(l));
@@ -1944,6 +1968,186 @@ public final class GpsScreen extends FlowScreen {
             menuOpen = true;
             if (page == P_MAP) go(P_HOME);
         });
+    }
+
+    // ------------------------------------------------------------------ editor de waypoint
+
+    /** Deschide editorul pentru un waypoint existent. */
+    private void openEdit(GpsWps.Wp src) {
+        edit = new GpsWps.Wp();
+        edit.id = src.id;
+        edit.name = src.name;
+        edit.x = src.x;
+        edit.y = src.y;
+        edit.z = src.z;
+        edit.dim = src.dim;
+        edit.color = src.color;
+        edit.icon = src.icon;
+        edit.label = src.label;
+        edit.enabled = src.enabled;
+        edit.shared = src.shared;
+        editId = src.id;
+        editNew = false;
+        wpName.setValue(src.name);
+        focus(wpName, true);
+    }
+
+    /** Deschide editorul pentru un waypoint nou, la coordonatele date. */
+    private void openNew(double x, double y, double z, boolean shared) {
+        edit = new GpsWps.Wp();
+        edit.name = "Waypoint " + (GpsWps.mine.size() + 1);
+        edit.x = Math.round(x);
+        edit.y = Math.round(y);
+        edit.z = Math.round(z);
+        edit.dim = GpsData.dimOf(Minecraft.getInstance());
+        edit.color = GpsWps.PALETTE[14];
+        edit.icon = "pin";
+        edit.shared = shared;
+        editId = "";
+        editNew = true;
+        wpName.setValue(edit.name);
+        focus(wpName, true);
+    }
+
+    private void closeEdit() {
+        edit = null;
+        focus(wpName, false);
+    }
+
+    private void saveEdit() {
+        if (edit == null) return;
+        String n = wpName.getValue().trim();
+        if (n.isEmpty()) {
+            say("Pune un nume waypoint-ului.");
+            return;
+        }
+        GpsWps.save(editId, n, edit.x, edit.y, edit.z, edit.dim, edit.color, edit.icon, edit.label, edit.enabled, edit.shared);
+        say(editNew ? "Waypoint salvat." : "Waypoint actualizat.");
+        closeEdit();
+    }
+
+    /** Fereastra de editare a waypoint-ului: nume, iconita, culoare, coordonate si comutator activ. */
+    private void drawWpEditor(GuiGraphics g, int mx, int my) {
+        if (edit == null) return;
+        Gfx.rrect(g, 0, 0, width, height, 0, GpsTheme.SCRIM);
+        hitF(0, 0, width, height, this::closeEdit);
+        float w = Math.min(370f * s, width - 40f);
+        float h = Math.min(330f * s, height - 40f);
+        float x = (width - w) / 2f;
+        float y = (height - h) / 2f;
+        GpsTheme.shadow(g, x, y, w, h, GpsTheme.R_LG);
+        Gfx.rrect(g, x, y, w, h, GpsTheme.R_LG, GpsTheme.BG2);
+        Gfx.rrect(g, x, y, w, h, GpsTheme.R_LG, GpsTheme.LINE);
+        hitF(x, y, w, h, () -> {});
+
+        float px = x + GpsTheme.S4;
+        float pw = w - GpsTheme.S4 * 2f;
+        float cy = y + GpsTheme.S4;
+        Gfx.text(g, editNew ? "Waypoint nou" : "Editează waypoint", px, cy + 10f * s, 11.6f * s, GpsTheme.TEXT, 0, true, 0.1f);
+        float cs = 22f * s;
+        boolean hc = GpsUi.in(mx, my, x + w - cs - 10f, cy, cs, cs);
+        GpsUi.icon(g, "close", x + w - cs / 2f - 10f, cy + cs / 2f, 11f * s, hc ? GpsTheme.TEXT : GpsTheme.FAINT);
+        hitF(x + w - cs - 10f, cy, cs, cs, this::closeEdit);
+        cy += 30f * s;
+
+        GpsTheme.caption(g, "NUME", px, cy, GpsTheme.FAINT);
+        cy += 6f * s;
+        drawField(g, wpName, Math.round(px), Math.round(cy), Math.round(pw), Math.round(24f * s), mx, my);
+        cy += 32f * s;
+
+        GpsTheme.caption(g, "ICONIȚĂ", px, cy, GpsTheme.FAINT);
+        cy += 8f * s;
+        float isz = 24f * s;
+        float gap = 5f * s;
+        int perRow = Math.max(1, (int) ((pw + gap) / (isz + gap)));
+        for (int i = 0; i < GpsIcons.BUILTIN.length; i++) {
+            String id = GpsIcons.BUILTIN[i][0];
+            float ix = px + (i % perRow) * (isz + gap);
+            float iy = cy + (i / perRow) * (isz + gap);
+            boolean sel = id.equals(edit.icon);
+            boolean hv = GpsUi.in(mx, my, ix, iy, isz, isz);
+            float t = GpsUi.hot("wpi" + id, hv);
+            Gfx.rrect(g, ix, iy, isz, isz, 5f, sel ? GpsTheme.alpha(edit.color, 60) : GpsTheme.mix(GpsTheme.PANEL, GpsTheme.PANEL_HI, t));
+            if (sel) Gfx.rrect(g, ix, iy, isz, isz, 5f, GpsTheme.alpha(edit.color, 190));
+            GpsIcons.glyph(g, id, ix + isz / 2f, iy + isz / 2f, isz * 0.52f, sel ? edit.color : GpsTheme.MUTED, 1f);
+            final String ic = id;
+            hitF(ix, iy, isz, isz, () -> edit.icon = ic);
+        }
+        cy += ((GpsIcons.BUILTIN.length + perRow - 1) / perRow) * (isz + gap) + 6f * s;
+
+        GpsTheme.caption(g, "CULOARE", px, cy, GpsTheme.FAINT);
+        cy += 8f * s;
+        float csz = (pw - 7f * gap) / 8f;
+        for (int i = 0; i < GpsWps.PALETTE.length; i++) {
+            int c = GpsWps.PALETTE[i];
+            float ix = px + (i % 8) * (csz + gap);
+            float iy = cy + (i / 8) * (csz + gap);
+            boolean sel = c == edit.color;
+            Gfx.rrect(g, ix, iy, csz, csz, 4f, c);
+            if (sel) Gfx.rrect(g, ix - 2f, iy - 2f, csz + 4f, csz + 4f, 6f, 0xFFFFFFFF);
+            final int col = c;
+            hitF(ix, iy, csz, csz, () -> edit.color = col);
+        }
+        cy += 2f * (csz + gap) + 6f * s;
+
+        // coordonate
+        GpsTheme.caption(g, "COORDONATE", px, cy, GpsTheme.FAINT);
+        cy += 8f * s;
+        float third = (pw - 2f * gap) / 3f;
+        coordBox(g, "X", edit.x, px, cy, third, mx, my, d -> edit.x += d);
+        coordBox(g, "Y", edit.y, px + third + gap, cy, third, mx, my, d -> edit.y += d);
+        coordBox(g, "Z", edit.z, px + 2f * (third + gap), cy, third, mx, my, d -> edit.z += d);
+        cy += 36f * s + 6f * s;
+
+        // activ / dezactivat
+        boolean hon = GpsUi.in(mx, my, px, cy, pw, 26f * s);
+        Gfx.rrect(g, px, cy, pw, 26f * s, 6f, GpsTheme.mix(GpsTheme.PANEL, GpsTheme.PANEL_HI, GpsUi.hot("wpen", hon)));
+        Gfx.text(g, edit.enabled ? "Activ (apare pe hartă)" : "Dezactivat (rămâne salvat)", px + 10f * s,
+            cy + 13f * s + 3f * s, 8.4f * s, edit.enabled ? GpsTheme.TEXT : GpsTheme.MUTED, 0, true, 0f);
+        float tw = 30f * s;
+        float th = 15f * s;
+        float tx = px + pw - 10f * s - tw;
+        float ty = cy + (26f * s - th) / 2f;
+        Gfx.rrect(g, tx, ty, tw, th, th / 2f, edit.enabled ? GpsTheme.OK : GpsTheme.PANEL_HI);
+        Gfx.disc(g, tx + (edit.enabled ? tw - th / 2f : th / 2f), ty + th / 2f, th / 2f - 2f, 0xFFFFFFFF);
+        hitF(px, cy, pw, 26f * s, () -> edit.enabled = !edit.enabled);
+        cy += 34f * s;
+
+        // actiuni
+        float bh = 28f * s;
+        float by = y + h - GpsTheme.S4 - bh;
+        float bw = (pw - 2f * gap) / 3f;
+        GpsUi.button(g, "wpsave", "Salvează", "check", px, by, bw, bh, GpsUi.PRIMARY, true, mx, my);
+        hitF(px, by, bw, bh, this::saveEdit);
+        GpsUi.button(g, "wpnav", "Navighează", "nav", px + bw + gap, by, bw, bh, GpsUi.GHOST, true, mx, my);
+        hitF(px + bw + gap, by, bw, bh, () -> {
+            navTo("wp:" + edit.id, wpName.getValue().trim(), edit.x, edit.z, edit.dim, edit.color);
+            closeEdit();
+        });
+        if (!editNew) {
+            GpsUi.button(g, "wpdel", "Șterge", "trash", px + 2f * (bw + gap), by, bw, bh, GpsUi.DANGER, true, mx, my);
+            final GpsWps.Wp del = edit;
+            hitF(px + 2f * (bw + gap), by, bw, bh, () -> {
+                GpsWps.delete(del);
+                closeEdit();
+            });
+        }
+    }
+
+    /** O casuta de coordonata, cu − si + pentru reglaj fin. */
+    private void coordBox(GuiGraphics g, String label, double value, float x, float y, float w, int mx, int my,
+                          java.util.function.DoubleConsumer add) {
+        float h = 36f * s;
+        Gfx.rrect(g, x, y, w, h, 6f, GpsTheme.PANEL);
+        GpsTheme.caption(g, label, x + 8f * s, y + 11f * s, GpsTheme.FAINT);
+        Gfx.text(g, String.valueOf(Math.round(value)), x + w / 2f, y + 26f * s, 9f * s, GpsTheme.TEXT, 1, true, 0.2f);
+        float bs = 14f * s;
+        boolean hm = GpsUi.in(mx, my, x + 4f, y + h - bs - 3f, bs, bs);
+        boolean hp = GpsUi.in(mx, my, x + w - bs - 4f, y + h - bs - 3f, bs, bs);
+        GpsUi.icon(g, "minus", x + 4f + bs / 2f, y + h - bs / 2f - 3f, 8f * s, hm ? GpsTheme.TEXT : GpsTheme.FAINT);
+        GpsUi.icon(g, "plus", x + w - bs / 2f - 4f, y + h - bs / 2f - 3f, 8f * s, hp ? GpsTheme.TEXT : GpsTheme.FAINT);
+        hitF(x + 4f, y + h - bs - 3f, bs, bs, () -> add.accept(-1));
+        hitF(x + w - bs - 4f, y + h - bs - 3f, bs, bs, () -> add.accept(1));
     }
 
     private void drawLayers(GuiGraphics g, int mx, int my) {

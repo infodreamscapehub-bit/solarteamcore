@@ -325,7 +325,12 @@ public final class GpsModule extends JsonModule {
                 bad++;
                 continue;
             }
-            entries.add(new WaypointImport.Entry(name, x, z, WaypointImport.guessCategory(name)));
+            double y = num(o, "y", 0d);
+            if (Double.isNaN(y) || Double.isInfinite(y)) y = 0d;
+            int color = WaypointImport.paletteColor((int) num(o, "c", -1));
+            String label = GpsStore.cut(str(o, "l", ""), 4).trim();
+            boolean disabled = o.has("d") && o.get("d").getAsBoolean();
+            entries.add(new WaypointImport.Entry(name, x, y, z, WaypointImport.guessCategory(name), color, label, disabled));
         }
         if (entries.isEmpty()) return "Niciun waypoint valid in mesaj.";
         int part = (int) num(j, "part", 0);
@@ -375,7 +380,9 @@ public final class GpsModule extends JsonModule {
             l.cat = cat.id;
             l.x = e.x;
             l.z = e.z;
-            l.enabled = true;
+            // culoarea din fisier bate culoarea categoriei; fara ea, locatia o mosteneste
+            if (e.color != 0) l.color = String.format(java.util.Locale.ROOT, "#%06X", e.color & 0xFFFFFF);
+            l.enabled = !e.disabled;
             // numele poate fi scris cu litere mici-majuscule Unicode; id-ul se face din forma normalizata
             l.id = store.uniqueId(WaypointImport.normalize(l.name), false);
             store.locs.add(l);

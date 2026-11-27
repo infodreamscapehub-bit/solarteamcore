@@ -32,10 +32,15 @@ final class GpsWaypoints {
         String id = "";
         String name = "";
         double x;
+        double y;
         double z;
         String dim = GpsStore.OVERWORLD;
         String color = "#FFC857";
         String icon = "pin";
+        /** Eticheta scurta aratata pe marker cand nu are iconita (initialele din fisierele de waypoint-uri). */
+        String label = "";
+        /** Dezactivat = ramane salvat, dar nu se deseneaza pe harta si pe minimap. */
+        boolean enabled = true;
     }
 
     private final GpsModule mod;
@@ -73,10 +78,14 @@ final class GpsWaypoints {
                 w.id = o.has("id") ? o.get("id").getAsString() : "";
                 w.name = o.has("name") ? o.get("name").getAsString() : "";
                 w.x = o.has("x") ? o.get("x").getAsDouble() : 0;
+                w.y = o.has("y") ? o.get("y").getAsDouble() : 0;
                 w.z = o.has("z") ? o.get("z").getAsDouble() : 0;
                 w.dim = o.has("dim") ? o.get("dim").getAsString() : GpsStore.OVERWORLD;
                 w.color = o.has("color") ? o.get("color").getAsString() : "#FFC857";
                 w.icon = o.has("icon") ? o.get("icon").getAsString() : "pin";
+                w.label = o.has("label") ? o.get("label").getAsString() : "";
+                // fisierele vechi nu au campul: waypoint-ul ramane activ
+                w.enabled = !o.has("enabled") || o.get("enabled").getAsBoolean();
                 if (!w.id.isEmpty() && !w.name.isEmpty()) out.add(w);
             }
         } catch (IOException | RuntimeException ex) {
@@ -107,10 +116,13 @@ final class GpsWaypoints {
         o.addProperty("id", w.id);
         o.addProperty("name", w.name);
         o.addProperty("x", w.x);
+        o.addProperty("y", w.y);
         o.addProperty("z", w.z);
         o.addProperty("dim", w.dim);
         o.addProperty("color", w.color);
         o.addProperty("icon", w.icon);
+        o.addProperty("label", w.label);
+        o.addProperty("enabled", w.enabled);
         return o;
     }
 
@@ -179,6 +191,9 @@ final class GpsWaypoints {
             err(p, "Coordonate invalide.");
             return;
         }
+        double y = j.has("y") ? j.get("y").getAsDouble() : 0d;
+        if (Double.isNaN(y) || Double.isInfinite(y) || Math.abs(y) > 4096d) y = 0d;
+        String label = GpsStore.cut(j.has("label") ? j.get("label").getAsString().trim() : "", 4);
         String color = j.has("color") ? j.get("color").getAsString() : "#FFC857";
         if (!color.matches("#[0-9A-Fa-f]{6}")) {
             err(p, "Culoare invalidă.");
@@ -213,10 +228,13 @@ final class GpsWaypoints {
         }
         w.name = name;
         w.x = Math.round(x * 10d) / 10d;
+        w.y = Math.round(y * 10d) / 10d;
         w.z = Math.round(z * 10d) / 10d;
         w.dim = dim;
         w.color = color.toUpperCase(Locale.ROOT);
         w.icon = icon;
+        w.label = label;
+        w.enabled = !j.has("enabled") || j.get("enabled").getAsBoolean();
         persist(p, sh);
     }
 
