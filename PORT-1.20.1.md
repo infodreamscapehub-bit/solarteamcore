@@ -37,6 +37,17 @@ Tabelul de tipuri din ea a fost **derivat din repo** (69 de fisiere exista in am
 importurile lor diferite dau maparea exacta), completat cu redenumirile din reorganizarea de
 pachete 1.17. Deci nu e ghicit.
 
+### Capcana: uneori `mod/` e mai nou decat `mod116/`
+
+Unealta suprascrie fisierul din `mod/`. Pentru fisierele care exista in ambele module,
+**da intai `diff` si pastreaza partea mai avansata** — altfel faci regresie. Cazuri intalnite:
+
+| Fisier | De ce nu se suprascrie |
+|---|---|
+| `client/ui/FlowScreen.java` | pe 1.20.1 avea deja `render(GuiGraphics, …)` si `EditBox.setX/setY`; varianta din 1.16.5 le-ar fi dat inapoi la `PoseStack` si campurile publice `x`/`y` |
+| `client/ui/FlowSounds.java` | pe 1.20.1 `SimpleSoundInstance` cere `RandomSource`, iar enumul e `SoundInstance.Attenuation`, nu `AttenuationType` |
+| `FlowCity.java`, `client/ClientHooks.java`, `client/ClientInit.java`, `content/ModContent.java` | au continut care exista doar pe 1.20.1 (blocurile GPS, `maps/`); se imbina manual, cu `--stdout` |
+
 ### Ce NU face unealta
 
 Verifica manual dupa fiecare rulare (le raporteaza singura cu `--check`):
@@ -91,7 +102,13 @@ Tabelul complet, executabil, e in `tools/port116to120.py` (`TYPES` si `SIMPLE`).
 - [ ] **Etapa 2 — `gps/`** (24 fisiere, ~11 000 linii). Cel mai mare pachet: harta, minimap, rutare
   pe drumuri, waypoint-uri, editor de harta si de zone, import de waypoint-uri.
   De verificat manual: `GpsMap` (legarea texturii dalelor), `GpsHud` (randarea in lume).
-- [ ] **Etapa 3 — `fjobs/`** (15 fisiere, ~4 200 linii) + itemele de job din `content/`.
+  La final: `HudLayout.register("minimap", …)` si `HudLayout.register("gps", …)` din `GpsClient`.
+- [ ] **Etapa 3 — `fjobs/`** (15 fisiere, ~4 200 linii). Itemele sunt deja inregistrate (etapa 0).
+  La final: `HudLayout.register("fjobs", …)`.
+- [ ] **Etapa 3b — `hype/`** (6 fisiere) si `notify/` (5). Vin **dupa** etapele 2 si 3:
+  `StatusHud` citeste `gps.MiniMapSettings`/`MiniMapRenderer` pentru varianta compacta de sub
+  minimap, iar `HypeClient` deschide ecranul de joburi din `fjobs`. Atunci se inregistreaza si
+  `HudLayout.register("hud" | "status" | "toasts", …)`.
 - [ ] **Etapa 4 — `cars/`** (21 vs 11 fisiere: lipsesc `FuelScreen`, `GarageAdmin*`, `Mecanic*`,
   `TuningScreen`, `Sk`, `VehicleParts`, `CarKeyItem`, `FuelPumps`) si `phone/` (5 vs 3 fisiere:
   telefonul nou cu App Store, SIM, Dynamic Island).
@@ -101,6 +118,19 @@ Tabelul complet, executabil, e in `tools/port116to120.py` (`TYPES` si `SIMPLE`).
 
 Ordinea conteaza: `gps/` si `fjobs/` sunt folosite de alte pachete (waypoint automat la job,
 navigare din telefon), iar `cars/` depinde de `Sk` din `cars/client`.
+
+## Dreptunghiurile implicite de HUD
+
+`HudLayout.defaults()` dadea pe 1.16.5 direct in `gps`, `hype` si `cars`. Pe 1.20.1 ar fi insemnat
+ca pachetele neportate tin build-ul rosu, deci acolo exista un **registru**:
+
+```java
+// din ClientInit-ul pachetului tau, cand il portezi
+HudLayout.register("minimap", (sw, sh) -> MiniMapRenderer.defaults(sw, sh));
+```
+
+Nu modifica `HudLayout` ca sa adaugi un element — inregistreaza-l. Asa doua etape care merg in
+paralel nu se calca.
 
 ## Reguli de lucru
 
@@ -112,6 +142,7 @@ navigare din telefon), iar `cars/` depinde de `Sk` din `cars/client`.
 3. **Resursele se copiaza odata cu codul**: `assets/flowcitycore/textures/item` (75 pe 1.16.5 fata
    de 24 pe 1.20.1), `models/item`, `lang/ro_ro.json` si `en_us.json`, `font/` (Inter, licenta OFL).
 4. **Compilarea se face in CI** („Build FlowCity"); local nu merge, ForgeGradle are nevoie de retea.
-   Daca `setup-java` pica cu „not in gzip format", e un defect de infrastructura: asteapta ~90 s si
+   Defecte de infrastructura, nu de cod: `setup-java` cu „not in gzip format" si Maven Central cu
+   „429 Too Many Requests" (pica `FlowCityRestart`). In ambele cazuri: asteapta ~90 s si
    `gh run rerun --failed`.
 5. Nimic nu e testat in joc. CI dovedeste doar ca se compileaza.
