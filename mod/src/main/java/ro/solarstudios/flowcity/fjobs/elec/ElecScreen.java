@@ -167,11 +167,15 @@ public abstract class ElecScreen extends FlowScreen {
         }
     }
 
-    // ------------------------------------------------------------------ sunete (doar cele sigure in 1.16.5)
+    // ------------------------------------------------------------------ sunete
 
+    public static void snd(SoundEvent e, float pitch) {
+        Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(e, pitch));
+    }
+
+    /** Pe 1.20.1 o parte din constantele SoundEvents sunt Holder.Reference<SoundEvent>, nu SoundEvent. */
     public static void snd(net.minecraft.core.Holder<SoundEvent> e, float pitch) {
-        // pe 1.20.1 constantele din SoundEvents sunt Holder.Reference<SoundEvent>
-        Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(e.value(), pitch));
+        snd(e.value(), pitch);
     }
 
     public static void sndOk() {
