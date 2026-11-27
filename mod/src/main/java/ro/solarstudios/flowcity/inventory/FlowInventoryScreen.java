@@ -1,4 +1,4 @@
-package ro.solarstudios.flowcity.getInventory();
+package ro.solarstudios.flowcity.inventory;
 
 import com.google.gson.JsonObject;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -6,10 +6,10 @@ import java.lang.reflect.Field;
 import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.client.gui.screens.getInventory().AbstractContainerScreen;
-import net.minecraft.client.gui.screens.getInventory().InventoryScreen;
-import net.minecraft.world.getInventory().InventoryMenu;
-import net.minecraft.world.getInventory().Slot;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.world.inventory.InventoryMenu;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.network.chat.Component;
 import net.minecraftforge.fml.util.ObfuscationReflectionHelper;

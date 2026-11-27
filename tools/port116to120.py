@@ -256,7 +256,7 @@ CODE = [
     (r"(?<!mc)(?<!\))(?<!Minecraft)\.level\b(?![\w(])", ".level()"),
     (r"\.yRot\b(?![\w(])(?!\s*=[^=])", ".getYRot()"),
     (r"\.xRot\b(?![\w(])(?!\s*=[^=])", ".getXRot()"),
-    (r"\.inventory\b(?![\w(])", ".getInventory()"),
+    (r"\.inventory\b(?![\w(])(?!\.[A-Z])(?!;)", ".getInventory()"),
     (r"net\.minecraftforge\.common\.util\.Constants\.NBT\.", "net.minecraft.nbt.Tag."),
     (r"\bVector3f\.(XP|YP|ZP)\.rotationDegrees\(", r"com.mojang.math.Axis.\1.rotationDegrees("),
     (r"MultiBufferSource\.Impl\b", "MultiBufferSource.BufferSource"),
