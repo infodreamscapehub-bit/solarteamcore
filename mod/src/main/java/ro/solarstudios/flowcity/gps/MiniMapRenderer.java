@@ -1,0 +1,430 @@
+package ro.solarstudios.flowcity.gps;
+
+import com.mojang.blaze3d.systems.RenderSystem;
+import java.util.ArrayList;
+import java.util.List;
+import net.minecraft.client.Minecraft;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.Tesselator;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormat;
+import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.util.Mth;
+import org.joml.Matrix4f;
+import org.lwjgl.opengl.GL11;
+import ro.solarstudios.flowcity.cars.client.Sk;
+import ro.solarstudios.flowcity.client.ui.Gfx;
+import ro.solarstudios.flowcity.client.ui.HudLayout;
+import net.minecraft.client.gui.GuiGraphics;
+
+/**
+ * Desenul minimap-ului FlowCity. Foloseste ACEEASI harta ca ecranul GPS ({@link GpsMap}: aceleasi dale, aceeasi transformare
+ * X/Z -> ecran), aceleasi locatii/zone/iconite ({@link GpsData}, {@link GpsIcons}) si aceeasi destinatie ({@link GpsNav}).
+ * Forma (patrat cu colturi taiate / cerc) se obtine prin decupare geometrica pe un poligon convex ({@link MiniMapClip}).
+ * Tot ce se deseneaza e in coordonate locale 0..size, dupa o translatie la pozitia elementului de HUD.
+ */
+public final class MiniMapRenderer {
+    private MiniMapRenderer() {}
+
+    private static final int CIRCLE_N = 40;
+
+    // ------------------------------------------------------------------ poligonul de decupare (cache)
+
+    private static final float[] clip = new float[MiniMapClip.MAX * 2];
+    private static int clipN;
+    private static int clipSize = -1;
+    private static boolean clipCircle;
+    private static float clipRad;
+
+    private static void ensureClip(int size, boolean circle) {
+        if (size == clipSize && circle == clipCircle) return;
+        clipSize = size;
+        clipCircle = circle;
+        float s = size;
+        float r = s / 2f;
+        if (circle) {
+            clipN = CIRCLE_N;
+            for (int i = 0; i < CIRCLE_N; i++) {
+                double a = Math.PI * 2.0 * i / CIRCLE_N;
+                clip[i * 2] = r + (float) Math.cos(a) * (r - 0.5f);
+                clip[i * 2 + 1] = r + (float) Math.sin(a) * (r - 0.5f);
+            }
+            clipRad = r;
+        } else {
+            float c = Math.min(8f, s * 0.075f);
+            int n = 0;
+            float[][] cen = {{c, c}, {s - c, c}, {s - c, s - c}, {c, s - c}};
+            double[] a0 = {Math.PI, Math.PI * 1.5, 0.0, Math.PI * 0.5};
+            for (int k = 0; k < 4; k++) {
+                for (int i = 0; i <= 4; i++) {
+                    double a = a0[k] + Math.PI * 0.5 * i / 4.0;
+                    clip[n * 2] = cen[k][0] + (float) Math.cos(a) * c;
+                    clip[n * 2 + 1] = cen[k][1] + (float) Math.sin(a) * c;
+                    n++;
+                }
+            }
+            clipN = n;
+            clipRad = r * 1.4143f;
+        }
+    }
+
+    // ------------------------------------------------------------------ pozitia implicita (sub panoul HUD, dreapta sus)
+
+    private static final float[] DEF = new float[4];
+    private static long defAt;
+    private static int defSw;
+    private static int defSh;
+    private static int defSize;
+    private static boolean defCoords;
+    private static boolean defStrip;
+
+    /**
+     * Inaltimea randului compact de status de sub minimap, 0 cand nu e activ. O anunta pachetul
+     * {@code hype} ({@code StatusHud}) la pornirea clientului; aici nu importam direct, ca sa nu
+     * legam gps de hype (si invers, fiindca StatusHud citeste MiniMapSettings).
+     */
+    public static java.util.function.DoubleSupplier statusStrip = () -> 0;
+
+    /**
+     * Dreptunghiul implicit {x, y, w, h}: colt stanga-jos (ca in jocurile de roleplay), cu loc dedesubt pentru randul compact de
+     * status cand e activ. Vector comun, nu-l modifica.
+     */
+    public static float[] defaults(int sw, int sh) {
+        long now = System.currentTimeMillis();
+        float stripH = (float) statusStrip.getAsDouble();
+        boolean strip = stripH > 0f;
+        if (now - defAt < 500 && sw == defSw && sh == defSh && defSize == MiniMapSettings.size && defCoords == MiniMapSettings.showCoords && defStrip == strip) return DEF;
+        defAt = now;
+        defSw = sw;
+        defSh = sh;
+        defSize = MiniMapSettings.size;
+        defCoords = MiniMapSettings.showCoords;
+        defStrip = strip;
+        float w = MiniMapSettings.size;
+        float h = w + (MiniMapSettings.showCoords ? 16f : 0f);
+        float x = 8f;
+        float y = sh - 8f - h - (strip ? stripH + 3f : 0f);
+        // pe ecrane foarte inguste hotbar-ul ajunge sub minimap: il ocolim urcand harta
+        if (x + w > sw / 2f - 95f) y = Math.min(y, sh - 34f - h - (strip ? stripH + 3f : 0f));
+        y = Math.max(4f, y);
+        DEF[0] = x;
+        DEF[1] = y;
+        DEF[2] = w;
+        DEF[3] = h;
+        return DEF;
+    }
+
+    // ------------------------------------------------------------------ locatii (cache, GpsData.all() aloca o lista noua)
+
+    private static final List<GpsData.Loc> locs = new ArrayList<>();
+    private static long locsAt;
+    private static String locsDim = "";
+
+    private static void refreshLocs(Minecraft mc) {
+        long now = System.currentTimeMillis();
+        long every = MiniMapSettings.lowPerf ? 3000L : 1000L;
+        String dim = GpsData.dimOf(mc);
+        if (now - locsAt < every && dim.equals(locsDim)) return;
+        locsAt = now;
+        locsDim = dim;
+        locs.clear();
+        if (!GpsPrefs.layerOn("locations")) return;
+        for (GpsData.Loc l : GpsData.all()) {
+            if (l.hidden || !l.dim.equals(dim)) continue;
+            if (MiniMapSettings.hiddenCats.contains(l.cat)) continue;
+            if (!GpsPrefs.layerOn(GpsData.locLayer(l))) continue;
+            locs.add(l);
+        }
+    }
+
+    // ------------------------------------------------------------------ geometrie curenta (setata la fiecare cadru)
+
+    private static float cx;
+    private static float cy;
+    private static float zoom;
+    private static double camX;
+    private static double camZ;
+    private static double ct = 1.0;
+    private static double st;
+    private static float outX;
+    private static float outY;
+
+    /** Proiecteaza o coordonata de lume pe minimap (rezultat in outX/outY). */
+    private static void project(double wx, double wz) {
+        double dx = (wx - camX) * zoom;
+        double dz = (wz - camZ) * zoom;
+        outX = (float) (cx + dx * ct - dz * st);
+        outY = (float) (cy + dx * st + dz * ct);
+    }
+
+    // ------------------------------------------------------------------ desen principal
+
+    private static final float[] zIn = new float[6];
+    private static final float[] zOut = new float[2 * (MiniMapClip.MAX + 8)];
+    private static final float[] zTmp = new float[2 * (MiniMapClip.MAX + 8)];
+    private static long zoomShownUntil;
+
+    /** Afiseaza scurt nivelul de zoom langa harta (apelat la schimbarea zoom-ului). */
+    public static void noteZoom() {
+        zoomShownUntil = System.currentTimeMillis() + 1400L;
+    }
+
+    /** Latimea x inaltimea ocupate (harta + linia de coordonate). */
+    public static float heightFor(float size) {
+        return size + (MiniMapSettings.showCoords ? 16f : 0f);
+    }
+
+    /**
+     * Deseneaza minimap-ul cu coltul stanga-sus la (x, y), cu latura/diametrul size. Se apeleaza intre HudLayout.begin si end
+     * (sau direct, pentru previzualizarea din setari).
+     */
+    public static void render(GuiGraphics g, float x, float y, float size) {
+        Minecraft mc = Minecraft.getInstance();
+        Player pl = mc.player;
+        if (pl == null || mc.level == null) return;
+        boolean circle = MiniMapSettings.circular;
+        ensureClip(Math.round(size), circle);
+        float pt = mc.getFrameTime();
+        camX = Mth.lerp(pt, pl.xo, pl.getX());
+        camZ = Mth.lerp(pt, pl.zo, pl.getZ());
+        float yaw = pl.yRotO + Mth.wrapDegrees(pl.yRot - pl.yRotO) * pt;
+        float r = size / 2f;
+        cx = r;
+        cy = r;
+        zoom = MiniMapSettings.zoom;
+        double theta = 0.0;
+        if (MiniMapSettings.rotate) {
+            double fx = -Math.sin(Math.toRadians(yaw));
+            double fz = Math.cos(Math.toRadians(yaw));
+            theta = -Math.PI / 2.0 - Math.atan2(fz, fx);
+        }
+        ct = Math.cos(theta);
+        st = Math.sin(theta);
+        float op = MiniMapSettings.opacity;
+
+        g.pose().pushPose();
+        g.pose().translate(x, y, 0f);
+        try {
+            // umbra + fundal inchis (zonele neexplorate raman intunecate)
+            if (circle) {
+                Gfx.disc(g, r, r + 1.5f, r + 1.5f, Gfx.fade(0x66000000, op));
+            } else {
+                Gfx.rrect(g, -2f, 1f, size + 4f, size + 4f, 9f, Gfx.fade(0x66000000, op));
+            }
+            fan(g, clip, clipN, Gfx.fade(0xFF0B1626, op));
+
+            GpsMap.drawClipped(g, camX, camZ, zoom, cx, cy, theta, clip, clipN, clipRad, op * Gfx.alpha);
+
+            if (MiniMapSettings.showZones && !MiniMapSettings.lowPerf) drawZones(g, mc, op);
+            if (MiniMapSettings.showLocations) drawLocs(g, mc);
+            drawRoute(g, mc);
+        drawWps(g, mc);
+        drawWaypoint(g, mc);
+            drawPlayer(g, yaw);
+            drawFrame(g, size, circle);
+            if (MiniMapSettings.showCompass) drawCompass(g, size, circle);
+            drawZoomNote(g, size);
+            if (MiniMapSettings.showCoords) {
+                String s = Math.round(pl.getX()) + ", " + Math.round(pl.getY()) + ", " + Math.round(pl.getZ());
+                Gfx.textS(g, s, size / 2f, size + 11.8f, 7.6f, Gfx.fade(Sk.WHITE, op), 1, true, 0.2f);
+            }
+        } finally {
+            g.pose().popPose();
+        }
+    }
+
+    // ------------------------------------------------------------------ straturi
+
+    private static void drawZones(GuiGraphics g, Minecraft mc, float op) {
+        String dim = GpsData.dimOf(mc);
+        double wr = clipRad / zoom + 4.0;
+        for (GpsData.Zone z : GpsData.zones) {
+            if (!z.enabled || !z.dim.equals(dim) || !GpsPrefs.layerOn(GpsData.zoneLayer(z))) continue;
+            if (z.maxX < camX - wr || z.minX > camX + wr || z.maxZ < camZ - wr || z.minZ > camZ + wr) continue;
+            int fill = (z.color & 0xFFFFFF) | (Math.round(z.alpha * 2.3f * op) << 24);
+            float[] tr = z.tris;
+            for (int i = 0; i + 5 < tr.length; i += 6) {
+                for (int k = 0; k < 3; k++) {
+                    project(tr[i + k * 2], tr[i + k * 2 + 1]);
+                    zIn[k * 2] = outX;
+                    zIn[k * 2 + 1] = outY;
+                }
+                int n = MiniMapClip.clip(zIn, 3, 2, clip, clipN, zOut, zTmp);
+                if (n >= 3) fan(g, MiniMapClip.resultInTmp ? zTmp : zOut, n, fill);
+            }
+            int edge = (z.outline & 0xFFFFFF) | 0xD0000000;
+            int n = z.px.length;
+            for (int i = 0; i < n; i++) {
+                int j = (i + 1) % n;
+                project(z.px[i], z.pz[i]);
+                float ax = outX;
+                float ay = outY;
+                project(z.px[j], z.pz[j]);
+                if (!MiniMapClip.clipSegment(clip, clipN, ax, ay, outX, outY)) continue;
+                float bx = outX;
+                float by = outY;
+                Gfx.line(g, ax + (bx - ax) * MiniMapClip.t0, ay + (by - ay) * MiniMapClip.t0, ax + (bx - ax) * MiniMapClip.t1, ay + (by - ay) * MiniMapClip.t1, 1.3f, edge);
+            }
+        }
+    }
+
+    private static void drawLocs(GuiGraphics g, Minecraft mc) {
+        refreshLocs(mc);
+        int max = MiniMapSettings.lowPerf ? 24 : 64;
+        int drawn = 0;
+        for (int i = 0, n = locs.size(); i < n && drawn < max; i++) {
+            GpsData.Loc l = locs.get(i);
+            if (GpsNav.isTarget(l.id)) continue;
+            project(l.x, l.z);
+            if (!MiniMapClip.inside(clip, clipN, outX, outY)) continue;
+            GpsIcons.drop(g, outX, outY + 2f, 2.9f, 0xFFFFFFFF, l.color, 1f);
+            drawn++;
+        }
+    }
+
+    /** Traseul pe drumuri (decupat pe masca minimap-ului), sub waypoint. */
+    private static void drawRoute(GuiGraphics g, Minecraft mc) {
+        if (!GpsNav.active || !MiniMapSettings.showWaypoint || !GpsPrefs.layerOn("waypoints") || !GpsNav.route.roads()) return;
+        if (!GpsNav.dim.equals(GpsData.dimOf(mc))) return;
+        List<double[]> path = GpsNav.route.path(mc.player.getX(), mc.player.getZ(), GpsNav.x, GpsNav.z);
+        int max = Math.min(path.size() - 1, 400);
+        int col = (GpsPrefs.routeColor() & 0xFFFFFF) | 0xE0000000;
+        for (int i = 0; i < max; i++) {
+            project(path.get(i)[0], path.get(i)[1]);
+            float ax = outX;
+            float ay = outY;
+            project(path.get(i + 1)[0], path.get(i + 1)[1]);
+            if (!MiniMapClip.clipSegment(clip, clipN, ax, ay, outX, outY)) continue;
+            float bx = outX;
+            float by = outY;
+            float x0 = ax + (bx - ax) * MiniMapClip.t0;
+            float y0 = ay + (by - ay) * MiniMapClip.t0;
+            float x1 = ax + (bx - ax) * MiniMapClip.t1;
+            float y1 = ay + (by - ay) * MiniMapClip.t1;
+            Gfx.line(g, x0, y0, x1, y1, 4.2f, 0xB0081018);
+            Gfx.line(g, x0, y0, x1, y1, 2.4f, col);
+        }
+    }
+
+    /** Waypoint-urile salvate (personale + partajate) aflate in raza minimapului. */
+    private static void drawWps(GuiGraphics g, Minecraft mc) {
+        if (!MiniMapSettings.showWaypoint || !GpsPrefs.layerOn("waypoints")) return;
+        String dim = GpsData.dimOf(mc);
+        for (GpsWps.Wp w : GpsWps.all()) {
+            if (!w.enabled || !w.dim.equals(dim) || GpsNav.isTarget("wp:" + w.id)) continue;
+            project(w.x, w.z);
+            // waypoint-ul isi pastreaza culoarea aleasa de jucator
+            if (MiniMapClip.inside(clip, clipN, outX, outY)) GpsIcons.drop(g, outX, outY + 2f, 3.1f, w.color, 0xFF06323B, 1f);
+        }
+    }
+
+    private static void drawWaypoint(GuiGraphics g, Minecraft mc) {
+        if (!GpsNav.active || !MiniMapSettings.showWaypoint || !GpsPrefs.layerOn("waypoints")) return;
+        double d = GpsNav.distance(mc);
+        if (d < 0) return;
+        d = GpsNav.travelDistance(mc);
+        project(GpsNav.x, GpsNav.z);
+        float px = outX;
+        float py = outY;
+        float t = (System.currentTimeMillis() % 1600L) / 1600f;
+        String dist = GpsNav.fmtDist(d);
+        float s = clipSize;
+        if (MiniMapClip.inside(clip, clipN, px, py)) {
+            Gfx.ring(g, px, py, 5f + t * 9f, 5.8f + t * 9f, Gfx.fade(GpsNav.color, 0.8f * (1f - t)), Gfx.fade(GpsNav.color, 0.8f * (1f - t)));
+            GpsIcons.drop(g, px, py + 2f, 3.7f, GpsNav.color, 0xFF0A1220, 1f);
+            return;
+        }
+        // in afara razei: sageata pe margine, spre destinatie
+        float vx = px - cx;
+        float vy = py - cy;
+        float len = (float) Math.sqrt(vx * vx + vy * vy);
+        if (len < 0.01f) return;
+        float k;
+        float half = s / 2f - 8f;
+        if (clipCircle) {
+            k = half / len;
+        } else {
+            k = half / Math.max(Math.abs(vx), Math.abs(vy));
+        }
+        float ex = cx + vx * k;
+        float ey = cy + vy * k;
+        double ang = Math.atan2(vx, -vy);
+        Gfx.disc(g, ex, ey, 7.2f, Gfx.fade(0xC0081018, 1f));
+        GpsIcons.arrow(g, ex, ey, 5.2f, ang, GpsNav.color, 0xFF0A1220);
+        // distanta, spre interior, ca sa nu iasa din harta
+        float tx = cx + vx * k * 0.62f;
+        float ty = cy + vy * k * 0.62f;
+        float tw = Gfx.width(dist, 6.6f, true);
+        Gfx.rrect(g, tx - tw / 2f - 3f, ty - 6f, tw + 6f, 10f, 3f, 0xC0081018);
+        Gfx.text(g, dist, tx, ty + 1.6f, 6.6f, Sk.WHITE, 1, true, 0f);
+    }
+
+    private static void drawPlayer(GuiGraphics g, float yaw) {
+        float ph = (System.currentTimeMillis() % 2000L) / 2000f;
+        Gfx.ring(g, cx, cy, 5f + ph * 7f, 5.6f + ph * 7f, Gfx.fade(0xFF22D3EE, 0.6f * (1f - ph)), Gfx.fade(0xFF22D3EE, 0.6f * (1f - ph)));
+        double ang = MiniMapSettings.rotate ? 0.0 : Math.toRadians(yaw - 180f);
+        Gfx.disc(g, cx, cy, 6.6f, 0x88000000);
+        GpsIcons.arrow(g, cx, cy, 5.6f, ang, 0xFF22D3EE, 0xFF0B4F63);
+    }
+
+    private static void drawFrame(GuiGraphics g, float size, boolean circle) {
+        int line = Gfx.fade(0xFF5FD8F0, 0.75f);
+        int dark = 0xFF0A1220;
+        if (circle) {
+            float r = size / 2f;
+            Gfx.ring(g, r, r, r - 0.6f, r + 2.4f, dark, dark);
+            Gfx.ring(g, r, r, r - 1.4f, r - 0.4f, line, line);
+        } else {
+            for (int i = 0; i < clipN; i++) {
+                int j = (i + 1) % clipN;
+                Gfx.line(g, clip[i * 2], clip[i * 2 + 1], clip[j * 2], clip[j * 2 + 1], 3.2f, dark);
+            }
+            for (int i = 0; i < clipN; i++) {
+                int j = (i + 1) % clipN;
+                Gfx.line(g, clip[i * 2], clip[i * 2 + 1], clip[j * 2], clip[j * 2 + 1], 1f, line);
+            }
+        }
+    }
+
+    private static void drawCompass(GuiGraphics g, float size, boolean circle) {
+        // doar nordul, discret (litera pe margine, urmareste rotatia hartii)
+        double vx = 0 * ct - (-1) * st;
+        double vy = 0 * st + (-1) * ct;
+        float half = size / 2f - 7f;
+        float k = circle ? half : (float) (half / Math.max(Math.abs(vx), Math.abs(vy)));
+        float lx = cx + (float) vx * k;
+        float ly = cy + (float) vy * k;
+        Gfx.disc(g, lx, ly, 5.2f, 0xB0081018);
+        Gfx.textS(g, "N", lx, ly + 2.4f, 6.8f, 0xFFFF8A80, 1, true, 0f);
+    }
+
+    private static void drawZoomNote(GuiGraphics g, float size) {
+        if (System.currentTimeMillis() > zoomShownUntil) return;
+        String s = "x" + String.format(java.util.Locale.ROOT, "%.1f", MiniMapSettings.zoom);
+        float w = Gfx.width(s, 7f, true) + 8f;
+        Gfx.rrect(g, 5f, size - 17f, w, 11f, 3f, 0xC0081018);
+        Gfx.text(g, s, 9f, size - 8.6f, 7f, Sk.WHITE, 0, true, 0f);
+    }
+
+    // ------------------------------------------------------------------ primitive
+
+    /** Poligon convex plin dintr-un vector de puncte x,y (n varfuri), fara alocari. */
+    private static void fan(GuiGraphics g, float[] p, int n, int argb) {
+        if (n < 3) return;
+        Matrix4f m = g.pose().last().pose();
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.disableCull();
+        BufferBuilder b = Tesselator.getInstance().getBuilder();
+        RenderSystem.setShader(GameRenderer::getPositionColorShader);
+        b.begin(VertexFormat.Mode.TRIANGLE_FAN, DefaultVertexFormat.POSITION_COLOR);
+        int a = Math.round(((argb >>> 24) & 255) * Gfx.alpha);
+        int rr = (argb >> 16) & 255;
+        int gg = (argb >> 8) & 255;
+        int bb = argb & 255;
+        for (int i = 0; i < n; i++) b.vertex(m, p[i * 2], p[i * 2 + 1], 0f).color(rr, gg, bb, a).endVertex();
+        Tesselator.getInstance().end();
+        RenderSystem.enableCull();
+    }
+}

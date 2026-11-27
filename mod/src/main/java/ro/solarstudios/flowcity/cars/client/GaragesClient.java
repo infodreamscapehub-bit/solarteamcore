@@ -57,7 +57,17 @@ public final class GaragesClient {
         public boolean access;
     }
 
+    /** Benzinarie (zona: din masina apesi tasta de interactiune si alimentezi). */
+    public static final class S {
+        public int id;
+        public String name;
+        public String dim;
+        public double x, y, z;
+        public float r;
+    }
+
     public static final List<G> garages = new ArrayList<>();
+    public static final List<S> stations = new ArrayList<>();
     public static final Set<String> factions = new HashSet<>();
     public static KeyMapping interact;
 
@@ -107,6 +117,22 @@ public final class GaragesClient {
                     g.r = (float) JsonClientModule.num(j, "r", 4);
                     g.access = JsonClientModule.bool(j, "access", true);
                     garages.add(g);
+                }
+                stations.clear();
+                JsonArray sa = o.getAsJsonArray("stations");
+                if (sa != null) {
+                    for (JsonElement e : sa) {
+                        JsonObject j = e.getAsJsonObject();
+                        S st = new S();
+                        st.id = JsonClientModule.integer(j, "id", 0);
+                        st.name = JsonClientModule.str(j, "name", "Benzinarie");
+                        st.dim = JsonClientModule.str(j, "dim", "");
+                        st.x = JsonClientModule.num(j, "x", 0);
+                        st.y = JsonClientModule.num(j, "y", 0);
+                        st.z = JsonClientModule.num(j, "z", 0);
+                        st.r = (float) JsonClientModule.num(j, "r", 6);
+                        stations.add(st);
+                    }
                 }
                 ro.solarstudios.flowcity.maps.MapsState.garagePois.clear();
                 for (G g : garages) {
