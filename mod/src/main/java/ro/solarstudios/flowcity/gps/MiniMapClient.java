@@ -119,7 +119,7 @@ public final class MiniMapClient {
         }
 
         private static void msg(Minecraft mc, String s) {
-            mc.player.displayClientMessage(new net.minecraft.network.chat.Component("§b[Minimap] §f" + s), true);
+            mc.player.displayClientMessage(net.minecraft.network.chat.Component.literal("§b[Minimap] §f" + s), true);
         }
     }
 }

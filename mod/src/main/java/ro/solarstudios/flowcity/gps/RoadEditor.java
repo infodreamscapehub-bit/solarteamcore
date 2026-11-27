@@ -617,7 +617,7 @@ final class RoadEditor {
     }
 
     private void addBlock(BlockState st) {
-        ResourceLocation rl = st.getBlock().getRegistryName();
+        ResourceLocation rl = net.minecraftforge.registries.ForgeRegistries.BLOCKS.getKey(st.getBlock());
         if (rl == null || st.isAir()) {
             s.say("Bloc invalid.", false);
             return;

@@ -1199,7 +1199,7 @@ public final class MapEditorScreen extends FlowScreen {
         float y = sy(mc.player.getZ());
         if (x < -20 || y < -20 || x > width + 20 || y > height + 20) return;
         Gfx.disc(g, x, y, 8.5f, 0x88000000);
-        double ang = Math.PI + Math.toRadians(mc.player.yRot);
+        double ang = Math.PI + Math.toRadians(mc.player.getYRot());
         GpsIcons.arrow(g, x, y, 7.5f, ang, 0xFFFFFFFF, 0xFF1B6FD1);
     }
 
@@ -1240,16 +1240,16 @@ public final class MapEditorScreen extends FlowScreen {
 
     void fld(GuiGraphics g, EditBox f, float x, float y, float w, float h, int mx, int my) {
         if (y + h > formLimit) {
-            f.x = -1000;
-            f.y = -1000;
+            f.setX(-1000);
+            f.setY(-1000);
             return;
         }
         Sk.slant(g, x, y, w, h, 4f, Sk.ROW);
         Gfx.rrect(g, x + 4, y + h - 1.6f, w - 8, 1.6f, 0, f.isFocused() ? Sk.ACC : 0xFF22344D);
-        f.x = Math.round(x + 10);
-        f.y = Math.round(y + (h - 8f) / 2f);
+        f.setX(Math.round(x + 10));
+        f.setY(Math.round(y + (h - 8f) / 2f));
         f.setWidth(Math.round(w - 20));
-        f.render(g.pose(), mx, my, 0f);
+        f.render(g, mx, my, 0f);
         hitF(x, y, w, h, () -> focus(f, true));
     }
 

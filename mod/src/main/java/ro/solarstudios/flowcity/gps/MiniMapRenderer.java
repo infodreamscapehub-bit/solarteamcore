@@ -188,7 +188,7 @@ public final class MiniMapRenderer {
         float pt = mc.getFrameTime();
         camX = Mth.lerp(pt, pl.xo, pl.getX());
         camZ = Mth.lerp(pt, pl.zo, pl.getZ());
-        float yaw = pl.yRotO + Mth.wrapDegrees(pl.yRot - pl.yRotO) * pt;
+        float yaw = pl.yRotO + Mth.wrapDegrees(pl.getYRot() - pl.yRotO) * pt;
         float r = size / 2f;
         cx = r;
         cy = r;

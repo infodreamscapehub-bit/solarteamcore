@@ -96,7 +96,7 @@ public final class GpsHud {
                     return;
                 }
                 double target = Math.toDegrees(Math.atan2(-dx, dz));
-                double rel = demo ? 0 : target - mc.player.yRot;
+                double rel = demo ? 0 : target - mc.player.getYRot();
                 rel = ((rel % 360.0) + 540.0) % 360.0 - 180.0;
                 GpsIcons.arrow(g, cx, cy, 11f, Math.toRadians(rel), acc, 0xFF0A1220);
             } finally {

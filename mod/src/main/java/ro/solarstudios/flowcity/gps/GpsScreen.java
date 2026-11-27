@@ -847,7 +847,7 @@ public final class GpsScreen extends FlowScreen {
         int c = acc();
         Gfx.ring(g, x, y, 7f + ph * 11f, 7.9f + ph * 11f, GpsTheme.fade(c, 0.65f * (1f - ph)), GpsTheme.fade(c, 0.65f * (1f - ph)));
         Gfx.disc(g, x, y, 8.5f, 0x99000000);
-        double ang = Math.PI + Math.toRadians(mc.player.yRot);
+        double ang = Math.PI + Math.toRadians(mc.player.getYRot());
         GpsIcons.arrow(g, x, y, 7.5f, ang, 0xFFFFFFFF, c);
     }
 
@@ -986,11 +986,11 @@ public final class GpsScreen extends FlowScreen {
         GpsTheme.panel(g, sxp, syp, sw, 28f * s, 14f * s, GpsTheme.mix(GpsTheme.PANEL, GpsTheme.PANEL_HI, ft),
             focused ? acc() : GpsTheme.mix(GpsTheme.LINE, 0xFF4A5261, ft));
         GpsUi.icon(g, "search", sxp + 15f * s, headH / 2f, 12f * s, focused ? acc() : GpsTheme.MUTED);
-        search.x = Math.round(sxp + 27f * s);
-        search.y = Math.round(headH / 2f - 4f);
+        search.setX(Math.round(sxp + 27f * s));
+        search.setY(Math.round(headH / 2f - 4f));
         search.setWidth(Math.round(sw - 36f * s));
         search.setTextColor(0xFFFFFF);
-        search.render(g.pose(), mx, my, 0);
+        search.render(g, mx, my, 0);
         if (!search.getValue().isEmpty()) {
             float bx = sxp + sw - 20f * s;
             boolean hx2 = GpsUi.in(mx, my, bx - 8f, syp, 20f * s, 28f * s);
@@ -1850,7 +1850,7 @@ public final class GpsScreen extends FlowScreen {
         Gfx.text(g, "V", cx - 13f, cy + 4f, 6.4f, GpsTheme.FAINT, 1, true, 0f);
         Gfx.text(g, "E", cx + 13f, cy + 4f, 6.4f, GpsTheme.FAINT, 1, true, 0f);
         if (mc.player != null) {
-            double ang = Math.PI + Math.toRadians(mc.player.yRot);
+            double ang = Math.PI + Math.toRadians(mc.player.getYRot());
             GpsIcons.arrow(g, cx, cy + 2f, 6.4f, ang, acc(), 0xFF0B0E14);
         }
     }

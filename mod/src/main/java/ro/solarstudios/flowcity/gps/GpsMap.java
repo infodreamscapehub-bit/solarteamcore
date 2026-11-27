@@ -483,7 +483,7 @@ public final class GpsMap {
         if (++metaTick % 400 == 0) saveMeta();
     }
 
-    private static final BlockPos.Mutable POS = new BlockPos.Mutable();
+    private static final BlockPos.MutableBlockPos POS = new BlockPos.MutableBlockPos();
 
     private static void scan(ClientLevel w, int cx, int cz) {
         ChunkAccess ch = w.getChunkSource().getChunk(cx, cz, ChunkStatus.FULL, false);
@@ -635,7 +635,7 @@ public final class GpsMap {
     private static int kindOf(Block b) {
         Integer k = KINDS.get(b);
         if (k != null) return k;
-        ResourceLocation rl = b.getRegistryName();
+        ResourceLocation rl = net.minecraftforge.registries.ForgeRegistries.BLOCKS.getKey(b);
         String p = rl == null ? "" : rl.getPath();
         int v = K_NORMAL;
         if (p.contains("fence") || p.endsWith("_wall") || p.contains("bars") || p.contains("pane") || p.contains("rail")
