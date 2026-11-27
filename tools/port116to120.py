@@ -254,7 +254,7 @@ CODE = [
     (r"new GuiGraphics\((\w+)\.getMatrixStack\(\)\)", r"\1.getGuiGraphics()"),
     (r"(\w+)\.getMatrixStack\(\)", r"\1.getGuiGraphics().pose()"),
     # --- diferente de API gasite la etapele 4-5 (campuri devenite private, evenimente, nbt) ---
-    (r"(?<!mc)(?<!\))(?<!Minecraft)\.level\b(?![\w(])", ".level()"),
+    (r"(?<!mc)(?<!\))(?<!Minecraft)(?<!world)(?<!server)(?<!client)(?<!multiplayer)\.level\b(?![\w(])", ".level()"),
     (r"\.yRot\b(?![\w(])(?!\s*=[^=])", ".getYRot()"),
     (r"\.xRot\b(?![\w(])(?!\s*=[^=])", ".getXRot()"),
     (r"\.inventory\b(?![\w(])(?!\.[A-Z])(?!;)", ".getInventory()"),
@@ -272,6 +272,9 @@ CODE = [
     (r"\.performCommand\(", ".performPrefixedCommand("),
     (r"\.drawInBatch\((.*), true, 0, 15728880\)", r".drawInBatch(\1, net.minecraft.client.gui.Font.DisplayMode.SEE_THROUGH, 0, 15728880)"),
     (r"entity\.item\.BoatEntity", "world.entity.vehicle.Boat"),
+    (r"(?:net\.minecraft\.client\.)?(?:Minecraft\.getInstance\(\)|mc)\.getTextureManager\(\)\.bind\((.+?)\);", r"com.mojang.blaze3d.systems.RenderSystem.setShaderTexture(0, \1);"),
+    (r"\n[ \t]*(?:com\.mojang\.blaze3d\.systems\.)?RenderSystem\.(?:enableTexture|disableAlphaTest|enableAlphaTest|shadeModel)\([^)]*\);", ""),
+    (r"RenderSystem\.color4f\(", "RenderSystem.setShaderColor("),
     # randarea in lume: RenderWorldLastEvent -> RenderLevelStageEvent
     (r"(\w+)\.getPartialTicks\(\)", r"\1.getPartialTick()"),
 ]

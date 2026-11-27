@@ -13,7 +13,7 @@ import ro.solarstudios.flowcity.client.ClientHooks;
 /** Tableta MDT a politiei: click dreapta deschide terminalul (serverul verifica accesul). */
 public class MdtItem extends Item {
     public MdtItem() {
-        super(new Item.Properties().stacksTo(1));
+        super(ro.solarstudios.flowcity.content.ModContent.props().stacksTo(1));
     }
 
     @Override

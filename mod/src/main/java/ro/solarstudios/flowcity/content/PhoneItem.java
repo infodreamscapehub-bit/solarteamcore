@@ -13,7 +13,7 @@ import ro.solarstudios.flowcity.client.ClientHooks;
 /** Telefon: click dreapta deschide ePhone. */
 public class PhoneItem extends Item {
     public PhoneItem() {
-        super(new Item.Properties().stacksTo(1));
+        super(ro.solarstudios.flowcity.content.ModContent.props().stacksTo(1));
     }
 
     @Override
