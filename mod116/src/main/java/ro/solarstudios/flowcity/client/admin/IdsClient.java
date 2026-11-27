@@ -19,7 +19,7 @@ import ro.solarstudios.flowcity.module.JsonClientModule;
 
 /**
  * Canalul "ids": serverul trimite ID-urile jucatorilor online; clientul le afiseaza deasupra capului (#ID Nume).
- * Tot de aici pleaca cererea de schimbare a ID-ului din panoul eAdmin.
+ * Tot de aici pleaca cererea de schimbare a ID-ului din panoul FAdmin.
  */
 public final class IdsClient extends JsonClientModule {
     private static IdsClient instance;

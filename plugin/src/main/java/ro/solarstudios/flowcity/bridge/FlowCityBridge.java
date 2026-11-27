@@ -35,7 +35,7 @@ public final class FlowCityBridge extends JavaPlugin {
         try {
             db = new Db(new File(getDataFolder(), "eadmin.db"), getLogger());
         } catch (Exception e) {
-            getLogger().severe("Nu pot deschide baza de date eAdmin: " + e);
+            getLogger().severe("Nu pot deschide baza de date FAdmin: " + e);
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
@@ -65,6 +65,7 @@ public final class FlowCityBridge extends JavaPlugin {
         Modules.register(this, new HypeModule());
         Modules.register(this, new ro.solarstudios.flowcity.bridge.eadmin.DashModule());
         Modules.register(this, new ro.solarstudios.flowcity.bridge.eadmin.AdminPlusModule());
+        Modules.register(this, new ro.solarstudios.flowcity.bridge.eadmin.FAdminModule());
         Modules.register(this, new ro.solarstudios.flowcity.bridge.update.UpdateModule());
         Modules.register(this, new ro.solarstudios.flowcity.bridge.mdt.MdtModule());
         Modules.register(this, new PhoneModule());

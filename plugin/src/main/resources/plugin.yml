@@ -3,16 +3,62 @@ version: ${version}
 main: ro.solarstudios.flowcity.bridge.FlowCityBridge
 api-version: '1.16'
 author: SolarStudios
-description: Bridge Mohist/Arclight <-> modul FlowCityCore (eAdmin, sincronizare date).
+description: Bridge Mohist/Arclight <-> modul FlowCityCore (FAdmin, sincronizare date).
 softdepend: [LuckPerms, Vault, Essentials, EssentialsX, CMI, XConomy, TheNewEconomy, GemsEconomy]
 commands:
   eadmin:
-    description: Deschide panoul eAdmin sau ruleaza o actiune de staff.
+    description: Deschide panoul FAdmin sau ruleaza o actiune de staff (alias al comenzii /fadmin).
     usage: /eadmin [open|info|warn|mute|unmute|kick|ban|unban|note] <jucator> [durata] [motiv]
     permission: flowcity.eadmin
 permissions:
+  flowcity.fadmin:
+    description: Acces la panoul FAdmin (nivel minim)
+    default: false
+    children:
+      flowcity.eadmin: true
+  flowcity.fadmin.helper:
+    description: FAdmin - Helper (vede jucatori, kick, mute, teleport)
+    default: false
+    children:
+      flowcity.fadmin: true
+      flowcity.eadmin.tp: true
+  flowcity.fadmin.moderator:
+    description: FAdmin - Moderator (ban, note, inventar, vehicule, joburi)
+    default: false
+    children:
+      flowcity.fadmin.helper: true
+      flowcity.eadmin.sanction: true
+      flowcity.eadmin.notes: true
+      flowcity.eadmin.inv: true
+  flowcity.fadmin.administrator:
+    description: FAdmin - Administrator (job, grad, vehicule, economie in citire)
+    default: false
+    children:
+      flowcity.fadmin.moderator: true
+      flowcity.eadmin.ip: true
+      flowcity.eadmin.freeze: true
+      flowcity.eadmin.spectate: true
+      flowcity.eadmin.ss: true
+      flowcity.eadmin.jobs: true
+      flowcity.eadmin.money: true
+  flowcity.fadmin.manager:
+    description: FAdmin - Manager (economie, stergere vehicule, editor de preturi/taxe/salarii)
+    default: false
+    children:
+      flowcity.fadmin.administrator: true
+      flowcity.eadmin.inv.edit: true
+  flowcity.fadmin.developer:
+    description: FAdmin - Developer (sistem, setari)
+    default: false
+    children:
+      flowcity.fadmin.manager: true
+  flowcity.fadmin.owner:
+    description: FAdmin - Owner (permisiuni, toate)
+    default: false
+    children:
+      flowcity.fadmin.developer: true
   flowcity.eadmin:
-    description: Acces la panoul eAdmin (vizualizare)
+    description: Acces la panoul FAdmin (vizualizare)
     default: op
   flowcity.eadmin.sanction:
     description: Poate aplica / revoca sanctiuni

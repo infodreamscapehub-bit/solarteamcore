@@ -1638,6 +1638,100 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
 
     // ------------------------------------------------------------------ FJobsApi (folosit de activitati)
 
+    // ------------------------------------------------------------------ API pentru FAdmin (apelat pe thread-ul principal)
+
+    /** Reincarca joburile din fjobs.yml (FAdmin > Editor). */
+    public void adminReload() {
+        loadAll();
+        pushToViewers();
+    }
+
+    /** Joburile definite: [id, nume, activ]. */
+    public List<String[]> adminJobs() {
+        List<String[]> out = new ArrayList<>();
+        for (FJobDef j : jobs.values()) out.add(new String[] {j.id, j.name, j.active ? "1" : "0"});
+        return out;
+    }
+
+    /** Angajatii unui job (include jucatorii offline): [uuid, nume, nivel, xp, castig total pe job, in tura]. */
+    public List<String[]> adminEmployees(String jobId) {
+        List<String[]> out = new ArrayList<>();
+        for (FJobsData.Profile pr : store.all()) {
+            if (!jobId.equals(pr.job)) continue;
+            Long xp = pr.xp.get(jobId);
+            Double earned = pr.earned.get(jobId);
+            out.add(new String[] {pr.uuid.toString(), pr.name, String.valueOf(jobLevel(pr, jobId)), String.valueOf(xp == null ? 0 : xp),
+                String.valueOf(Math.round((earned == null ? 0 : earned) * 100.0) / 100.0), pr.inShift() ? "1" : "0"});
+        }
+        out.sort((a, b) -> Integer.compare(Integer.parseInt(b[2]), Integer.parseInt(a[2])));
+        return out;
+    }
+
+    /** Jobul curent al unui jucator ("" = niciunul), sau null daca nu are profil. */
+    public String adminJobOf(UUID u) {
+        FJobsData.Profile pr = store.peek(u);
+        return pr == null ? null : pr.job;
+    }
+
+    /** Progresul unui jucator: pe job [id, nume, nivel, xp, castig, ture, misiuni]. */
+    public List<String[]> adminProgress(UUID u) {
+        List<String[]> out = new ArrayList<>();
+        FJobsData.Profile pr = store.peek(u);
+        if (pr == null) return out;
+        for (FJobDef j : jobs.values()) {
+            Long xp = pr.xp.get(j.id);
+            if (xp == null && !j.id.equals(pr.job)) continue;
+            Double e = pr.earned.get(j.id);
+            Integer sh = pr.shifts.get(j.id);
+            Integer mi = pr.missions.get(j.id);
+            out.add(new String[] {j.id, j.name, String.valueOf(jobLevel(pr, j.id)), String.valueOf(xp == null ? 0 : xp),
+                String.valueOf(Math.round((e == null ? 0 : e) * 100.0) / 100.0), String.valueOf(sh == null ? 0 : sh), String.valueOf(mi == null ? 0 : mi)});
+        }
+        return out;
+    }
+
+    /** Muta un jucator la alt job (sau "" = concediat). Nu tine cont de cooldown / tura. Intoarce null daca a mers, altfel motivul. */
+    public String adminSetJob(UUID u, String name, String jobId, String by) {
+        FJobDef j = jobId.isEmpty() ? null : jobs.get(jobId.toLowerCase(Locale.ROOT));
+        if (!jobId.isEmpty() && j == null) return "Job necunoscut.";
+        FJobsData.Profile pr = store.get(u, name);
+        if (jobId.equals(pr.job)) return "Are deja acest job.";
+        if (!pr.job.isEmpty()) {
+            FJobDef old = jobs.get(pr.job);
+            store.addHistory(pr, "quit", pr.job, "Mutat de staff (" + by + ") de la " + (old == null ? pr.job : old.name), 0);
+        }
+        pr.shiftStart = 0;
+        pr.shiftEarned = 0;
+        pr.shiftXp = 0;
+        pr.shiftMissions = 0;
+        pr.job = jobId.isEmpty() ? "" : j.id;
+        pr.changedAt = System.currentTimeMillis();
+        pr.dirty = true;
+        trips.remove(u);
+        routes.remove(u);
+        if (j != null) store.addHistory(pr, "hire", j.id, "Angajat de staff (" + by + ") ca " + j.name, 0);
+        Player on = Bukkit.getPlayer(u);
+        if (on != null) sendData(on, false);
+        return null;
+    }
+
+    /** Seteaza nivelul (gradul) unui jucator la un job: xp-ul devine minimul nivelului. Intoarce nivelul vechi sau -1 daca jobul nu exista. */
+    public int adminSetLevel(UUID u, String name, String jobId, int level) {
+        FJobDef j = jobs.get(jobId.toLowerCase(Locale.ROOT));
+        if (j == null) return -1;
+        FJobsData.Profile pr = store.get(u, name);
+        int old = jobLevel(pr, j.id);
+        int lv = Math.max(1, Math.min(maxLevel(), level));
+        long xp = 0;
+        for (int i = 1; i < lv; i++) xp += HypeMath.xpForLevel(i, xpBase(), xpGrowth());
+        pr.xp.put(j.id, xp);
+        pr.dirty = true;
+        store.addHistory(pr, "level", j.id, "Nivel setat de staff: " + lv, 0);
+        Player on = Bukkit.getPlayer(u);
+        if (on != null) sendData(on, false);
+        return old;
+    }
+
     @Override
     public FlowCityBridge plugin() {
         return plugin;

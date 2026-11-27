@@ -19,7 +19,7 @@ import org.bukkit.entity.Player;
 import ro.solarstudios.flowcity.bridge.FlowCityBridge;
 import ro.solarstudios.flowcity.bridge.net.Wire;
 
-/** Toata logica eAdmin: loguri, sanctiuni, note, flag-uri, interogari pentru panou. */
+/** Toata logica FAdmin: loguri, sanctiuni, note, flag-uri, interogari pentru panou. */
 public final class EAdminService {
     public enum SType { WARN, MUTE, KICK, BAN }
 
@@ -138,7 +138,7 @@ public final class EAdminService {
     public void flag(UUID u, String severity, String trigger, String details) {
         exec("INSERT INTO eadmin_flags(player_uuid, severity, trigger_type, details, timestamp) VALUES (?,?,?,?,?)",
             u.toString(), severity, trigger, clip(details, 300), now());
-        final String msg = "§c[eAdmin] §f" + severity + " §7" + trigger + " §8- §f" + clip(details, 120);
+        final String msg = "§c[FAdmin] §f" + severity + " §7" + trigger + " §8- §f" + clip(details, 120);
         toMain(() -> {
             for (Player p : Bukkit.getOnlinePlayers()) {
                 if (p.hasPermission("flowcity.eadmin")) p.sendMessage(msg);
@@ -656,7 +656,7 @@ public final class EAdminService {
                         lines.add("\u00a7b" + rs.getString(1) + " \u00a78| \u00a77prima data: \u00a7f" + formatDate(rs.getLong(2))
                             + " \u00a77ultima: \u00a7f" + formatDate(rs.getLong(3)) + " \u00a77timp jucat: \u00a7f" + (rs.getLong(4) / 3600) + "h");
                     } else {
-                        lines.add("\u00a7cJucatorul nu este in baza de date eAdmin.");
+                        lines.add("\u00a7cJucatorul nu este in baza de date FAdmin.");
                     }
                 }
             }

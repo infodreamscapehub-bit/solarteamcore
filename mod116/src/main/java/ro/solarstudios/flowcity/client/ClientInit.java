@@ -50,6 +50,7 @@ public final class ClientInit {
         ro.solarstudios.flowcity.politie.PolitieClient.register();
         ro.solarstudios.flowcity.hudeditor.HudEditorClient.register();
         ro.solarstudios.flowcity.cars.client.GarageAdminClient.register();
+        ro.solarstudios.flowcity.client.fadmin.FAdminClient.register();
         ro.solarstudios.flowcity.taxi.TaxiClient.register();
         ro.solarstudios.flowcity.cars.client.GaragesClient.register();
         ro.solarstudios.flowcity.gps.GpsClient.register();

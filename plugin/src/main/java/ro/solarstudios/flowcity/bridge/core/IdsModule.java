@@ -6,7 +6,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import ro.solarstudios.flowcity.bridge.module.JsonModule;
 
-/** Canal "ids": panoul eAdmin poate seta ID-ul unui jucator (permisiune flowcity.id.admin). */
+/** Canal "ids": panoul FAdmin poate seta ID-ul unui jucator (permisiune flowcity.id.admin). */
 public final class IdsModule extends JsonModule {
     @Override
     public String id() {

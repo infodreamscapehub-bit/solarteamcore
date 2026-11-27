@@ -1,12 +1,12 @@
-# FlowCity - SolarStudios (faza 1: bridge + eAdmin)
+# FlowCity - SolarStudios (faza 1: bridge + FAdmin)
 
 Portul SolarTeamCore 1.20.1 -> Forge 1.16.5, rebrand **FlowCity**.
-Faza 1 contine infrastructura (bridge Mohist/Arclight) si **eAdmin nou, cu panou in joc**.
+Faza 1 contine infrastructura (bridge Mohist/Arclight) si **FAdmin nou, cu panou in joc**.
 
 ```
 flowcity/
   plugin/   FlowCityBridge  - plugin Bukkit/Spigot 1.16.5 (merge pe Mohist/Arclight)
-  mod/      FlowCityCore    - mod Forge 1.16.5 (CLIENT) cu panoul eAdmin
+  mod/      FlowCityCore    - mod Forge 1.16.5 (CLIENT) cu panoul FAdmin
 ```
 
 ## Build fara sa instalezi nimic (GitHub Actions)
@@ -26,7 +26,7 @@ ambele jaruri; le iei din **Artifacts** (`FlowCityCore-mod`, `FlowCityBridge-plu
    `flowcity.eadmin` (acces + vizualizare), `.sanction`, `.notes`, `.tp`, `.ip`; `flowcity.eadmin.immune` = nu poate fi sanctionat de non-OP.
 4. In joc: tasta **F9** (se schimba in Controls > FlowCity) sau `/eadmin`.
 
-## Ce face eAdmin
+## Ce face FAdmin
 - **Panou in joc**: lista jucatorilor (online primii, cautare, paginare, marcaj BAN/MUTE), profil, loguri, sanctiuni, note.
 - **Profil**: status, prima/ultima conectare, timp jucat, sold (Vault), IP (doar cu `.ip`), contoare WARN/MUTE/KICK/BAN, flag-uri automate, TP la jucator / aduce-l la tine.
 - **Loguri** (cu paginare): chat, comenzi, conexiuni (IP + coordonate), creativ (spawn/gamemode), containere (PUT/TAKE), tranzactii.

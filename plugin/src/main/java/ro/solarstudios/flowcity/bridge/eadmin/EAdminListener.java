@@ -29,7 +29,7 @@ import org.bukkit.inventory.ItemStack;
 import ro.solarstudios.flowcity.bridge.FlowCityBridge;
 import ro.solarstudios.flowcity.bridge.net.BridgeChannel;
 
-/** Evenimente Bukkit -> loguri eAdmin, aplicarea mute/ban, flag-uri automate. */
+/** Evenimente Bukkit -> loguri FAdmin, aplicarea mute/ban, flag-uri automate. */
 public final class EAdminListener implements Listener {
     private final FlowCityBridge plugin;
     private final EAdminService service;

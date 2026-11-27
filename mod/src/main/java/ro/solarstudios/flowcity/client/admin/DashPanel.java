@@ -11,7 +11,7 @@ import ro.solarstudios.flowcity.client.ui.Ui;
 import ro.solarstudios.flowcity.module.ClientModules;
 import ro.solarstudios.flowcity.module.JsonClientModule;
 
-/** Dashboard eAdmin (cand nu e selectat niciun jucator): carduri live, grafic de jucatori, activitate recenta, alerte. */
+/** Dashboard FAdmin (cand nu e selectat niciun jucator): carduri live, grafic de jucatori, activitate recenta, alerte. */
 public final class DashPanel extends JsonClientModule {
     private static DashPanel instance;
     private static JsonObject stats = new JsonObject();

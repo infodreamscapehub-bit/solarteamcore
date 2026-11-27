@@ -38,9 +38,11 @@ public final class EAdminCommand implements CommandExecutor, TabCompleter {
             }
             Player p = (Player) sender;
             if (channel.hasMod(p)) {
-                channel.open(p);
+                ro.solarstudios.flowcity.bridge.module.BridgeModule fa = ro.solarstudios.flowcity.bridge.module.Modules.get("fadm");
+                if (fa instanceof FAdminModule) ((FAdminModule) fa).openHub(p);
+                else channel.open(p);
             } else {
-                p.sendMessage("§eNu am detectat modul FlowCityCore in client. §7Instaleaza-l pentru panou, sau foloseste §f/eadmin info <jucator>§7.");
+                p.sendMessage("§eNu am detectat modul FlowCityCore in client. §7Instaleaza-l pentru panoul FAdmin, sau foloseste §f/eadmin info <jucator>§7.");
             }
             return true;
         }

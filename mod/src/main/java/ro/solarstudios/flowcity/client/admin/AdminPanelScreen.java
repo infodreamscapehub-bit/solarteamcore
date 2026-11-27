@@ -16,7 +16,7 @@ import ro.solarstudios.flowcity.client.ui.Theme;
 import ro.solarstudios.flowcity.client.ui.Ui;
 
 /**
- * Panoul eAdmin FlowCity. Desenat in mod imediat: fiecare frame reconstruieste lista de zone clicabile.
+ * Panoul FAdmin FlowCity. Desenat in mod imediat: fiecare frame reconstruieste lista de zone clicabile.
  * Taburi: PROFIL, LOGURI, SANCTIUNI, NOTE. Toate datele vin de la pluginul FlowCityBridge.
  */
 public class AdminPanelScreen extends Screen {
@@ -94,7 +94,7 @@ public class AdminPanelScreen extends Screen {
     private final long openedAt = System.currentTimeMillis();
 
     public AdminPanelScreen(String staffName, String serverName) {
-        super(Component.literal("eAdmin"));
+        super(Component.literal("FAdmin"));
         this.staffName = staffName;
         this.serverName = serverName;
     }
@@ -253,7 +253,7 @@ public class AdminPanelScreen extends Screen {
         Ui.rect(ms, px + 1, py + HEAD, pw - 2, 1, Theme.ACCENT_DIM);
         Ui.rect(ms, px + 8, py + 8, 3, 9, Theme.ACCENT);
         Ui.textShadow(ms, serverName.toUpperCase(), px + 15, py + 8, Theme.ACCENT);
-        Ui.text(ms, "eAdmin", px + 15 + Ui.width(serverName.toUpperCase()) + 6, py + 8, Theme.TEXT);
+        Ui.text(ms, "FAdmin", px + 15 + Ui.width(serverName.toUpperCase()) + 6, py + 8, Theme.TEXT);
         Ui.textRight(ms, "staff: " + staffName, px + pw - 142, py + 8, Theme.MUTED);
         button(ms, "REFRESH", px + pw - 56, py + 5, 34, 14, mx, my, true, Theme.PANEL_3, () -> {
             ClientBridge.requestList(lastQuery, listPage);
@@ -341,7 +341,7 @@ public class AdminPanelScreen extends Screen {
             if (profile.banned) cx = chipStatic(ms, "BAN ACTIV", cx, y - 1, Theme.BAD);
             if (profile.muted) cx = chipStatic(ms, "MUTE ACTIV", cx, y - 1, Theme.WARN);
         }
-        // actiuni rapide (stil eAdmin EGK)
+        // actiuni rapide (stil FAdmin EGK)
         int ay = y + 15;
         drawActions(ms, mx, my, x, ay, w);
         int tabsY = ay + 17;

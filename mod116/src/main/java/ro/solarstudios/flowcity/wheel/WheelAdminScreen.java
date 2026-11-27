@@ -16,7 +16,7 @@ import ro.solarstudios.flowcity.client.ui.Gfx;
 import ro.solarstudios.flowcity.client.ui.Ui;
 
 /**
- * eAdmin &gt; Roata: trei file - PREMII (ce poate pica, cu sanse, tip, descriere, iconita, activ/inactiv),
+ * FAdmin &gt; Roata: trei file - PREMII (ce poate pica, cu sanse, tip, descriere, iconita, activ/inactiv),
  * SETARI (cooldown, cost, rotiri gratuite, maxim pe zi, animatie, pornit/oprit) si STATISTICI
  * (cate rotiri, ce premii pica des, cine a castigat). Tema de iarna FlowCity.
  */

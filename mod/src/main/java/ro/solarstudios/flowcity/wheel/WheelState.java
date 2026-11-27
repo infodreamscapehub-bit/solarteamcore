@@ -20,7 +20,7 @@ public final class WheelState {
         public long ts;
     }
 
-    /** Premiu din editorul de admin (eAdmin > Roata). */
+    /** Premiu din editorul de admin (FAdmin > Roata). */
     public static final class AdminPrize {
         public long id;
         public String name = "";

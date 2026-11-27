@@ -133,7 +133,7 @@ public final class BridgeChannel implements PluginMessageListener {
                 return;
             }
             if (!player.hasPermission("flowcity.eadmin")) {
-                if (op == Op.C_OPEN_REQUEST) toast(player, "Nu ai acces la eAdmin.", true);
+                if (op == Op.C_OPEN_REQUEST) toast(player, "Nu ai acces la FAdmin.", true);
                 return; // ignoram tacit orice alt pachet fara permisiune
             }
             handle(player, op, in);
@@ -144,9 +144,12 @@ public final class BridgeChannel implements PluginMessageListener {
 
     private void handle(Player staff, int op, Wire.In in) {
         switch (op) {
-            case Op.C_OPEN_REQUEST:
-                open(staff);
+            case Op.C_OPEN_REQUEST: {
+                ro.solarstudios.flowcity.bridge.module.BridgeModule fa = ro.solarstudios.flowcity.bridge.module.Modules.get("fadm");
+                if (fa instanceof ro.solarstudios.flowcity.bridge.eadmin.FAdminModule) ((ro.solarstudios.flowcity.bridge.eadmin.FAdminModule) fa).openHub(staff);
+                else open(staff);
                 break;
+            }
             case Op.C_PLAYER_LIST: {
                 String q = in.utf();
                 int page = in.i32();

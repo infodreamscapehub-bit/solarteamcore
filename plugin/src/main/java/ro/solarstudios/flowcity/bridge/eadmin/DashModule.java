@@ -9,7 +9,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import ro.solarstudios.flowcity.bridge.module.JsonModule;
 
-/** Dashboard-ul eAdmin: statistici live (jucatori, TPS, RAM) si activitate recenta. Modul "dash". */
+/** Dashboard-ul FAdmin: statistici live (jucatori, TPS, RAM) si activitate recenta. Modul "dash". */
 public final class DashModule extends JsonModule {
     @Override
     public String id() {
@@ -120,7 +120,7 @@ public final class DashModule extends JsonModule {
             return null;
         }).whenComplete((v, err) -> Bukkit.getScheduler().runTask(plugin, () -> {
             if (err != null) {
-                plugin.getLogger().warning("Dashboard eAdmin: " + err);
+                plugin.getLogger().warning("Dashboard FAdmin: " + err);
                 return;
             }
             send(viewer, "stats", o);

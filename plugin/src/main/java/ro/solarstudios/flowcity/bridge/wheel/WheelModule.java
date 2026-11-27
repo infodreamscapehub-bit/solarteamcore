@@ -34,7 +34,7 @@ import ro.solarstudios.flowcity.bridge.notify.NotifyModule;
 /**
  * Roata norocului 2.0: premiul se alege si se acorda pe SERVER inainte de animatie, clientul doar anima pana la rezultat.
  * Premiile (tip, cantitate, sansa, descriere, iconita, activ/inactiv) si setarile rotii (cooldown, cost, rotiri gratuite,
- * maxim pe zi, pornit/oprit) se editeaza din GUI (eAdmin &gt; Roata) si se salveaza in baza de date.
+ * maxim pe zi, pornit/oprit) se editeaza din GUI (FAdmin &gt; Roata) si se salveaza in baza de date.
  * Daca inventarul e plin, premiul merge in lista de revendicare ({@link ClaimStore}) si nu se pierde.
  * Canal "wheel": client -&gt; server: info, spin, claim, admin_*; server -&gt; client: info, result, msg, admin, stats.
  */
@@ -227,7 +227,7 @@ public final class WheelModule extends JsonModule {
             }
             prizes.clear();
             prizes.addAll(list);
-            if (active().isEmpty()) plugin.getLogger().warning("Roata: niciun premiu activ (adauga din eAdmin > Roata).");
+            if (active().isEmpty()) plugin.getLogger().warning("Roata: niciun premiu activ (adauga din FAdmin > Roata).");
             if (done != null) done.run();
         }));
     }
@@ -543,7 +543,7 @@ public final class WheelModule extends JsonModule {
         }
     }
 
-    // ------------------------------------------------------------------ administrare (eAdmin > Roata)
+    // ------------------------------------------------------------------ administrare (FAdmin > Roata)
 
     private static final int MAX_PRIZES = 16;
     private static final String[] PALETTE = {"#34D399", "#22D3EE", "#7C83FF", "#FBBF24", "#F59E0B", "#38BDF8", "#F472B6", "#F87171"};
@@ -931,7 +931,7 @@ public final class WheelModule extends JsonModule {
 
     private void registerCommands() {
         Commands.permission("flowcity.hype.wheel", "Foloseste roata norocului", PermissionDefault.TRUE);
-        Commands.permission("flowcity.eadmin.wheel", "Editeaza premiile rotii (eAdmin)", PermissionDefault.OP);
+        Commands.permission("flowcity.eadmin.wheel", "Editeaza premiile rotii (FAdmin)", PermissionDefault.OP);
         Commands.register(plugin, "roata", "flowcity.hype.wheel", (s, c, l, a) -> {
             if (a.length >= 1 && a[0].equalsIgnoreCase("reset")) {
                 if (!s.hasPermission("flowcity.hype.admin")) {
@@ -976,7 +976,7 @@ public final class WheelModule extends JsonModule {
                     send(p, "open", o);
                     sendAdmin(p);
                 } else {
-                    p.sendMessage("§7Premii (" + prizes.size() + "): editarea necesita modul FlowCity (eAdmin > Roata).");
+                    p.sendMessage("§7Premii (" + prizes.size() + "): editarea necesita modul FlowCity (FAdmin > Roata).");
                 }
                 return true;
             }

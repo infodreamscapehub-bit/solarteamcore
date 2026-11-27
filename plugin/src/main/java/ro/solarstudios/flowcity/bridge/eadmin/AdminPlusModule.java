@@ -26,7 +26,7 @@ import ro.solarstudios.flowcity.bridge.core.Commands;
 import ro.solarstudios.flowcity.bridge.module.JsonModule;
 
 /**
- * eAdmin+ (modul "admx"): actiuni rapide din stilul eAdmin EGK - FREEZE, SPEC, CASH, INV, tab Joburi,
+ * FAdmin+ (modul "admx"): actiuni rapide din stilul FAdmin EGK - FREEZE, SPEC, CASH, INV, tab Joburi,
  * verificare IP / conturi multiple si captura de ecran (SS) de la jucator.
  * Permisiuni (implicit OP): flowcity.eadmin.freeze/spectate/money/inv/inv.edit/ss, flowcity.eadmin.ip, flowcity.eadmin.jobs.
  */
@@ -65,13 +65,13 @@ public final class AdminPlusModule extends JsonModule implements Listener {
 
     @Override
     protected void onEnable() {
-        Commands.permission("flowcity.eadmin.freeze", "eAdmin: ingheata jucatori", PermissionDefault.OP);
-        Commands.permission("flowcity.eadmin.spectate", "eAdmin: spectate", PermissionDefault.OP);
-        Commands.permission("flowcity.eadmin.money", "eAdmin: modifica banii", PermissionDefault.OP);
-        Commands.permission("flowcity.eadmin.inv", "eAdmin: vezi inventarul", PermissionDefault.OP);
-        Commands.permission("flowcity.eadmin.inv.edit", "eAdmin: modifica inventarul altui jucator", PermissionDefault.OP);
-        Commands.permission("flowcity.eadmin.ss", "eAdmin: cere captura de ecran", PermissionDefault.OP);
-        Commands.permission("flowcity.eadmin.jobs", "eAdmin: vezi joburile", PermissionDefault.OP);
+        Commands.permission("flowcity.eadmin.freeze", "FAdmin: ingheata jucatori", PermissionDefault.OP);
+        Commands.permission("flowcity.eadmin.spectate", "FAdmin: spectate", PermissionDefault.OP);
+        Commands.permission("flowcity.eadmin.money", "FAdmin: modifica banii", PermissionDefault.OP);
+        Commands.permission("flowcity.eadmin.inv", "FAdmin: vezi inventarul", PermissionDefault.OP);
+        Commands.permission("flowcity.eadmin.inv.edit", "FAdmin: modifica inventarul altui jucator", PermissionDefault.OP);
+        Commands.permission("flowcity.eadmin.ss", "FAdmin: cere captura de ecran", PermissionDefault.OP);
+        Commands.permission("flowcity.eadmin.jobs", "FAdmin: vezi joburile", PermissionDefault.OP);
         Bukkit.getPluginManager().registerEvents(this, plugin);
 
         on("freeze", (p, j) -> freeze(p, uuid(j)));
@@ -144,7 +144,7 @@ public final class AdminPlusModule extends JsonModule implements Listener {
             t.sendTitle("§b§lINGHETAT", "§7Un membru staff te verifica. Nu parasi jocul.", 5, 80, 10);
             t.sendMessage("§bAi fost inghetat de staff pentru verificare. Nu parasi jocul.");
         }
-        plugin.getLogger().info("eAdmin: " + staff.getName() + (now ? " a inghetat " : " a dezghetat ") + t.getName());
+        plugin.getLogger().info("FAdmin: " + staff.getName() + (now ? " a inghetat " : " a dezghetat ") + t.getName());
         plugin.service().logTransaction(u, now ? "ADMIN_FREEZE" : "ADMIN_UNFREEZE", 0, staff.getName(), "");
         JsonObject o = new JsonObject();
         o.addProperty("uuid", u.toString());
@@ -187,7 +187,7 @@ public final class AdminPlusModule extends JsonModule implements Listener {
         specs.put(staff.getUniqueId(), new Spec(staff.getLocation(), staff.getGameMode()));
         staff.setGameMode(GameMode.SPECTATOR);
         staff.teleport(t.getLocation());
-        plugin.getLogger().info("eAdmin: " + staff.getName() + " spectate " + t.getName());
+        plugin.getLogger().info("FAdmin: " + staff.getName() + " spectate " + t.getName());
         ok(staff, "Spectate " + t.getName() + " (apasa din nou SPEC ca sa te intorci).");
     }
 
@@ -219,7 +219,7 @@ public final class AdminPlusModule extends JsonModule implements Listener {
             return;
         }
         plugin.service().logTransaction(u, "ADMIN_CASH_" + mode.toUpperCase(), delta, staff.getName(), "");
-        plugin.getLogger().info("eAdmin: " + staff.getName() + " cash " + mode + " " + amount + " pentru " + u + " (acum " + target + ")");
+        plugin.getLogger().info("FAdmin: " + staff.getName() + " cash " + mode + " " + amount + " pentru " + u + " (acum " + target + ")");
         ok(staff, "Cash: $" + String.format(java.util.Locale.US, "%.2f", target));
     }
 
@@ -233,7 +233,7 @@ public final class AdminPlusModule extends JsonModule implements Listener {
             return;
         }
         staff.openInventory(t.getInventory());
-        plugin.getLogger().info("eAdmin: " + staff.getName() + " a deschis inventarul lui " + t.getName());
+        plugin.getLogger().info("FAdmin: " + staff.getName() + " a deschis inventarul lui " + t.getName());
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
@@ -359,7 +359,7 @@ public final class AdminPlusModule extends JsonModule implements Listener {
             return;
         }
         ss.put(u, new SsSession(staff.getUniqueId()));
-        plugin.getLogger().info("eAdmin: " + staff.getName() + " a cerut captura de ecran de la " + t.getName());
+        plugin.getLogger().info("FAdmin: " + staff.getName() + " a cerut captura de ecran de la " + t.getName());
         if (plugin.getConfig().getBoolean("eadmin.ss-notify", true)) {
             t.sendMessage("§eStaff-ul a cerut o captura de ecran pentru verificare.");
         }

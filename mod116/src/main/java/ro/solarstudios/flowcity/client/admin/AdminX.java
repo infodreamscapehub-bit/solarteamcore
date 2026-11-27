@@ -17,7 +17,7 @@ import net.minecraft.util.ResourceLocation;
 import ro.solarstudios.flowcity.module.ClientModules;
 import ro.solarstudios.flowcity.module.JsonClientModule;
 
-/** Client pentru eAdmin+ (modul "admx"): date joburi / IP, stare freeze, capturi de ecran (cerere + afisare). */
+/** Client pentru FAdmin+ (modul "admx"): date joburi / IP, stare freeze, capturi de ecran (cerere + afisare). */
 public final class AdminX extends JsonClientModule {
     private static AdminX instance;
 

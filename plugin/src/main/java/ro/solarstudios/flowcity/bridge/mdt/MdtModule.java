@@ -1101,6 +1101,67 @@ public final class MdtModule extends JsonModule implements Listener {
         return ct.name;
     }
 
+    /** Vehicul din evidenta, pentru panoul FAdmin (citire). */
+    public static final class AdminVeh {
+        public final long id;
+        public final UUID owner;
+        public final String ownerName;
+        public final String model;
+        public final String plate;
+        public final String status;
+
+        AdminVeh(long id, UUID owner, String ownerName, String model, String plate, String status) {
+            this.id = id;
+            this.owner = owner;
+            this.ownerName = ownerName == null ? "?" : ownerName;
+            this.model = model;
+            this.plate = plate;
+            this.status = status;
+        }
+    }
+
+    /** Toate vehiculele inregistrate (FAdmin). Se apeleaza pe thread-ul principal. */
+    public List<AdminVeh> adminVehicles() {
+        List<AdminVeh> out = new ArrayList<>();
+        for (Citizen ct : citizens.values()) for (Veh v : ct.vehicles) out.add(new AdminVeh(v.id, ct.uuid, ct.name, v.model, v.plate, v.status));
+        out.sort((a, b) -> Long.compare(a.id, b.id));
+        return out;
+    }
+
+    public int adminVehicleCount() {
+        int n = 0;
+        for (Citizen ct : citizens.values()) n += ct.vehicles.size();
+        return n;
+    }
+
+    /** Schimba statusul (Clean / Stolen / Confiscated) pentru un vehicul. Intoarce modelul+numarul sau null daca nu exista. */
+    public String adminSetStatus(long id, String status) {
+        for (Citizen ct : citizens.values()) {
+            for (Veh v : ct.vehicles) {
+                if (v.id != id) continue;
+                v.status = status;
+                sql("UPDATE mdt_vehicle SET status=? WHERE id=?", status, id);
+                pushAll();
+                return v.model + " " + v.plate;
+            }
+        }
+        return null;
+    }
+
+    /** Scoate un vehicul din evidenta (FAdmin). Intoarce modelul+numarul sau null. */
+    public String adminDelete(long id) {
+        for (Citizen ct : citizens.values()) {
+            for (Veh v : ct.vehicles) {
+                if (v.id != id) continue;
+                ct.vehicles.remove(v);
+                sql("DELETE FROM mdt_vehicle WHERE id=?", id);
+                pushAll();
+                return v.model + " " + v.plate;
+            }
+        }
+        return null;
+    }
+
     public boolean plateTaken(String plate) {
         return plateOwner(normPlate(plate)) != null;
     }

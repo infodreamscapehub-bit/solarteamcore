@@ -34,6 +34,11 @@ public final class Modules {
         MODULES.clear();
     }
 
+    /** Id-urile modulelor pornite, in ordinea pornirii. */
+    public static java.util.List<String> ids() {
+        return new java.util.ArrayList<>(MODULES.keySet());
+    }
+
     public static BridgeModule get(String id) {
         return MODULES.get(id);
     }
