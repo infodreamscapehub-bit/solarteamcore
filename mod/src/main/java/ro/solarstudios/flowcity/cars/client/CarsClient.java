@@ -11,12 +11,47 @@ public final class CarsClient extends JsonClientModule {
     private static CarsClient instance;
     public static JsonArray catalog = new JsonArray();
     public static double money;
+
+    /** Benzina din rezervorul unui vehicul MrCrayfish, in litri (-1 daca vehiculul nu are rezervor). */
+    public static float fuelOf(net.minecraft.world.entity.Entity v) {
+        if (v == null) return -1;
+        Class<?> c = v.getClass();
+        while (c != null) {
+            try {
+                java.lang.reflect.Method m = c.getDeclaredMethod("getCurrentFuel");
+                m.setAccessible(true);
+                Object o = m.invoke(v);
+                return o instanceof Number ? ((Number) o).floatValue() / 1000f : -1;
+            } catch (NoSuchMethodException e) {
+                c = c.getSuperclass();
+            } catch (ReflectiveOperationException | RuntimeException e) {
+                return -1;
+            }
+        }
+        return -1;
+    }
     public static double poundFee = 500;
+    /** Oferta pregatita cu /vindmasina (se aplica in meniul garajului). */
+    public static String sellBuyer = "";
+    public static double sellPrice;
+    /** Preturi de tuning (paint, engines, wheels) trimise de plugin odata cu catalogul. */
+    public static JsonObject tuning = new JsonObject();
 
     private CarsClient() {
         on("catalog", d -> {
             if (d.has("vehicles") && d.get("vehicles").isJsonArray()) catalog = d.getAsJsonArray("vehicles");
+            if (d.has("tuning") && d.get("tuning").isJsonObject()) tuning = d.getAsJsonObject("tuning");
             money = num(d, "money", money);
+        });
+        on("tuning_open", d -> {
+            tuning = d;
+            money = num(d, "money", money);
+            if (!(Minecraft.getInstance().screen instanceof TuningScreen)) TuningScreen.requestOpen("npc");
+        });
+        on("tune_result", d -> {
+            money = num(d, "money", money);
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.screen instanceof TuningScreen) ((TuningScreen) mc.screen).result(bool(d, "ok", false), str(d, "msg", ""));
         });
         on("pound_info", d -> {
             poundFee = num(d, "fee", poundFee);
@@ -25,20 +60,51 @@ public final class CarsClient extends JsonClientModule {
         on("pound_result", d -> {
             money = num(d, "money", money);
             Minecraft mc = Minecraft.getInstance();
-            if (mc.screen instanceof GarageScreen gs) gs.payResult(bool(d, "ok", false), str(d, "msg", ""));
+            if (mc.screen instanceof GarageScreen) ((GarageScreen) mc.screen).payResult(bool(d, "ok", false), str(d, "msg", ""));
         });
         on("police_result", d -> {
             Minecraft mc = Minecraft.getInstance();
             boolean ok = bool(d, "ok", false);
-            if (mc.screen instanceof PoliceVehicleScreen ps) {
-                ps.result(ok, str(d, "msg", ""));
+            if (mc.screen instanceof PoliceVehicleScreen) {
+                ((PoliceVehicleScreen) mc.screen).result(ok, str(d, "msg", ""));
                 if (ok && bool(d, "close", false)) mc.setScreen(null);
             }
+        });
+        on("fuel_info", d -> {
+            FuelScreen.info(num(d, "price", 8), num(d, "cash", 0), num(d, "bank", 0),
+                bool(d, "card", false), bool(d, "cashOk", true), bool(d, "cardOk", true));
+            money = num(d, "money", money);
+        });
+        on("fuel_result", d -> {
+            money = num(d, "money", money);
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.screen instanceof FuelScreen) {
+                ((FuelScreen) mc.screen).result(bool(d, "ok", false), str(d, "msg", ""), num(d, "liters", 0), bool(d, "end", false));
+            }
+        });
+        on("sell_prefill", d -> {
+            sellBuyer = str(d, "buyer", "");
+            sellPrice = num(d, "price", 0);
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.screen instanceof GarageScreen) ((GarageScreen) mc.screen).prefill();
+        });
+        on("sell_quote", d -> {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.screen instanceof GarageScreen) ((GarageScreen) mc.screen).quote(d);
+        });
+        on("sell_result", d -> {
+            money = num(d, "money", money);
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.screen instanceof GarageScreen) ((GarageScreen) mc.screen).sellResult(d);
+        });
+        on("dealer_open", d -> {
+            Minecraft mc = Minecraft.getInstance();
+            if (!(mc.screen instanceof DealerScreen)) DealerScreen.open(null);
         });
         on("buy_result", d -> {
             money = num(d, "money", money);
             Minecraft mc = Minecraft.getInstance();
-            if (mc.screen instanceof DealerScreen ds) ds.result(bool(d, "ok", false), str(d, "msg", ""));
+            if (mc.screen instanceof DealerScreen) ((DealerScreen) mc.screen).result(bool(d, "ok", false), str(d, "msg", ""));
         });
     }
 

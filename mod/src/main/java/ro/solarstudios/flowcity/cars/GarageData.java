@@ -34,7 +34,8 @@ public final class GarageData extends SavedData {
         public boolean hasStore;
         public double sx, sy, sz;               // zona de parcare
         public float radius = 4f;
-        public final List<double[]> slots = new ArrayList<>(); // x, y, z, yaw
+        public final List<double[]> slots = new ArrayList<>(); // terestre: x, y, z, yaw (si cele vechi, migrate automat)
+        public final List<double[]> boatSlots = new ArrayList<>(); // barci: x, y, z, yaw
 
         CompoundTag save() {
             CompoundTag t = new CompoundTag();
@@ -61,6 +62,16 @@ public final class GarageData extends SavedData {
                 l.add(c);
             }
             t.put("Slots", l);
+            ListTag bl = new ListTag();
+            for (double[] s : boatSlots) {
+                CompoundTag c = new CompoundTag();
+                c.putDouble("X", s[0]);
+                c.putDouble("Y", s[1]);
+                c.putDouble("Z", s[2]);
+                c.putDouble("Yaw", s[3]);
+                bl.add(c);
+            }
+            t.put("BoatSlots", bl);
             return t;
         }
 
@@ -79,10 +90,15 @@ public final class GarageData extends SavedData {
             g.sy = t.getDouble("SY");
             g.sz = t.getDouble("SZ");
             g.radius = t.contains("Radius") ? t.getFloat("Radius") : 4f;
-            ListTag l = t.getList("Slots", Tag.TAG_COMPOUND);
+            ListTag l = t.getList("Slots", net.minecraftforge.common.util.Constants.NBT.TAG_COMPOUND);
             for (int i = 0; i < l.size(); i++) {
                 CompoundTag c = l.getCompound(i);
                 g.slots.add(new double[] {c.getDouble("X"), c.getDouble("Y"), c.getDouble("Z"), c.getDouble("Yaw")});
+            }
+            ListTag bl = t.getList("BoatSlots", net.minecraftforge.common.util.Constants.NBT.TAG_COMPOUND);
+            for (int i = 0; i < bl.size(); i++) {
+                CompoundTag c = bl.getCompound(i);
+                g.boatSlots.add(new double[] {c.getDouble("X"), c.getDouble("Y"), c.getDouble("Z"), c.getDouble("Yaw")});
             }
             return g;
         }
@@ -96,8 +112,6 @@ public final class GarageData extends SavedData {
         public String type = "";
         public String name = "";
         public String plate = "";
-        /** Generatia cheii: creste la re-emitere, ca sa nu mai mearga cheile vechi. */
-        public int keyGen;
         public CompoundTag nbt = new CompoundTag();
         /** In lume (scoasa din garaj). */
         public boolean out;
@@ -106,6 +120,21 @@ public final class GarageData extends SavedData {
         /** La pound (ridicata de politie). */
         public boolean pound;
         public String poundReason = "";
+        /** Incuiata (nu se poate urca nimeni). */
+        public boolean locked;
+        /** Generatia cheii: cand se face o cheie noua, cele vechi nu mai merg. */
+        public int keyGen;
+        /** Asigurarea RCA valabila pana la (epoch ms; 0 = fara). */
+        public long insUntil;
+        /** ITP valabil pana la (epoch ms; 0 = fara). */
+        public long itpUntil;
+        /** Chilometraj: metri totali parcursi si metri de calatorie (resetabil). */
+        public double odometerM;
+        public double tripM;
+        /** Trip B (independent de trip A; tripM = trip A). */
+        public double tripBM;
+        /** Data inregistrarii (epoch ms; 0 = masina veche, inregistrata inainte de chilometraj). */
+        public long registeredAt;
 
         CompoundTag save() {
             CompoundTag t = new CompoundTag();
@@ -115,12 +144,19 @@ public final class GarageData extends SavedData {
             t.putString("Type", type);
             t.putString("Name", name);
             t.putString("Plate", plate);
-            t.putInt("KeyGen", keyGen);
             t.put("Nbt", nbt);
             t.putBoolean("Out", out);
             if (entity != null) t.putUUID("Entity", entity);
             t.putBoolean("Pound", pound);
             t.putString("PoundReason", poundReason);
+            t.putBoolean("Locked", locked);
+            t.putInt("KeyGen", keyGen);
+            t.putLong("InsUntil", insUntil);
+            t.putLong("ItpUntil", itpUntil);
+            t.putDouble("OdoM", odometerM);
+            t.putDouble("TripM", tripM);
+            t.putDouble("TripBM", tripBM);
+            t.putLong("RegAt", registeredAt);
             return t;
         }
 
@@ -132,42 +168,98 @@ public final class GarageData extends SavedData {
             c.type = t.getString("Type");
             c.name = t.getString("Name");
             c.plate = t.getString("Plate");
-            c.keyGen = t.getInt("KeyGen");
             c.nbt = t.getCompound("Nbt");
             c.out = t.getBoolean("Out");
             if (t.hasUUID("Entity")) c.entity = t.getUUID("Entity");
             c.pound = t.getBoolean("Pound");
             c.poundReason = t.getString("PoundReason");
+            c.locked = t.getBoolean("Locked");
+            c.keyGen = t.getInt("KeyGen");
+            c.insUntil = t.getLong("InsUntil");
+            c.itpUntil = t.getLong("ItpUntil");
+            c.odometerM = t.getDouble("OdoM");
+            c.tripM = t.getDouble("TripM");
+            c.tripBM = t.getDouble("TripBM");
+            c.registeredAt = t.getLong("RegAt");
             return c;
         }
     }
 
+    /** Benzinarie: zona in care, din masina, apesi E si alimentezi. */
+    public static final class Station {
+        public int id;
+        public String name = "Benzinarie";
+        public String dim = "minecraft:overworld";
+        public double x, y, z;
+        public float radius = 6f;
+
+        CompoundTag save() {
+            CompoundTag t = new CompoundTag();
+            t.putInt("Id", id);
+            t.putString("Name", name);
+            t.putString("Dim", dim);
+            t.putDouble("X", x);
+            t.putDouble("Y", y);
+            t.putDouble("Z", z);
+            t.putFloat("Radius", radius);
+            return t;
+        }
+
+        static Station load(CompoundTag t) {
+            Station s = new Station();
+            s.id = t.getInt("Id");
+            s.name = t.getString("Name");
+            s.dim = t.getString("Dim");
+            s.x = t.getDouble("X");
+            s.y = t.getDouble("Y");
+            s.z = t.getDouble("Z");
+            s.radius = t.contains("Radius") ? t.getFloat("Radius") : 6f;
+            return s;
+        }
+    }
+
+    private final Map<Integer, Station> stations = new LinkedHashMap<>();
+    private int nextStation = 1;
     private final Map<Integer, Car> cars = new HashMap<>();
     private final Map<Integer, Garage> garages = new LinkedHashMap<>();
     private int nextId = 1;
     private int nextGarage = 1;
 
-    public static GarageData get(MinecraftServer server) {
-        return server.overworld().getDataStorage().computeIfAbsent(GarageData::load, GarageData::new, NAME);
+    public GarageData() {
+        super(NAME);
     }
 
-    private static GarageData load(CompoundTag tag) {
-        GarageData d = new GarageData();
+    public static GarageData get(MinecraftServer server) {
+        return server.overworld().getDataStorage().computeIfAbsent(GarageData::new, NAME);
+    }
+
+    @Override
+    public void load(CompoundTag tag) {
+        GarageData d = this;
+        d.cars.clear();
+        d.garages.clear();
         d.nextId = Math.max(1, tag.getInt("NextId"));
         d.nextGarage = Math.max(1, tag.getInt("NextGarage"));
-        ListTag list = tag.getList("Cars", Tag.TAG_COMPOUND);
+        d.stations.clear();
+        d.nextStation = Math.max(1, tag.getInt("NextStation"));
+        ListTag sl = tag.getList("Stations", net.minecraftforge.common.util.Constants.NBT.TAG_COMPOUND);
+        for (int i = 0; i < sl.size(); i++) {
+            Station st = Station.load(sl.getCompound(i));
+            d.stations.put(st.id, st);
+            d.nextStation = Math.max(d.nextStation, st.id + 1);
+        }
+        ListTag list = tag.getList("Cars", net.minecraftforge.common.util.Constants.NBT.TAG_COMPOUND);
         for (int i = 0; i < list.size(); i++) {
             Car c = Car.load(list.getCompound(i));
             d.cars.put(c.id, c);
             d.nextId = Math.max(d.nextId, c.id + 1);
         }
-        ListTag gl = tag.getList("Garages", Tag.TAG_COMPOUND);
+        ListTag gl = tag.getList("Garages", net.minecraftforge.common.util.Constants.NBT.TAG_COMPOUND);
         for (int i = 0; i < gl.size(); i++) {
             Garage g = Garage.load(gl.getCompound(i));
             d.garages.put(g.id, g);
             d.nextGarage = Math.max(d.nextGarage, g.id + 1);
         }
-        return d;
     }
 
     @Override
@@ -180,6 +272,10 @@ public final class GarageData extends SavedData {
         ListTag gl = new ListTag();
         for (Garage g : garages.values()) gl.add(g.save());
         tag.put("Garages", gl);
+        tag.putInt("NextStation", nextStation);
+        ListTag sl = new ListTag();
+        for (Station st : stations.values()) sl.add(st.save());
+        tag.put("Stations", sl);
         return tag;
     }
 
@@ -194,6 +290,7 @@ public final class GarageData extends SavedData {
         c.name = name;
         c.plate = plate;
         c.nbt = nbt;
+        c.registeredAt = System.currentTimeMillis();
         cars.put(c.id, c);
         setDirty();
         return c;
@@ -247,5 +344,28 @@ public final class GarageData extends SavedData {
 
     public List<Garage> garages() {
         return new ArrayList<>(garages.values());
+    }
+
+    // ------------------------------------------------------------------ benzinarii
+
+    public Station addStation() {
+        Station st = new Station();
+        st.id = nextStation++;
+        stations.put(st.id, st);
+        setDirty();
+        return st;
+    }
+
+    public Station station(int id) {
+        return stations.get(id);
+    }
+
+    public void removeStation(int id) {
+        stations.remove(id);
+        setDirty();
+    }
+
+    public List<Station> stations() {
+        return new ArrayList<>(stations.values());
     }
 }

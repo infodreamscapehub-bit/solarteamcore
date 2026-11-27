@@ -33,6 +33,10 @@ TYPES = {
     "ro.solarstudios.flowcity.compat.GuiGraphics": "net.minecraft.client.gui.GuiGraphics",
     "ro.solarstudios.flowcity.compat.RegisterKeyMappingsEvent":
         "net.minecraftforge.client.event.RegisterKeyMappingsEvent",
+    # --- registre dinamice (1.16.5: RegistryKey + Registry.*_REGISTRY) ---
+    "net.minecraft.util.RegistryKey": "net.minecraft.resources.ResourceKey",
+    "net.minecraft.util.registry.Registry": "net.minecraft.core.registries.Registries",
+    "net.minecraft.util.registry.DynamicRegistries": "net.minecraft.core.RegistryAccess",
     # --- blaze3d ---
     "com.mojang.blaze3d.matrix.MatrixStack": "com.mojang.blaze3d.vertex.PoseStack",
     "com.mojang.blaze3d.vertex.IVertexBuilder": "com.mojang.blaze3d.vertex.VertexConsumer",
@@ -240,6 +244,8 @@ CODE = [
     (r"\bfontWidth\b", "width"),
     # MathHelper -> Mth (daca a ramas calificat)
     (r"\bMth\.lerp\b", "Mth.lerp"),
+    # registre dinamice: Registry.X_REGISTRY -> Registries.X
+    (r"\bRegistries\.([A-Z_]+)_REGISTRY\b", r"Registries.\1"),
     # taste
     (r"ClientRegistry\.registerKeyBinding\(", "/* 1.20.1: RegisterKeyMappingsEvent */ event.register("),
     # HUD: pe 1.20.1 evenimentul aduce direct un GuiGraphics, iar ElementType nu mai exista
@@ -262,6 +268,7 @@ WARN = [
     ("RenderLevelStageEvent",
      "1.20.1: adauga if (e.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return; si foloseste e.getPoseStack()"),
     ("Material.", "1.20.1: BlockBehaviour.Properties.of() nu mai ia Material"),
+    ("getRegistryName()", "1.20.1: ForgeRegistries.<REGISTRU>.getKey(obiect)"),
 ]
 
 

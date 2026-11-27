@@ -25,7 +25,7 @@ public final class NewsClient extends JsonClientModule {
             NewsState.canPublish = bool(d, "canPublish", false);
             NewsState.canDelete = bool(d, "canDelete", false);
             Minecraft mc = Minecraft.getInstance();
-            if (bool(d, "open", false) && !(mc.screen instanceof NewsScreen)) mc.setScreen(new NewsScreen());
+            if (bool(d, "open", false) && !(mc.screen instanceof AdsScreen)) mc.setScreen(new AdsScreen()); // CNN 2.0 = anunturi
         });
         on("banner", d -> {
             NewsState.Item it = parse(d);

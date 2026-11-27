@@ -17,6 +17,7 @@ public final class ClientInit {
     private ClientInit() {}
 
     public static KeyMapping openAdmin;
+    public static KeyMapping hudEdit;
     private static int helloTicks = -1;
     private static int helloTries;
 
@@ -30,6 +31,7 @@ public final class ClientInit {
         ro.solarstudios.flowcity.client.admin.AdminX.register();
         ro.solarstudios.flowcity.update.UpdateClient.register();
         ro.solarstudios.flowcity.news.NewsClient.register();
+        ro.solarstudios.flowcity.news.AdsClient.register();
         ro.solarstudios.flowcity.wheel.WheelClient.register();
         ro.solarstudios.flowcity.notify.NotifyClient.register();
         ro.solarstudios.flowcity.mdt.MdtClient.register();
@@ -40,6 +42,8 @@ public final class ClientInit {
         ro.solarstudios.flowcity.fjobs.FJobsClient.register();
         ro.solarstudios.flowcity.cars.client.CarsClient.register();
         ro.solarstudios.flowcity.cars.client.GaragesClient.register();
+        ro.solarstudios.flowcity.cars.client.MecanicClient.register();
+        ro.solarstudios.flowcity.cars.client.GarageAdminClient.register();
         if (ro.solarstudios.flowcity.cars.CarsCompat.loaded()) ro.solarstudios.flowcity.cars.client.CarHud.register();
     }
 
@@ -50,6 +54,8 @@ public final class ClientInit {
     private static void keys(RegisterKeyMappingsEvent event) {
         openAdmin = new KeyMapping("key.flowcity.admin", GLFW.GLFW_KEY_F9, "key.categories.flowcity");
         event.register(openAdmin);
+        hudEdit = new KeyMapping("key.flowcity.hudedit", GLFW.GLFW_KEY_F8, "key.categories.flowcity");
+        event.register(hudEdit);
         ro.solarstudios.flowcity.mdt.MdtClient.registerKeys(event);
         ro.solarstudios.flowcity.phone.PhoneClient.registerKeys(event);
         ro.solarstudios.flowcity.maps.MapsClient.registerKeys(event);
@@ -58,7 +64,42 @@ public final class ClientInit {
         ro.solarstudios.flowcity.cars.client.GaragesClient.registerKeys(event);
     }
 
+    private static boolean openHudEditor;
+    private static boolean openGarageAdmin;
+
     public static final class Events {
+        @SubscribeEvent
+        public void onChat(net.minecraftforge.client.event.ClientChatEvent e) {
+            String m = e.getMessage() == null ? "" : e.getMessage().trim().toLowerCase();
+            if (m.equals(".hudeditor") || m.equals(".hud")) {
+                e.setCanceled(true);
+                Minecraft.getInstance().gui.getChat().addRecentChat(e.getMessage());
+                openHudEditor = true;
+            } else if (m.equals(".garaje")) {
+                e.setCanceled(true);
+                Minecraft.getInstance().gui.getChat().addRecentChat(e.getMessage());
+                openGarageAdmin = true;
+            } else if (m.equals(".hudstyle") || m.startsWith(".hudstyle ")) {
+                e.setCanceled(true);
+                Minecraft.getInstance().gui.getChat().addRecentChat(e.getMessage());
+                String arg = m.substring(".hudstyle".length()).trim();
+                int v;
+                try {
+                    v = Integer.parseInt(arg);
+                } catch (NumberFormatException ignored) {
+                    v = -1;
+                }
+                if (Minecraft.getInstance().player != null) {
+                    if (v >= 1 && v <= 3) {
+                        ro.solarstudios.flowcity.client.ui.HudLayout.setStyle(v);
+                        Minecraft.getInstance().player.displayClientMessage(Component.literal("\u00a7b[FlowCity] \u00a77Stil HUD: \u00a7f" + v), false);
+                    } else {
+                        Minecraft.getInstance().player.displayClientMessage(Component.literal("\u00a7b[FlowCity] \u00a77Folosire: \u00a7f.hudstyle <1-3>"), false);
+                    }
+                }
+            }
+        }
+
         @SubscribeEvent
         public void onLogin(ClientPlayerNetworkEvent.LoggingIn e) {
             helloTicks = 40; // trimitem HELLO la ~2s dupa intrare, cand conexiunea e stabila
@@ -94,6 +135,19 @@ public final class ClientInit {
             if (openAdmin != null) {
                 while (openAdmin.consumeClick()) {
                     if (mc.screen == null) ClientBridge.sendOpenRequest();
+                }
+            }
+            if (openHudEditor && (mc.screen == null || mc.screen instanceof net.minecraft.client.gui.screens.ChatScreen)) {
+                openHudEditor = false;
+                mc.setScreen(new ro.solarstudios.flowcity.client.ui.HudEditorScreen());
+            }
+            if (openGarageAdmin && (mc.screen == null || mc.screen instanceof net.minecraft.client.gui.screens.ChatScreen)) {
+                openGarageAdmin = false;
+                mc.setScreen(new ro.solarstudios.flowcity.cars.client.GarageAdminScreen());
+            }
+            if (hudEdit != null) {
+                while (hudEdit.consumeClick()) {
+                    if (mc.screen == null) mc.setScreen(new ro.solarstudios.flowcity.client.ui.HudEditorScreen());
                 }
             }
             long pending = ClientBridge.pendingOpenAt;

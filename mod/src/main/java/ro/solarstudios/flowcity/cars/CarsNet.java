@@ -14,7 +14,7 @@ import ro.solarstudios.flowcity.FlowCity;
 
 /**
  * Canalul Forge pentru garaje. Client -> server: actiune (act, a, b). Server -> client: (kind, json).
- * Actiuni: "open" (a = garaj), "spawn" (a = garaj, b = masina), "store" (a = garaj), "inspect" (a = entitate).
+ * Actiuni: "open" (a = garaj), "spawn" (a = garaj, b = masina), "store" (a = garaj), "inspect" (a = entitate), "gadmin" (admin garaje: a = operatie, b = garaj, text = nume).
  * Tipuri raspuns: "garages" (lista pentru markere), "garage" (meniul unui garaj), "inspect" (vehicul vazut de politie).
  */
 public final class CarsNet {
@@ -29,7 +29,12 @@ public final class CarsNet {
     }
 
     public static void send(String act, int a, int b) {
-        if (channel != null) channel.sendToServer(new Act(act, a, b));
+        if (channel != null) channel.sendToServer(new Act(act, a, b, ""));
+    }
+
+    /** Ca send(), plus un text scurt (max 64 caractere), de ex. numele unui garaj nou. */
+    public static void send(String act, int a, int b, String text) {
+        if (channel != null) channel.sendToServer(new Act(act, a, b, text == null ? "" : text));
     }
 
     static void reply(ServerPlayer p, String kind, String json) {
@@ -40,28 +45,31 @@ public final class CarsNet {
         final String act;
         final int a;
         final int b;
+        final String s;
 
-        Act(String act, int a, int b) {
+        Act(String act, int a, int b, String s) {
             this.act = act;
             this.a = a;
             this.b = b;
+            this.s = s;
         }
 
         static void write(Act m, FriendlyByteBuf buf) {
             buf.writeUtf(m.act, 16);
             buf.writeVarInt(m.a);
             buf.writeVarInt(m.b);
+            buf.writeUtf(m.s, 64);
         }
 
         static Act read(FriendlyByteBuf buf) {
-            return new Act(buf.readUtf(16), buf.readVarInt(), buf.readVarInt());
+            return new Act(buf.readUtf(16), buf.readVarInt(), buf.readVarInt(), buf.readUtf(64));
         }
 
         static void handle(Act m, Supplier<NetworkEvent.Context> ctx) {
             NetworkEvent.Context c = ctx.get();
             c.enqueueWork(() -> {
                 ServerPlayer p = c.getSender();
-                if (p != null) CarsServer.handle(p, m.act, m.a, m.b);
+                if (p != null) CarsServer.handle(p, m.act, m.a, m.b, m.s);
             });
             c.setPacketHandled(true);
         }
