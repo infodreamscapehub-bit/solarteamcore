@@ -48,6 +48,34 @@ Unealta suprascrie fisierul din `mod/`. Pentru fisierele care exista in ambele m
 | `client/ui/FlowSounds.java` | pe 1.20.1 `SimpleSoundInstance` cere `RandomSource`, iar enumul e `SoundInstance.Attenuation`, nu `AttenuationType` |
 | `FlowCity.java`, `client/ClientHooks.java`, `client/ClientInit.java`, `content/ModContent.java` | au continut care exista doar pe 1.20.1 (blocurile GPS, `maps/`); se imbina manual, cu `--stdout` |
 
+### Diferentele gasite la etapele 2-3b (unealta nu le acopera)
+
+| Eroare la compilare | Cauza si rezolvarea |
+|---|---|
+| `yRot has private access in Entity` | campurile de rotatie sunt private: `getYRot()` (`yRotO` a ramas public) |
+| `x has private access in AbstractWidget` | widget-urile isi ascund pozitia: `setX()` / `setY()` |
+| `PoseStack cannot be converted to GuiGraphics` | `widget.render(…)` primeste `GuiGraphics`, nu `g.pose()` |
+| `Component is abstract` | `new Component(s)` → `Component.literal(s)` |
+| `cannot find symbol: class Mutable` | `BlockPos.Mutable` → `BlockPos.MutableBlockPos` |
+| `cannot find symbol: getRegistryName()` | Forge l-a scos: `ForgeRegistries.BLOCKS.getKey(block)` |
+| `isAir cannot be applied to given types` | `state.isAir(level, pos)` → `state.isAir()` |
+| `Reference<SoundEvent> cannot be converted` | o parte din `SoundEvents.*` sunt `Holder<SoundEvent>`: `.value()`, sau supraincarcare |
+| `cannot find symbol: variable ElementType` | barele vanilla se ascund cu `RenderGuiOverlayEvent.Pre` + `VanillaGuiOverlay.PLAYER_HEALTH.type()`; `RenderGuiEvent.Post` nu mai are `getType()` |
+| dalele hartii nu se leaga | `getTextureManager().bind(rl)` → `RenderSystem.setShader(GameRenderer::getPositionTexShader)` + `setShaderTexture(0, rl)`; `color4f` → `setShaderColor`; `enableTexture`, `disableAlphaTest` si `shadeModel` nu mai exista; `b.begin(int, …)` → `b.begin(VertexFormat.Mode, …)` |
+| `RenderLevelStageEvent` | `e.getPoseStack()` (nu `getGuiGraphics()`) si verificarea `Stage.AFTER_TRANSLUCENT_BLOCKS`, altfel desenezi de mai multe ori pe cadru |
+
+### Dependente intre pachete, rupte cu hook-uri
+
+Doua pachete se cereau unul pe altul, deci nu se puteau porta in nicio ordine:
+
+| Hook | Cine il seteaza | De ce |
+|---|---|---|
+| `MiniMapRenderer.statusStrip` | `HypeClient.register()` | `gps` lasa loc sub minimap randului compact de status, dar `StatusHud` citeste `MiniMapSettings` |
+| `NotifyScreen.openApp` | pachetul `phone`, la etapa 4 | apasarea pe o notificare deschide aplicatia; telefonul nou inca nu e portat |
+
+`GaragesClient` a primit clasa `S` si lista `stations` (le foloseste lista de locatii din `gps`);
+serverul le trimitea deja, clientul vechi le ignora.
+
 ### Ce NU face unealta
 
 Verifica manual dupa fiecare rulare (le raporteaza singura cu `--check`):
@@ -99,16 +127,13 @@ Tabelul complet, executabil, e in `tools/port116to120.py` (`TYPES` si `SIMPLE`).
   `HudEditorScreen`, plus alinierea celor existente (`Ui`, `Theme`, `FlowScreen`, `Wrap`, `Xmas`,
   `FlowSounds`). **API-ul lor public e identic pe ambele versiuni** — asa portarea ecranelor ramane
   mecanica. Singura diferenta: parametrul `GuiGraphics g` vine din vanilla, nu din `compat`.
-- [ ] **Etapa 2 — `gps/`** (24 fisiere, ~11 000 linii). Cel mai mare pachet: harta, minimap, rutare
-  pe drumuri, waypoint-uri, editor de harta si de zone, import de waypoint-uri.
-  De verificat manual: `GpsMap` (legarea texturii dalelor), `GpsHud` (randarea in lume).
-  La final: `HudLayout.register("minimap", …)` si `HudLayout.register("gps", …)` din `GpsClient`.
-- [ ] **Etapa 3 — `fjobs/`** (15 fisiere, ~4 200 linii). Itemele sunt deja inregistrate (etapa 0).
-  La final: `HudLayout.register("fjobs", …)`.
-- [ ] **Etapa 3b — `hype/`** (6 fisiere) si `notify/` (5). Vin **dupa** etapele 2 si 3:
-  `StatusHud` citeste `gps.MiniMapSettings`/`MiniMapRenderer` pentru varianta compacta de sub
-  minimap, iar `HypeClient` deschide ecranul de joburi din `fjobs`. Atunci se inregistreaza si
-  `HudLayout.register("hud" | "status" | "toasts", …)`.
+- [x] **Etapa 2 — `gps/`** (24 fisiere, ~11 000 linii). Harta, minimap, rutare pe drumuri,
+  waypoint-uri, editor de harta si de zone, import de waypoint-uri. `HudLayout.register` pentru
+  `minimap` si `gps` se face din `GpsClient.register()`.
+- [x] **Etapa 3 — `fjobs/`** (15 fisiere, ~4 200 linii), inclusiv `elec/`.
+  `HudLayout.register("fjobs", …)` din `FJobsClient.register()`.
+- [x] **Etapa 3b — `hype/`** (6 fisiere) si `notify/` (5). `HypeClient.register()` leaga hook-ul
+  `MiniMapRenderer.statusStrip` si inregistreaza `hud`, `toasts` si `status`.
 - [ ] **Etapa 4 — `cars/`** (21 vs 11 fisiere: lipsesc `FuelScreen`, `GarageAdmin*`, `Mecanic*`,
   `TuningScreen`, `Sk`, `VehicleParts`, `CarKeyItem`, `FuelPumps`) si `phone/` (5 vs 3 fisiere:
   telefonul nou cu App Store, SIM, Dynamic Island).
@@ -118,6 +143,13 @@ Tabelul complet, executabil, e in `tools/port116to120.py` (`TYPES` si `SIMPLE`).
 
 Ordinea conteaza: `gps/` si `fjobs/` sunt folosite de alte pachete (waypoint automat la job,
 navigare din telefon), iar `cars/` depinde de `Sk` din `cars/client`.
+
+**Stare:** `mod/` are ~33 300 de linii din cele ~47 200 ale lui `mod116`.
+
+**Regresie acceptata la etapa 3b:** vechiul `JobsScreen` de pe 1.20.1 avea un buton „Arata pe
+harta" care mergea prin `maps/` (harta veche). Varianta din 1.16.5 nu-l mai are, fiindca navigarea
+s-a mutat in `gps/` (butoanele „Navigheaza" din panoul de joburi). Daca butonul e dorit inapoi, se
+leaga la `GpsNav`, nu la `maps`.
 
 ## Dreptunghiurile implicite de HUD
 
