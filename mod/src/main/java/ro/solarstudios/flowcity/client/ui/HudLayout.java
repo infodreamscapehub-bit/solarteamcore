@@ -263,39 +263,43 @@ public final class HudLayout {
         return System.currentTimeMillis() - e.seen < 1500;
     }
 
+    /** Dreptunghiul implicit al unui element: fiecare HUD si-l anunta singur la pornirea clientului. */
+    public interface Default {
+        float[] rect(int sw, int sh);
+    }
+
+    private static final Map<String, Default> DEFAULTS = new LinkedHashMap<>();
+
+    /**
+     * Pachetul care deseneaza un element de HUD isi inregistreaza dreptunghiul implicit (din ClientInit).
+     * Asa HudLayout nu depinde de pachetele care inca nu sunt portate pe 1.20.1.
+     */
+    public static void register(String id, Default d) {
+        DEFAULTS.put(id, d);
+    }
+
     /** Dreptunghiul implicit al unui element pe care nu l-am vazut desenat (pentru editor). */
     public static float[] defaults(String id, int sw, int sh) {
-        switch (id) {
-            case "hud": {
-                int st = styleOf();
-                if (st == 1) return new float[] {sw - 244f, 3f, 244f, 110f};
-                float w = ro.solarstudios.flowcity.hype.HypeHud.widthOf(st);
-                return new float[] {sw - (w + 12f), 3f, w + 8f, ro.solarstudios.flowcity.hype.HypeHud.heightOf(st) + 6f};
+        Default d = DEFAULTS.get(id);
+        if (d != null) {
+            try {
+                float[] r = d.rect(sw, sh);
+                if (r != null && r.length == 4) return r;
+            } catch (RuntimeException ignored) {
+                // elementul nu stie inca de ecran: cadem pe valorile de mai jos
             }
-            case "speedo":
-                return ro.solarstudios.flowcity.cars.client.CarHud.defaultRect(sw, sh);
+        }
+        switch (id) {
+            case "hud":
+                return new float[] {sw - 244f, 3f, 244f, 110f};
             case "toasts":
                 return new float[] {sw - 218f, Math.max(8f, ro.solarstudios.flowcity.hype.HypeHud.occupiedBottom), 208f, 64f};
             case "news": {
                 float w = Math.min(372f, sw - 20f);
                 return new float[] {(sw - w) / 2f, 6f, w, 54f};
             }
-            case "minimap":
-                return ro.solarstudios.flowcity.gps.MiniMapRenderer.defaults(sw, sh);
-            case "gps": {
-                if (ro.solarstudios.flowcity.gps.MiniMapSettings.enabled) {
-                    // alaturi de minimap (jos-stanga), ca sa nu se suprapuna cu el
-                    float[] m = ro.solarstudios.flowcity.gps.MiniMapRenderer.defaults(sw, sh);
-                    return new float[] {m[0] + m[2] + 8f, m[1], 156f, 64f};
-                }
+            case "gps":
                 return new float[] {10f, sh / 2f + 40f, 156f, 64f};
-            }
-            case "status": {
-                if (ro.solarstudios.flowcity.hype.StatusHud.compactActive()) return ro.solarstudios.flowcity.hype.StatusHud.compactRect(sw, sh, 4);
-                float w = 4 * 30f + 3 * 3f;
-                float y = 8f + w > sw / 2f - 95f ? sh - 32f - 44f : sh - 32f - 8f;
-                return new float[] {8f, y, w, 32f};
-            }
             case "taxi":
                 return new float[] {10f, sh / 2f - 34f, 156f, 64f};
             case "fjobs":
