@@ -9,6 +9,12 @@ import net.minecraft.client.gui.GuiGraphics;
 
 /** Istoricul notificarilor (cele mai noi sus): panou rotunjit, randuri care intra pe rand, scroll si buton de stergere. */
 public final class NotifyScreen extends FlowScreen {
+    /**
+     * Deschide aplicatia din telefon pentru o notificare. O seteaza pachetul {@code phone} cand e
+     * portat; pana atunci apasarea pe notificare nu face nimic.
+     */
+    public static java.util.function.Consumer<String> openApp = t -> {};
+
     private static final int ROW = 38;
     private int scroll;
     private final long born = System.currentTimeMillis();
@@ -92,7 +98,7 @@ public final class NotifyScreen extends FlowScreen {
             Gfx.text(ms, Ui.time(it.ts), rx + w - 18, y + 14, 6.8f, Gfx.fade(Sk.FAINT, a), 2);
             if (!it.read) Gfx.rrect(ms, rx + w - 22, y + 21, 5, 5, 0, Gfx.fade(c, a));
             final String target = it.targetApp();
-            if (!target.isEmpty()) hit(x, y, w, ROW - 5, () -> ro.solarstudios.flowcity.phone.PhoneScreen.openFor(target));
+            if (!target.isEmpty()) hit(x, y, w, ROW - 5, () -> openApp.accept(target));
             y += ROW;
         }
         if (items.size() > visible) {

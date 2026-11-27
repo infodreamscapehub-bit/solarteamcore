@@ -68,18 +68,21 @@ public final class StatusHud {
 
     /** Ascunde barele vanilla (viata, armura, mancare) cand HUD-ul de status le arata. */
     @SubscribeEvent(priority = EventPriority.HIGH)
-    public void onPre(RenderGuiEvent.Pre e) {
-        RenderGuiEvent.ElementType t = e.getType();
-        if (t != RenderGuiEvent.ElementType.HEALTH && t != RenderGuiEvent.ElementType.ARMOR
-            && t != RenderGuiEvent.ElementType.FOOD) return;
+    public void onPre(net.minecraftforge.client.event.RenderGuiOverlayEvent.Pre e) {
+        // pe 1.20.1 fiecare bucata de HUD vanilla e un "overlay" cu nume, nu un ElementType
+        net.minecraftforge.client.gui.overlay.NamedGuiOverlay o = e.getOverlay();
+        String key;
+        if (o == net.minecraftforge.client.gui.overlay.VanillaGuiOverlay.PLAYER_HEALTH.type()) key = "health";
+        else if (o == net.minecraftforge.client.gui.overlay.VanillaGuiOverlay.ARMOR_LEVEL.type()) key = "armor";
+        else if (o == net.minecraftforge.client.gui.overlay.VanillaGuiOverlay.FOOD_LEVEL.type()) key = "food";
+        else return;
         if (!active() || !HudLayout.part(ID, "hidevanilla")) return;
-        String key = t == RenderGuiEvent.ElementType.HEALTH ? "health" : (t == RenderGuiEvent.ElementType.ARMOR ? "armor" : "food");
         if (HudLayout.part(ID, key)) e.setCanceled(true);
     }
 
     @SubscribeEvent
     public void onPost(RenderGuiEvent.Post e) {
-        if (e.getType() != RenderGuiEvent.ElementType.ALL || failed) return;
+        if (failed) return;
         try {
             render(e.getGuiGraphics());
         } catch (RuntimeException ex) {

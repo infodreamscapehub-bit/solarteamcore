@@ -115,8 +115,8 @@ public final class AtmScreen extends FlowScreen {
 
     /** Pozitia unui camp de text in coordonate de ecran, pe baza zonei lui din spatiul scalat. */
     private void placeField(EditBox f, float x, float y, float w, float h) {
-        f.x = Math.round(offX + (x + 6) * scale);
-        f.y = Math.round(offY + (y + (h - 8) / 2f) * scale);
+        f.setX(Math.round(offX + (x + 6) * scale));
+        f.setY(Math.round(offY + (y + (h - 8) / 2f) * scale));
         f.setWidth(Math.max(10, Math.round((w - 12) * scale)));
     }
 
