@@ -120,6 +120,8 @@ public final class GarageData extends SavedData {
         /** La pound (ridicata de politie). */
         public boolean pound;
         public String poundReason = "";
+        /** Momentul (ms) cand a fost ridicata la pound; 0 = necunoscut. */
+        public long poundAt;
         /** Incuiata (nu se poate urca nimeni). */
         public boolean locked;
         /** Generatia cheii: cand se face o cheie noua, cele vechi nu mai merg. */
@@ -149,6 +151,7 @@ public final class GarageData extends SavedData {
             if (entity != null) t.putUUID("Entity", entity);
             t.putBoolean("Pound", pound);
             t.putString("PoundReason", poundReason);
+            t.putLong("PoundAt", poundAt);
             t.putBoolean("Locked", locked);
             t.putInt("KeyGen", keyGen);
             t.putLong("InsUntil", insUntil);
@@ -173,6 +176,7 @@ public final class GarageData extends SavedData {
             if (t.hasUUID("Entity")) c.entity = t.getUUID("Entity");
             c.pound = t.getBoolean("Pound");
             c.poundReason = t.getString("PoundReason");
+            c.poundAt = t.getLong("PoundAt");
             c.locked = t.getBoolean("Locked");
             c.keyGen = t.getInt("KeyGen");
             c.insUntil = t.getLong("InsUntil");

@@ -149,6 +149,7 @@ public final class CarsServer {
             j.addProperty("loaded", live != null);
             j.addProperty("pound", c.pound);
             j.addProperty("reason", c.poundReason);
+            j.addProperty("poundAt", c.poundAt);
             if (live != null) {
                 j.addProperty("lx", (int) live.getX());
                 j.addProperty("lz", (int) live.getZ());
@@ -1456,6 +1457,7 @@ public final class CarsServer {
                             storeEntity(v, car);
                             car.pound = true;
                             car.poundReason = StringArgumentType.getString(c, "reason");
+                            car.poundAt = System.currentTimeMillis();
                             data.setDirty();
                             ServerPlayer owner = car.owner == null ? null : c.getSource().getServer().getPlayerList().getPlayer(car.owner);
                             if (owner != null) owner.displayClientMessage(Component.literal("Masina ta " + car.name + " (" + car.plate + ") a fost ridicata la pound: " + car.poundReason), false);
@@ -1480,6 +1482,7 @@ public final class CarsServer {
                     if (!car.pound && !lost) return fail(c, "Masina nu e la pound.");
                     car.pound = false;
                     car.poundReason = "";
+                    car.poundAt = 0;
                     car.out = false;
                     car.entity = null;
                     Entity e = spawn(p.serverLevel(), g, car);

@@ -177,7 +177,9 @@ public final class GaragesClient {
                 flashes.put(JsonClientModule.integer(o, "id", -1), new long[] {System.currentTimeMillis(), JsonClientModule.bool(o, "locked", false) ? 1 : 0});
                 break;
             case "garage":
-                if (mc.screen instanceof GarageScreen) ((GarageScreen) mc.screen).update(o);
+                if (mc.screen instanceof PoundScreen) ((PoundScreen) mc.screen).update(o);
+                else if (mc.screen instanceof GarageScreen) ((GarageScreen) mc.screen).update(o);
+                else if ("pound".equals(JsonClientModule.str(o, "type", ""))) mc.setScreen(new PoundScreen(o));
                 else mc.setScreen(new GarageScreen(o));
                 break;
             case "tune_cars":

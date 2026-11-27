@@ -1,7 +1,6 @@
 package ro.solarstudios.flowcity.cars.client;
 
 import com.google.gson.JsonElement;
-import com.mojang.math.Axis;
 import com.google.gson.JsonObject;
 import com.mojang.blaze3d.systems.RenderSystem;
 import java.util.ArrayList;
@@ -16,29 +15,27 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.IntArrayTag;
 import net.minecraft.core.BlockPos;
-import ro.solarstudios.flowcity.client.ui.FlowScreen;
+import org.joml.Vector3f;
+import ro.solarstudios.flowcity.client.ui.FScreen;
+import ro.solarstudios.flowcity.client.ui.FTheme;
+import ro.solarstudios.flowcity.client.ui.FUi;
 import ro.solarstudios.flowcity.client.ui.Gfx;
-import ro.solarstudios.flowcity.client.ui.Ui;
 import net.minecraft.client.gui.GuiGraphics;
 import ro.solarstudios.flowcity.module.JsonClientModule;
-import ro.solarstudios.flowcity.notify.NotifyUi;
 
 /**
- * Dealerul auto (showroom): categorii, catalogul din plugin ca niste carduri, masina in 3D pe un podium luminat in
- * culoarea aleasa (se roteste, o poti trage cu mouse-ul), vopsea cu cercuri, pretul mare si butonul de cumparare.
- * Masina cumparata ajunge in garajul tau.
+ * Dealerul auto: catalog cu cautare si categorii (doar vehiculele care exista in joc), previzualizare 3D a masinii
+ * (se roteste, o poti trage cu mouse-ul), date tehnice, vopsea, tuning, pret si confirmarea cumpararii.
+ * Cumpararea trece prin sistemul de plata existent (cash sau card), iar masina ajunge in garajul tau.
+ * Testul de drum nu exista in sistem, deci nu e afisat.
  */
-public final class DealerScreen extends FlowScreen {
+public final class DealerScreen extends FScreen {
     private static final int[] COLORS = {0xF2F2F0, 0x1B1F2A, 0x8E959E, 0xC8283C, 0x2F6FDB, 0x2E9D5B, 0xF2C230, 0xE9A23B, 0x6B4A2E, 0x5B3E8A};
     private static final String[] COLOR_NAMES = {"Alb", "Negru", "Gri", "Roșu", "Albastru", "Verde", "Galben", "Portocaliu", "Maro", "Mov"};
-    private static final int W = 520;
-    private static final int H = 290;
-    private static final int ROW = 30;
-    private static final int GOLD = 0xFFF6C15A;
-    private static final int GOLD2 = 0xFFD98E2B;
-    private static final int WHITE = 0xFFF4F1EA;
-    private static final int MUTED = 0xFF8E8C86;
-    private static final int FAINT = 0xFF6F6D68;
+    private static final int W = 600;
+    private static final int H = 346;
+    private static final int LISTW = 214;
+    private static final float CARD = 46f;
 
     private final BlockPos pos;
     private String category = "";
@@ -55,16 +52,13 @@ public final class DealerScreen extends FlowScreen {
     private final long born = System.currentTimeMillis();
     private long switchAt = System.currentTimeMillis();
     private long lastNs = System.nanoTime();
-    private float bh;
     private String engine = "-";
     private String wheels = "-";
     private double extra;
     private boolean resetOpts = true;
     private String previewOpts = "";
-
-    private float offX;
-    private float offY;
-    private float scale = 1f;
+    private boolean tuned;
+    private JsonObject pending;
 
     private DealerScreen(BlockPos pos) {
         super("Dealer auto", W, H);
@@ -74,11 +68,6 @@ public final class DealerScreen extends FlowScreen {
 
     public static void open(BlockPos pos) {
         Minecraft.getInstance().setScreen(new DealerScreen(pos));
-    }
-
-    @Override
-    protected boolean framed() {
-        return false;
     }
 
     void result(boolean ok, String msg) {
@@ -96,68 +85,22 @@ public final class DealerScreen extends FlowScreen {
         return 1f - u * u * u;
     }
 
-    private static boolean inside(float mx, float my, float x, float y, float w, float h) {
-        return mx >= x && mx < x + w && my >= y && my < y + h;
-    }
-
-    private void hitL(float x, float y, float w, float h, Runnable r) {
-        hit(Math.round(offX + x * scale), Math.round(offY + y * scale), Math.max(1, Math.round(w * scale)), Math.max(1, Math.round(h * scale)), r);
-    }
-
-    private static String clipG(String s, float size, boolean xl, float maxW) {
-        if (s == null) return "";
-        if (Gfx.width(s, size, xl) <= maxW) return s;
-        String t = s;
-        while (t.length() > 1 && Gfx.width(t + "...", size, xl) > maxW) t = t.substring(0, t.length() - 1);
-        return t + "...";
-    }
-
-    /** 12345 -> "12 345" (cu spatiu, ca in preturile de la dealer). */
-    private static String price(double v) {
-        String s = String.valueOf(Math.round(v));
-        StringBuilder b = new StringBuilder();
-        for (int i = 0; i < s.length(); i++) {
-            if (i > 0 && (s.length() - i) % 3 == 0) b.append(' ');
-            b.append(s.charAt(i));
-        }
-        return b.toString();
+    @Override
+    protected void onInputChanged(String id) {
+        scroll = 0;
     }
 
     // ------------------------------------------------------------------ desen
 
     @Override
-    protected void draw(GuiGraphics ms, int mx, int my) {
+    protected void paint(GuiGraphics g, int mx, int my) {
         long now = System.currentTimeMillis();
         long ns = System.nanoTime();
         float dt = Math.min(0.1f, (ns - lastNs) / 1e9f);
         lastNs = ns;
-        float open = easeOut((now - born) / 300f);
-        scale = Math.min(1f, Math.min((width - 8f) / W, (height - 8f) / H));
-        offX = width / 2f - W / 2f * scale;
-        offY = height / 2f - H / 2f * scale;
-        float lmx = (mx - offX) / scale;
-        float lmy = (my - offY) / scale;
-        ms.pose().pushPose();
-        ms.pose().translate(offX, offY, 0);
-        ms.pose().scale(scale, scale, scale);
-        Sk.background(ms, -offX / scale, -offY / scale, (width - offX) / scale, (height - offY) / scale, open);
-        Gfx.alpha = open;
-        try {
-            content(ms, lmx, lmy, now, dt);
-        } finally {
-            Gfx.alpha = 1f;
-            ms.pose().popPose();
-        }
-    }
-
-    private void content(GuiGraphics ms, float lmx, float lmy, long now, float dt) {
-        // antet
-        Gfx.text(ms, "DEALER", 16, 38, 17, Sk.WHITE, 0, true, 0f);
-        Gfx.text(ms, "FLOW CITY AUTO", 17, 50, 6.4f, Sk.MUTED, 0, false, 1.2f);
-        Gfx.text(ms, "SOLD", W - 48, 24, 6f, Sk.FAINT, 2, false, 1f);
-        Gfx.text(ms, price(CarsClient.money) + " lei", W - 48, 38, 11.5f, Sk.WHITE, 2, true, 0f);
-        Sk.close(ms, W - 34, 14, lmx, lmy);
-        hitL(W - 34, 14, 20, 20, this::onClose);
+        shell(g);
+        top(g, "Dealer auto", "FlowCity Auto", mx, my);
+        balance(g, "SOLD", CarsClient.money, W - 40, 16);
 
         List<JsonObject> all = new ArrayList<>();
         for (JsonElement e : CarsClient.catalog) {
@@ -166,73 +109,80 @@ public final class DealerScreen extends FlowScreen {
             if (exists(JsonClientModule.str(o, "id", ""))) all.add(o);
         }
         if (all.isEmpty()) {
-            boolean loading = CarsClient.catalog.size() == 0;
-            int dots = (int) ((now / 400) % 4);
-            Gfx.text(ms, loading ? "Se încarcă catalogul" + "...".substring(0, dots) : "Modul de vehicule nu e instalat.", W / 2f, H / 2f, 10, Sk.MUTED, 1);
+            if (CarsClient.catalog.size() == 0) FUi.loading(g, W / 2f, H / 2f, now / 1000f, FTheme.accent);
+            else FUi.empty(g, "close", "Catalog indisponibil", "Modulul de vehicule nu e instalat.", W / 2f, H / 2f - 10, 260f);
             return;
         }
 
-        // categorii: text cu linie sub cea activa
+        float x0 = 16f;
+        float y0 = 60f;
+        // cautare
+        input(g, "q", "Caută model...", x0, y0, LISTW, 20f, 20, mx, my);
+        // categorii
         Set<String> cats = new LinkedHashSet<>();
         for (JsonObject o : all) cats.add(JsonClientModule.str(o, "category", "Diverse"));
-        float cx = 16f;
-        cx += tab(ms, "TOATE", cx, 72, category.isEmpty(), lmx, lmy, () -> {
+        float cx = x0;
+        float cy = y0 + 26f;
+        cx += chipAt(g, "cat-all", "Toate", cx, cy, 16, category.isEmpty(), mx, my, () -> {
             category = "";
             scroll = 0;
         });
         for (String c : cats) {
-            float w = Gfx.width(c.toUpperCase(), 7f, false) + 14;
-            if (cx + w > 206) break;
+            float w = FUi.chipWidth(c, 16, false) + 5f;
+            if (cx + w > x0 + LISTW + 1) {
+                cx = x0;
+                cy += 20f;
+            }
             final String cat = c;
-            cx += tab(ms, c.toUpperCase(), cx, 72, c.equals(category), lmx, lmy, () -> {
+            cx += chipAt(g, "cat-" + c, c, cx, cy, 16, c.equals(category), mx, my, () -> {
                 category = cat;
                 scroll = 0;
             });
         }
+
+        String q = text("q").trim().toLowerCase();
         List<JsonObject> rows = new ArrayList<>();
-        for (JsonObject o : all) if (category.isEmpty() || category.equals(JsonClientModule.str(o, "category", "Diverse"))) rows.add(o);
-        if (rows.stream().noneMatch(r -> selected.equals(JsonClientModule.str(r, "id", "")))) selected = rows.isEmpty() ? "" : JsonClientModule.str(rows.get(0), "id", "");
+        for (JsonObject o : all) {
+            if (!category.isEmpty() && !category.equals(JsonClientModule.str(o, "category", "Diverse"))) continue;
+            if (!q.isEmpty() && !JsonClientModule.str(o, "name", "").toLowerCase().contains(q)) continue;
+            rows.add(o);
+        }
+        if (rows.stream().noneMatch(r -> selected.equals(JsonClientModule.str(r, "id", "")))) {
+            selected = rows.isEmpty() ? "" : JsonClientModule.str(rows.get(0), "id", "");
+        }
         if (!selected.equals(lastSelected)) {
             lastSelected = selected;
             switchAt = now;
             resetOpts = true;
         }
 
-        // lista (paralelograme; cel ales e plin cu accent)
-        float top = 84f;
-        float bottom = H - 12f;
-        int visible = Math.max(1, (int) ((bottom - top) / ROW));
-        scroll = Math.max(0, Math.min(scroll, Math.max(0, rows.size() - visible)));
+        // lista de carduri
+        float ly = cy + 24f;
+        float lh = H - 16f - ly;
+        int per = Math.max(1, (int) (lh / (CARD + 5f)));
+        scroll = Math.max(0, Math.min(scroll, Math.max(0, rows.size() - per)));
         JsonObject sel = null;
-        float y = top;
+        if (rows.isEmpty()) FUi.empty(g, "search", "Niciun vehicul", "Încearcă altă căutare.", x0 + LISTW / 2f, ly + lh / 2f - 14, LISTW);
+        float y = ly;
         for (int i = 0; i < rows.size(); i++) {
             JsonObject o = rows.get(i);
             String id = JsonClientModule.str(o, "id", "");
             if (id.equals(selected)) sel = o;
-            if (i < scroll || i >= scroll + visible) continue;
+            if (i < scroll || i >= scroll + per) continue;
             boolean s = id.equals(selected);
-            boolean h = Sk.in(lmx, lmy, 12, y, 196, ROW - 4);
-            Sk.slant(ms, s ? 18 : 12, y, 196, ROW - 4, 7f, s ? Sk.ACC : (h ? Sk.ROW_HOT : Sk.ROW));
-            int fg = s ? 0xFF061426 : Sk.WHITE;
-            int sub = s ? 0xFF1F4F85 : Sk.FAINT;
-            float tx = s ? 32f : 26f;
-            Gfx.text(ms, clipG(JsonClientModule.str(o, "name", id), 8.8f, true, 104), tx, y + 12, 8.8f, fg, 0, true, 0f);
-            String line2 = JsonClientModule.str(o, "category", "");
-            int stk = JsonClientModule.integer(o, "stock", -1);
-            if (stk >= 0) line2 += (line2.isEmpty() ? "" : "  ·  ") + (stk == 0 ? "epuizat" : stk + " în stoc");
-            Gfx.text(ms, clipG(line2, 6.2f, false, 120), tx, y + 21, 6.2f, stk == 0 && !s ? Sk.BAD : sub, 0);
+            FUi.card(g, "dc-" + id, x0, y, LISTW, CARD, true, mx, my);
+            if (s) FTheme.panel(g, x0, y, LISTW, CARD, FTheme.R_MD, FTheme.alpha(FTheme.accent, 30), FTheme.accent);
             double p = JsonClientModule.num(o, "price", 0);
-            Gfx.text(ms, price(p), 202, y + 16, 8.6f, s ? 0xFF061426 : (CarsClient.money >= p ? Sk.WHITE : Sk.BAD), 2, true, 0f);
-            hitL(12, y, 196, ROW - 4, () -> selected = id);
-            y += ROW;
+            int stk = JsonClientModule.integer(o, "stock", -1);
+            tx(g, clip(JsonClientModule.str(o, "name", id), LISTW - 28, 8.6f, true), x0 + 12, y + 17, 8.6f, FTheme.TEXT);
+            String sub = JsonClientModule.str(o, "category", "");
+            if (stk >= 0) sub += (sub.isEmpty() ? "" : "  ·  ") + (stk == 0 ? "epuizat" : stk + " în stoc");
+            t(g, clip(sub, 110, 6.4f, false), x0 + 12, y + 29, 6.4f, stk == 0 ? FTheme.DANGER : FTheme.MUTED);
+            tr(g, num(p) + " lei", x0 + LISTW - 12, y + 40, 8f, CarsClient.money >= p ? FTheme.TEXT : FTheme.DANGER);
+            hit((int) x0, (int) y, LISTW, (int) CARD, () -> selected = id);
+            y += CARD + 5f;
         }
-        if (rows.size() > visible) {
-            float trackH = bottom - top;
-            float th = Math.max(14f, trackH * visible / rows.size());
-            float ty = top + (trackH - th) * scroll / Math.max(1, rows.size() - visible);
-            Gfx.rrect(ms, 212, top, 2, trackH, 0, 0xFF14202F);
-            Gfx.rrect(ms, 212, ty, 2, th, 0, Sk.ACC);
-        }
+        if (rows.size() > per) FUi.scrollbar(g, x0 + LISTW + 3, ly, lh, rows.size(), per, scroll);
         if (sel == null) return;
 
         if (resetOpts) {
@@ -240,100 +190,127 @@ public final class DealerScreen extends FlowScreen {
             engine = JsonClientModule.str(sel, "engine", "-");
             wheels = JsonClientModule.str(sel, "wheels", "-");
             extra = 0;
+            tuned = false;
         }
 
-        // ---- zona masinii
-        float rx = 230f;
+        // ---- panoul din dreapta
+        float rx = x0 + LISTW + 18f;
         float rr = W - 16f;
         float rw = rr - rx;
-        int paint = 0xFF000000 | color;
+        card(g, rx, y0, rw, H - 16f - y0);
+
+        // scena: podium colorat cu vopsea aleasa
+        float sh = 142f;
         float flash = Math.max(0f, 1f - (now - switchAt) / 450f);
-        Sk.floor(ms, rx, rr, 112f, 172f, Gfx.mixArgb(paint, 0xFFFFFFFF, 0.1f * flash));
-        renderPreview(ms, JsonClientModule.str(sel, "id", ""), rx + rw / 2f, 172f, 340f, 190f, dt, easeOut((now - switchAt) / 380f));
-        String cat = JsonClientModule.str(sel, "category", "").toUpperCase();
-        Gfx.text(ms, cat, rx, 56, 6.6f, Sk.ACC, 0, false, 1.2f);
-        Gfx.text(ms, clipG(JsonClientModule.str(sel, "name", ""), 20, true, rw - 70), rx, 76, 20, Sk.WHITE, 0, true, 0f);
+        int paint = 0xFF000000 | color;
+        Gfx.rrect(g, rx + 6, y0 + 6, rw - 12, sh, 8f, FTheme.mix(FTheme.BG, paint, 0.10f + 0.10f * flash));
+        Gfx.rrect(g, rx + 6, y0 + 6 + sh - 34, rw - 12, 34, 8f, FTheme.mix(FTheme.BG, paint, 0.22f));
+        String selId = JsonClientModule.str(sel, "id", "");
+        renderPreview(g, selId, rx + rw / 2f, y0 + sh - 6f, rw, sh, dt, easeOut((now - switchAt) / 380f));
+        t(g, "trage pentru a roti", rx + rw - 14, y0 + sh - 2f, 5.8f, FTheme.FAINT);
+        hit((int) (rx + 6), (int) (y0 + 6), (int) (rw - 12), (int) sh, () -> dragging = true);
+
+        // titlu + stoc
+        float ty = y0 + sh + 24f;
+        tx(g, clip(JsonClientModule.str(sel, "name", ""), rw - 130, 14f, true), rx + 14, ty, 14f, FTheme.TEXT);
         int selStock = JsonClientModule.integer(sel, "stock", -1);
+        float px2 = rr - 14;
         if (selStock >= 0) {
-            String stl = selStock == 0 ? "EPUIZAT" : "STOC " + selStock;
-            Gfx.text(ms, stl, rr, 56, 6.8f, selStock == 0 ? Sk.BAD : (selStock <= 2 ? Sk.WARN : Sk.GOOD), 2, false, 1f);
+            String stl = selStock == 0 ? "EPUIZAT" : "ÎN STOC " + selStock;
+            float pw2 = Gfx.width(stl, 6.4f, true) + 10f;
+            pill(g, stl, px2 - pw2, ty - 11, selStock == 0 ? FTheme.DANGER : (selStock <= 2 ? FTheme.WARN : FTheme.OK));
+            px2 -= pw2 + 6;
         }
-        List<String> dl = NotifyUi.wrap(JsonClientModule.str(sel, "desc", ""), 7.2f, 150, 2);
-        float dy = 89f;
-        for (String l : dl) {
-            Gfx.text(ms, l, rx, dy, 7.2f, Sk.MUTED, 0);
-            dy += 9.5f;
+        String cat = JsonClientModule.str(sel, "category", "");
+        if (!cat.isEmpty()) {
+            float pw3 = Gfx.width(cat.toUpperCase(), 6.4f, true) + 10f;
+            pill(g, cat.toUpperCase(), px2 - pw3, ty - 11, FTheme.SKY);
         }
-        Gfx.text(ms, "trage pentru a roti", rr, 196, 5.8f, Sk.FAINT, 2);
-        Gfx.text(ms, "KILOMETRAJ  0 km  ·  NOU", rx, 196, 5.8f, Sk.ACC, 0, false, 0.8f);
-        hitL(rx, 100, rw, 96, () -> dragging = true);
+        String desc = JsonClientModule.str(sel, "desc", "");
+        if (!desc.isEmpty()) {
+            int line = 0;
+            for (String l : wrap(desc, rw - 28, 7f, 2)) {
+                t(g, l, rx + 14, ty + 12 + line * 9f, 7f, FTheme.MUTED);
+                line++;
+            }
+        }
 
-        // ---- statistici (dupa motor si roti)
-        int pw = TuningScreen.enginePower(engine);
+        // date tehnice (dupa motor si roti) + kilometraj
+        float sy = ty + 36f;
+        int pwr = TuningScreen.enginePower(engine);
         int[] ws = TuningScreen.wheelStats(wheels);
-        stat(ms, "VITEZĂ MAX", rx, 212, Math.min(10, Math.round(pw * 1.2f + ws[1] * 0.8f)));
-        stat(ms, "ACCELERAȚIE", rx, 227, Math.min(10, pw * 2));
-        stat(ms, "ADERENȚĂ", rx, 242, Math.min(10, ws[0] * 2));
+        float colW = (rw - 28 - 16) / 2f;
+        FUi.progress(g, "VITEZĂ MAX", Math.min(10, Math.round(pwr * 1.2f + ws[1] * 0.8f)) + "/10", rx + 14, sy, colW,
+            Math.min(10, Math.round(pwr * 1.2f + ws[1] * 0.8f)) / 10f, FTheme.accent);
+        FUi.progress(g, "ACCELERAȚIE", Math.min(10, pwr * 2) + "/10", rx + 14 + colW + 16, sy, colW, Math.min(10, pwr * 2) / 10f, FTheme.SKY);
+        FUi.progress(g, "ADERENȚĂ", Math.min(10, ws[0] * 2) + "/10", rx + 14, sy + 24, colW, Math.min(10, ws[0] * 2) / 10f, FTheme.OK);
+        t(g, "Kilometraj", rx + 14 + colW + 16, sy + 30, 6.2f, FTheme.FAINT);
+        tx(g, "0 km · nou", rx + 14 + colW + 16, sy + 41, 8f, FTheme.TEXT);
 
-        // ---- culoare: patrate
+        // culoare
+        float cy2 = H - 16f - 66f;
         String cname = "";
         for (int i = 0; i < COLORS.length; i++) if (COLORS[i] == color) cname = COLOR_NAMES[i];
-        Gfx.text(ms, "CULOARE", 404, 218, 6.2f, Sk.FAINT, 0, false, 1f);
-        Gfx.text(ms, cname.toUpperCase(), rr, 218, 6.4f, Sk.MUTED, 2, false, 0.8f);
+        FTheme.caption(g, "CULOARE  ·  " + cname.toUpperCase(), rx + 14, cy2 + 5, FTheme.FAINT);
         for (int i = 0; i < COLORS.length; i++) {
-            float sx = 404f + (i % 5) * 21f;
-            float sy = 224f + (i / 5) * 21f;
+            float sx = rx + 14 + i * 20f;
             boolean s = COLORS[i] == color;
-            boolean h = Sk.in(lmx, lmy, sx, sy, 17, 17);
-            if (s) Gfx.rrect(ms, sx - 2.5f, sy - 2.5f, 22, 22, 0, Sk.ACC);
-            Gfx.rrect(ms, sx, sy, 17, 17, 0, Gfx.mixArgb(0xFF000000 | COLORS[i], 0xFFFFFFFF, h ? 0.18f : 0f));
+            boolean hv = inr(mx, my, sx, cy2 + 10, 16, 16);
+            if (s) Gfx.disc(g, sx + 8, cy2 + 18, 10f, FTheme.accent);
+            Gfx.disc(g, sx + 8, cy2 + 18, 8f, FTheme.mix(0xFF000000 | COLORS[i], 0xFFFFFFFF, hv ? 0.2f : 0f));
             final int cc = COLORS[i];
-            hitL(sx, sy, 17, 17, () -> color = cc);
+            hit((int) sx - 2, (int) cy2 + 8, 20, 20, () -> color = cc);
         }
 
-        // ---- pret + butoane
+        // pret + actiuni
         double pr = JsonClientModule.num(sel, "price", 0) + extra;
         boolean afford = CarsClient.money >= pr;
-        Gfx.text(ms, price(pr), rx, 278, 15, afford ? Sk.WHITE : Sk.BAD, 0, true, 0f);
-        float pwid = Gfx.width(price(pr), 15, true);
-        Gfx.text(ms, "lei", rx + pwid + 4, 278, 7, Sk.MUTED, 0);
-        if (extra > 0) Gfx.text(ms, "cu tuning +" + price(extra), rx, 264, 6.4f, Sk.ACC, 0);
+        float by = H - 16f - 28f - 2f;
+        tx(g, num(pr), rx + 14, by + 20, 15f, afford ? FTheme.TEXT : FTheme.DANGER);
+        t(g, "lei", rx + 14 + Gfx.width(num(pr), 15f, true) + 4, by + 20, 7f, FTheme.MUTED);
+        if (extra > 0) t(g, "cu tuning +" + num(extra) + " lei", rx + 14, by + 6, 6.2f, FTheme.accent);
+        else if (!afford) t(g, "Fonduri insuficiente", rx + 14, by + 6, 6.2f, FTheme.DANGER);
         final JsonObject chosen = sel;
-        boolean ht = Sk.in(lmx, lmy, 352, 258, 76, 24);
-        Sk.button(ms, "TUNING", 352, 258, 76, 24, true, false, ht);
-        hitL(352, 258, 76, 24, () -> TuningScreen.forDealer(this, chosen, color, engine, wheels, (c, e, w, ex) -> {
-            color = c;
-            engine = e;
-            wheels = w;
-            extra = ex;
-        }));
+        float bw2 = 96f;
+        float bw1 = 132f;
+        btn(g, "dl-tune", "Tuning", "gear", rr - 14 - bw1 - 8 - bw2, by, bw2, 28, FUi.SOFT, !waiting && !modalActive(), mx, my,
+            () -> TuningScreen.forDealer(this, chosen, color, engine, wheels, (c, e, w, ex) -> {
+                color = c;
+                engine = e;
+                wheels = w;
+                extra = ex;
+                tuned = true;
+            }));
         boolean inStock = selStock != 0;
-        boolean can = !waiting && afford && inStock;
-        String label = waiting ? "SE CUMPĂRĂ" : (!inStock ? "EPUIZAT" : (afford ? "CUMPĂRĂ" : "FĂRĂ BANI"));
-        boolean hb = can && Sk.in(lmx, lmy, 434, 258, 70, 24);
-        Sk.button(ms, label, 434, 258, 70, 24, can, true, hb);
-        if (can) hitL(434, 258, 70, 24, () -> buy(chosen));
+        boolean can = !waiting && afford && inStock && !modalActive();
+        String label = waiting ? "Se cumpără..." : (!inStock ? "Epuizat" : "Cumpără");
+        btn(g, "dl-buy", label, "check", rr - 14 - bw1, by, bw1, 28, FUi.PRIMARY, can, mx, my, () -> {
+            pending = chosen;
+            openModal(() -> buy(chosen));
+        });
+        if (pending != null) {
+            drawModal(g, "Confirmă cumpărarea",
+                JsonClientModule.str(pending, "name", "") + " · " + lei(JsonClientModule.num(pending, "price", 0) + extra),
+                "Cumpără", "Anulează", false, mx, my);
+        }
     }
 
-    private float tab(GuiGraphics ms, String label, float x, float y, boolean active, float lmx, float lmy, Runnable r) {
-        float w = Gfx.width(label, 7f, false) + 14;
-        boolean h = Sk.in(lmx, lmy, x, y - 10, w, 16);
-        Gfx.text(ms, label, x, y, 7f, active ? Sk.WHITE : (h ? 0xFFC9CBD0 : Sk.MUTED), 0, false, 0.6f);
-        if (active) Gfx.rrect(ms, x, y + 3, w - 14, 2, 0, Sk.ACC);
-        hitL(x, y - 10, w, 16, r);
-        return w;
-    }
-
-    private static void stat(GuiGraphics ms, String label, float x, float y, int v) {
-        Gfx.text(ms, label, x, y + 6, 6.4f, Sk.MUTED, 0, false, 0.6f);
-        Sk.segs(ms, x + 66, y, 96, 6, v, 10, Sk.ACC);
-    }
-
-    private static CompoundTag stk(String id) {
-        CompoundTag s = new CompoundTag();
-        s.putString("id", id);
-        s.putByte("Count", (byte) 1);
-        return s;
+    private static List<String> wrap(String text, float maxW, float size, int maxLines) {
+        List<String> out = new ArrayList<>();
+        StringBuilder cur = new StringBuilder();
+        for (String word : text.split("\\s+")) {
+            String t = cur.length() == 0 ? word : cur + " " + word;
+            if (Gfx.width(t, size, false) > maxW && cur.length() > 0) {
+                out.add(cur.toString());
+                cur = new StringBuilder(word);
+                if (out.size() >= maxLines) break;
+            } else {
+                cur = new StringBuilder(t);
+            }
+        }
+        if (out.size() < maxLines && cur.length() > 0) out.add(cur.toString());
+        if (!out.isEmpty()) out.set(out.size() - 1, clip(out.get(out.size() - 1), maxW, size, false));
+        return out;
     }
 
     private void buy(JsonObject sel) {
@@ -374,8 +351,8 @@ public final class DealerScreen extends FlowScreen {
         g.pose().pushPose();
         g.pose().translate(cx, groundY, 120);
         g.pose().scale(sc, -sc, sc);
-        g.pose().mulPose(Axis.XP.rotationDegrees(-16f));
-        g.pose().mulPose(Axis.YP.rotationDegrees(spin));
+        g.pose().mulPose(com.mojang.math.Axis.XP.rotationDegrees(-16f));
+        g.pose().mulPose(com.mojang.math.Axis.YP.rotationDegrees(spin));
         Lighting.setupFor3DItems();
         EntityRenderDispatcher d = mc.getEntityRenderDispatcher();
         d.setRenderShadow(false);
