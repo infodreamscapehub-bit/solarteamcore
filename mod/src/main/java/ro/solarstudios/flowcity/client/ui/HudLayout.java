@@ -293,7 +293,7 @@ public final class HudLayout {
             case "hud":
                 return new float[] {sw - 244f, 3f, 244f, 110f};
             case "toasts":
-                return new float[] {sw - 218f, Math.max(8f, ro.solarstudios.flowcity.hype.HypeHud.occupiedBottom), 208f, 64f};
+                return new float[] {sw - 218f, 8f, 208f, 64f};
             case "news": {
                 float w = Math.min(372f, sw - 20f);
                 return new float[] {(sw - w) / 2f, 6f, w, 54f};

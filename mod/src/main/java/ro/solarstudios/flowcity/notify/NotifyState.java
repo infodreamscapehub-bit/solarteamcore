@@ -15,6 +15,18 @@ public final class NotifyState {
         public String text = "";
         public long ts;
         public boolean read;
+        /** Aplicatia de telefon care se deschide la apasare (sms, call, news, ads, bank, jobs); gol = dupa tip. */
+        public String app = "";
+
+        public String targetApp() {
+            if (!app.isEmpty()) return app;
+            switch (type) {
+                case "NEWS": return "news";
+                case "MONEY": return "bank";
+                case "JOB": return "jobs";
+                default: return "";
+            }
+        }
     }
 
     public static final List<Item> history = new ArrayList<>();
@@ -33,6 +45,7 @@ public final class NotifyState {
             case "WARN": return Theme.WARN;
             case "BAD": return Theme.BAD;
             case "MONEY": return 0xFFF5C451;
+            case "PAYDAY": return 0xFF5BC47F;
             case "JOB": return Theme.VIOLET;
             case "NEWS": return 0xFF5BA8FF;
             default: return Theme.ACCENT;
@@ -45,6 +58,7 @@ public final class NotifyState {
             case "WARN": return "!";
             case "BAD": return "x";
             case "MONEY": return "$";
+            case "PAYDAY": return "$";
             case "JOB": return "J";
             case "NEWS": return "N";
             default: return "i";

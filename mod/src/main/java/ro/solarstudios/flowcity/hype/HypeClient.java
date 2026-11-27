@@ -1,10 +1,12 @@
 package ro.solarstudios.flowcity.hype;
 
+import net.minecraft.network.chat.Component;
+
 import com.google.gson.JsonObject;
 import net.minecraft.client.Minecraft;
-import net.minecraft.network.chat.Component;
 import net.minecraftforge.common.MinecraftForge;
 import ro.solarstudios.flowcity.client.ui.FlowScreen;
+import ro.solarstudios.flowcity.client.ui.HudLayout;
 import ro.solarstudios.flowcity.module.ClientModules;
 import ro.solarstudios.flowcity.module.JsonClientModule;
 
@@ -26,7 +28,7 @@ public final class HypeClient extends JsonClientModule {
         on("msg", d -> notice(str(d, "text", ""), bool(d, "ok", true)));
         on("earn", d -> HypeState.popup("+$" + ro.solarstudios.flowcity.client.ui.Ui.money(num(d, "pay", 0)) + "  +" + integer(d, "xp", 0) + " XP"));
         on("open", d -> {
-            if ("jobs".equals(str(d, "screen", ""))) Minecraft.getInstance().setScreen(new JobsScreen());
+            if ("jobs".equals(str(d, "screen", ""))) ro.solarstudios.flowcity.fjobs.FJobsClient.open();
         });
         on("hud_toggle", d -> {
             if ("xmas".equals(str(d, "mode", ""))) {
@@ -62,6 +64,24 @@ public final class HypeClient extends JsonClientModule {
         instance = new HypeClient();
         ClientModules.register(instance);
         MinecraftForge.EVENT_BUS.register(new HypeHud());
+        MinecraftForge.EVENT_BUS.register(new StatusHud());
+        // minimap-ul lasa loc dedesubt randului compact de status (hook, ca sa nu legam gps de hype)
+        ro.solarstudios.flowcity.gps.MiniMapRenderer.statusStrip =
+            () -> StatusHud.compactActive() ? StatusHud.COMPACT_H : 0;
+        HudLayout.register("hud", (sw, sh) -> {
+            int st = HudLayout.styleOf();
+            if (st == 1) return new float[] {sw - 244f, 3f, 244f, 110f};
+            float w = HypeHud.widthOf(st);
+            return new float[] {sw - (w + 12f), 3f, w + 8f, HypeHud.heightOf(st) + 6f};
+        });
+        HudLayout.register("toasts", (sw, sh) ->
+            new float[] {sw - 218f, Math.max(8f, HypeHud.occupiedBottom), 208f, 64f});
+        HudLayout.register("status", (sw, sh) -> {
+            if (StatusHud.compactActive()) return StatusHud.compactRect(sw, sh, 4);
+            float w = 4 * 30f + 3 * 3f;
+            float y = 8f + w > sw / 2f - 95f ? sh - 32f - 44f : sh - 32f - 8f;
+            return new float[] {8f, y, w, 32f};
+        });
     }
 
     public static void request(String action, JsonObject data) {

@@ -1,56 +1,107 @@
 package ro.solarstudios.flowcity.notify;
 
-import net.minecraft.client.gui.GuiGraphics;
 import java.util.List;
+import ro.solarstudios.flowcity.cars.client.Sk;
 import ro.solarstudios.flowcity.client.ui.FlowScreen;
-import ro.solarstudios.flowcity.client.ui.Theme;
+import ro.solarstudios.flowcity.client.ui.Gfx;
 import ro.solarstudios.flowcity.client.ui.Ui;
-import ro.solarstudios.flowcity.client.ui.Wrap;
+import net.minecraft.client.gui.GuiGraphics;
 
-/** Istoricul notificarilor (cele mai noi sus), cu scroll si buton de stergere. */
+/** Istoricul notificarilor (cele mai noi sus): panou rotunjit, randuri care intra pe rand, scroll si buton de stergere. */
 public final class NotifyScreen extends FlowScreen {
+    private static final int ROW = 38;
     private int scroll;
+    private final long born = System.currentTimeMillis();
 
     public NotifyScreen() {
-        super("Notificari", 340, 230);
+        super("Notificari", 380, 250);
+    }
+
+    @Override
+    protected boolean framed() {
+        return false;
+    }
+
+    private static float easeOut(float t) {
+        t = Math.max(0f, Math.min(1f, t));
+        float u = 1f - t;
+        return 1f - u * u * u;
     }
 
     @Override
     protected void draw(GuiGraphics ms, int mx, int my) {
-        header(ms, "Notificari", NotifyState.history.size() + " in istoric", mx, my);
-        int x = px + 8;
-        int top = py + HEAD + 8;
-        int w = pw - 16;
-        int bottom = py + ph - 26;
-        List<NotifyState.Item> items = NotifyState.history;
-        if (items.isEmpty()) {
-            Ui.textCenter(ms, "Nicio notificare.", px + pw / 2, py + ph / 2 - 4, Theme.MUTED);
+        long now = System.currentTimeMillis();
+        float open = easeOut((now - born) / 300f);
+        Sk.background(ms, 0, 0, width, height, open);
+        Gfx.alpha = open;
+        try {
+            content(ms, mx, my, now);
+        } finally {
+            Gfx.alpha = 1f;
         }
-        int rowH = 30;
-        int visible = Math.max(1, (bottom - top) / rowH);
+    }
+
+    private void content(GuiGraphics ms, int mx, int my, long now) {
+        List<NotifyState.Item> items = NotifyState.history;
+
+        // antet
+        Gfx.text(ms, "NOTIFICĂRI", px + 16, py + 36, 17, Sk.WHITE, 0, true, 0f);
+        int unread = 0;
+        for (NotifyState.Item it : items) if (!it.read) unread++;
+        String sub = items.size() + " în istoric" + (unread > 0 ? "  ·  " + unread + " necitite" : "");
+        Gfx.text(ms, sub.toUpperCase(), px + 17, py + 48, 6.4f, Sk.MUTED, 0, false, 1.2f);
+
+        Sk.close(ms, px + pw - 34, py + 14, mx, my);
+        hit(px + pw - 34, py + 14, 20, 20, this::onClose);
+
+        // sterge tot
+        int bw = 84;
+        int bx = px + pw - 34 - 10 - bw;
+        int by = py + 14;
+        boolean can = !items.isEmpty();
+        boolean hb = can && Ui.in(mx, my, bx, by, bw, 20);
+        Sk.button(ms, "ȘTERGE TOT", bx, by, bw, 20, can, false, hb);
+        if (can) hit(bx, by, bw, 20, NotifyClient::clearAll);
+
+        // lista
+        int x = px + 12;
+        int w = pw - 36;
+        int top = py + 62;
+        int bottom = py + ph - 12;
+        int visible = Math.max(1, (bottom - top) / ROW);
         scroll = Math.max(0, Math.min(scroll, Math.max(0, items.size() - visible)));
+        if (items.isEmpty()) {
+            Gfx.text(ms, "Nicio notificare.", px + pw / 2f, py + ph / 2f + 14, 9, Sk.MUTED, 1);
+            NotifyUi.icon(ms, "INFO", px + pw / 2f, py + ph / 2f - 10, 13, Sk.ACC, 0.8f);
+        }
         int y = top;
         for (int i = scroll; i < Math.min(items.size(), scroll + visible); i++) {
             NotifyState.Item it = items.get(i);
-            int c = NotifyState.color(it.type);
-            Ui.frame(ms, x, y, w, rowH - 3, Theme.PANEL_2, Theme.LINE);
-            Ui.rect(ms, x + 1, y + 1, 3, rowH - 5, c);
-            Ui.round(ms, x + 9, y + 4, 18, 18, Theme.mix(Theme.PANEL, c, 0.28f));
-            Ui.textCenter(ms, NotifyState.icon(it.type), x + 18, y + 9, c);
-            Ui.textShadow(ms, Ui.clip(it.title, w - 130), x + 33, y + 4, Theme.TEXT);
-            List<String> l = Wrap.lines(it.text, w - 44);
-            if (!l.isEmpty()) Ui.text(ms, Ui.clip(l.get(0) + (l.size() > 1 ? "..." : ""), w - 44), x + 33, y + 14, Theme.MUTED);
-            Ui.textRight(ms, Ui.time(it.ts), x + w - 6, y + 4, Theme.FAINT);
-            if (!it.read) Ui.rect(ms, x + w - 10, y + 15, 4, 4, c);
-            y += rowH;
+            int idx = i - scroll;
+            float a = easeOut((now - born - idx * 45L) / 260f);
+            float slide = (1f - a) * 14f;
+            int c = NotifyState.color(it.type) | 0xFF000000;
+            float rx = x + slide;
+            boolean hov = Ui.in(mx, my, x, y, w, ROW - 5);
+            Sk.slant(ms, rx, y, w, ROW - 5, 7f, Gfx.fade(hov ? Sk.ROW_HOT : Sk.ROW, a));
+            Gfx.rrect(ms, rx + 9, y + 6, 3, ROW - 17, 0, Gfx.fade(c, a));
+            NotifyUi.icon(ms, it.type, rx + 28, y + (ROW - 5) / 2f, 10f, c, a);
+            Gfx.text(ms, NotifyUi.clip(it.title, 8.8f, w - 150), rx + 48, y + 14, 8.8f, Gfx.fade(Sk.WHITE, a), 0);
+            List<String> l = NotifyUi.wrap(it.text, 7.6f, w - 70, 1);
+            if (!l.isEmpty()) Gfx.text(ms, l.get(0), rx + 48, y + 26, 7.6f, Gfx.fade(Sk.MUTED, a), 0);
+            Gfx.text(ms, Ui.time(it.ts), rx + w - 18, y + 14, 6.8f, Gfx.fade(Sk.FAINT, a), 2);
+            if (!it.read) Gfx.rrect(ms, rx + w - 22, y + 21, 5, 5, 0, Gfx.fade(c, a));
+            final String target = it.targetApp();
+            if (!target.isEmpty()) hit(x, y, w, ROW - 5, () -> ro.solarstudios.flowcity.phone.PhoneScreen.openFor(target));
+            y += ROW;
         }
         if (items.size() > visible) {
-            int th = Math.max(12, (bottom - top) * visible / items.size());
-            int ty = top + (bottom - top - th) * scroll / Math.max(1, items.size() - visible);
-            Ui.rect(ms, px + pw - 5, top, 1, bottom - top, Theme.LINE);
-            Ui.rect(ms, px + pw - 6, ty, 3, th, Theme.ACCENT_DIM);
+            float trackH = bottom - top;
+            float th = Math.max(16f, trackH * visible / items.size());
+            float ty = top + (trackH - th) * scroll / Math.max(1, items.size() - visible);
+            Gfx.rrect(ms, px + pw - 14, top, 2, trackH, 0, 0xFF14202F);
+            Gfx.rrect(ms, px + pw - 14, ty, 2, th, 0, Sk.ACC);
         }
-        button(ms, "Sterge tot", px + 8, py + ph - 20, 70, 14, mx, my, !items.isEmpty(), 0xFF6B2F2B, NotifyClient::clearAll);
     }
 
     @Override
