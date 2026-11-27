@@ -31,7 +31,7 @@ public final class MiniMapClient {
 
     public static void register() {
         MiniMapSettings.load();
-        MinecraftForge.EVENT_BUS.register(new Events());
+        MinecraftForge.EVENT_BUS.register(new MapEvents());
     }
 
     public static void registerKeys(RegisterKeyMappingsEvent e) {
@@ -57,7 +57,7 @@ public final class MiniMapClient {
         return MiniMapSettings.hideOther;
     }
 
-    public static final class Events {
+    public static final class MapEvents {
         @SubscribeEvent
         public void onHud(RenderGameOverlayEvent.Post e) {
             if (e.getType() != RenderGameOverlayEvent.ElementType.ALL) return;

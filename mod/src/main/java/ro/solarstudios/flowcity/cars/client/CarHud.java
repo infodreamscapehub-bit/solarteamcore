@@ -110,7 +110,7 @@ public final class CarHud {
         } catch (ClassNotFoundException | LinkageError e) {
             return;
         }
-        MinecraftForge.EVENT_BUS.register(new CarHud.Events());
+        MinecraftForge.EVENT_BUS.register(new CarHud.CarHudEvents());
     }
 
     private static Object call(Object o, String name) {
@@ -161,7 +161,7 @@ public final class CarHud {
         }
     }
 
-    public static final class Events {
+    public static final class CarHudEvents {
         @SubscribeEvent
         public void onHud(RenderGuiEvent.Post e) {
             Minecraft mc = Minecraft.getInstance();

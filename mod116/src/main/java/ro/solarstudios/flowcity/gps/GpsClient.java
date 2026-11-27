@@ -96,7 +96,7 @@ public final class GpsClient extends JsonClientModule {
         instance = new GpsClient();
         ClientModules.register(instance);
         MinecraftForge.EVENT_BUS.register(new Events());
-        MinecraftForge.EVENT_BUS.register(new GpsHud.Events());
+        MinecraftForge.EVENT_BUS.register(new GpsHud.HudEvents());
         MiniMapClient.register();
     }
 

@@ -290,7 +290,7 @@ public final class FuelPumps {
 
     // ------------------------------------------------------------------ evenimente
 
-    public static final class Events {
+    public static final class PumpEvents {
         @SubscribeEvent
         public void onRightClick(PlayerInteractEvent.RightClickBlock e) {
             if (e.getLevel().isClientSide() || !(e.getEntity() instanceof ServerPlayer)) return;

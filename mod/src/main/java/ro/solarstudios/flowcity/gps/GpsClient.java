@@ -97,7 +97,7 @@ public final class GpsClient extends JsonClientModule {
         instance = new GpsClient();
         ClientModules.register(instance);
         MinecraftForge.EVENT_BUS.register(new Events());
-        MinecraftForge.EVENT_BUS.register(new GpsHud.Events());
+        MinecraftForge.EVENT_BUS.register(new GpsHud.HudEvents());
         MiniMapClient.register();
         // dreptunghiurile implicite pentru editorul de HUD (pe 1.20.1 fiecare pachet si le anunta singur)
         HudLayout.register("minimap", MiniMapRenderer::defaults);

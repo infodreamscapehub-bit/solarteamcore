@@ -33,7 +33,7 @@ public final class GpsHud {
         return t + "...";
     }
 
-    public static final class Events {
+    public static final class HudEvents {
         @SubscribeEvent
         public void onHud(RenderGameOverlayEvent.Post e) {
             if (e.getType() != RenderGameOverlayEvent.ElementType.ALL) return;

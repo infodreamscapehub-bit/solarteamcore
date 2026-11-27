@@ -33,7 +33,7 @@ public final class GpsHud {
         return t + "...";
     }
 
-    public static final class Events {
+    public static final class HudEvents {
         @SubscribeEvent
         public void onHud(RenderGuiEvent.Post e) {
             Minecraft mc = Minecraft.getInstance();
