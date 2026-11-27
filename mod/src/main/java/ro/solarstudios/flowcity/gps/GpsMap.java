@@ -506,7 +506,7 @@ public final class GpsMap {
                 for (int k = 0; k < 6 && y > 0; k++) {
                     POS.set(wx, y, wz);
                     st = w.getBlockState(POS);
-                    if (!st.isAir(w, POS)) break;
+                    if (!st.isAir()) break;
                     y--;
                 }
                 if (st == null || y <= 0) continue;
@@ -519,7 +519,7 @@ public final class GpsMap {
                 for (int k = 0; k < 10 && yy > 0; k++) {
                     POS.set(wx, yy, wz);
                     cur = w.getBlockState(POS);
-                    if (cur.isAir(w, POS)) {
+                    if (cur.isAir()) {
                         yy--;
                         continue;
                     }

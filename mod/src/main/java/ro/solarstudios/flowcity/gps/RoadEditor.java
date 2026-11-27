@@ -907,8 +907,8 @@ final class RoadEditor {
             s.label(g, "NUME STRADĂ (pentru segmentele noi / unealta NUME)", x0, cy);
             s.fld(g, s.fStreet, x0, cy + 10, w, 22, mx, my);
         } else {
-            s.fStreet.x = -1000;
-            s.fStreet.y = -1000;
+            s.fStreet.setX(-1000);
+            s.fStreet.setY(-1000);
         }
         cy += 40;
 
