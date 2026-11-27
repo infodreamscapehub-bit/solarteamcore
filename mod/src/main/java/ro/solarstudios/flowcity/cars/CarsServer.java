@@ -287,7 +287,7 @@ public final class CarsServer {
             if (boat && g.boatSlots.isEmpty()) {
                 msg = "Acest garaj nu are puncte de spawn pentru barci. Cere unui admin sa adauge unul.";
             } else {
-                e = spawn(p.level(), g, c);
+                e = spawn(p.serverLevel(), g, c);
                 msg = e != null ? c.name + " (" + c.plate + ") te asteapta in " + (boat ? "port." : "parcare.")
                     : boat ? "Toate punctele de spawn pentru barci sunt ocupate." : "Toate locurile de parcare sunt ocupate.";
             }
@@ -449,7 +449,7 @@ public final class CarsServer {
         }
         bestCar.locked = !bestCar.locked;
         data.setDirty();
-        ServerLevel w = p.level();
+        ServerLevel w = p.serverLevel();
         beep(w, best, bestCar.locked ? 1.4f : 1.9f);
         if (bestCar.locked) BEEPS.add(new Object[] {w, best, 4});
         p.displayClientMessage(Component.literal((bestCar.locked ? "Incuiata: " : "Descuiata: ") + bestCar.name + " (" + bestCar.plate + ")"), true);
@@ -1201,7 +1201,7 @@ public final class CarsServer {
                     break;
                 }
                 ServerLevel w = p.server.getLevel(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION, new ResourceLocation(g.dim)));
-                if (w == null) w = p.level();
+                if (w == null) w = p.serverLevel();
                 p.teleportTo(w, g.mx, g.my + 0.5, g.mz, p.getYRot(), p.getXRot());
                 res = "Teleportat la " + g.name + ".";
                 break;
@@ -1446,7 +1446,7 @@ public final class CarsServer {
                         } catch (IllegalArgumentException ex) {
                             return fail(c, "UUID invalid.");
                         }
-                        Entity v = officer.level().getEntity(id);
+                        Entity v = officer.serverLevel().getEntity(id);
                         if (v == null || v.distanceTo(officer) > 10 || v instanceof net.minecraft.world.entity.player.Player) return fail(c, "Vehiculul nu e aproape.");
                         ResourceLocation key = ForgeRegistries.ENTITY_TYPES.getKey(v.getType());
                         GarageData data = GarageData.get(c.getSource().getServer());
@@ -1482,7 +1482,7 @@ public final class CarsServer {
                     car.poundReason = "";
                     car.out = false;
                     car.entity = null;
-                    Entity e = spawn(p.level(), g, car);
+                    Entity e = spawn(p.serverLevel(), g, car);
                     data.setDirty();
                     p.displayClientMessage(Component.literal(e != null ? car.name + " te asteapta in parcarea pound-ului."
                         : car.name + " a fost eliberata; locurile sunt ocupate, o poti scoate din orice garaj."), true);

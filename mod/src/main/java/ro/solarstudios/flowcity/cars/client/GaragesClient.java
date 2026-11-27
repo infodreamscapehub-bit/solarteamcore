@@ -617,11 +617,11 @@ public final class GaragesClient {
         if (fade > 0.3f) {
             int ta = Math.max(5, (int) (255 * fade)) << 24;
             Matrix4f mt = ps.last().pose();
-            font.drawInBatch(Component.literal(title), x0 + iconW + 3f, y0 + 6f, ta | (locked ? 0xB4BDC9 : 0xFFFFFF), false, mt, buf, true, 0, 15728880);
+            font.drawInBatch(Component.literal(title), x0 + iconW + 3f, y0 + 6f, ta | (locked ? 0xB4BDC9 : 0xFFFFFF), false, mt, buf, net.minecraft.client.gui.Font.DisplayMode.SEE_THROUGH, 0, 15728880);
             ps.pushPose();
             ps.scale(0.8f, 0.8f, 1f);
             Matrix4f ms = ps.last().pose();
-            font.drawInBatch(Component.literal(line2), (x0 + iconW + 3f) / 0.8f, (y0 + 16.5f) / 0.8f, ta | 0xA9C4E4, false, ms, buf, true, 0, 15728880);
+            font.drawInBatch(Component.literal(line2), (x0 + iconW + 3f) / 0.8f, (y0 + 16.5f) / 0.8f, ta | 0xA9C4E4, false, ms, buf, net.minecraft.client.gui.Font.DisplayMode.SEE_THROUGH, 0, 15728880);
             ps.popPose();
             buf.endBatch();
         }

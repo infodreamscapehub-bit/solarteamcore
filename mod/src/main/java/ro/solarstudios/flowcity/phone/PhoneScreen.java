@@ -2236,9 +2236,10 @@ public final class PhoneScreen extends FlowScreen {
         if (mc.level == null || mc.player == null) return 0;
         if (mc.level.isThundering()) return 3;
         if (mc.level.isRaining()) {
-            net.minecraft.world.level.biome.Biome b = mc.level.getBiome(mc.player.blockPosition());
-            if (b.getPrecipitation() == net.minecraft.world.level.biome.Biome.RainType.SNOW) return 4;
-            if (b.getPrecipitation() == net.minecraft.world.level.biome.Biome.RainType.NONE) return night(mc) ? 1 : 0;
+            net.minecraft.world.level.biome.Biome b = mc.level.getBiome(mc.player.blockPosition()).value();
+            net.minecraft.world.level.biome.Biome.Precipitation pr = b.getPrecipitationAt(mc.player.blockPosition());
+            if (pr == net.minecraft.world.level.biome.Biome.Precipitation.SNOW) return 4;
+            if (pr == net.minecraft.world.level.biome.Biome.Precipitation.NONE) return night(mc) ? 1 : 0;
             return 2;
         }
         return night(mc) ? 1 : 0;
@@ -2300,8 +2301,8 @@ public final class PhoneScreen extends FlowScreen {
         appHeader(ms, x, y, w, "Vremea", mx, my, true);
         if (mc.level == null || mc.player == null) return;
         net.minecraft.core.BlockPos pos = mc.player.blockPosition();
-        net.minecraft.world.level.biome.Biome b = mc.level.getBiome(pos);
-        float temp = b.getTemperature(pos);
+        net.minecraft.world.level.biome.Biome b = mc.level.getBiome(pos).value();
+        float temp = b.getBaseTemperature();
         int celsius = Math.round(temp * 25f - (night(mc) ? 4f : 0f));
         int yy = y + 52;
         Gfx.text(ms, biomeName(mc, b), x + w / 2f, yy + 6, 8f, Sk.WHITE, 1, true, 0.4f);
@@ -2312,7 +2313,7 @@ public final class PhoneScreen extends FlowScreen {
         Gfx.rrect(ms, x + 8, yy, w - 16, 64, 12f, 0x30000000);
         String[][] rows = {
             {"Ora in joc", gameTime(mc)},
-            {"Umiditate", Math.round(b.getDownfall() * 100f) + "%"},
+            {"Umiditate", (mc.level.isRaining() ? 90 : (b.hasPrecipitation() ? 45 : 12)) + "%"},
             {"Zi", String.valueOf(mc.level.getDayTime() / 24000L + 1)},
             {"Pozitie", pos.getX() + ", " + pos.getZ()}};
         for (int i = 0; i < rows.length; i++) {
