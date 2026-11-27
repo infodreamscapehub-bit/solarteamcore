@@ -40,6 +40,17 @@ public final class ClientInit {
         ro.solarstudios.flowcity.maps.MapsClient.register();
         ro.solarstudios.flowcity.gps.GpsClient.register();
         ro.solarstudios.flowcity.fjobs.FJobsClient.register();
+        ro.solarstudios.flowcity.pay.PayClient.register();
+        ro.solarstudios.flowcity.shop.ShopClient.register();
+        ro.solarstudios.flowcity.fines.FinesClient.register();
+        ro.solarstudios.flowcity.bank.BankClient.register();
+        ro.solarstudios.flowcity.houses.HousesClient.register();
+        ro.solarstudios.flowcity.docs.DocsClient.register();
+        ro.solarstudios.flowcity.politie.PolitieClient.register();
+        ro.solarstudios.flowcity.hudeditor.HudEditorClient.register();
+        ro.solarstudios.flowcity.taxi.TaxiClient.register();
+        ro.solarstudios.flowcity.beginner.BeginnerClient.register();
+        ro.solarstudios.flowcity.battlepass.BattlepassClient.register();
         ro.solarstudios.flowcity.cars.client.CarsClient.register();
         ro.solarstudios.flowcity.cars.client.GaragesClient.register();
         ro.solarstudios.flowcity.cars.client.MecanicClient.register();
@@ -62,6 +73,8 @@ public final class ClientInit {
         ro.solarstudios.flowcity.gps.GpsClient.registerKeys(event);
         ro.solarstudios.flowcity.fjobs.FJobsClient.registerKeys(event);
         ro.solarstudios.flowcity.cars.client.GaragesClient.registerKeys(event);
+        ro.solarstudios.flowcity.beginner.BeginnerClient.registerKeys(event);
+        ro.solarstudios.flowcity.battlepass.BattlepassClient.registerKeys(event);
     }
 
     private static boolean openHudEditor;
