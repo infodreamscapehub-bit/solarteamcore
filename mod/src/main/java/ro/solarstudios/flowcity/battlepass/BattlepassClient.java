@@ -120,7 +120,7 @@ public final class BattlepassClient extends JsonClientModule {
                     if (!e.isJsonObject()) continue;
                     JsonObject o = e.getAsJsonObject();
                     Reward r = new Reward();
-                    r.level() = integer(o, "l", 0);
+                    r.level = integer(o, "l", 0);
                     r.free = str(o, "free", "");
                     r.premium = str(o, "premium", "");
                     r.freeClaimed = bool(o, "freeClaimed", false);
@@ -149,7 +149,7 @@ public final class BattlepassClient extends JsonClientModule {
                     if (!e.isJsonObject()) continue;
                     JsonObject o = e.getAsJsonObject();
                     Reward r = new Reward();
-                    r.level() = integer(o, "level", 0);
+                    r.level = integer(o, "level", 0);
                     r.free = str(o, "free", "");
                     r.premium = str(o, "premium", "");
                     adminRewards.add(r);

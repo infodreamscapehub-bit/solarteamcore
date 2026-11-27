@@ -76,7 +76,7 @@ public final class DocViewScreen extends FlowScreen {
         Minecraft mc = Minecraft.getInstance();
         try {
             if (mc.getConnection() != null && ownerName != null && !ownerName.isEmpty()) {
-                net.minecraft.client.network.play.NetworkPlayerInfo i = mc.getConnection().getPlayerInfo(ownerName);
+                net.minecraft.client.multiplayer.PlayerInfo i = mc.getConnection().getPlayerInfo(ownerName);
                 if (i != null) return i.getSkinLocation();
             }
             if (mc.player != null) return mc.player.getSkinTextureLocation();

@@ -56,6 +56,11 @@ public final class IdsClient extends JsonClientModule {
     }
 
     /** Apelat din ClientInit.register(). */
+    /** True daca deasupra capului jucatorului se afiseaza acum #ID-ul (folosit de badge-ul de incepator). */
+    public static boolean showsId(UUID u) {
+        return overhead && IDS.containsKey(u);
+    }
+
     public static void register() {
         instance = new IdsClient();
         ClientModules.register(instance);

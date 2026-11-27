@@ -101,7 +101,7 @@ public final class FlowInventoryScreen extends AbstractContainerScreen<Inventory
     // ------------------------------------------------------------------ desen
 
     @Override
-    public void render(PoseStack ms, int mx, int my, float pt) {
+    public void render(GuiGraphics ms, int mx, int my, float pt) {
         xMouse = mx;
         yMouse = my;
         super.render(ms, mx, my, pt);
@@ -109,7 +109,7 @@ public final class FlowInventoryScreen extends AbstractContainerScreen<Inventory
     }
 
     @Override
-    protected void renderLabels(PoseStack ms, int mx, int my) {
+    protected void renderLabels(GuiGraphics ms, int mx, int my) {
         // titlurile le desenam noi
     }
 
@@ -120,8 +120,7 @@ public final class FlowInventoryScreen extends AbstractContainerScreen<Inventory
     }
 
     @Override
-    protected void renderBg(PoseStack pose, float pt, int mx, int my) {
-        GuiGraphics g = new GuiGraphics(pose);
+    protected void renderBg(GuiGraphics g, float pt, int mx, int my) {
         Minecraft mc = Minecraft.getInstance();
         long now = System.currentTimeMillis();
         long ns = System.nanoTime();
@@ -210,6 +209,6 @@ public final class FlowInventoryScreen extends AbstractContainerScreen<Inventory
         // personajul 3D (se uita dupa mouse)
         float cx = leftPos + 80;
         float cy = topPos + 186;
-        InventoryScreen.renderEntityInInventory((int) cx, (int) cy, 48, cx - xMouse, cy - 90 - yMouse, mc.player);
+        InventoryScreen.renderEntityInInventoryFollowsMouse(g, (int) cx, (int) cy, 48, cx - xMouse, cy - 90 - yMouse, mc.player);
     }
 }

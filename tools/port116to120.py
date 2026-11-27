@@ -75,6 +75,7 @@ TYPES = {
     "net.minecraft.client.settings.KeyBinding": "net.minecraft.client.KeyMapping",
     "net.minecraft.client.util.ITooltipFlag": "net.minecraft.world.item.TooltipFlag",
     "net.minecraft.util.ScreenShotHelper": "net.minecraft.client.Screenshot",
+    "net.minecraft.client.network.play.NetworkPlayerInfo": "net.minecraft.client.multiplayer.PlayerInfo",
     # --- text ---
     "net.minecraft.util.text.ITextComponent": "net.minecraft.network.chat.Component",
     "net.minecraft.util.text.IFormattableTextComponent": "net.minecraft.network.chat.MutableComponent",

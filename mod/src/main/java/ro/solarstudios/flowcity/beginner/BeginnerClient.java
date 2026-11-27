@@ -201,7 +201,7 @@ public final class BeginnerClient extends JsonClientModule {
             String line = label(icon, text);
             if (line.isEmpty()) return;
             Font font = mc.font;
-            PoseStack ms = e.getGuiGraphics().pose();
+            PoseStack ms = e.getPoseStack();
             ms.pushPose();
             ms.translate(0.0, pl.getBbHeight() + 0.5 + offset, 0.0);
             ms.mulPose(mc.getEntityRenderDispatcher().cameraOrientation());
@@ -209,11 +209,11 @@ public final class BeginnerClient extends JsonClientModule {
             Matrix4f m = ms.last().pose();
             int bg = (int) (mc.options.getBackgroundOpacity(0.25f) * 255f) << 24;
             float w = font.width(line);
-            font.drawInBatch(Component.literal(line), -w / 2f, 0f, 0xFF000000 | parseColor(color, 0x4DD2FF), false, m, e.getBuffers(), false, bg, e.getLight());
+            font.drawInBatch(Component.literal(line), -w / 2f, 0f, 0xFF000000 | parseColor(color, 0x4DD2FF), false, m, e.getMultiBufferSource(), Font.DisplayMode.NORMAL, bg, e.getPackedLight());
             if (showTime) {
                 String t = remaining(played, hours);
                 float tw = font.width(t);
-                font.drawInBatch(Component.literal(t), -tw / 2f, 10f, 0xFF000000 | parseColor(timeColor, 0xB8C4D6), false, m, e.getBuffers(), false, 0, e.getLight());
+                font.drawInBatch(Component.literal(t), -tw / 2f, 10f, 0xFF000000 | parseColor(timeColor, 0xB8C4D6), false, m, e.getMultiBufferSource(), Font.DisplayMode.NORMAL, 0, e.getPackedLight());
             }
             ms.popPose();
         }

@@ -26,7 +26,7 @@ import net.minecraft.client.gui.GuiGraphics;
  * (punerea/scoaterea atasamentelor ramane a lor); noi doar mutam sloturile pe client si desenam totul: arma 3D care se
  * roteste, casute cu iconite si linii spre arma, inventarul cu sloturi rotunjite si animatii.
  */
-public final class FlowAttachScreen extends AbstractContainerScreen<Container> {
+public final class FlowAttachScreen extends AbstractContainerScreen<AbstractContainerMenu> {
     private static final int W = 300;
     private static final int H = 266;
     /** Ordinea sloturilor TaC: SCOPE, BARREL, STOCK, UNDER_BARREL, SIDE_RAIL, EXTENDED_MAG, GUN_SKIN, AMMO. */
@@ -64,8 +64,8 @@ public final class FlowAttachScreen extends AbstractContainerScreen<Container> {
     }
 
     @SuppressWarnings("unchecked")
-    private static Container cast(Object c) {
-        return (Container) c;
+    private static AbstractContainerMenu cast(Object c) {
+        return (AbstractContainerMenu) c;
     }
 
     // ------------------------------------------------------------------ asezarea sloturilor (doar pe client)
@@ -100,27 +100,26 @@ public final class FlowAttachScreen extends AbstractContainerScreen<Container> {
     // ------------------------------------------------------------------ desen
 
     @Override
-    public void render(PoseStack ms, int mx, int my, float pt) {
+    public void render(GuiGraphics ms, int mx, int my, float pt) {
         super.render(ms, mx, my, pt);
         // casuta goala sub mouse: nume + "Gol"
         for (int i = 0; i < attach.size(); i++) {
             Slot s = attach.get(i);
             if (!s.hasItem() && Ui.in(mx, my, leftPos + BOX[i][0], topPos + BOX[i][1], 24, 24)) {
                 String t = s.isActive() ? NAMES[i] + " - gol" : NAMES[i] + " - nu se potriveste";
-                renderTooltip(ms, Component.literal(t), mx, my);
+                ms.renderTooltip(this.font, Component.literal(t), mx, my);
             }
         }
         renderTooltip(ms, mx, my);
     }
 
     @Override
-    protected void renderLabels(PoseStack ms, int mx, int my) {
+    protected void renderLabels(GuiGraphics ms, int mx, int my) {
         // titlurile le desenam noi in renderBg
     }
 
     @Override
-    protected void renderBg(PoseStack pose, float pt, int mx, int my) {
-        GuiGraphics g = new GuiGraphics(pose);
+    protected void renderBg(GuiGraphics g, float pt, int mx, int my) {
         Minecraft mc = Minecraft.getInstance();
         long now = System.currentTimeMillis();
         long ns = System.nanoTime();
@@ -156,7 +155,7 @@ public final class FlowAttachScreen extends AbstractContainerScreen<Container> {
         Gfx.scrim(g, pcx, PY + PH - 16, 90, 7, Gfx.fade(0x55000000, open));
         g.pose().popPose();
 
-        drawGun(pose, mc, held, leftPos + pcx, topPos + pcy, dt, open);
+        drawGun(g.pose(), mc, held, leftPos + pcx, topPos + pcy, dt, open);
 
         g.pose().pushPose();
         g.pose().translate(leftPos, topPos, 0);
@@ -237,7 +236,7 @@ public final class FlowAttachScreen extends AbstractContainerScreen<Container> {
         Lighting.setupFor3DItems();
         MultiBufferSource.BufferSource buf = mc.renderBuffers().bufferSource();
         try {
-            mc.getItemRenderer().renderStatic(gun, ItemDisplayContext.TransformType.FIXED, 15728880, OverlayTexture.NO_OVERLAY, pose, buf);
+            mc.getItemRenderer().renderStatic(gun, ItemDisplayContext.FIXED, 15728880, OverlayTexture.NO_OVERLAY, pose, buf, null, 0);
             buf.endBatch();
         } catch (RuntimeException ignored) {
             // un model ciudat nu trebuie sa strice ecranul
@@ -323,7 +322,7 @@ public final class FlowAttachScreen extends AbstractContainerScreen<Container> {
 
     @Override
     public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
-        if (button == 0 && inPreview(mx, my) && !overBox(mx, my) && Minecraft.getInstance().player.getInventory().getCarried().isEmpty()) {
+        if (button == 0 && inPreview(mx, my) && !overBox(mx, my) && Minecraft.getInstance().player.containerMenu.getCarried().isEmpty()) {
             spun = true;
             rotY += (float) dx * 1.6f;
             rotX = Math.max(-60f, Math.min(60f, rotX + (float) dy * 1.2f));

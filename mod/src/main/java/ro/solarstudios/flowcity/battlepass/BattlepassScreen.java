@@ -51,7 +51,7 @@ public final class BattlepassScreen extends FlowScreen {
             });
         }
 
-        int lvl = BattlepassClient.level();
+        int lvl = BattlepassClient.level;
         long inLevel = lvl >= BattlepassClient.max ? BattlepassClient.per : BattlepassClient.xp % BattlepassClient.per;
         Ui.text(g, "Nivel " + lvl + " / " + BattlepassClient.max, x0, y, Theme.TEXT);
         String right = inLevel + " / " + BattlepassClient.per + " XP";
@@ -118,10 +118,10 @@ public final class BattlepassScreen extends FlowScreen {
         for (int i = 0; i < cols && i + scroll < BattlepassClient.rewards.size(); i++) {
             BattlepassClient.Reward r = BattlepassClient.rewards.get(i + scroll);
             int cx = startX + i * (cw + gap);
-            boolean unlocked = r.level() <= lvl;
-            Ui.textCenter(g, String.valueOf(r.level()), cx + cw / 2, top + 20, unlocked ? Theme.TEXT : Theme.FAINT);
-            cell(g, mx, my, cx, top + 10, cw, "free", r.free, r.freeClaimed, unlocked, true, r.level());
-            cell(g, mx, my, cx, top + 46, cw, "premium", r.premium, r.premiumClaimed, unlocked, prem, r.level());
+            boolean unlocked = r.level <= lvl;
+            Ui.textCenter(g, String.valueOf(r.level), cx + cw / 2, top + 20, unlocked ? Theme.TEXT : Theme.FAINT);
+            cell(g, mx, my, cx, top + 10, cw, "free", r.free, r.freeClaimed, unlocked, true, r.level);
+            cell(g, mx, my, cx, top + 46, cw, "premium", r.premium, r.premiumClaimed, unlocked, prem, r.level);
         }
         if (maxScroll > 0) {
             Ui.text(g, "roata mouse = niveluri " + (scroll + 1) + "-" + Math.min(BattlepassClient.rewards.size(), scroll + cols),

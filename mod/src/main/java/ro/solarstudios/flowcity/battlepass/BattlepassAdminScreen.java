@@ -95,7 +95,7 @@ public final class BattlepassAdminScreen extends FlowScreen {
         rMaterial.setValue("");
         rCommand.setValue("");
         for (BattlepassClient.Reward r : BattlepassClient.adminRewards) {
-            if (r.level() == selLevel) {
+            if (r.level == selLevel) {
                 rLabel.setValue("free".equals(selTrack) ? r.free : r.premium);
                 return;
             }
@@ -225,12 +225,12 @@ public final class BattlepassAdminScreen extends FlowScreen {
         for (int i = 0; i < rows && i + scroll < list.size(); i++) {
             BattlepassClient.Reward r = list.get(i + scroll);
             int yy = ly + i * 15;
-            boolean sel = r.level() == selLevel;
+            boolean sel = r.level == selLevel;
             Ui.round(g, x, yy, listW, 14, sel ? Theme.PANEL_3 : Theme.PANEL_2);
-            Ui.text(g, String.valueOf(r.level()), x + 5, yy + 3, sel ? Theme.ACCENT : Theme.TEXT);
+            Ui.text(g, String.valueOf(r.level), x + 5, yy + 3, sel ? Theme.ACCENT : Theme.TEXT);
             Ui.text(g, Ui.clip(r.free.isEmpty() ? "-" : r.free, 62), x + 28, yy + 3, Theme.TEXT);
             Ui.text(g, Ui.clip(r.premium.isEmpty() ? "-" : r.premium, 62), x + 108, yy + 3, Theme.WARN);
-            final int lv = r.level();
+            final int lv = r.level;
             hit(x, yy, listW, 14, () -> {
                 selLevel = lv;
                 loadReward();
