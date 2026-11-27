@@ -96,6 +96,8 @@ public final class GarageData extends SavedData {
         public String type = "";
         public String name = "";
         public String plate = "";
+        /** Generatia cheii: creste la re-emitere, ca sa nu mai mearga cheile vechi. */
+        public int keyGen;
         public CompoundTag nbt = new CompoundTag();
         /** In lume (scoasa din garaj). */
         public boolean out;
@@ -113,6 +115,7 @@ public final class GarageData extends SavedData {
             t.putString("Type", type);
             t.putString("Name", name);
             t.putString("Plate", plate);
+            t.putInt("KeyGen", keyGen);
             t.put("Nbt", nbt);
             t.putBoolean("Out", out);
             if (entity != null) t.putUUID("Entity", entity);
@@ -129,6 +132,7 @@ public final class GarageData extends SavedData {
             c.type = t.getString("Type");
             c.name = t.getString("Name");
             c.plate = t.getString("Plate");
+            c.keyGen = t.getInt("KeyGen");
             c.nbt = t.getCompound("Nbt");
             c.out = t.getBoolean("Out");
             if (t.hasUUID("Entity")) c.entity = t.getUUID("Entity");

@@ -25,7 +25,13 @@ public final class ModContent {
     public static final DeferredRegister<EntityType<?>> ENTITIES = DeferredRegister.create(ForgeRegistries.ENTITY_TYPES, FlowCity.MODID);
     public static final DeferredRegister<CreativeModeTab> TABS = DeferredRegister.create(Registries.CREATIVE_MODE_TAB, FlowCity.MODID);
 
+    /** Proprietatile implicite ale unui item FlowCity (pe 1.20.1 tab-ul creativ se umple din displayItems). */
+    public static Item.Properties props() {
+        return new Item.Properties();
+    }
+
     public static final RegistryObject<Item> MDT_TABLET = ITEMS.register("mdt_tablet", MdtItem::new);
+    public static final RegistryObject<Item> CAR_KEY = ITEMS.register("cheie_masina", ro.solarstudios.flowcity.cars.CarKeyItem::new);
     public static final RegistryObject<Block> BANCOMAT = BLOCKS.register("bancomat", AtmBlock::new);
     public static final RegistryObject<Item> BANCOMAT_ITEM = ITEMS.register("bancomat", () -> new BlockItem(BANCOMAT.get(), new Item.Properties()));
     public static final RegistryObject<Block> GPS_PATH = BLOCKS.register("gps_path", () -> new GpsBlock(GpsNetwork.PATH));
@@ -47,7 +53,70 @@ public final class ModContent {
         })
         .build());
 
+    /**
+     * Itemele profesionale FJobs (texturi proprii, pixel-art original): id + marimea stivei.
+     * Functia lor e pe server (FJobs gear, eticheta PDC).
+     */
+    private static final String[][] JOB_ITEMS = {
+        {"el_trusa", "1"},
+        {"el_surubelnita", "1"},
+        {"el_cleste", "1"},
+        {"el_multimetru", "1"},
+        {"el_cablu", "16"},
+        {"el_siguranta", "24"},
+        {"el_manusi", "1"},
+        {"lanterna", "1"},
+        {"gm_burete", "1"},
+        {"gm_solutie", "16"},
+        {"gm_racleta", "1"},
+        {"gm_laveta", "4"},
+        {"gm_ham", "1"},
+        {"gm_galeata", "1"},
+        {"gu_sac", "16"},
+        {"gu_cleste", "1"},
+        {"gu_cos", "1"},
+        {"cu_colet", "16"},
+        {"cu_scanner", "1"},
+        {"cu_geanta", "1"},
+        {"cu_documente", "16"},
+        {"cu_eticheta", "32"},
+        {"tx_aparat", "1"},
+        {"tx_permis", "1"},
+        {"au_bilet", "64"},
+        {"au_card", "1"},
+        {"me_trusa", "1"},
+        {"me_cheie", "1"},
+        {"me_ciocan", "1"},
+        {"me_cric", "1"},
+        {"me_piese", "16"},
+        {"me_ulei", "16"},
+        {"me_canistra", "1"},
+        {"pe_momeala", "32"},
+        {"pe_plasa", "1"},
+        {"pe_lada", "1"},
+        {"fe_ingrasamant", "16"},
+        {"fe_lada", "1"},
+        {"fe_secera", "1"},
+        {"mi_geanta", "1"},
+        {"co_ruleta", "1"},
+        {"co_mistrie", "1"},
+        {"po_geanta", "1"},
+        {"po_scrisoare", "32"},
+        {"po_colet_mic", "32"},
+        {"ca_documente", "16"},
+        {"ca_scanner", "1"},
+        {"ca_chei", "1"},
+        {"ma_carucior", "1"},
+        {"ma_palet", "16"},
+        {"vesta_reflect", "1"},
+        {"manusi_lucru", "1"}
+    };
+
     static {
+        for (String[] ji : JOB_ITEMS) {
+            final int stack = Integer.parseInt(ji[1]);
+            ITEMS.register(ji[0], () -> new Item(props().stacksTo(stack)));
+        }
         ITEMS.register("harta", MapItem::new);
         ITEMS.register("gps_wrench", GpsWrench::new);
         for (String b : new String[] {"gps_path", "gps_intersection", "gps_oneway", "gps_twoway"})

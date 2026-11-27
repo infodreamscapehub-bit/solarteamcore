@@ -10,6 +10,11 @@ Folosire:
     python3 tools/port116to120.py gps                      # tot pachetul gps
     python3 tools/port116to120.py client/ui/FUi.java       # un fisier
     python3 tools/port116to120.py --check gps              # doar arata ce ramane neconvertit
+    python3 tools/port116to120.py --stdout x/Y.java > /tmp/Y.java   # fara sa scrie peste tinta
+
+ATENTIE: unealta SUPRASCRIE fisierul din mod/. Daca tinta are deja continut care exista
+doar pe 1.20.1 (FlowCity.java, ClientHooks.java, ClientInit.java, ModContent.java), nu o
+rula peste el: foloseste --stdout si imbina manual.
 
 Dupa rulare TREBUIE verificat manual: unealta nu rezolva schimbarile de
 semnatura (vezi PORT-1.20.1.md, sectiunea "Ce nu face unealta").
@@ -290,6 +295,7 @@ def warnings(path, text):
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     check = "--check" in sys.argv
+    to_stdout = "--stdout" in sys.argv
     if not args:
         print(__doc__)
         return 1
@@ -308,9 +314,14 @@ def main():
         dst = src.replace(SRC, DST)
         text = convert(open(src, encoding="utf-8").read())
         warns += warnings(os.path.relpath(dst), text)
+        if to_stdout:
+            print(text)
+            continue
         if not check:
             os.makedirs(os.path.dirname(dst), exist_ok=True)
             open(dst, "w", encoding="utf-8").write(text)
+    if to_stdout:
+        return 0
     print(f"{'verificate' if check else 'portate'}: {len(files)} fisiere")
     if warns:
         print("DE VERIFICAT MANUAL:")
