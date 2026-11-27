@@ -193,10 +193,10 @@ public final class PhoneScreen extends FlowScreen {
     protected void drawField(GuiGraphics ms, EditBox f, int x, int y, int w, int h, int mx, int my) {
         Sk.slant(ms, x, y, w, h, 4f, 0xFF0A1420);
         Ui.rect(ms, x + 4, y + h - 1, w - 8, 1, f.isFocused() ? Sk.ACC : 0xFF22324A);
-        f.x = x + 9;
-        f.y = y + (h - 8) / 2;
+        f.setX(x + 9);
+        f.setY(y + (h - 8) / 2);
         f.setWidth(w - 16);
-        f.render(ms.pose(), mx, my, 0);
+        f.render(ms, mx, my, 0);
     }
 
     private static void avatarBox(GuiGraphics ms, float x, float y, float size, int color) {
@@ -2236,9 +2236,9 @@ public final class PhoneScreen extends FlowScreen {
         if (mc.level == null || mc.player == null) return 0;
         if (mc.level.isThundering()) return 3;
         if (mc.level.isRaining()) {
-            net.minecraft.world.biome.Biome b = mc.level.getBiome(mc.player.blockPosition());
-            if (b.getPrecipitation() == net.minecraft.world.biome.Biome.RainType.SNOW) return 4;
-            if (b.getPrecipitation() == net.minecraft.world.biome.Biome.RainType.NONE) return night(mc) ? 1 : 0;
+            net.minecraft.world.level.biome.Biome b = mc.level.getBiome(mc.player.blockPosition());
+            if (b.getPrecipitation() == net.minecraft.world.level.biome.Biome.RainType.SNOW) return 4;
+            if (b.getPrecipitation() == net.minecraft.world.level.biome.Biome.RainType.NONE) return night(mc) ? 1 : 0;
             return 2;
         }
         return night(mc) ? 1 : 0;
@@ -2272,7 +2272,7 @@ public final class PhoneScreen extends FlowScreen {
         }
     }
 
-    private static String biomeName(Minecraft mc, net.minecraft.world.biome.Biome b) {
+    private static String biomeName(Minecraft mc, net.minecraft.world.level.biome.Biome b) {
         net.minecraft.resources.ResourceLocation rl = null;
         try {
             rl = mc.level.registryAccess().registryOrThrow(net.minecraft.core.registries.Registries.BIOME).getKey(b);
@@ -2300,7 +2300,7 @@ public final class PhoneScreen extends FlowScreen {
         appHeader(ms, x, y, w, "Vremea", mx, my, true);
         if (mc.level == null || mc.player == null) return;
         net.minecraft.core.BlockPos pos = mc.player.blockPosition();
-        net.minecraft.world.biome.Biome b = mc.level.getBiome(pos);
+        net.minecraft.world.level.biome.Biome b = mc.level.getBiome(pos);
         float temp = b.getTemperature(pos);
         int celsius = Math.round(temp * 25f - (night(mc) ? 4f : 0f));
         int yy = y + 52;

@@ -399,7 +399,7 @@ public final class GaragesClient {
             Camera cam = Minecraft.getInstance().gameRenderer.getMainCamera();
             Vec3 c = cam.getPosition();
             PoseStack ps = e.getPoseStack();
-            MultiBufferSource.Impl buf = mc.renderBuffers().bufferSource();
+            MultiBufferSource.BufferSource buf = mc.renderBuffers().bufferSource();
             String d = dim(mc);
             long now = System.currentTimeMillis();
             boolean inVehicle = mc.player.getRootVehicle() != mc.player;
@@ -469,7 +469,7 @@ public final class GaragesClient {
         double vx = v.xo + (v.getX() - v.xo) * pt;
         double vy = v.yo + (v.getY() - v.yo) * pt;
         double vz = v.zo + (v.getZ() - v.zo) * pt;
-        double yaw = Math.toRadians(v.yRot);
+        double yaw = Math.toRadians(v.getYRot());
         double fx = -Math.sin(yaw), fz = Math.cos(yaw);
         double rx = Math.cos(yaw), rz = Math.sin(yaw);
         double hw = v.getBbWidth() * 0.55 + 0.15;
@@ -558,7 +558,7 @@ public final class GaragesClient {
      * Card mic deasupra markerului (mereu cu fata spre camera): fundal inchis translucid cu colturi taiate,
      * iconita, nume + tip + distanta. icon: 0 masina, 1 pompa, 2 pound, 3 lacat (fara acces).
      */
-    private static void card(PoseStack ps, MultiBufferSource.Impl buf, Camera cam, Vec3 c, double x, double y, double z, String title, String sub, float dist, int rgb, int icon, float fade) {
+    private static void card(PoseStack ps, MultiBufferSource.BufferSource buf, Camera cam, Vec3 c, double x, double y, double z, String title, String sub, float dist, int rgb, int icon, float fade) {
         int ba = (int) (205 * fade);
         if (ba < 8) return;
         Font font = Minecraft.getInstance().font;

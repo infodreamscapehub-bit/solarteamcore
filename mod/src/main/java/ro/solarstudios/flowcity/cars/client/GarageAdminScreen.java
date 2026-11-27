@@ -182,7 +182,7 @@ public final class GarageAdminScreen extends Screen {
 
     private void focus(EditBox f, boolean on) {
         if (f == null) return;
-        f.mouseClicked(on ? f.x + 1 : -10000, on ? f.y + 1 : -10000, 0);
+        f.mouseClicked(on ? f.getX() + 1 : -10000, on ? f.getY() + 1 : -10000, 0);
     }
 
     private void click() {
@@ -252,8 +252,8 @@ public final class GarageAdminScreen extends Screen {
     private void fieldBox(GuiGraphics ms, EditBox f, float x, float y, float w, float h) {
         Sk.slant(ms, x, y, w, h, 4f, Sk.ROW);
         Gfx.rrect(ms, x + 2, y + h - 2, w - 4, 1.5f, 0, f.isFocused() ? Sk.ACC : LINE);
-        f.x = Math.round(offX + (x + 7f) * scale);
-        f.y = Math.round(offY + (y + (h - 8f) / 2f) * scale);
+        f.setX(Math.round(offX + (x + 7f) * scale));
+        f.setY(Math.round(offY + (y + (h - 8f) / 2f) * scale));
         f.setWidth(Math.max(10, Math.round((w - 14f) * scale)));
         fieldRects.put(f, new float[] {x, y, w, h});
     }
@@ -278,8 +278,7 @@ public final class GarageAdminScreen extends Screen {
     // ------------------------------------------------------------------ desenare
 
     @Override
-    public void render(PoseStack poseIn, int mx, int my, float pt) {
-        GuiGraphics ms = new GuiGraphics(poseIn);
+    public void render(GuiGraphics ms, int mx, int my, float pt) {
         hits.clear();
         fieldRects.clear();
         float open = easeOut((System.currentTimeMillis() - openedAt) / 300f);
@@ -299,7 +298,7 @@ public final class GarageAdminScreen extends Screen {
             Gfx.alpha = 1f;
             ms.pose().popPose();
         }
-        for (EditBox f : fields()) f.render(ms.pose(), mx, my, 0);
+        for (EditBox f : fields()) f.render(ms, mx, my, 0);
     }
 
     private void content(GuiGraphics ms) {

@@ -95,7 +95,7 @@ public final class CarsServer {
     }
 
     private static boolean sameDim(ServerPlayer p, GarageData.Garage g) {
-        return p.level.dimension().location().toString().equals(g.dim);
+        return p.level().dimension().location().toString().equals(g.dim);
     }
 
     private static boolean nearMenu(ServerPlayer p, GarageData.Garage g) {
@@ -159,7 +159,7 @@ public final class CarsServer {
             j.addProperty("health", nbt.getFloat("Health"));
             j.addProperty("maxHealth", nbt.getFloat("MaxHealth"));
             j.addProperty("color", color(nbt));
-            j.addProperty("engine", VehicleParts.engine(p.getLevel(), c.type, nbt));
+            j.addProperty("engine", VehicleParts.engine(p.level(), c.type, nbt));
             j.addProperty("wheels", VehicleParts.wheels(nbt));
             j.addProperty("odo", Math.round(c.odometerM));
             j.addProperty("trip", Math.round(c.tripM));
@@ -186,7 +186,7 @@ public final class CarsServer {
             j.addProperty("name", c.name);
             j.addProperty("plate", c.plate);
             j.addProperty("color", color(c.nbt));
-            j.addProperty("engine", VehicleParts.engine(p.getLevel(), c.type, c.nbt));
+            j.addProperty("engine", VehicleParts.engine(p.level(), c.type, c.nbt));
             j.addProperty("wheels", VehicleParts.wheels(c.nbt));
             arr.add(j);
         }
@@ -246,7 +246,7 @@ public final class CarsServer {
             for (GarageData.Garage g : data.garages()) near |= nearMenu(p, g);
             if (!near) return fail(c, "Tuning-ul se face la garaj sau la mecanic.");
         }
-        String curEngine = VehicleParts.engine(p.getLevel(), car.type, car.nbt);
+        String curEngine = VehicleParts.engine(p.level(), car.type, car.nbt);
         String curWheels = VehicleParts.wheels(car.nbt);
         if (!curEngine.equals(StringArgumentType.getString(c, "fromEngine")) || !curWheels.equals(StringArgumentType.getString(c, "fromWheels"))
             || color(car.nbt) != IntegerArgumentType.getInteger(c, "fromColor")) {
@@ -287,7 +287,7 @@ public final class CarsServer {
             if (boat && g.boatSlots.isEmpty()) {
                 msg = "Acest garaj nu are puncte de spawn pentru barci. Cere unui admin sa adauge unul.";
             } else {
-                e = spawn(p.getLevel(), g, c);
+                e = spawn(p.level(), g, c);
                 msg = e != null ? c.name + " (" + c.plate + ") te asteapta in " + (boat ? "port." : "parcare.")
                     : boat ? "Toate punctele de spawn pentru barci sunt ocupate." : "Toate locurile de parcare sunt ocupate.";
             }
@@ -334,7 +334,7 @@ public final class CarsServer {
         c.nbt = strip(v.saveWithoutId(new CompoundTag()));
         c.out = false;
         c.entity = null;
-        v.remove();
+        v.discard();
     }
 
     /** Pune vehiculul pe primul loc de parcare liber (sau langa marker, daca nu sunt locuri setate). */
@@ -369,7 +369,7 @@ public final class CarsServer {
         boolean boat = isBoat(c);
         if (!boat) {
             Entity probe = type.create(level);
-            boat = probe instanceof net.minecraft.entity.item.BoatEntity;
+            boat = probe instanceof net.minecraft.world.entity.vehicle.Boat;
         }
         List<double[]> spots = new ArrayList<>(boat ? g.boatSlots : g.slots);
         if (boat) {
@@ -402,8 +402,8 @@ public final class CarsServer {
     }
 
     static boolean hasKeyItem(ServerPlayer p, GarageData.Car c) {
-        for (net.minecraft.world.item.ItemStack st : p.inventory.items) if (CarKeyItem.opens(st, c)) return true;
-        for (net.minecraft.world.item.ItemStack st : p.inventory.offhand) if (CarKeyItem.opens(st, c)) return true;
+        for (net.minecraft.world.item.ItemStack st : p.getInventory().items) if (CarKeyItem.opens(st, c)) return true;
+        for (net.minecraft.world.item.ItemStack st : p.getInventory().offhand) if (CarKeyItem.opens(st, c)) return true;
         return false;
     }
 
@@ -418,14 +418,14 @@ public final class CarsServer {
     static void giveKey(ServerPlayer p, GarageData.Car c, boolean newGeneration) {
         if (newGeneration) c.keyGen++;
         net.minecraft.world.item.ItemStack st = CarKeyItem.make(c);
-        if (!p.inventory.add(st)) p.drop(st, false);
+        if (!p.getInventory().add(st)) p.drop(st, false);
         GarageData.get(p.server).setDirty();
     }
 
     private static final java.util.List<Object[]> BEEPS = new java.util.ArrayList<>();
 
     private static void beep(ServerLevel w, Entity v, float pitch) {
-        w.playSound(null, v.getX(), v.getY(), v.getZ(), net.minecraft.sounds.SoundEvents.NOTE_BLOCK_BIT, net.minecraft.sounds.SoundSource.PLAYERS, 0.9f, pitch);
+        w.playSound(null, v.getX(), v.getY(), v.getZ(), net.minecraft.sounds.SoundEvents.NOTE_BLOCK_BIT.value(), net.minecraft.sounds.SoundSource.PLAYERS, 0.9f, pitch);
     }
 
     /** Tasta U: incuie / descuie cea mai apropiata masina pentru care ai cheie (pana la 12 blocuri). */
@@ -433,7 +433,7 @@ public final class CarsServer {
         Entity best = null;
         GarageData.Car bestCar = null;
         double bd = 12 * 12;
-        for (Entity v : p.level.getEntities((Entity) null, p.getBoundingBox().inflate(12), x -> x.getPersistentData().contains(TAG))) {
+        for (Entity v : p.level().getEntities((Entity) null, p.getBoundingBox().inflate(12), x -> x.getPersistentData().contains(TAG))) {
             GarageData.Car c = carOf(p.server, v);
             if (c == null || !hasKey(p, c)) continue;
             double d = v.distanceToSqr(p);
@@ -449,7 +449,7 @@ public final class CarsServer {
         }
         bestCar.locked = !bestCar.locked;
         data.setDirty();
-        ServerLevel w = p.getLevel();
+        ServerLevel w = p.level();
         beep(w, best, bestCar.locked ? 1.4f : 1.9f);
         if (bestCar.locked) BEEPS.add(new Object[] {w, best, 4});
         p.displayClientMessage(Component.literal((bestCar.locked ? "Incuiata: " : "Descuiata: ") + bestCar.name + " (" + bestCar.plate + ")"), true);
@@ -465,7 +465,7 @@ public final class CarsServer {
 
     private static GarageData.Station stationNear(ServerPlayer p, GarageData data, int id) {
         GarageData.Station st = data.station(id);
-        if (st == null || !p.level.dimension().location().toString().equals(st.dim)) return null;
+        if (st == null || !p.level().dimension().location().toString().equals(st.dim)) return null;
         return p.position().distanceTo(new Vec3(st.x, st.y, st.z)) <= st.radius + 4 ? st : null;
     }
 
@@ -620,7 +620,7 @@ public final class CarsServer {
         long whole = (long) acc;
         BP_METERS.put(u, acc - whole);
         try {
-            server.getCommands().performCommand(server.createCommandSourceStack(),
+            server.getCommands().performPrefixedCommand(server.createCommandSourceStack(),
                 "fcbp drive " + p.getGameProfile().getName() + " " + whole);
         } catch (RuntimeException ex) {
             // pluginul lipseste sau comanda nu a putut fi rulata: kilometrajul propriu nu e afectat
@@ -703,7 +703,7 @@ public final class CarsServer {
     }
 
     private static void plate(ServerPlayer p, GarageData data, int entityId) {
-        Entity e = p.level.getEntity(entityId);
+        Entity e = p.level().getEntity(entityId);
         if (e == null || e.distanceTo(p) > 8) return;
         GarageData.Car c = e.getPersistentData().contains(TAG) ? data.get(e.getPersistentData().getInt(TAG)) : null;
         JsonObject o = new JsonObject();
@@ -714,7 +714,7 @@ public final class CarsServer {
 
     /** Politia se uita la un vehicul: numar, model, proprietar, stare. */
     private static void inspect(ServerPlayer p, GarageData data, int entityId) {
-        Entity e = p.level.getEntity(entityId);
+        Entity e = p.level().getEntity(entityId);
         if (e == null || e.distanceTo(p) > 8) return;
         JsonObject o = new JsonObject();
         o.addProperty("entity", e.getUUID().toString());
@@ -741,7 +741,7 @@ public final class CarsServer {
     // ------------------------------------------------------------------ utilitare
 
     private static String nameOf(MinecraftServer server, UUID id) {
-        com.mojang.authlib.GameProfile gp = server.getProfileCache().get(id);
+        com.mojang.authlib.GameProfile gp = server.getProfileCache() == null ? null : server.getProfileCache().get(id).orElse(null);
         return gp == null ? "necunoscut" : gp.getName();
     }
 
@@ -833,38 +833,38 @@ public final class CarsServer {
         /** O masina veche (ex. dintr-un chunk descarcat) care a fost recuperata intre timp nu mai intra in lume. */
         @SubscribeEvent
         public void onJoin(EntityJoinLevelEvent e) {
-            if (e.getWorld().isClientSide()) return;
+            if (e.getLevel().isClientSide()) return;
             Entity en = e.getEntity();
-            if (!en.getPersistentData().contains(TAG) || !(e.getWorld() instanceof ServerLevel)) return;
-            ServerLevel sl = (ServerLevel) e.getWorld();
+            if (!en.getPersistentData().contains(TAG) || !(e.getLevel() instanceof ServerLevel)) return;
+            ServerLevel sl = (ServerLevel) e.getLevel();
             GarageData.Car c = GarageData.get(sl.getServer()).get(en.getPersistentData().getInt(TAG));
             if (c == null || !c.out || !en.getUUID().equals(c.entity)) e.setCanceled(true);
         }
 
         @SubscribeEvent
         public void onLogin(PlayerEvent.PlayerLoggedInEvent e) {
-            if (e.getPlayer() instanceof ServerPlayer) syncTo((ServerPlayer) e.getPlayer());
+            if (e.getEntity() instanceof ServerPlayer) syncTo((ServerPlayer) e.getEntity());
         }
 
         @SubscribeEvent
         public void onDim(PlayerEvent.PlayerChangedDimensionEvent e) {
-            if (e.getPlayer() instanceof ServerPlayer) syncTo((ServerPlayer) e.getPlayer());
+            if (e.getEntity() instanceof ServerPlayer) syncTo((ServerPlayer) e.getEntity());
         }
 
         /** Masina incuiata: nu se poate urca nimeni (nici prin click, nici altfel). */
         @SubscribeEvent
         public void onInteract(net.minecraftforge.event.entity.player.PlayerInteractEvent.EntityInteract e) {
-            if (lockedFor(e.getPlayer(), e.getTarget())) e.setCanceled(true);
+            if (lockedFor(e.getEntity(), e.getTarget())) e.setCanceled(true);
         }
 
         @SubscribeEvent
         public void onInteractAt(net.minecraftforge.event.entity.player.PlayerInteractEvent.EntityInteractSpecific e) {
-            if (lockedFor(e.getPlayer(), e.getTarget())) e.setCanceled(true);
+            if (lockedFor(e.getEntity(), e.getTarget())) e.setCanceled(true);
         }
 
         @SubscribeEvent
         public void onMount(net.minecraftforge.event.entity.EntityMountEvent e) {
-            if (!e.isMounting() || e.getWorldObj().isClientSide() || !(e.getEntityMounting() instanceof ServerPlayer)) return;
+            if (!e.isMounting() || e.getLevel().isClientSide() || !(e.getEntityMounting() instanceof ServerPlayer)) return;
             if (lockedFor((ServerPlayer) e.getEntityMounting(), e.getEntityBeingMounted())) e.setCanceled(true);
         }
 
@@ -1028,7 +1028,7 @@ public final class CarsServer {
         }
         boolean same = car.type.equals(StringArgumentType.getString(c, "type"))
             && car.plate.equals(StringArgumentType.getString(c, "plate"))
-            && VehicleParts.engine(owner.getLevel(), car.type, car.nbt).equals(StringArgumentType.getString(c, "engine"))
+            && VehicleParts.engine(owner.level(), car.type, car.nbt).equals(StringArgumentType.getString(c, "engine"))
             && VehicleParts.wheels(car.nbt).equals(StringArgumentType.getString(c, "wheels"))
             && Math.abs(hpPct(car.nbt) - IntegerArgumentType.getInteger(c, "hp")) <= 2;
         if (!same) {
@@ -1040,8 +1040,8 @@ public final class CarsServer {
 
     /** Scoate din inventar cheile unei masini (cele vechi oricum nu mai merg dupa vanzare). */
     private static void removeKeys(ServerPlayer p, GarageData.Car car) {
-        for (net.minecraft.world.item.ItemStack st : p.inventory.items) if (CarKeyItem.opens(st, car)) st.shrink(st.getCount());
-        for (net.minecraft.world.item.ItemStack st : p.inventory.offhand) if (CarKeyItem.opens(st, car)) st.shrink(st.getCount());
+        for (net.minecraft.world.item.ItemStack st : p.getInventory().items) if (CarKeyItem.opens(st, car)) st.shrink(st.getCount());
+        for (net.minecraft.world.item.ItemStack st : p.getInventory().offhand) if (CarKeyItem.opens(st, car)) st.shrink(st.getCount());
     }
 
     /** Reimprospateaza meniul garajului de langa jucator (daca e la unul personal). */
@@ -1098,7 +1098,7 @@ public final class CarsServer {
     }
 
     private static int ok(CommandContext<CommandSourceStack> c, String msg) {
-        c.getSource().sendSuccess(Component.literal(msg), false);
+        c.getSource().sendSuccess(() -> Component.literal(msg), false);
         syncAll(c.getSource().getServer());
         return 1;
     }
@@ -1111,7 +1111,7 @@ public final class CarsServer {
         g.name = name;
         g.type = type;
         g.faction = faction;
-        g.dim = p.level.dimension().location().toString();
+        g.dim = p.level().dimension().location().toString();
         g.mx = p.getX();
         g.my = p.getY();
         g.mz = p.getZ();
@@ -1137,7 +1137,7 @@ public final class CarsServer {
         GarageData data = GarageData.get(p.server);
         GarageData.Garage g = data.garage(id);
         if (g == null) return false;
-        g.dim = p.level.dimension().location().toString();
+        g.dim = p.level().dimension().location().toString();
         g.mx = p.getX();
         g.my = p.getY();
         g.mz = p.getZ();
@@ -1163,7 +1163,7 @@ public final class CarsServer {
         GarageData data = GarageData.get(p.server);
         GarageData.Garage g = data.garage(id);
         if (g == null) return -1;
-        g.slots.add(new double[] {p.getX(), p.getY(), p.getZ(), p.yRot});
+        g.slots.add(new double[] {p.getX(), p.getY(), p.getZ(), p.getYRot()});
         data.setDirty();
         return g.slots.size();
     }
@@ -1201,8 +1201,8 @@ public final class CarsServer {
                     break;
                 }
                 ServerLevel w = p.server.getLevel(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION, new ResourceLocation(g.dim)));
-                if (w == null) w = p.getLevel();
-                p.teleportTo(w, g.mx, g.my + 0.5, g.mz, p.yRot, p.xRot);
+                if (w == null) w = p.level();
+                p.teleportTo(w, g.mx, g.my + 0.5, g.mz, p.getYRot(), p.getXRot());
                 res = "Teleportat la " + g.name + ".";
                 break;
             }
@@ -1253,7 +1253,7 @@ public final class CarsServer {
                     res = "Garajul nu exista.";
                     break;
                 }
-                g.boatSlots.add(new double[] {p.getX(), p.getY(), p.getZ(), p.yRot});
+                g.boatSlots.add(new double[] {p.getX(), p.getY(), p.getZ(), p.getYRot()});
                 data.setDirty();
                 res = "Punct spawn barca #" + g.boatSlots.size() + " adaugat (pune-l pe apa, barca va fi intoarsa cum privesti).";
                 break;
@@ -1318,7 +1318,7 @@ public final class CarsServer {
                 for (GarageData.Garage g : gs) {
                     String line = "#" + g.id + " " + g.name + " [" + g.type + (g.faction.isEmpty() ? "" : " " + g.faction) + "] "
                         + (int) g.mx + " " + (int) g.my + " " + (int) g.mz + " | parcare: " + (g.hasStore ? "da" : "nu") + " | locuri: " + g.slots.size();
-                    c.getSource().sendSuccess(Component.literal(line), false);
+                    c.getSource().sendSuccess(() -> Component.literal(line), false);
                 }
                 return 1;
             }));
@@ -1331,7 +1331,7 @@ public final class CarsServer {
                 GarageData data = GarageData.get(c.getSource().getServer());
                 GarageData.Station st = data.addStation();
                 st.name = StringArgumentType.getString(c, "nume");
-                st.dim = p.level.dimension().location().toString();
+                st.dim = p.level().dimension().location().toString();
                 st.x = p.getX();
                 st.y = p.getY();
                 st.z = p.getZ();
@@ -1352,7 +1352,7 @@ public final class CarsServer {
                 GarageData data = GarageData.get(c.getSource().getServer());
                 GarageData.Station st = data.station(IntegerArgumentType.getInteger(c, "id"));
                 if (st == null) return fail(c, "Benzinaria nu exista.");
-                st.dim = p.level.dimension().location().toString();
+                st.dim = p.level().dimension().location().toString();
                 st.x = p.getX();
                 st.y = p.getY();
                 st.z = p.getZ();
@@ -1368,7 +1368,7 @@ public final class CarsServer {
             .then(Commands.literal("lista").executes(c -> {
                 List<GarageData.Station> l = GarageData.get(c.getSource().getServer()).stations();
                 if (l.isEmpty()) return fail(c, "Nu exista benzinarii. Creeaza una: /benzinarie creeaza <nume>");
-                for (GarageData.Station st : l) c.getSource().sendSuccess(Component.literal("#" + st.id + " " + st.name + " " + (int) st.x + " " + (int) st.y + " " + (int) st.z + " raza " + st.radius), false);
+                for (GarageData.Station st : l) c.getSource().sendSuccess(() -> Component.literal("#" + st.id + " " + st.name + " " + (int) st.x + " " + (int) st.y + " " + (int) st.z + " raza " + st.radius), false);
                 return 1;
             }));
     }
@@ -1446,9 +1446,9 @@ public final class CarsServer {
                         } catch (IllegalArgumentException ex) {
                             return fail(c, "UUID invalid.");
                         }
-                        Entity v = officer.getLevel().getEntity(id);
+                        Entity v = officer.level().getEntity(id);
                         if (v == null || v.distanceTo(officer) > 10 || v instanceof net.minecraft.world.entity.player.Player) return fail(c, "Vehiculul nu e aproape.");
-                        ResourceLocation key = ForgeRegistries.ENTITIES.getKey(v.getType());
+                        ResourceLocation key = ForgeRegistries.ENTITY_TYPES.getKey(v.getType());
                         GarageData data = GarageData.get(c.getSource().getServer());
                         GarageData.Car car = v.getPersistentData().contains(TAG) ? data.get(v.getPersistentData().getInt(TAG)) : null;
                         if (car == null && (key == null || !CarsCompat.MOD.equals(key.getNamespace()))) return fail(c, "Nu e un vehicul.");
@@ -1461,7 +1461,7 @@ public final class CarsServer {
                             if (owner != null) owner.displayClientMessage(Component.literal("Masina ta " + car.name + " (" + car.plate + ") a fost ridicata la pound: " + car.poundReason), false);
                         } else {
                             v.ejectPassengers();
-                            v.remove(); // vehicul fara acte (nu e din garaj): se ridica definitiv
+                            v.discard(); // vehicul fara acte (nu e din garaj): se ridica definitiv
                         }
                         officer.displayClientMessage(Component.literal("Vehicul ridicat la pound."), true);
                         return 1;
@@ -1482,7 +1482,7 @@ public final class CarsServer {
                     car.poundReason = "";
                     car.out = false;
                     car.entity = null;
-                    Entity e = spawn(p.getLevel(), g, car);
+                    Entity e = spawn(p.level(), g, car);
                     data.setDirty();
                     p.displayClientMessage(Component.literal(e != null ? car.name + " te asteapta in parcarea pound-ului."
                         : car.name + " a fost eliberata; locurile sunt ocupate, o poti scoate din orice garaj."), true);
@@ -1497,7 +1497,7 @@ public final class CarsServer {
                             ServerPlayer p = EntityArgument.getPlayer(c, "player");
                             GarageData data = GarageData.get(c.getSource().getServer());
                             if (stationNear(p, data, IntegerArgumentType.getInteger(c, "station")) == null) return fail(c, "Jucatorul nu e la benzinarie.");
-                            Entity v = p.level.getEntity(IntegerArgumentType.getInteger(c, "entity"));
+                            Entity v = p.level().getEntity(IntegerArgumentType.getInteger(c, "entity"));
                             if (v == null || v.distanceTo(p) > 10 || !addFuel(v, IntegerArgumentType.getInteger(c, "units"))) return fail(c, "Vehiculul nu poate fi alimentat.");
                             return 1;
                         }))))))
@@ -1511,7 +1511,7 @@ public final class CarsServer {
             .then(Commands.literal("pumpid").executes(c -> {
                 ServerPlayer p = c.getSource().getPlayerOrException();
                 String id = FuelPumps.lookingAt(p);
-                c.getSource().sendSuccess(new net.minecraft.network.chat.Component(
+                c.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(
                     id == null ? "Nu te uiti la niciun bloc." : "Bloc: " + id), false);
                 return 1;
             }))
@@ -1560,7 +1560,7 @@ public final class CarsServer {
         }
         VehicleParts.apply(nbt, engine, wheels);
         if (nbt.contains("FuelCapacity")) nbt.putFloat("CurrentFuel", nbt.getFloat("FuelCapacity") * 0.5f);
-        e.remove();
+        e.discard();
         return GarageData.get(server).add(owner, faction, type, name, plate, nbt);
     }
 

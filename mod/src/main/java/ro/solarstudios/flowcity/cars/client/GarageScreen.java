@@ -1,6 +1,7 @@
 package ro.solarstudios.flowcity.cars.client;
 
 import com.google.gson.JsonArray;
+import com.mojang.math.Axis;
 import com.google.gson.JsonObject;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
@@ -10,7 +11,6 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.IntArrayTag;
-import org.joml.Vector3f;
 import ro.solarstudios.flowcity.cars.CarsNet;
 import ro.solarstudios.flowcity.client.ui.FlowScreen;
 import ro.solarstudios.flowcity.client.ui.Gfx;
@@ -698,8 +698,8 @@ public final class GarageScreen extends FlowScreen {
         g.pose().pushPose();
         g.pose().translate(cx, groundY, 120);
         g.pose().scale(sc, -sc, sc);
-        g.pose().mulPose(Vector3f.XP.rotationDegrees(-16f));
-        g.pose().mulPose(Vector3f.YP.rotationDegrees(spin));
+        g.pose().mulPose(Axis.XP.rotationDegrees(-16f));
+        g.pose().mulPose(Axis.YP.rotationDegrees(spin));
         Lighting.setupFor3DItems();
         EntityRenderDispatcher d = mc.getEntityRenderDispatcher();
         d.setRenderShadow(false);

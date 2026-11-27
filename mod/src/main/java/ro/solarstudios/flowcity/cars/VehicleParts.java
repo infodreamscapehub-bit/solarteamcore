@@ -61,7 +61,7 @@ public final class VehicleParts {
                 if (n.startsWith("SMALL")) fam = "small";
                 else if (n.startsWith("LARGE")) fam = "large";
                 else if (n.startsWith("ELECTRIC")) fam = "electric";
-                e.remove();
+                e.discard();
             }
         } catch (ReflectiveOperationException | RuntimeException ignored) {
             // vehicul fara motor

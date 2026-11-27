@@ -68,9 +68,9 @@ public final class FuelPumps {
         net.minecraft.world.phys.HitResult r = p.pick(6.0D, 0.0F, false);
         if (!(r instanceof net.minecraft.world.phys.BlockHitResult)) return null;
         BlockPos pos = ((net.minecraft.world.phys.BlockHitResult) r).getBlockPos();
-        ResourceLocation rl = ForgeRegistries.BLOCKS.getKey(p.level.getBlockState(pos).getBlock());
+        ResourceLocation rl = ForgeRegistries.BLOCKS.getKey(p.level().getBlockState(pos).getBlock());
         if (rl == null) return null;
-        return rl + (isPump(p.level, pos) ? " (recunoscut ca pompa)" : " (NU e in lista de pompe)");
+        return rl + (isPump(p.level(), pos) ? " (recunoscut ca pompa)" : " (NU e in lista de pompe)");
     }
 
     /** O oferta: jucatorul a deschis meniul la o pompa, pentru un anume vehicul. */
@@ -113,7 +113,7 @@ public final class FuelPumps {
     /** Vehiculul pe care il alimentam: cel pe care il conduce jucatorul, altfel cel mai apropiat vehicul cu rezervor. */
     private static Entity vehicleFor(ServerPlayer p, int wantedId) {
         if (wantedId > 0) {
-            Entity e = p.level.getEntity(wantedId);
+            Entity e = p.level().getEntity(wantedId);
             if (e != null && e.isAlive() && e.distanceTo(p) <= MAX_DIST && CarsServer.hasTank(e)) return e;
         }
         Entity root = p.getRootVehicle();
@@ -122,7 +122,7 @@ public final class FuelPumps {
         AABB box = new AABB(c.x - 7, c.y - 4, c.z - 7, c.x + 7, c.y + 4, c.z + 7);
         Entity best = null;
         double bd = Double.MAX_VALUE;
-        for (Entity e : p.level.getEntities(null, box)) {
+        for (Entity e : p.level().getEntities(null, box)) {
             if (!e.isAlive() || !CarsServer.hasTank(e)) continue;
             double d = e.distanceToSqr(c);
             if (d < bd) {
@@ -184,7 +184,7 @@ public final class FuelPumps {
         }
         UUID who = busy.get(o.pump);
         if (who != null && !who.equals(u)) return false;
-        Entity v = p.level.getEntity(o.entityId);
+        Entity v = p.level().getEntity(o.entityId);
         if (v == null || !v.isAlive() || v.distanceTo(p) > MAX_DIST) return false;
         float free = CarsServer.fuelCapacity(v) - CarsServer.currentFuel(v);
         if (free <= 1f) return false;
@@ -217,7 +217,7 @@ public final class FuelPumps {
         s.sinceReport = 0;
         String cmd = "fcfuel report " + playerName + " " + s.txId + " " + Math.round(s.delivered) + " " + (done ? 1 : 0);
         try {
-            server.getCommands().performCommand(server.createCommandSourceStack(), cmd);
+            server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), cmd);
         } catch (RuntimeException ex) {
             // pluginul lipseste sau comanda nu a putut fi rulata: alimentarea continua, banii raman incasati
         }
@@ -229,7 +229,7 @@ public final class FuelPumps {
         ServerPlayer p = server.getPlayerList().getPlayer(s.player);
         String name = p != null ? p.getGameProfile().getName() : null;
         if (name == null) {
-            com.mojang.authlib.GameProfile gp = server.getProfileCache().get(s.player);
+            com.mojang.authlib.GameProfile gp = server.getProfileCache().get(s.player).orElse(null);
             name = gp != null ? gp.getName() : null;
         }
         if (name != null) report(server, name, s, true);
@@ -256,7 +256,7 @@ public final class FuelPumps {
                 stop(server, s, null);
                 continue;
             }
-            Entity v = p.level.getEntity(s.entityId);
+            Entity v = p.level().getEntity(s.entityId);
             if (v == null || !v.isAlive()) {
                 stop(server, s, "Vehiculul a disparut: alimentarea s-a oprit.");
                 continue;
@@ -293,9 +293,9 @@ public final class FuelPumps {
     public static final class Events {
         @SubscribeEvent
         public void onRightClick(PlayerInteractEvent.RightClickBlock e) {
-            if (e.getWorld().isClientSide() || !(e.getPlayer() instanceof ServerPlayer)) return;
-            ServerPlayer p = (ServerPlayer) e.getPlayer();
-            if (!isPump(e.getWorld(), e.getPos())) return;
+            if (e.getLevel().isClientSide() || !(e.getEntity() instanceof ServerPlayer)) return;
+            ServerPlayer p = (ServerPlayer) e.getEntity();
+            if (!isPump(e.getLevel(), e.getPos())) return;
             BlockPos b = e.getPos();
             String err = open(p, b.getX() + ":" + b.getY() + ":" + b.getZ(), "Benzinarie", 0);
             if (err != null) CarsServer.tell(p, err);
@@ -311,7 +311,7 @@ public final class FuelPumps {
         }
 
         @SubscribeEvent
-        public void onStopping(net.minecraftforge.fml.event.server.FMLServerStoppingEvent e) {
+        public void onStopping(net.minecraftforge.event.server.ServerStoppingEvent e) {
             shutdown(e.getServer());
         }
     }

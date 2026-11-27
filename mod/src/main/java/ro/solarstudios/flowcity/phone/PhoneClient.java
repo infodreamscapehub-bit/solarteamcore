@@ -414,7 +414,7 @@ public final class PhoneClient extends JsonClientModule {
         }
 
         @SubscribeEvent
-        public void onKey(InputEvent.KeyInputEvent e) {
+        public void onKey(InputEvent.Key e) {
             if (e.getAction() != GLFW.GLFW_PRESS) return;
             Minecraft mc = Minecraft.getInstance();
             if (mc.screen != null || mc.player == null) return;

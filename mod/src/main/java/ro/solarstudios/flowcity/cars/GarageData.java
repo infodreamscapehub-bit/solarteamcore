@@ -90,12 +90,12 @@ public final class GarageData extends SavedData {
             g.sy = t.getDouble("SY");
             g.sz = t.getDouble("SZ");
             g.radius = t.contains("Radius") ? t.getFloat("Radius") : 4f;
-            ListTag l = t.getList("Slots", net.minecraftforge.common.util.Constants.NBT.TAG_COMPOUND);
+            ListTag l = t.getList("Slots", Tag.TAG_COMPOUND);
             for (int i = 0; i < l.size(); i++) {
                 CompoundTag c = l.getCompound(i);
                 g.slots.add(new double[] {c.getDouble("X"), c.getDouble("Y"), c.getDouble("Z"), c.getDouble("Yaw")});
             }
-            ListTag bl = t.getList("BoatSlots", net.minecraftforge.common.util.Constants.NBT.TAG_COMPOUND);
+            ListTag bl = t.getList("BoatSlots", Tag.TAG_COMPOUND);
             for (int i = 0; i < bl.size(); i++) {
                 CompoundTag c = bl.getCompound(i);
                 g.boatSlots.add(new double[] {c.getDouble("X"), c.getDouble("Y"), c.getDouble("Z"), c.getDouble("Yaw")});
@@ -225,41 +225,39 @@ public final class GarageData extends SavedData {
     private int nextId = 1;
     private int nextGarage = 1;
 
-    public GarageData() {
-        super(NAME);
-    }
 
     public static GarageData get(MinecraftServer server) {
-        return server.overworld().getDataStorage().computeIfAbsent(GarageData::new, NAME);
+        return server.overworld().getDataStorage().computeIfAbsent(GarageData::load, GarageData::new, NAME);
     }
 
-    @Override
-    public void load(CompoundTag tag) {
-        GarageData d = this;
+    /** 1.20.1: incarcarea e o fabrica statica, nu o metoda de instanta. */
+    private static GarageData load(CompoundTag tag) {
+        GarageData d = new GarageData();
         d.cars.clear();
         d.garages.clear();
         d.nextId = Math.max(1, tag.getInt("NextId"));
         d.nextGarage = Math.max(1, tag.getInt("NextGarage"));
         d.stations.clear();
         d.nextStation = Math.max(1, tag.getInt("NextStation"));
-        ListTag sl = tag.getList("Stations", net.minecraftforge.common.util.Constants.NBT.TAG_COMPOUND);
+        ListTag sl = tag.getList("Stations", Tag.TAG_COMPOUND);
         for (int i = 0; i < sl.size(); i++) {
             Station st = Station.load(sl.getCompound(i));
             d.stations.put(st.id, st);
             d.nextStation = Math.max(d.nextStation, st.id + 1);
         }
-        ListTag list = tag.getList("Cars", net.minecraftforge.common.util.Constants.NBT.TAG_COMPOUND);
+        ListTag list = tag.getList("Cars", Tag.TAG_COMPOUND);
         for (int i = 0; i < list.size(); i++) {
             Car c = Car.load(list.getCompound(i));
             d.cars.put(c.id, c);
             d.nextId = Math.max(d.nextId, c.id + 1);
         }
-        ListTag gl = tag.getList("Garages", net.minecraftforge.common.util.Constants.NBT.TAG_COMPOUND);
+        ListTag gl = tag.getList("Garages", Tag.TAG_COMPOUND);
         for (int i = 0; i < gl.size(); i++) {
             Garage g = Garage.load(gl.getCompound(i));
             d.garages.put(g.id, g);
             d.nextGarage = Math.max(d.nextGarage, g.id + 1);
         }
+        return d;
     }
 
     @Override
