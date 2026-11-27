@@ -182,8 +182,7 @@ public final class FlowMainMenu extends Screen {
     // ------------------------------------------------------------------ randare
 
     @Override
-    public void render(com.mojang.blaze3d.vertex.PoseStack poseIn, int mx, int my, float pt) {
-        GuiGraphics ms = new GuiGraphics(poseIn);
+    public void render(GuiGraphics ms, int mx, int my, float pt) {
         long now = System.currentTimeMillis();
         float dt = Math.min(0.1f, (now - last) / 1000f);
         last = now;
