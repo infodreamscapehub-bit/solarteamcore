@@ -1,0 +1,307 @@
+package ro.solarstudios.flowcity.client.ui;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import net.minecraftforge.fml.loading.FMLPaths;
+import net.minecraft.client.gui.GuiGraphics;
+
+/**
+ * Pozitiile elementelor de HUD alese de jucator (editorul de HUD): mutare, marime si vizibilitate pentru fiecare element.
+ * Se pastreaza in config/flowcity-hud.json. Fiecare element de HUD isi deseneaza continutul intre begin() si end().
+ */
+public final class HudLayout {
+    private HudLayout() {}
+
+    public static final class El {
+        public final String id;
+        public final String label;
+        public float dx;
+        public float dy;
+        public float scale = 1f;
+        public boolean visible = true;
+        /** Transparenta (0.2 .. 1) si culoarea de accent (0 = implicita). */
+        public float alpha = 1f;
+        public int color;
+        /** Stilul panoului (doar pentru "hud"): 1..3, 0 = cel implicit de pe server. */
+        public int style;
+        /** Partile oprite ale elementului (cheile din PARTS). */
+        public final java.util.Set<String> off = new java.util.HashSet<>();
+        /** Ultimul dreptunghi desenat (inainte de transformare) si cand a fost vazut. */
+        public float rx;
+        public float ry;
+        public float rw;
+        public float rh;
+        public long seen;
+
+        El(String id, String label) {
+            this.id = id;
+            this.label = label;
+        }
+
+        public boolean isDefault() {
+            return dx == 0f && dy == 0f && scale == 1f && visible && alpha >= 0.999f;
+        }
+
+        public void reset() {
+            dx = 0f;
+            dy = 0f;
+            scale = 1f;
+            visible = true;
+            alpha = 1f;
+            color = 0;
+            style = 0;
+            off.clear();
+        }
+    }
+
+    public static final Map<String, El> ELS = new LinkedHashMap<>();
+
+    /** Partile care se pot opri pentru un element: {cheie, eticheta}. */
+    public static final Map<String, String[][]> PARTS = new LinkedHashMap<>();
+
+    static {
+        PARTS.put("hud", new String[][] {{"clock", "Ceas"}, {"title", "Titlu + logo"}, {"identity", "Nume"}, {"rank", "Rank"}, {"money", "Bani"}, {"job", "Job"}, {"thirst", "Sete"}});
+        PARTS.put("status", new String[][] {{"health", "Viață"}, {"armor", "Armură"}, {"food", "Mâncare"}, {"water", "Apă"},
+            {"pct", "Procente (oprit = valori)"}, {"anim", "Animații"}, {"wide", "Spațiere mare"}, {"hidevanilla", "Ascunde barele vanilla"},
+            {"auto", "Ascunde armura la 0"}, {"compact", "Compact sub minimap (oprit = cercuri mari)"}});
+    }
+
+    /** Culoarea de accent aleasa pentru element, sau def daca nu a ales una. */
+    public static int accent(String id, int def) {
+        El e = ELS.get(id);
+        return e == null || e.color == 0 ? def : (e.color | 0xFF000000);
+    }
+
+    /** Stilul HUD-ului principal: ales de jucator (1..3), altfel cel implicit trimis de server (hud.default-style), altfel 1. */
+    public static int styleOf() {
+        El e = ELS.get("hud");
+        int st = e == null ? 0 : e.style;
+        if (st < 1 || st > 3) {
+            st = 1;
+            try {
+                JsonObject s = ro.solarstudios.flowcity.hype.HypeState.state;
+                if (s.has("defaultStyle")) st = s.get("defaultStyle").getAsInt();
+            } catch (RuntimeException ignored) {
+                // stare lipsa sau stricata: stilul 1
+            }
+        }
+        return Math.max(1, Math.min(3, st));
+    }
+
+    /** Alege stilul HUD-ului principal (0 = implicit de pe server) si il salveaza. */
+    public static void setStyle(int style) {
+        El e = ELS.get("hud");
+        if (e == null) return;
+        e.style = Math.max(0, Math.min(3, style));
+        save();
+    }
+
+    /** Partea e vizibila? (implicit da) */
+    public static boolean part(String id, String key) {
+        El e = ELS.get(id);
+        return e == null || !e.off.contains(key);
+    }
+
+    static {
+        add("hud", "Panou principal");
+        add("status", "Status jucător");
+        add("speedo", "Bord mașină");
+        add("toasts", "Notificări");
+        add("news", "Știri CNN");
+        add("prompt", "Mesaj interacțiune");
+        add("taxi", "Taximetru");
+        add("fjobs", "Tura job (card)");
+        add("gps", "Navigare GPS");
+        add("minimap", "Minimap GPS");
+        load();
+    }
+
+    private static void add(String id, String label) {
+        ELS.put(id, new El(id, label));
+    }
+
+    public static El get(String id) {
+        return ELS.get(id);
+    }
+
+    private static Path file() {
+        return FMLPaths.CONFIGDIR.get().resolve("flowcity-hud.json");
+    }
+
+    public static void load() {
+        try {
+            Path f = file();
+            if (!Files.exists(f)) return;
+            JsonObject root = new Gson().fromJson(new String(Files.readAllBytes(f), StandardCharsets.UTF_8), JsonObject.class);
+            if (root != null) apply(root);
+        } catch (IOException | RuntimeException ignored) {
+            // fisier lipsa sau stricat: raman pozitiile implicite
+        }
+    }
+
+    private static void apply(JsonObject root) {
+        for (El e : ELS.values()) {
+            JsonElement je = root.get(e.id);
+            if (je == null || !je.isJsonObject()) continue;
+            JsonObject o = je.getAsJsonObject();
+            e.dx = o.has("dx") ? o.get("dx").getAsFloat() : 0f;
+            e.dy = o.has("dy") ? o.get("dy").getAsFloat() : 0f;
+            e.scale = Math.max(0.5f, Math.min(2f, o.has("scale") ? o.get("scale").getAsFloat() : 1f));
+            e.visible = !o.has("visible") || o.get("visible").getAsBoolean();
+            e.alpha = Math.max(0.2f, Math.min(1f, o.has("alpha") ? o.get("alpha").getAsFloat() : 1f));
+            e.color = o.has("color") ? o.get("color").getAsInt() & 0xFFFFFF : 0;
+            e.style = o.has("style") ? Math.max(0, Math.min(3, o.get("style").getAsInt())) : 0;
+            e.off.clear();
+            if (o.has("off") && o.get("off").isJsonArray()) for (JsonElement x : o.getAsJsonArray("off")) e.off.add(x.getAsString());
+        }
+    }
+
+    private static JsonObject toJson() {
+        JsonObject root = new JsonObject();
+        for (El e : ELS.values()) {
+            JsonObject o = new JsonObject();
+            o.addProperty("dx", Math.round(e.dx * 10f) / 10f);
+            o.addProperty("dy", Math.round(e.dy * 10f) / 10f);
+            o.addProperty("scale", Math.round(e.scale * 100f) / 100f);
+            o.addProperty("visible", e.visible);
+            o.addProperty("alpha", Math.round(e.alpha * 100f) / 100f);
+            o.addProperty("color", e.color);
+            o.addProperty("style", e.style);
+            com.google.gson.JsonArray off = new com.google.gson.JsonArray();
+            for (String k : e.off) off.add(k);
+            o.add("off", off);
+            root.add(e.id, o);
+        }
+        return root;
+    }
+
+    public static void save() {
+        try {
+            Files.write(file(), new Gson().toJson(toJson()).getBytes(StandardCharsets.UTF_8));
+        } catch (IOException | RuntimeException ignored) {
+            // nu se poate scrie: pozitiile ramn doar pentru sesiunea curenta
+        }
+    }
+
+    /** Starea curenta a tuturor elementelor ca text (pentru ANULEAZA in editor). */
+    public static String snapshot() {
+        return new Gson().toJson(toJson());
+    }
+
+    /** Readuce starea dintr-un snapshot() si o salveaza. */
+    public static void restore(String snap) {
+        try {
+            JsonObject root = new Gson().fromJson(snap, JsonObject.class);
+            if (root != null) {
+                apply(root);
+                save();
+            }
+        } catch (RuntimeException ignored) {
+            // snapshot stricat: nu schimbam nimic
+        }
+    }
+
+    /** Aduce toate elementele la starea implicita. */
+    public static void resetAll() {
+        for (El e : ELS.values()) e.reset();
+        save();
+    }
+
+    /**
+     * Aplica pozitia aleasa de jucator: muta si scaleaza fata de centrul dreptunghiului implicit (x, y, w, h).
+     * Intoarce false daca elementul e ascuns (atunci nu se deseneaza si nu se apeleaza end()).
+     */
+    public static boolean begin(GuiGraphics g, String id, float x, float y, float w, float h) {
+        El e = ELS.get(id);
+        if (e == null) return true;
+        e.rx = x;
+        e.ry = y;
+        e.rw = w;
+        e.rh = h;
+        e.seen = System.currentTimeMillis();
+        if (!e.visible) return false;
+        g.pose().pushPose();
+        Gfx.alpha = e.alpha;
+        if (!e.isDefault()) {
+            float cx = x + w / 2f;
+            float cy = y + h / 2f;
+            g.pose().translate(cx + e.dx, cy + e.dy, 0);
+            g.pose().scale(e.scale, e.scale, 1f);
+            g.pose().translate(-cx, -cy, 0);
+        }
+        return true;
+    }
+
+    public static void end(GuiGraphics g) {
+        Gfx.alpha = 1f;
+        g.pose().popPose();
+    }
+
+    /** Dreptunghiul de pe ecran al elementului dupa mutare + scalare (x, y, w, h), pornind de la dreptunghiul desenat. */
+    public static float[] rect(El e, float x, float y, float w, float h) {
+        float cx = x + w / 2f + e.dx;
+        float cy = y + h / 2f + e.dy;
+        float nw = w * e.scale;
+        float nh = h * e.scale;
+        return new float[] {cx - nw / 2f, cy - nh / 2f, nw, nh};
+    }
+
+    public static float[] rect(String id) {
+        El e = ELS.get(id);
+        return rect(e, e.rx, e.ry, e.rw, e.rh);
+    }
+
+    /** True daca elementul a fost desenat chiar acum (are continut real pe ecran). */
+    public static boolean live(El e) {
+        return System.currentTimeMillis() - e.seen < 1500;
+    }
+
+    /** Dreptunghiul implicit al unui element pe care nu l-am vazut desenat (pentru editor). */
+    public static float[] defaults(String id, int sw, int sh) {
+        switch (id) {
+            case "hud": {
+                int st = styleOf();
+                if (st == 1) return new float[] {sw - 244f, 3f, 244f, 110f};
+                float w = ro.solarstudios.flowcity.hype.HypeHud.widthOf(st);
+                return new float[] {sw - (w + 12f), 3f, w + 8f, ro.solarstudios.flowcity.hype.HypeHud.heightOf(st) + 6f};
+            }
+            case "speedo":
+                return ro.solarstudios.flowcity.cars.client.CarHud.defaultRect(sw, sh);
+            case "toasts":
+                return new float[] {sw - 218f, Math.max(8f, ro.solarstudios.flowcity.hype.HypeHud.occupiedBottom), 208f, 64f};
+            case "news": {
+                float w = Math.min(372f, sw - 20f);
+                return new float[] {(sw - w) / 2f, 6f, w, 54f};
+            }
+            case "minimap":
+                return ro.solarstudios.flowcity.gps.MiniMapRenderer.defaults(sw, sh);
+            case "gps": {
+                if (ro.solarstudios.flowcity.gps.MiniMapSettings.enabled) {
+                    // alaturi de minimap (jos-stanga), ca sa nu se suprapuna cu el
+                    float[] m = ro.solarstudios.flowcity.gps.MiniMapRenderer.defaults(sw, sh);
+                    return new float[] {m[0] + m[2] + 8f, m[1], 156f, 64f};
+                }
+                return new float[] {10f, sh / 2f + 40f, 156f, 64f};
+            }
+            case "status": {
+                if (ro.solarstudios.flowcity.hype.StatusHud.compactActive()) return ro.solarstudios.flowcity.hype.StatusHud.compactRect(sw, sh, 4);
+                float w = 4 * 30f + 3 * 3f;
+                float y = 8f + w > sw / 2f - 95f ? sh - 32f - 44f : sh - 32f - 8f;
+                return new float[] {8f, y, w, 32f};
+            }
+            case "taxi":
+                return new float[] {10f, sh / 2f - 34f, 156f, 64f};
+            case "fjobs":
+                return new float[] {10f, sh / 2f - 110f, 176f, 80f};
+            default:
+                return new float[] {sw / 2f - 90f, sh - 92f, 180f, 24f};
+        }
+    }
+}

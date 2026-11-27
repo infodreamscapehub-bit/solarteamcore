@@ -1,0 +1,159 @@
+package ro.solarstudios.flowcity.client.ui;
+
+import net.minecraft.client.gui.GuiGraphics;
+
+/**
+ * Identitatea vizuala globala FlowCity: paleta, spatierile, scara de text si primitivele de suprafata
+ * (panou de sticla, umbra moale, card, separator). Totul e desenat din cod; nu exista texturi.
+ *
+ * <p>Reguli: fundalul e aproape negru, panourile urca in doua trepte (BG2, PANEL), accentul violet se foloseste
+ * doar pentru starea activa si actiunea principala, iar albastrul pentru date (harta, trasee, selectie).
+ *
+ * <p>Ecranele care au accent sau opacitate proprie le pun in {@link #accent} si {@link #opacity} la inceputul
+ * cadrului (vezi {@link FUi#frame(float)}); implicit sunt accentul violet si opacitate maxima.
+ */
+public final class FTheme {
+    private FTheme() {}
+
+    // ------------------------------------------------------------------ culori
+
+    public static final int BG = 0xFF101216;
+    public static final int BG2 = 0xFF191D24;
+    public static final int PANEL = 0xFF202630;
+    public static final int PANEL_HI = 0xFF262D39;
+    public static final int ACCENT = 0xFF8B5CF6;
+    public static final int ACCENT_DIM = 0xFF6D45C8;
+    public static final int SKY = 0xFF38BDF8;
+    public static final int TEXT = 0xFFFFFFFF;
+    public static final int MUTED = 0xFF9CA3AF;
+    public static final int FAINT = 0xFF646B78;
+    public static final int DANGER = 0xFFEF4444;
+    public static final int OK = 0xFF22C55E;
+    public static final int WARN = 0xFFF59E0B;
+    public static final int GOLD = 0xFFF5B942;
+
+    /** Contur de 1px pe panouri (foarte discret, nu o bordura groasa). */
+    public static final int LINE = 0xFF2B313C;
+    public static final int LINE_SOFT = 0x14FFFFFF;
+    /** Panou peste continut: lasa fundalul sa se simta dedesubt. */
+    public static final int GLASS = 0xF0141820;
+    public static final int GLASS_HI = 0xF01C222C;
+    /** Voal peste continut cand o pagina sau un modal acopera zona. */
+    public static final int SCRIM = 0xD60B0D11;
+
+    // ------------------------------------------------------------------ stare per ecran
+
+    /** Accentul ecranului curent (ecranele cu accent configurabil il seteaza la inceputul cadrului). */
+    public static int accent = ACCENT;
+    /** Opacitatea umplerilor de panou, 0..1 (conturul si textul raman la fel). */
+    public static float opacity = 1f;
+
+    /** Reseteaza starea per ecran la valorile implicite. */
+    public static void reset() {
+        accent = ACCENT;
+        opacity = 1f;
+    }
+
+    // ------------------------------------------------------------------ spatiere si raze
+
+    public static final float S1 = 4f;
+    public static final float S2 = 8f;
+    public static final float S3 = 12f;
+    public static final float S4 = 16f;
+    public static final float S5 = 24f;
+    public static final float R_SM = 8f;
+    public static final float R_MD = 12f;
+    public static final float R_LG = 16f;
+
+    // ------------------------------------------------------------------ text
+
+    public static final float T_H1 = 15f;
+    public static final float T_H2 = 11.5f;
+    public static final float T_BODY = 9.4f;
+    public static final float T_SMALL = 8.2f;
+    public static final float T_CAPTION = 6.8f;
+    /** Spatiere intre litere pentru etichetele scrise cu majuscule. */
+    public static final float SP_CAPTION = 1.3f;
+
+    // ------------------------------------------------------------------ miscare
+
+    /** Interpolare cadru-cu-cadru spre o tinta; speed ~ 1/durata (12 = ~160ms). */
+    public static float to(float cur, float target, float dt, float speed) {
+        return cur + (target - cur) * Math.min(1f, dt * speed);
+    }
+
+    /** Ease-out cubic, pentru intrari scurte. */
+    public static float ease(float t) {
+        t = Math.max(0f, Math.min(1f, t));
+        float u = 1f - t;
+        return 1f - u * u * u;
+    }
+
+    /** Ease-out elastic scurt (pastila care se extinde). */
+    public static float easeBack(float t) {
+        t = Math.max(0f, Math.min(1f, t));
+        float u = t - 1f;
+        return 1f + u * u * (2.2f * u + 1.2f);
+    }
+
+    public static int fade(int argb, float a) {
+        return Gfx.fade(argb, Math.max(0f, Math.min(1f, a)));
+    }
+
+    /** Culoare cu opacitate absoluta (0..255), pastrand nuanta. */
+    public static int alpha(int argb, int a) {
+        return (a << 24) | (argb & 0xFFFFFF);
+    }
+
+    public static int mix(int a, int b, float t) {
+        return Gfx.mixArgb(a, b, Math.max(0f, Math.min(1f, t)));
+    }
+
+    // ------------------------------------------------------------------ suprafete
+
+    /** Umbra moale sub un panou (cateva straturi din ce in ce mai transparente, fara halou). */
+    public static void shadow(GuiGraphics g, float x, float y, float w, float h, float r) {
+        for (int i = 3; i >= 1; i--) {
+            float o = i * 1.6f;
+            Gfx.rrect(g, x - o, y - o + 2f, w + o * 2f, h + o * 2f, r + o, alpha(0x000000, 10 + (3 - i) * 6));
+        }
+    }
+
+    /** Opacitatea aleasa de ecran, aplicata umplerilor de panou. */
+    public static int op(int argb) {
+        float o = opacity;
+        if (o >= 0.999f) return argb;
+        return alpha(argb, Math.round(((argb >>> 24) & 0xFF) * o));
+    }
+
+    /** Panou plin, cu contur de 1px. */
+    public static void panel(GuiGraphics g, float x, float y, float w, float h, float r, int fill, int line) {
+        Gfx.rrect(g, x, y, w, h, r, line);
+        Gfx.rrect(g, x + 1f, y + 1f, w - 2f, h - 2f, Math.max(0f, r - 1f), op(fill));
+    }
+
+    /** Panou peste continut: umbra + sticla + contur. */
+    public static void glass(GuiGraphics g, float x, float y, float w, float h, float r) {
+        shadow(g, x, y, w, h, r);
+        panel(g, x, y, w, h, r, GLASS, LINE);
+        // lumina fina pe muchia de sus, ca sa nu para plat
+        Gfx.rrect(g, x + r * 0.6f, y + 1f, w - r * 1.2f, 1f, 0.5f, LINE_SOFT);
+    }
+
+    /** Card pe fundal opac (in pagini). */
+    public static void card(GuiGraphics g, float x, float y, float w, float h, float r, float hot) {
+        int fill = mix(BG2, PANEL_HI, hot);
+        Gfx.rrect(g, x, y, w, h, r, mix(LINE, accent, hot * 0.55f));
+        Gfx.rrect(g, x + 1f, y + 1f, w - 2f, h - 2f, Math.max(0f, r - 1f), op(fill));
+    }
+
+    /** Linie de separare orizontala. */
+    public static void divider(GuiGraphics g, float x, float y, float w) {
+        Gfx.rrect(g, x, y, w, 1f, 0f, LINE);
+    }
+
+    /** Eticheta scurta cu majuscule (sectiune). */
+    public static void caption(GuiGraphics g, String s, float x, float baseline, int color) {
+        Gfx.text(g, s, x, baseline, T_CAPTION, color, 0, true, SP_CAPTION);
+    }
+}
