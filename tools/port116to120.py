@@ -252,6 +252,25 @@ CODE = [
     (r"\s*if \([a-z]+\.getType\(\) != RenderGuiEvent\.ElementType\.ALL\) return;\n", "\n"),
     (r"new GuiGraphics\((\w+)\.getMatrixStack\(\)\)", r"\1.getGuiGraphics()"),
     (r"(\w+)\.getMatrixStack\(\)", r"\1.getGuiGraphics().pose()"),
+    # --- diferente de API gasite la etapele 4-5 (campuri devenite private, evenimente, nbt) ---
+    (r"(?<!mc)(?<!\))(?<!Minecraft)\.level\b(?![\w(])", ".level()"),
+    (r"\.yRot\b(?![\w(])(?!\s*=[^=])", ".getYRot()"),
+    (r"\.xRot\b(?![\w(])(?!\s*=[^=])", ".getXRot()"),
+    (r"\.inventory\b(?![\w(])", ".getInventory()"),
+    (r"net\.minecraftforge\.common\.util\.Constants\.NBT\.", "net.minecraft.nbt.Tag."),
+    (r"\bVector3f\.(XP|YP|ZP)\.rotationDegrees\(", r"com.mojang.math.Axis.\1.rotationDegrees("),
+    (r"MultiBufferSource\.Impl\b", "MultiBufferSource.BufferSource"),
+    (r"InputEvent\.KeyInputEvent\b", "InputEvent.Key"),
+    (r"net\.minecraftforge\.fml\.event\.server\.FMLServerStoppingEvent", "net.minecraftforge.event.server.ServerStoppingEvent"),
+    (r"net\.minecraftforge\.fml\.event\.server\.FMLServerStartingEvent", "net.minecraftforge.event.server.ServerStartingEvent"),
+    (r"net\.minecraftforge\.fml\.event\.server\.FMLServerStartedEvent", "net.minecraftforge.event.server.ServerStartedEvent"),
+    (r"ForgeRegistries\.ENTITIES\b", "ForgeRegistries.ENTITY_TYPES"),
+    (r"ForgeRegistries\.TILE_ENTITIES\b", "ForgeRegistries.BLOCK_ENTITY_TYPES"),
+    (r"\b(e|ev|event)\.getPlayer\(\)", r"\1.getEntity()"),
+    (r"\b(e|ev|event)\.getWorld\(\)", r"\1.getLevel()"),
+    (r"\.performCommand\(", ".performPrefixedCommand("),
+    (r"\.drawInBatch\((.*), true, 0, 15728880\)", r".drawInBatch(\1, net.minecraft.client.gui.Font.DisplayMode.SEE_THROUGH, 0, 15728880)"),
+    (r"entity\.item\.BoatEntity", "world.entity.vehicle.Boat"),
     # randarea in lume: RenderWorldLastEvent -> RenderLevelStageEvent
     (r"(\w+)\.getPartialTicks\(\)", r"\1.getPartialTick()"),
 ]
@@ -268,6 +287,11 @@ WARN = [
     ("RenderLevelStageEvent",
      "1.20.1: adauga if (e.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return; si foloseste e.getPoseStack()"),
     ("Material.", "1.20.1: BlockBehaviour.Properties.of() nu mai ia Material"),
+    ("sendSuccess(", "1.20.1: primul argument e Supplier<Component>: () -> Component.literal(..)"),
+    ("getProfileCache().get(", "1.20.1: intoarce Optional<GameProfile> -> .orElse(null)"),
+    ("getBiome(", "1.20.1: Holder<Biome> -> .value(); getPrecipitation() -> getPrecipitationAt(pos)"),
+    (".remove()", "1.20.1: Entity.remove() -> discard()"),
+    ("getLevel()", "1.20.1: ServerPlayer.getLevel() -> serverLevel()"),
     ("getRegistryName()", "1.20.1: ForgeRegistries.<REGISTRU>.getKey(obiect)"),
 ]
 
