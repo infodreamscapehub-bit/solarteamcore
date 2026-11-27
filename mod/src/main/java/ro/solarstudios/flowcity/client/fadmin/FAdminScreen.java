@@ -895,7 +895,7 @@ public final class FAdminScreen extends FlowScreen {
             t(ms, clip(s(j, "name"), lw - 66, 7.8f, false), x0 + 22, mid(ry, 20, 7.8f), 7.8f, FTheme.TEXT);
             tr(ms, String.valueOf((int) n(j, "employees")), x0 + lw - 12, mid(ry, 20, 7.4f), 7.4f, FTheme.MUTED);
             final String id = s(j, "id");
-            hit(x0 + 4, ry, lw - 8, 20, () -> {
+            hit(x0 + 4, (int) ry, (int) lw - 8, 20, () -> {
                 jobSel = id;
                 FAdminClient.jobPlayers = null;
                 FAdminClient.ask("job_players", "id", id);
@@ -930,7 +930,7 @@ public final class FAdminScreen extends FlowScreen {
             t(ms, clip(fm(n(r, "earned")), (col[3] - col[2]) * w - 4, 7.2f, false), rx + 10 + col[2] * w, mid(ry, 18, 7.2f), 7.2f, FTheme.MUTED);
             if (b(r, "shift")) pill(ms, "ÎN TURĂ", rx + 10 + col[3] * w, ry + 3, FTheme.OK);
             final String u = s(r, "uuid");
-            hit(rx + 4, ry, rw - 8, 18, () -> {
+            hit(rx + 4, (int) ry, rw - 8, 18, () -> {
                 jobPlayer = u;
                 jobTarget = 0;
                 FAdminClient.jobProgress = null;
@@ -1145,7 +1145,7 @@ public final class FAdminScreen extends FlowScreen {
             tr(ms, clip(s(r, "value"), 110, 7.8f, false), x0 + cw - 10, mid(ry, 18, 7.8f), 7.8f, FTheme.TEXT);
             final String key = s(r, "key");
             final String val = s(r, "value");
-            hit(x0, ry, cw, 18, () -> {
+            hit(x0, (int) ry, cw, 18, () -> {
                 cfgSel = key;
                 value.setValue(val);
                 reason.setValue("");
