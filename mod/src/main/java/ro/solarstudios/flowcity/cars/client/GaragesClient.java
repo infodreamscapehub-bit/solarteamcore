@@ -156,19 +156,6 @@ public final class GaragesClient {
                         stations.add(st);
                     }
                 }
-                // doar pe 1.20.1: harta veche (maps/) isi ia garajele tot de aici
-                ro.solarstudios.flowcity.maps.MapsState.garagePois.clear();
-                for (G g : garages) {
-                    if (!g.access) continue;
-                    ro.solarstudios.flowcity.maps.MapsState.Poi p = new ro.solarstudios.flowcity.maps.MapsState.Poi();
-                    p.id = -g.id;
-                    p.name = g.name;
-                    p.type = "garaj";
-                    p.x = g.mx;
-                    p.y = g.my;
-                    p.z = g.mz;
-                    ro.solarstudios.flowcity.maps.MapsState.garagePois.add(p);
-                }
                 factions.clear();
                 JsonArray f = o.getAsJsonArray("factions");
                 if (f != null) for (JsonElement e : f) factions.add(e.getAsString());
