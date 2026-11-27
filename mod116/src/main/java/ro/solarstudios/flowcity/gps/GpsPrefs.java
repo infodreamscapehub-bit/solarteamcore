@@ -49,6 +49,16 @@ public final class GpsPrefs {
     public static final int[] ACCENTS = {0xFF8B5CF6, 0xFF38BDF8, 0xFF22C55E, 0xFFF5B942};
     public static int accentIdx;
 
+    /** Culorile traseului GPS pe harta (magenta, cyan, verde, chihlimbar, alb). */
+    public static final int[] ROUTE_COLORS = {0xFFFF3FD0, 0xFF38BDF8, 0xFF22C55E, 0xFFF5B942, 0xFFE4ECFF};
+    public static final String[] ROUTE_NAMES = {"Magenta", "Cyan", "Verde", "Chihlimbar", "Alb"};
+    public static int routeIdx;
+
+    /** Culoarea cu care se deseneaza traseul pe harta si pe minimap. */
+    public static int routeColor() {
+        return ROUTE_COLORS[Math.max(0, Math.min(ROUTE_COLORS.length - 1, routeIdx))];
+    }
+
     public static int accent() {
         return ACCENTS[Math.max(0, Math.min(ACCENTS.length - 1, accentIdx))];
     }
@@ -119,6 +129,7 @@ public final class GpsPrefs {
         uiScale = 1f;
         opacity = 1f;
         accentIdx = 0;
+        routeIdx = 0;
         ro.solarstudios.flowcity.gps.MiniMapSettings.hiddenCats.clear();
         save();
     }
@@ -167,6 +178,7 @@ public final class GpsPrefs {
             if (o.has("uiScale")) uiScale = Math.max(0.85f, Math.min(1.25f, o.get("uiScale").getAsFloat()));
             if (o.has("opacity")) opacity = Math.max(0.6f, Math.min(1f, o.get("opacity").getAsFloat()));
             if (o.has("accent")) accentIdx = Math.max(0, Math.min(ACCENTS.length - 1, o.get("accent").getAsInt()));
+            if (o.has("route")) routeIdx = Math.max(0, Math.min(ROUTE_COLORS.length - 1, o.get("route").getAsInt()));
             searches.clear();
             if (o.has("searches") && o.get("searches").isJsonArray()) {
                 for (JsonElement e : o.getAsJsonArray("searches")) {
@@ -218,6 +230,7 @@ public final class GpsPrefs {
             o.addProperty("uiScale", uiScale);
             o.addProperty("opacity", opacity);
             o.addProperty("accent", accentIdx);
+            o.addProperty("route", routeIdx);
             JsonArray sa = new JsonArray();
             for (String q : searches) sa.add(q);
             o.add("searches", sa);

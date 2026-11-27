@@ -279,7 +279,7 @@ public final class MiniMapRenderer {
         if (!GpsNav.dim.equals(GpsData.dimOf(mc))) return;
         List<double[]> path = GpsNav.route.path(mc.player.getX(), mc.player.getZ(), GpsNav.x, GpsNav.z);
         int max = Math.min(path.size() - 1, 400);
-        int col = (GpsNav.color & 0xFFFFFF) | 0xE0000000;
+        int col = (GpsPrefs.routeColor() & 0xFFFFFF) | 0xE0000000;
         for (int i = 0; i < max; i++) {
             project(path.get(i)[0], path.get(i)[1]);
             float ax = outX;
