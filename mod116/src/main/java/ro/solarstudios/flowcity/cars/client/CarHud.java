@@ -10,6 +10,7 @@ import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import ro.solarstudios.flowcity.cars.CarsNet;
+import ro.solarstudios.flowcity.client.ui.FTheme;
 import ro.solarstudios.flowcity.client.ui.Gfx;
 import ro.solarstudios.flowcity.client.ui.Theme;
 import ro.solarstudios.flowcity.compat.GuiGraphics;
@@ -190,9 +191,9 @@ public final class CarHud {
 
     private static final int WHITE = 0xFFF2F1EC;
     private static final int MUTED = 0xFF8C8A84;
-    private static final int MINT = 0xFF52E3A4;
-    private static final int AMBER = 0xFFF2B544;
-    private static final int RED = 0xFFE5534B;
+    private static final int MINT = FTheme.OK;
+    private static final int AMBER = FTheme.WARN;
+    private static final int RED = FTheme.DANGER;
     /** Arcul vitezometrului: ~285 grade, gol jos-dreapta (0 = dreapta, sensul acelor de ceasornic). */
     private static final float A0 = 115f;
     private static final float SWEEP = 285f;

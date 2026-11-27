@@ -6,6 +6,7 @@ import net.minecraft.client.entity.player.ClientPlayerEntity;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import ro.solarstudios.flowcity.client.ui.FTheme;
 import ro.solarstudios.flowcity.client.ui.Gfx;
 import ro.solarstudios.flowcity.client.ui.HudLayout;
 import ro.solarstudios.flowcity.compat.GuiGraphics;
@@ -21,10 +22,10 @@ import ro.solarstudios.flowcity.module.JsonClientModule;
 public final class StatusHud {
     public static final String ID = "status";
 
-    private static final int RED = 0xFFE5484D;
-    private static final int GREY = 0xFFB8C0CC;
-    private static final int ORANGE = 0xFFF59E0B;
-    private static final int BLUE = 0xFF3B9BFF;
+    private static final int RED = FTheme.DANGER;
+    private static final int GREY = 0xFFCBD2DC;
+    private static final int ORANGE = FTheme.WARN;
+    private static final int BLUE = FTheme.SKY;
 
     private final float[] shown = {-1, -1, -1, -1};
     private long lastNs = System.nanoTime();
@@ -178,7 +179,7 @@ public final class StatusHud {
             pulse = anim ? (float) (0.5 + 0.5 * Math.sin(now / 110.0)) : 1f;
         }
         Gfx.rrect(g, x - 0.8f, y - 0.8f, CELL + 1.6f, CELL + 1.6f, 5f, Gfx.fade(c, 0.35f + 0.45f * pulse));
-        Gfx.rrect(g, x, y, CELL, CELL, 4.4f, 0xE00B0F15);
+        Gfx.rrect(g, x, y, CELL, CELL, 4.4f, 0xE6191D24);
         float fh = (CELL - 2f) * v;
         if (fh > 0.5f) Gfx.rrect(g, x + 1f, y + CELL - 1f - fh, CELL - 2f, fh, 3f, Gfx.fade(c, 0.34f));
         icon(g, kind, x + CELL / 2f, y + CELL / 2f - 0.2f, c);
@@ -206,7 +207,7 @@ public final class StatusHud {
         }
         // fundal discret (HUD transparent) + umbra pentru lizibilitate
         Gfx.disc(g, cx, cy + 0.6f, r + 1.2f, 0x55000000);
-        Gfx.disc(g, cx, cy, r - 0.6f, 0xB00B0F15);
+        Gfx.disc(g, cx, cy, r - 0.6f, 0xBE191D24);
         if (pulse > 0f) Gfx.ring(g, cx, cy, r, r + 2.6f, Gfx.fade(c, 0.55f * pulse), Gfx.fade(c, 0f));
         Gfx.ring(g, cx, cy, r - 3.6f, r - 0.8f, 0x33FFFFFF, 0x33FFFFFF);
         if (v > 0.3f) {
