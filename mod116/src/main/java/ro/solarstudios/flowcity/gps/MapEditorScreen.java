@@ -176,6 +176,15 @@ public final class MapEditorScreen extends FlowScreen {
         this.zoom = Math.max(0.15f, Math.min(8f, zoom));
     }
 
+    /** Deschide editorul direct pe o fila anume (ex. {@link #T_ZONE} din harta mare). */
+    public MapEditorScreen(double cx, double cz, float zoom, int startTab) {
+        this(cx, cz, zoom);
+        this.tab = startTab;
+    }
+
+    /** Fila zonelor, pentru butonul de pe harta mare. */
+    public static final int TAB_ZONE = T_ZONE;
+
     // ------------------------------------------------------------------ ciclu de viata
 
     @Override

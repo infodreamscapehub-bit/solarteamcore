@@ -1818,6 +1818,17 @@ public final class GpsScreen extends FlowScreen {
         float ty = my0 + GpsTheme.S3;
         GpsUi.iconButton(g, "mly", "layers", tx, ty, bs, layersOpen, mx, my);
         hitF(tx, ty, bs, bs, () -> layersOpen = !layersOpen);
+        if (GpsData.admin) {
+            ty += bs + 6f;
+            if (GpsUi.iconButton(g, "mzn", "grid", tx, ty, bs, false, mx, my)) tip(g, "Editor de zone", tx - 110f, ty + 4f);
+            hitF(tx, ty, bs, bs, () -> mc.setScreen(new MapEditorScreen(camX, camZ, zoom, MapEditorScreen.TAB_ZONE)));
+            ty += bs + 6f;
+            if (GpsUi.iconButton(g, "med", "pencil", tx, ty, bs, false, mx, my)) tip(g, "Editor hartă", tx - 110f, ty + 4f);
+            hitF(tx, ty, bs, bs, () -> mc.setScreen(new MapEditorScreen(camX, camZ, zoom)));
+            ty += bs + 6f;
+            if (GpsUi.iconButton(g, "mwp", "pin", tx, ty, bs, false, mx, my)) tip(g, "Waypoint nou aici (Shift + clic dreapta)", tx - 210f, ty + 4f);
+            hitF(tx, ty, bs, bs, () -> openNew(camX, 0d, camZ, false));
+        }
         compass(g, mx0 + GpsTheme.S3 + 20f, my0 + GpsTheme.S3 + 20f, mc);
 
         // coordonatele cursorului
