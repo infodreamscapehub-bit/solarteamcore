@@ -100,7 +100,8 @@ public final class FlowMainMenu extends Screen {
     }
 
     private void connect() {
-        minecraft.setScreen(new ConnectScreen(this, minecraft, new ServerData(cfg.serverName, ip(), false)));
+        ServerData sd = new ServerData(cfg.serverName, ip(), false);
+        ConnectScreen.startConnecting(this, minecraft, net.minecraft.client.multiplayer.resolver.ServerAddress.parseString(sd.ip), sd, false);
     }
 
     /** Prima intrare: fereastra de regulament; dupa acceptare conectarea porneste direct. */

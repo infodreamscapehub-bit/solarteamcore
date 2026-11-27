@@ -275,6 +275,9 @@ CODE = [
     (r"(?:net\.minecraft\.client\.)?(?:Minecraft\.getInstance\(\)|mc)\.getTextureManager\(\)\.bind\((.+?)\);", r"com.mojang.blaze3d.systems.RenderSystem.setShaderTexture(0, \1);"),
     (r"\n[ \t]*(?:com\.mojang\.blaze3d\.systems\.)?RenderSystem\.(?:enableTexture|disableAlphaTest|enableAlphaTest|shadeModel)\([^)]*\);", ""),
     (r"RenderSystem\.color4f\(", "RenderSystem.setShaderColor("),
+    # widget-uri: x/y sunt private pe 1.20.1
+    (r"\b(f|search|\w*Field|\w*Box)\.(x|y) = (.+);", lambda m: f"{m.group(1)}.set{m.group(2).upper()}({m.group(3)});"),
+    (r"\b(f|search|\w*Field|\w*Box)\.render\((\w+)\.pose\(\), ", r"\1.render(\2, "),
     # randarea in lume: RenderWorldLastEvent -> RenderLevelStageEvent
     (r"(\w+)\.getPartialTicks\(\)", r"\1.getPartialTick()"),
 ]

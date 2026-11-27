@@ -305,10 +305,10 @@ public final class WheelAdminScreen extends FlowScreen {
     protected void drawField(GuiGraphics ms, EditBox f, int x, int y, int w, int h, int mx, int my) {
         Ui.rect(ms, x, y, w, h, 0xFF0B1422);
         Ui.rect(ms, x, y + h - 1, w, 1, f.isFocused() ? Sk.ACC : 0xFF22344D);
-        f.x = x + 5;
-        f.y = y + (h - 8) / 2;
+        f.setX(x + 5);
+        f.setY(y + (h - 8) / 2);
         f.setWidth(w - 10);
-        f.render(ms.pose(), mx, my, 0);
+        f.render(ms, mx, my, 0);
     }
 
     @Override
@@ -319,8 +319,8 @@ public final class WheelAdminScreen extends FlowScreen {
         // campurile nedesenate in fila curenta se muta in afara ecranului, ca sa nu prinda click-uri
         for (EditBox f : all) {
             f.setVisible(false);
-            f.x = -1000;
-            f.y = -1000;
+            f.setX(-1000);
+            f.setY(-1000);
         }
         if (tab == 0) drawPrizes(ms, mx, my);
         else if (tab == 1) drawSettings(ms, mx, my);

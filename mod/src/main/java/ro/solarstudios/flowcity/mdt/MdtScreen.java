@@ -177,10 +177,10 @@ public final class MdtScreen extends FlowScreen {
     protected void drawField(GuiGraphics ms, EditBox f, int x, int y, int w, int h, int mx, int my) {
         Ui.rect(ms, x, y, w, h, CARD);
         Ui.rect(ms, x, y + h - 1, w, 1, f.isFocused() ? Sk.ACC : 0xFF2C2F36);
-        f.x = x + 5;
-        f.y = y + (h - 8) / 2;
+        f.setX(x + 5);
+        f.setY(y + (h - 8) / 2);
         f.setWidth(w - 10);
-        f.render(ms.pose(), mx, my, 0);
+        f.render(ms, mx, my, 0);
     }
 
     // ------------------------------------------------------------------ JSON helpers
@@ -608,8 +608,8 @@ public final class MdtScreen extends FlowScreen {
             }
             com.mojang.blaze3d.systems.RenderSystem.setShaderTexture(0, info.getSkinLocation());
             com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-            net.minecraft.client.gui.GuiComponent.blit(ms.pose(), x, y, 10, 10, 8f, 8f, 8, 8, 64, 64);
-            net.minecraft.client.gui.GuiComponent.blit(ms.pose(), x, y, 10, 10, 40f, 8f, 8, 8, 64, 64);
+            ms.blit(info.getSkinLocation(), x, y, 10, 10, 8f, 8f, 8, 8, 64, 64);
+            ms.blit(info.getSkinLocation(), x, y, 10, 10, 40f, 8f, 8, 8, 64, 64);
         } catch (RuntimeException ex) {
             Ui.rect(ms, x, y, 10, 10, 0xFF182638);
         }
@@ -857,10 +857,10 @@ public final class MdtScreen extends FlowScreen {
         Ui.rect(ms, x, py0, pwid, 26, 0xFFE9ECEF);
         Ui.rect(ms, x, py0, 18, 26, 0xFF2A56B8);
         Ui.textCenter(ms, "RO", x + 9, py0 + 9, 0xFFFFFFFF);
-        plateField.x = x + 24;
-        plateField.y = py0 + 9;
+        plateField.setX(x + 24);
+        plateField.setY(py0 + 9);
         plateField.setWidth(pwid - 30);
-        plateField.render(ms.pose(), mx, my, 0);
+        plateField.render(ms, mx, my, 0);
         button(ms, "Cauta", x + pwid + 8, py0 + 5, 54, 16, mx, my, true, 0xFF24467A, this::lookupPlate);
         int y = py0 + 42;
         JsonObject p = MdtState.plate;

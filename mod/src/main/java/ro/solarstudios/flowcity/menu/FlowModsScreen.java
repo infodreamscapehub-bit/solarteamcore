@@ -158,10 +158,10 @@ public final class FlowModsScreen extends FlowScreen {
         Gfx.rrect(g, sx + 1, by + 1, sw - 2, bh - 2, 9, Gfx.fade(0xFF15171C, open));
         Gfx.ring(g, sx + 13, by + 9.5f, 3.2f, 4.6f, Gfx.fade(0xFF8E8C86, open), Gfx.fade(0xFF8E8C86, open));
         Gfx.line(g, sx + 16.2f, by + 12.7f, sx + 18.5f, by + 15, 1.4f, Gfx.fade(0xFF8E8C86, open));
-        search.x = sx + 24;
-        search.y = by + 6;
+        search.setX(sx + 24);
+        search.setY(by + 6);
         search.setWidth(sw - 32);
-        search.render(g.pose(), mx, my, 0);
+        search.render(g, mx, my, 0);
         g.pose().popPose();
 
         // ---- zona de continut
@@ -247,9 +247,9 @@ public final class FlowModsScreen extends FlowScreen {
             int dwImg = Math.round(lwImg * k);
             int dhImg = Math.round(lhImg * k);
             com.mojang.blaze3d.systems.RenderSystem.enableBlend();
-            com.mojang.blaze3d.systems.RenderSystem.color4f(1f, 1f, 1f, a);
+            com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1f, 1f, 1f, a);
             g.blit((ResourceLocation) logo[0], (int) (x + pad), (int) cy, dwImg, dhImg, 0f, 0f, lwImg, lhImg, lwImg, lhImg);
-            com.mojang.blaze3d.systems.RenderSystem.color4f(1f, 1f, 1f, 1f);
+            com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
             cy += dhImg + 14;
         } else {
             Gfx.rrect(g, x + pad, cy, 48, 48, 14, Gfx.fade(Gfx.mixArgb(ac, 0xFFFFFFFF, 0.15f), a), Gfx.fade(Gfx.mixArgb(ac, 0xFF000000, 0.3f), a));
@@ -308,7 +308,7 @@ public final class FlowModsScreen extends FlowScreen {
         float by = y + h - 38;
         float bx = x + pad;
         Optional<BiFunction<Minecraft, Screen, Screen>> cfgGui = ModList.get().getModContainerById(id)
-            .flatMap(c -> c.getCustomExtension(IExtensionPoint.CONFIGGUIFACTORY));
+            .map(c -> c.getModInfo()).flatMap(net.minecraftforge.client.ConfigScreenHandler::getScreenFactoryFor);
         if (cfgGui.isPresent()) {
             bx = pill(g, mx, my, "Configurare", bx, by, true, a, () -> mc.setScreen(cfgGui.get().apply(mc, this))) + 8;
         }
@@ -355,9 +355,9 @@ public final class FlowModsScreen extends FlowScreen {
             if (m instanceof ModInfo) {
                 Optional<String> file = ((ModInfo) m).getLogoFile();
                 if (file.isPresent() && !file.get().isEmpty()) {
-                    Optional<? extends net.minecraftforge.fml.packs.ModFileResourcePack> pack = ResourcePackLoader.getResourcePackFor(m.getModId());
-                    if (pack.isPresent()) {
-                        try (InputStream in = pack.get().getRootResource(file.get())) {
+                    java.nio.file.Path pth = m.getOwningFile().getFile().findResource(file.get());
+                    if (pth != null && java.nio.file.Files.exists(pth)) {
+                        try (InputStream in = java.nio.file.Files.newInputStream(pth)) {
                             NativeImage img = NativeImage.read(in);
                             int iw = img.getWidth();
                             int ih = img.getHeight();
