@@ -134,17 +134,36 @@ Tabelul complet, executabil, e in `tools/port116to120.py` (`TYPES` si `SIMPLE`).
   `HudLayout.register("fjobs", …)` din `FJobsClient.register()`.
 - [x] **Etapa 3b — `hype/`** (6 fisiere) si `notify/` (5). `HypeClient.register()` leaga hook-ul
   `MiniMapRenderer.statusStrip` si inregistreaza `hud`, `toasts` si `status`.
-- [ ] **Etapa 4 — `cars/`** (21 vs 11 fisiere: lipsesc `FuelScreen`, `GarageAdmin*`, `Mecanic*`,
+- [x] **Etapa 4 — `cars/`** (21 vs 11 fisiere: lipsesc `FuelScreen`, `GarageAdmin*`, `Mecanic*`,
   `TuningScreen`, `Sk`, `VehicleParts`, `CarKeyItem`, `FuelPumps`) si `phone/` (5 vs 3 fisiere:
   telefonul nou cu App Store, SIM, Dynamic Island).
-- [ ] **Etapa 5 — restul**: `bank/`, `battlepass/`, `beginner/`, `docs/`, `fines/`, `guns/`,
+- [x] **Etapa 5 — restul**: `bank/`, `battlepass/`, `beginner/`, `docs/`, `fines/`, `guns/`,
   `houses/`, `hudeditor/`, `inventory/`, `pay/`, `politie/`, `shop/`, `taxi/`, plus aducerea la zi
   a celor ramase in urma (`news/` 7 vs 4, `menu/` 7 vs 6, `mdt/`, `wheel/`, `update/`, `voice/`).
 
 Ordinea conteaza: `gps/` si `fjobs/` sunt folosite de alte pachete (waypoint automat la job,
 navigare din telefon), iar `cars/` depinde de `Sk` din `cars/client`.
 
-**Stare:** `mod/` are ~33 300 de linii din cele ~47 200 ale lui `mod116`.
+**Stare:** portare completa (etapele 0-5). `mod/` are ~50 500 de linii; CI verde pe ambele versiuni. Netestat in joc. `mod/` mai pastreaza vechiul `maps/` si blocurile GPS (nefolosite de `gps/`).
+
+### Diferente gasite la etapele 4-5
+
+| Eroare | Rezolvare |
+|---|---|
+| `level has private access` / `inventory has private access` | `p.level()`, `p.getInventory()`; `ServerPlayer` -> `serverLevel()` pentru `ServerLevel` |
+| `Entity.remove()` | `discard()` |
+| `SavedData(NAME)`, `computeIfAbsent(factory, NAME)` | fabrica statica `load(CompoundTag)` + `computeIfAbsent(load, new, NAME)`; `Constants.NBT.TAG_COMPOUND` -> `Tag.TAG_COMPOUND` |
+| `sendSuccess(Component, b)` | `() -> Component` |
+| `performCommand(source, cmd)` | `performPrefixedCommand` |
+| `getProfileCache().get(id)` | `Optional<GameProfile>` |
+| `Biome` | `Holder<Biome>.value()`, `getPrecipitationAt(pos)`, `getBaseTemperature()` (fara `getDownfall`) |
+| `Vector3f.XP.rotationDegrees` | `com.mojang.math.Axis.XP.rotationDegrees` |
+| `ContainerScreen` | `renderBg/render/renderLabels` iau `GuiGraphics`; `renderEntityInInventoryFollowsMouse(g, ...)`; `renderStatic(..., pose, buf, null, 0)` |
+| `RenderNameTagEvent` | `getPoseStack()`, `getMultiBufferSource()`, `getPackedLight()` |
+| `ConnectScreen` | `ConnectScreen.startConnecting(screen, mc, ServerAddress.parseString(ip), data, false)` |
+| lista de moduri | `ConfigScreenHandler.getScreenFactoryFor(modInfo)`, logo prin `getOwningFile().getFile().findResource(..)` |
+| `voice/` | NU se trece prin unealta: evenimentele `voicechat` isi pastreaza `getPlayer()` |
+
 
 **Regresie acceptata la etapa 3b:** vechiul `JobsScreen` de pe 1.20.1 avea un buton „Arata pe
 harta" care mergea prin `maps/` (harta veche). Varianta din 1.16.5 nu-l mai are, fiindca navigarea
