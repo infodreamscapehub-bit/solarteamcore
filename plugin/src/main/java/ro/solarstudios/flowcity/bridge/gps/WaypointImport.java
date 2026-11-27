@@ -12,8 +12,8 @@ import java.util.Locale;
 
 /**
  * Citeste un fisier de waypoint-uri (formatul Xaero: {@code waypoint:nume:initiala:x:y:z:culoare:...})
- * si il transforma in locatii GPS: numele se normalizeaza (literele mici-majuscule Unicode devin litere
- * normale), coordonatele se iau ca atare, iar categoria se ghiceste din nume.
+ * si il transforma in locatii GPS: numele se pastreaza exact ca in fisier (inclusiv literele mici-majuscule
+ * Unicode, „small caps"), coordonatele se iau ca atare, iar categoria se ghiceste din numele normalizat.
  *
  * <p>Fisierul se pune pe server in {@code plugins/FlowCityBridge/gps/import/waypoints.txt}. Importul nu
  * sterge nimic: locatiile care exista deja (acelasi nume la mai putin de 24 de blocuri) sunt sarite.
@@ -73,8 +73,9 @@ final class WaypointImport {
                     r.bad++;
                     continue;
                 }
-                String name = normalize(p[1]).trim();
-                if (name.isEmpty()) name = normalize(p[2]).trim();
+                // numele ramane cum e scris in fisier (small caps pastrate); normalizarea e doar pentru categorie
+                String name = p[1].trim();
+                if (name.isEmpty()) name = p[2].trim();
                 if (name.isEmpty()) {
                     r.bad++;
                     continue;
@@ -93,7 +94,7 @@ final class WaypointImport {
                     r.bad++;
                     continue;
                 }
-                String key = name.toLowerCase(Locale.ROOT) + "|" + Math.round(x / SAME_DIST) + "|" + Math.round(z / SAME_DIST);
+                String key = normalize(name).toLowerCase(Locale.ROOT) + "|" + Math.round(x / SAME_DIST) + "|" + Math.round(z / SAME_DIST);
                 if (seen.contains(key)) {
                     r.duplicates++;
                     continue;

@@ -333,7 +333,8 @@ public final class GpsModule extends JsonModule {
             l.x = e.x;
             l.z = e.z;
             l.enabled = true;
-            l.id = store.uniqueId(l.name, false);
+            // numele poate fi scris cu litere mici-majuscule Unicode; id-ul se face din forma normalizata
+            l.id = store.uniqueId(WaypointImport.normalize(l.name), false);
             store.locs.add(l);
             added++;
         }
@@ -348,7 +349,8 @@ public final class GpsModule extends JsonModule {
     /** Exista deja o locatie cu acelasi nume, aproape de aceste coordonate? */
     private boolean hasLoc(String name, double x, double z) {
         for (GpsStore.Loc l : store.locs) {
-            if (!l.name.equalsIgnoreCase(name)) continue;
+            // comparam formele normalizate: "ʙᴀɴᴄᴀ" si "Banca" sunt aceeasi locatie
+            if (!WaypointImport.normalize(l.name).equalsIgnoreCase(WaypointImport.normalize(name))) continue;
             double dx = l.x - x;
             double dz = l.z - z;
             if (dx * dx + dz * dz <= 24d * 24d) return true;
