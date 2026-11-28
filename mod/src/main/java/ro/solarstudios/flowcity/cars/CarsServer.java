@@ -992,6 +992,162 @@ public final class CarsServer {
                 service(c, EntityArgument.getPlayer(c, "player"), IntegerArgumentType.getInteger(c, "car"), StringArgumentType.getString(c, "svc"))))));
     }
 
+    // ------------------------------------------------------------------ iteme de echipament (scanner de diagnoza / trusa de reparatii)
+
+    private static void itemReport(MinecraftServer server, String player, int tx, JsonObject o) {
+        String b64 = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(o.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        try {
+            server.getCommands().performCommand(server.createCommandSourceStack(), "fcitem vehreport " + player + " " + tx + " " + b64);
+        } catch (RuntimeException ex) {
+            // pluginul lipseste: nimic de raportat
+        }
+    }
+
+    private static JsonObject itemErr(String msg) {
+        JsonObject o = new JsonObject();
+        o.addProperty("ok", false);
+        o.addProperty("err", msg);
+        return o;
+    }
+
+    /** Vehiculul tinta al unui item: exista, e aproape de jucator si e un vehicul (din garaj sau Vehicle Mod). Altfel null. */
+    private static Entity itemTarget(ServerPlayer p, String uuid) {
+        UUID id;
+        try {
+            id = UUID.fromString(uuid);
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
+        Entity v = p.serverLevel().getEntity(id);
+        if (v == null || v instanceof net.minecraft.world.entity.player.Player || v.distanceTo(p) > 9) return null;
+        return v.getPersistentData().contains(TAG) || isVehicle(v) ? v : null;
+    }
+
+    private static CompoundTag entityNbt(Entity v) {
+        CompoundTag t = new CompoundTag();
+        v.saveWithoutId(t);
+        return t;
+    }
+
+    private static int itemDiag(CommandContext<CommandSourceStack> c, ServerPlayer p, String uuid, int tx) {
+        MinecraftServer server = c.getSource().getServer();
+        String name = p.getGameProfile().getName();
+        Entity v = itemTarget(p, uuid);
+        if (v == null) {
+            itemReport(server, name, tx, itemErr("Vehiculul nu e aproape sau nu e un vehicul."));
+            return 1;
+        }
+        GarageData data = GarageData.get(server);
+        GarageData.Car car = v.getPersistentData().contains(TAG) ? data.get(v.getPersistentData().getInt(TAG)) : null;
+        CompoundTag nbt = entityNbt(v);
+        JsonObject o = new JsonObject();
+        o.addProperty("ok", true);
+        o.addProperty("model", v.getDisplayName().getString());
+        float max = nbt.getFloat("MaxHealth");
+        o.addProperty("hasBody", max > 0);
+        o.addProperty("body", hpPct(nbt));
+        float cap = fuelCapacity(v);
+        o.addProperty("fuel", cap > 0 ? Math.max(0, Math.min(100, Math.round(100f * currentFuel(v) / cap))) : -1);
+        try {
+            ResourceLocation key = ForgeRegistries.ENTITY_TYPES.getKey(v.getType());
+            o.addProperty("engine", String.valueOf(VehicleParts.engine(v.level(), key == null ? "" : key.toString(), nbt)));
+            o.addProperty("wheels", String.valueOf(VehicleParts.wheels(nbt)));
+        } catch (RuntimeException ex) {
+            o.addProperty("engine", "-");
+            o.addProperty("wheels", "-");
+        }
+        if (car != null) {
+            o.addProperty("plate", car.plate);
+            o.addProperty("name", car.name);
+            o.addProperty("owner", car.owner == null ? "Factiune: " + car.faction : nameOf(server, car.owner));
+            o.addProperty("odo", Math.round(car.odometerM));
+            o.addProperty("itp", car.itpUntil);
+            o.addProperty("ins", car.insUntil);
+        } else {
+            o.addProperty("plate", "");
+            o.addProperty("owner", "fara acte (nu e inregistrat)");
+            o.addProperty("odo", Math.round(v.getPersistentData().getDouble(ODO_M)));
+            o.addProperty("itp", 0);
+            o.addProperty("ins", 0);
+        }
+        itemReport(server, name, tx, o);
+        return 1;
+    }
+
+    private static int itemRepair(CommandContext<CommandSourceStack> c, ServerPlayer p, String uuid, int tx, int pct) {
+        MinecraftServer server = c.getSource().getServer();
+        String name = p.getGameProfile().getName();
+        Entity v = itemTarget(p, uuid);
+        if (v == null) {
+            itemReport(server, name, tx, itemErr("Vehiculul nu e aproape sau nu e un vehicul."));
+            return 1;
+        }
+        CompoundTag nbt = entityNbt(v);
+        float max = nbt.getFloat("MaxHealth");
+        float cur = nbt.getFloat("Health");
+        if (max <= 0) {
+            itemReport(server, name, tx, itemErr("Vehiculul nu are caroserie de reparat."));
+            return 1;
+        }
+        if (cur >= max - 0.01f) {
+            itemReport(server, name, tx, itemErr("Vehiculul nu e deteriorat."));
+            return 1;
+        }
+        float next = Math.min(max, cur + max * Math.max(1, Math.min(100, pct)) / 100f);
+        boolean done = false;
+        try {
+            java.lang.reflect.Method set = findMethod(v.getClass(), "setHealth", float.class);
+            if (set != null) {
+                set.invoke(v, next);
+                done = Math.abs(entityNbt(v).getFloat("Health") - next) < 0.01f;
+            }
+        } catch (ReflectiveOperationException | RuntimeException ex) {
+            done = false;
+        }
+        if (!done) {
+            nbt.putFloat("Health", next);
+            try {
+                v.load(nbt);
+                done = Math.abs(entityNbt(v).getFloat("Health") - next) < 0.01f;
+            } catch (RuntimeException ex) {
+                done = false;
+            }
+        }
+        if (!done) {
+            itemReport(server, name, tx, itemErr("Caroseria nu poate fi modificata pe acest vehicul."));
+            return 1;
+        }
+        GarageData data = GarageData.get(server);
+        GarageData.Car car = v.getPersistentData().contains(TAG) ? data.get(v.getPersistentData().getInt(TAG)) : null;
+        if (car != null) {
+            car.nbt.putFloat("Health", next);
+            data.setDirty();
+        }
+        JsonObject o = new JsonObject();
+        o.addProperty("ok", true);
+        o.addProperty("before", Math.round(100f * cur / max));
+        o.addProperty("after", Math.round(100f * next / max));
+        o.addProperty("plate", car == null ? "" : car.plate);
+        itemReport(server, name, tx, o);
+        return 1;
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> itemDiagCommand() {
+        return Commands.literal("diag").then(Commands.argument("player", EntityArgument.player())
+            .then(Commands.argument("entity", StringArgumentType.string())
+                .then(Commands.argument("tx", IntegerArgumentType.integer(1)).executes(c ->
+                    itemDiag(c, EntityArgument.getPlayer(c, "player"), StringArgumentType.getString(c, "entity"), IntegerArgumentType.getInteger(c, "tx"))))));
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> itemRepairCommand() {
+        return Commands.literal("repair").then(Commands.argument("player", EntityArgument.player())
+            .then(Commands.argument("entity", StringArgumentType.string())
+                .then(Commands.argument("tx", IntegerArgumentType.integer(1))
+                    .then(Commands.argument("pct", IntegerArgumentType.integer(1, 100)).executes(c ->
+                        itemRepair(c, EntityArgument.getPlayer(c, "player"), StringArgumentType.getString(c, "entity"),
+                            IntegerArgumentType.getInteger(c, "tx"), IntegerArgumentType.getInteger(c, "pct")))))));
+    }
+
     private static LiteralArgumentBuilder<CommandSourceStack> mechListCommand() {
         return Commands.literal("mechlist").then(Commands.argument("player", EntityArgument.player()).executes(c -> {
             ServerPlayer p = EntityArgument.getPlayer(c, "player");
@@ -1470,6 +1626,8 @@ public final class CarsServer {
                     })))))
             .then(mechCommands())
             .then(mechListCommand())
+            .then(itemDiagCommand())
+            .then(itemRepairCommand())
             // scoatere de la pound dupa plata (pluginul ia taxa prin Vault)
             .then(Commands.literal("unpound").then(Commands.argument("player", EntityArgument.player())
                 .then(Commands.argument("car", IntegerArgumentType.integer(1)).then(Commands.argument("garage", IntegerArgumentType.integer(1)).executes(c -> {

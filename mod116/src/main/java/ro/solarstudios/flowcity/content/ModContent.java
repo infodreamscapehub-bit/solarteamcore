@@ -101,7 +101,17 @@ public final class ModContent {
         {"manusi_lucru", "1"}
     };
 
+    /** Itemele de echipament cu functie reala (framework-ul de pe server: serial unic in PDC). Fiecare e unic, deci nu se stivuieste. */
+    private static final String[] EQUIPMENT = {
+        "catuse", "scanner_amprente", "proba_amprenta", "bodycam", "radio", "geanta_medicala", "defibrilator",
+        "scanner_diagnoza", "trusa_reparatii", "piesa_auto", "camera_foto", "fotografie"
+    };
+
+    /** Harta GPS (aceeasi ca pe 1.20.1): click dreapta deschide GPS-ul real. */
+    public static final RegistryObject<Item> HARTA = ITEMS.register("harta", ro.solarstudios.flowcity.items.GpsItem::new);
+
     static {
+        for (String id : EQUIPMENT) ITEMS.register(id, () -> new Item(props().stacksTo(1)));
         for (String[] ji : JOB_ITEMS) {
             final int stack = Integer.parseInt(ji[1]);
             ITEMS.register(ji[0], () -> new Item(props().stacksTo(stack)));

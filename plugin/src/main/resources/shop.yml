@@ -70,3 +70,25 @@ shops:
           - {permit: port_arma}
           - {permit: permis_vanatoare}
           - {permit: licenta_afaceri}
+  # Echipament cu functie reala (framework FlowCityItemActions). Itemul se emite de server cu serial unic; cine il poate FOLOSI
+  # e decis in items.yml (permisiune sau job in tura). NPC: /npc command add shop open <p> echipament -c
+  echipament:
+    title: "ECHIPAMENT"
+    categories:
+      - name: "Politie"
+        items:
+          - {name: "Catuse", item: "flowcitycore:catuse", price: 600, desc: "Incatuseaza si escorteaza", commands: ["fcitem give %player% catuse"]}
+          - {name: "Scanner amprente", item: "flowcitycore:scanner_amprente", price: 4500, desc: "Probe si comparare", commands: ["fcitem give %player% scanner_amprente"]}
+          - {name: "Bodycam", item: "flowcitycore:bodycam", price: 2500, desc: "Jurnal de interventie", commands: ["fcitem give %player% bodycam"]}
+      - name: "EMS"
+        items:
+          - {name: "Geanta medicala", item: "flowcitycore:geanta_medicala", price: 3000, desc: "25 utilizari", commands: ["fcitem give %player% geanta_medicala"]}
+          - {name: "Defibrilator", item: "flowcitycore:defibrilator", price: 6000, desc: "12 utilizari", commands: ["fcitem give %player% defibrilator"]}
+      - name: "Mecanic"
+        items:
+          - {name: "Scanner diagnoza", item: "flowcitycore:scanner_diagnoza", price: 3500, desc: "Citeste starea vehiculului", commands: ["fcitem give %player% scanner_diagnoza"]}
+          - {name: "Trusa reparatii", item: "flowcitycore:trusa_reparatii", price: 2000, desc: "Foloseste piese auto", commands: ["fcitem give %player% trusa_reparatii"]}
+      - name: "General"
+        items:
+          - {name: "Radio", item: "flowcitycore:radio", price: 800, desc: "Comunicatie pe canale", commands: ["fcitem give %player% radio"]}
+          - {name: "Camera foto", item: "flowcitycore:camera_foto", price: 1200, desc: "36 poze", commands: ["fcitem give %player% camera_foto"]}

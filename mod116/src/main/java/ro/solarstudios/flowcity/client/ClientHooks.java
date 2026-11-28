@@ -13,6 +13,10 @@ public final class ClientHooks {
         net.minecraft.client.Minecraft.getInstance().setScreen(new ro.solarstudios.flowcity.phone.PhoneScreen());
     }
 
+    public static void openGps() {
+        net.minecraft.client.Minecraft.getInstance().setScreen(new ro.solarstudios.flowcity.gps.GpsScreen());
+    }
+
     public static void openAdminTablet() {
         ClientBridge.sendOpenRequest();
     }

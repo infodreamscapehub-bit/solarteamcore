@@ -91,5 +91,18 @@
   "item.flowcitycore.ma_carucior": "Carucior de marfa",
   "item.flowcitycore.ma_palet": "Palet",
   "item.flowcitycore.vesta_reflect": "Vesta reflectorizanta",
-  "item.flowcitycore.manusi_lucru": "Manusi de lucru"
+  "item.flowcitycore.manusi_lucru": "Manusi de lucru",
+  "item.flowcitycore.catuse": "Cătușe",
+  "item.flowcitycore.scanner_amprente": "Scanner de amprente",
+  "item.flowcitycore.proba_amprenta": "Probă amprentă",
+  "item.flowcitycore.bodycam": "Bodycam",
+  "item.flowcitycore.radio": "Radio",
+  "item.flowcitycore.geanta_medicala": "Geantă medicală",
+  "item.flowcitycore.defibrilator": "Defibrilator",
+  "item.flowcitycore.scanner_diagnoza": "Scanner de diagnoză",
+  "item.flowcitycore.trusa_reparatii": "Trusă de reparații",
+  "item.flowcitycore.piesa_auto": "Piesă auto",
+  "item.flowcitycore.camera_foto": "Cameră foto",
+  "item.flowcitycore.fotografie": "Fotografie",
+  "item.flowcitycore.harta": "Harta GPS"
 }

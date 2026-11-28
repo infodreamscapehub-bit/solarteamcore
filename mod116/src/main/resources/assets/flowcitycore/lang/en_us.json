@@ -93,5 +93,18 @@
   "item.flowcitycore.ma_carucior": "Hand truck",
   "item.flowcitycore.ma_palet": "Pallet",
   "item.flowcitycore.vesta_reflect": "Hi-vis vest",
-  "item.flowcitycore.manusi_lucru": "Work gloves"
+  "item.flowcitycore.manusi_lucru": "Work gloves",
+  "item.flowcitycore.catuse": "Handcuffs",
+  "item.flowcitycore.scanner_amprente": "Fingerprint Scanner",
+  "item.flowcitycore.proba_amprenta": "Fingerprint Sample",
+  "item.flowcitycore.bodycam": "Bodycam",
+  "item.flowcitycore.radio": "Radio",
+  "item.flowcitycore.geanta_medicala": "Medical Bag",
+  "item.flowcitycore.defibrilator": "Defibrillator",
+  "item.flowcitycore.scanner_diagnoza": "Diagnostic Scanner",
+  "item.flowcitycore.trusa_reparatii": "Repair Kit",
+  "item.flowcitycore.piesa_auto": "Auto Part",
+  "item.flowcitycore.camera_foto": "Camera",
+  "item.flowcitycore.fotografie": "Photograph",
+  "item.flowcitycore.harta": "Harta GPS"
 }
