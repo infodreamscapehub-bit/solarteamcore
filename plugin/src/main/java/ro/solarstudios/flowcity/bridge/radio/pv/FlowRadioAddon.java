@@ -1,8 +1,7 @@
 package ro.solarstudios.flowcity.bridge.radio.pv;
 
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -40,8 +39,8 @@ public final class FlowRadioAddon implements AddonInitializer {
     private final Logger log;
     private ServerSourceLine line;
     private ServerActivation activation;
-    private final Map<Long, ServerBroadcastSource> sources = new HashMap<Long, ServerBroadcastSource>();
-    private final Map<Long, Long> sourceVersion = new HashMap<Long, Long>();
+    private final Map<Long, ServerBroadcastSource> sources = new ConcurrentHashMap<Long, ServerBroadcastSource>();
+    private final Map<Long, Long> sourceVersion = new ConcurrentHashMap<Long, Long>();
 
     public FlowRadioAddon(VoiceLink link, Logger log) {
         this.link = link;
@@ -99,7 +98,7 @@ public final class FlowRadioAddon implements AddonInitializer {
     }
 
     /** Sursa de broadcast a statiei; lista ascultatorilor se reimprospateaza doar cand instantaneul s-a schimbat. */
-    private ServerBroadcastSource source(long station) {
+    private synchronized ServerBroadcastSource source(long station) {
         ServerBroadcastSource src = sources.get(station);
         if (src == null) {
             src = line.createBroadcastSource(false);
@@ -135,9 +134,5 @@ public final class FlowRadioAddon implements AddonInitializer {
                 }
             }
         }
-    }
-
-    public static List<UUID> none() {
-        return Collections.emptyList();
     }
 }
