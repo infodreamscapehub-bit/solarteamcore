@@ -1,0 +1,154 @@
+# Iteme FlowCity cu functie reala (framework FlowCityItemActions). Itemele se emit DOAR de server:
+#   /fcitem give <jucator> <id> [numar]   |   /fcitem  (panou admin)   |   comanda din magazin / battlepass / roata: fcitem give %player% <id>
+# Fiecare item are serial unic; copiile, itemele false sau revocate nu functioneaza si sunt sterse automat (admin-ii sunt anuntati).
+# Cine poate folosi un item: "permissions" (oricare) SAU "jobs" (jobul FJobs activ, in tura). Lipsa ambelor = oricine.
+# Valorile din ramura "items.<id>" se pot schimba fara restart cu /fcitem reload.
+log-retention-days: 60
+
+# Sistemul medical RP (stare "la pamant"). IMPORTANT: e activ implicit. Pune false ca moartea sa ramana cea normala din Minecraft.
+downed:
+  enabled: true
+  # cat timp esti la pamant, nu poti fi lovit mai departe (nu exista executie)
+  invulnerable: true
+  # secunde de sangerare pana la stop cardiac, apoi secunde pana la moarte (doar defibrilatorul te mai salveaza)
+  bleed-seconds: 240
+  arrest-seconds: 120
+  # cine primeste alerta cand cineva cade / are stop cardiac
+  notify-permissions: [flowcity.ems.officer]
+
+items:
+  catuse:
+    name: "&9Catuse"
+    lore: ["&7Incatuseaza, escorteaza si elibereaza.", "&7Click dreapta pe un jucator."]
+    permissions: [flowcity.politie.officer]
+    jobs: [police]
+    uses: -1
+    range: 3.0
+    cuff-seconds: 3
+    release-seconds: 2
+    move-tolerance: 0.7
+    # politistii nu pot fi incatusati de colegi decat daca e true
+    cuff-officers: false
+    # eliberare automata (minute) ca nimeni sa nu ramana blocat
+    auto-release-minutes: 30
+    # comenzile permise unui jucator incatusat
+    allowed-commands: [msg, r, tell, w, radio, rd]
+
+  scanner_amprente:
+    name: "&bScanner de amprente"
+    lore: ["&7Colecteaza urme de pe obiecte/vehicule", "&7si ia amprente de la persoane. Compara cu baza."]
+    permissions: [flowcity.politie.officer]
+    jobs: [police]
+    uses: -1
+    range: 3.5
+    collect-seconds: 5
+    person-seconds: 4
+    # sare pentru amprente (schimb-o la prima pornire; nu se poate deduce UUID-ul din amprenta)
+    salt: "flowcity-prints"
+    traces-per-object: 4
+    trace-age-minutes: 180
+    # un obiect din off-hand care inseamna "manusi": nu lasi urme
+    glove-materials: [LEATHER, FLOWCITYCORE_MANUSI]
+    # blocuri pe care se lasa urme (parte din nume)
+    trace-blocks: [DOOR, CHEST, BARREL, BUTTON, LEVER, TRAPDOOR, FENCE_GATE, SHULKER_BOX, ATM, DRIVER]
+
+  proba_amprenta:
+    name: "&bProba amprenta"
+    lore: ["&7Proba colectata. Click dreapta o deschide."]
+
+  bodycam:
+    name: "&cBodycam"
+    lore: ["&7Click dreapta: porneste/opreste.", "&7Un coleg o poate verifica (click pe tine)."]
+    permissions: [flowcity.politie.officer, flowcity.ems.officer]
+    jobs: [police, doctor]
+    uses: -1
+    nearby-radius: 12
+    max-minutes: 120
+
+  radio:
+    name: "&aRadio"
+    lore: ["&7/radio <mesaj> (sau /rd) pe canalul curent.", "&7Click dreapta: canal, pornit/oprit, urgenta."]
+    uses: -1
+    default-channel: public
+    channels:
+      public: {name: "&7Public"}
+      politie: {name: "&9Politie", permissions: [flowcity.politie.officer], jobs: [police]}
+      ems: {name: "&cEMS", permissions: [flowcity.ems.officer], jobs: [doctor]}
+      mecanici: {name: "&6Mecanici", jobs: [mechanic]}
+      taxi: {name: "&eTaxi", jobs: [taxi]}
+
+  geanta_medicala:
+    name: "&cGeanta medicala"
+    lore: ["&7Stabilizeaza, trateaza si pansaza pacienti.", "&7Sneak + click pe pacient stabilizat = transport."]
+    permissions: [flowcity.ems.officer]
+    jobs: [doctor]
+    uses: 25
+    range: 3.0
+    scan-radius: 25
+    stabilize-seconds: 8
+    treat-seconds: 15
+    heal-seconds: 5
+    heal-amount: 6.0
+    # fractiunea din viata maxima cu care se ridica un pacient tratat complet
+    treat-health-fraction: 0.6
+    # lista goala = tratament complet oriunde. Format: "lume,x,y,z,raza"
+    hospital-zones: []
+
+  defibrilator:
+    name: "&eDefibrilator"
+    lore: ["&7Reporneste inima la stop cardiac.", "&7Sansa scade cu timpul si cu socurile date."]
+    permissions: [flowcity.ems.officer]
+    jobs: [doctor]
+    uses: 12
+    range: 3.0
+    charge-seconds: 5
+    revive-health: 6.0
+
+  scanner_diagnoza:
+    name: "&6Scanner de diagnoza"
+    lore: ["&7Citeste starea reala a vehiculului", "&7(caroserie, combustibil, ITP, RCA). Click pe vehicul."]
+    permissions: [flowcity.items.mechanic, flowcity.politie.officer]
+    jobs: [mechanic]
+    uses: 60
+    range: 4.0
+    scan-seconds: 6
+    fault-body-below: 70
+
+  trusa_reparatii:
+    name: "&6Trusa de reparatii"
+    lore: ["&7Repara caroseria unui vehicul.", "&7Consuma o piesa auto la fiecare reparatie."]
+    permissions: [flowcity.items.mechanic]
+    jobs: [mechanic]
+    uses: 30
+    range: 4.0
+    repair-seconds: 10
+    # cat din caroserie (procent din maxim) se reface la o reparatie
+    repair-percent: 35
+
+  piesa_auto:
+    name: "&7Piesa auto"
+    lore: ["&7Consumabil pentru trusa de reparatii."]
+    uses: -1
+    # pretul unei piese si timpul de livrare dupa comanda (din scannerul de diagnoza)
+    price: 250
+    delivery-minutes: 2
+
+  camera_foto:
+    name: "&dCamera foto"
+    lore: ["&7Click dreapta: poza. Sneak + click: galerie.", "&7/foto <descriere> da un titlu ultimei poze."]
+    uses: 36
+    frame-range: 25
+    shot-seconds: 2
+    cooldown-seconds: 4
+    give-print: true
+    attach-permissions: [flowcity.politie.officer]
+    publish-permissions: [flowcity.hype.cnn]
+    news-category: eveniment
+
+  fotografie:
+    name: "&bFotografie"
+    lore: ["&7Click dreapta: detalii."]
+
+  # aparatul de taxat existent (FJobs): arata cursa reala din Taxi
+  taximetru:
+    name: "&eTaximetru"

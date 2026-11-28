@@ -860,6 +860,27 @@ public final class MdtModule extends JsonModule implements Listener {
         pushAll();
     }
 
+    /**
+     * Folosit de itemele de echipament (amprente, bodycam): adauga o fapta pe fisa unui cetatean, ca si cum ar fi scrisa din tableta.
+     * Nu schimba nimic din comportamentul tabletei. Intoarce false daca ofiterul nu are acces la MDT sau cetateanul nu are fisa.
+     */
+    public boolean addItemRecord(Player officer, UUID subject, String textIn) {
+        if (!access(officer)) return false;
+        Citizen ct = citizen(subject);
+        String text = clean(textIn, 220);
+        if (ct == null || text.isEmpty()) return false;
+        Rec r = new Rec();
+        r.id = ids.getAndIncrement();
+        r.text = text;
+        r.by = officer.getName();
+        r.byUuid = officer.getUniqueId();
+        r.ts = System.currentTimeMillis();
+        ct.records.add(r);
+        sql("INSERT INTO mdt_record(id,uuid,text,by_name,by_uuid,ts) VALUES (?,?,?,?,?,?)", r.id, ct.uuid.toString(), r.text, r.by, r.byUuid.toString(), r.ts);
+        pushAll();
+        return true;
+    }
+
     private void recordDel(Player p, UUID u, long id) {
         if (!guard(p)) return;
         Citizen ct = citizen(u);

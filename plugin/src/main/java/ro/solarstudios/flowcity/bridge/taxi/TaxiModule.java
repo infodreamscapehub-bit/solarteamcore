@@ -38,6 +38,8 @@ import ro.solarstudios.flowcity.bridge.pay.PayModule;
  * Datele (curse, castig) se salveaza in plugins/FlowCityBridge/taxi-data.yml (salvare grupata). Config: taxi.yml.
  */
 public final class TaxiModule extends JsonModule {
+    public static TaxiModule instance;
+
     /** O cerere de taxi: clientul, mesajul si (dupa accept) soferul care vine dupa el. */
     private static final class Req {
         UUID client;
@@ -80,6 +82,7 @@ public final class TaxiModule extends JsonModule {
 
     @Override
     protected void onEnable() {
+        instance = this;
         cfg = ModConfig.load(plugin, "taxi");
         tag = ChatColor.translateAlternateColorCodes('&', cfg.getString("tag", "&e[Taxi] &7"));
         driverPerm = cfg.getString("driver-permission", "flowcity.taxi.driver");
@@ -246,6 +249,32 @@ public final class TaxiModule extends JsonModule {
         if (r != null) return r;
         UUID d = clientToDriver.get(u);
         return d == null ? null : rides.get(d);
+    }
+
+
+    // ------------------------------------------------------------------ pentru aparatul de taxat (item)
+
+    /** Citire pentru aparatul de taxat: {tarif, km*100, secunde, asteptare(s)} pentru cursa soferului/clientului, sau null. Nu schimba nimic. */
+    public int[] meter(UUID u) {
+        Ride r = rideOf(u);
+        if (r == null) return null;
+        return new int[] {fareOf(r), (int) Math.round(r.km * 100.0), (int) Math.max(0L, (System.currentTimeMillis() - r.startAt) / 1000L), (int) Math.round(r.wait)};
+    }
+
+    /** Numele soferului/clientului din cursa lui {@code u}, sau null. */
+    public UUID meterOther(UUID u) {
+        Ride r = rideOf(u);
+        if (r == null) return null;
+        return u.equals(r.driver) ? r.client : r.driver;
+    }
+
+    public boolean onDuty(UUID u) {
+        return duty.contains(u);
+    }
+
+    /** Aceeasi actiune ca /taxi stop, pentru butonul aparatului. */
+    public void meterStop(Player p) {
+        stop(p);
     }
 
     private double fare(String key, double def) {

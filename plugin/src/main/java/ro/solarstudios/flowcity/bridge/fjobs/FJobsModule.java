@@ -146,6 +146,14 @@ public final class FJobsModule extends JsonModule implements Listener, FJobsApi 
         return pr != null && pr.inShift();
     }
 
+    /** Jobul FJobs in care e jucatorul chiar acum (doar cat timp e in tura), sau "" daca nu lucreaza. Folosit de framework-ul de iteme. */
+    public static String shiftJob(Player p) {
+        FJobsModule m = instance;
+        if (m == null || m.store == null) return "";
+        FJobsData.Profile pr = m.store.peek(p.getUniqueId());
+        return pr != null && pr.inShift() ? pr.job : "";
+    }
+
     /** Nivelul profesional la jobul curent (0 daca nu are job). */
     public int currentJobLevel(Player p) {
         FJobsData.Profile pr = store == null ? null : store.peek(p.getUniqueId());

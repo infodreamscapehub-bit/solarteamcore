@@ -27,6 +27,8 @@ import ro.solarstudios.flowcity.bridge.module.JsonModule;
  * Canal "news": client -> server: list, publish, delete; server -> client: list, banner, open.
  */
 public final class NewsModule extends JsonModule {
+    public static NewsModule instance;
+
     private YamlConfiguration cfg;
     private Db db;
     private final Map<UUID, Long> lastPublish = new HashMap<>();
@@ -38,6 +40,7 @@ public final class NewsModule extends JsonModule {
 
     @Override
     protected void onEnable() {
+        instance = this;
         cfg = ModConfig.load(plugin, "hype");
         db = plugin.db();
         try {
@@ -125,6 +128,11 @@ public final class NewsModule extends JsonModule {
     /** CNN 2.0 este doar platforma de anunturi: stirile/breaking sunt oprite implicit (hype.yml news.enabled). Datele vechi raman in DB. */
     private boolean newsOn() {
         return cfg.getBoolean("news.enabled", false);
+    }
+
+    /** Folosit de camera foto: publica o stire cu aceleasi verificari ca butonul din ecranul CNN (permisiune, cooldown, categorie). */
+    public void publishFromItem(Player p, String cat, String title, String body) {
+        publish(p, cat, title, body);
     }
 
     private void publish(Player p, String catIn, String titleIn, String bodyIn) {
