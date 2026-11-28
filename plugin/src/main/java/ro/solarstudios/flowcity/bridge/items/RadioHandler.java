@@ -50,6 +50,14 @@ public final class RadioHandler implements FlowCityItemActions.Handler {
         return radioOf(p) != null;
     }
 
+    /** Porneste/opreste radioul din inventar (din ecranul de statii). */
+    public boolean setPower(Player p, boolean on) {
+        ItemStack r = radioOf(p);
+        if (r == null) return false;
+        ItemKit.setData(r, "on", on ? "1" : "0");
+        return true;
+    }
+
     /** Radio valid si pornit. */
     public boolean radioOn(Player p) {
         ItemStack r = radioOf(p);
@@ -154,6 +162,8 @@ public final class RadioHandler implements FlowCityItemActions.Handler {
 
     @Override
     public boolean onUse(FlowCityItemActions.Ctx c, Block block) {
+        ro.solarstudios.flowcity.bridge.radio.RadioStationsModule rs = ro.solarstudios.flowcity.bridge.radio.RadioStationsModule.instance;
+        if (rs != null && !c.player.isSneaking() && rs.openFor(c.player)) return true;
         panel(c);
         return true;
     }

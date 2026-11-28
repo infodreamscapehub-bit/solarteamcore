@@ -85,6 +85,11 @@ public final class RadioStationsModule extends JsonModule implements Listener {
         on("join", (p, j) -> run(p, st.join(p.getUniqueId(), (long) num(j, "id", -1), str(j, "pass", ""), now())));
         on("joinfreq", (p, j) -> run(p, joinFreq(p, j)));
         on("tune", (p, j) -> run(p, tune(p, (long) num(j, "id", -1))));
+        on("power", (p, j) -> {
+            RadioHandler rh = RadioHandler.instance;
+            boolean want = bool(j, "on", true);
+            run(p, rh != null && rh.setPower(p, want) ? Result.ok(want ? "Radio pornit." : "Radio oprit.", null) : Result.err("Nu ai radio la tine."));
+        });
         on("off", (p, j) -> run(p, st.disconnect(p.getUniqueId())));
         on("leave", (p, j) -> run(p, st.leave(p.getUniqueId(), (long) num(j, "id", -1), now())));
         on("invite", (p, j) -> run(p, invite(p, j)));
@@ -208,6 +213,14 @@ public final class RadioStationsModule extends JsonModule implements Listener {
             link.setStatus(false, "Voce: Plasmo Voice nu s-a putut lega (" + t.getClass().getSimpleName() + "); radio text.");
             plugin.getLogger().warning("Radio: legarea la Plasmo Voice a esuat: " + t);
         }
+    }
+
+    /** Deschide ecranul de statii pe client; false daca jucatorul nu are modul (atunci ramane panoul din chat). */
+    public boolean openFor(Player p) {
+        if (!plugin.channel().hasMod(p)) return false;
+        send(p, "open", new JsonObject());
+        pushState(p);
+        return true;
     }
 
     public String voiceStatus() {
@@ -484,6 +497,7 @@ public final class RadioStationsModule extends JsonModule implements Listener {
         o.addProperty("voice", link.voiceActive());
         o.addProperty("voiceText", link.status());
         o.addProperty("radio", hasRadio(p));
+        o.addProperty("power", radioReady(p));
         o.addProperty("admin", p.hasPermission(ADMIN_PERM));
         o.addProperty("maxOwned", st.cfg.maxOwnedPerPlayer);
         o.addProperty("owned", st.ownedCount(u));
