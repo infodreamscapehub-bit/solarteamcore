@@ -140,7 +140,7 @@ public final class GpsModule extends JsonModule {
 
     /** Teleportarea e permisa DOAR operatorilor care au si permisiunea configurata (si doar daca nu e oprita in gps.yml). */
     private boolean canTeleport(Player p) {
-        return p != null && tpEnabled && p.isOp() && p.hasPermission(PERM_TP);
+        return p != null && GpsPolicy.canTeleport(tpEnabled, p.isOp(), p.hasPermission(PERM_TP));
     }
 
     private boolean tpEnabled = true;
@@ -278,7 +278,7 @@ public final class GpsModule extends JsonModule {
                 if (!l.enabled) continue;
                 GpsStore.Cat c = store.cat(l.cat);
                 if (c != null && !c.enabled) continue;
-                if (l.perm != null && !l.perm.isEmpty() && !viewer.hasPermission(l.perm)) continue;
+                if (!GpsPolicy.canSee(l.perm, false, viewer::hasPermission)) continue;
             }
             JsonObject j = new JsonObject();
             j.addProperty("id", l.id);
@@ -383,7 +383,7 @@ public final class GpsModule extends JsonModule {
     }
 
     private static boolean coord(double v) {
-        return !Double.isNaN(v) && !Double.isInfinite(v) && Math.abs(v) <= 30000000d;
+        return GpsPolicy.validCoord(v);
     }
 
     private static boolean hex(String s) {
@@ -601,14 +601,14 @@ public final class GpsModule extends JsonModule {
                 l.y = 0;
             } else {
                 double v = num(j, "y", Double.NaN);
-                if (Double.isNaN(v) || v < -64 || v > 320) return "Înălțime Y invalidă (-64..320).";
+                if (!GpsPolicy.validY(v)) return "Înălțime Y invalidă (-64..320).";
                 l.y = (int) Math.round(v);
                 l.hasY = true;
             }
         }
         if (j.has("perm")) {
             String pm = str(j, "perm", "").trim();
-            if (!pm.isEmpty() && !pm.matches("[A-Za-z0-9_.*-]{1,64}")) return "Permisiune invalidă.";
+            if (!GpsPolicy.validPermNode(pm)) return "Permisiune invalidă.";
             l.perm = pm;
         }
         if (j.has("hidden")) l.hidden = bool(j, "hidden", false);

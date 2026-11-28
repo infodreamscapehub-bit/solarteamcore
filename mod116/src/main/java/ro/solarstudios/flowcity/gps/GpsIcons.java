@@ -27,6 +27,11 @@ public final class GpsIcons {
         {"bait", "Momeală", "Zone de pescuit"},
         {"border", "Vamă", "Vama"},
         {"home", "Proprietate", "Proprietăți"},
+        {"fire", "Pompieri", "Pompieri"},
+        {"dealer", "Dealership", "Dealership"},
+        {"jobs", "Job", "Joburi"},
+        {"park", "Recreere", "Zone de recreere"},
+        {"event", "Eveniment", "Evenimente"},
         {"prison", "Închisoare", "Alte locații"},
         {"pin", "Marcaj", "Alte locații"}
     };
@@ -34,7 +39,7 @@ public final class GpsIcons {
     /** Categoriile bibliotecii, in ordinea afisarii (cele personalizate vin din icons.json, cu categoria lor). */
     public static final String[] LIB_CATEGORIES = {
         "Poliție", "Spital", "Bancă", "ATM", "Magazine", "Benzinării", "Service Auto", "Tuning", "Primărie", "Garaje",
-        "Restaurante", "Zone de pescuit", "Vama", "Proprietăți", "Alte locații"
+        "Restaurante", "Pompieri", "Dealership", "Joburi", "Zone de recreere", "Evenimente", "Zone de pescuit", "Vama", "Proprietăți", "Alte locații"
     };
 
     /** Insemn de marcaj: raza r, culoarea categoriei; hot = evidentiat (inel dublu). */
@@ -166,6 +171,33 @@ public final class GpsIcons {
                 Gfx.line(g, cx - 0.85f * u, cy - 0.2f * u, cx - 0.25f * u, cy - 0.2f * u, 1.4f, col);
                 Gfx.line(g, cx + 0.6f * u, cy - 0.95f * u, cx + 0.6f * u, cy + 0.95f * u, 1.5f, col);
                 Gfx.poly(g, new float[] {cx + 0.6f * u, cy - 0.95f * u, cx + 0.95f * u, cy - 0.5f * u, cx + 0.95f * u, cy + 0.15f * u, cx + 0.6f * u, cy + 0.15f * u}, col);
+                break;
+            case "fire":
+                Gfx.poly(g, new float[] {cx, cy - 1.0f * u, cx + 0.75f * u, cy + 0.05f * u, cx + 0.5f * u, cy + 0.9f * u, cx - 0.5f * u, cy + 0.9f * u, cx - 0.75f * u, cy + 0.05f * u}, col);
+                Gfx.disc(g, cx, cy + 0.55f * u, 0.32f * u, dk);
+                break;
+            case "dealer":
+                Gfx.poly(g, new float[] {cx - 0.5f * u, cy - 0.45f * u, cx + 0.45f * u, cy - 0.45f * u, cx + 0.8f * u, cy + 0.15f * u, cx - 0.8f * u, cy + 0.15f * u}, col);
+                Gfx.rrect(g, cx - 1.05f * u, cy + 0.1f * u, 2.1f * u, 0.7f * u, 1.2f, col);
+                Gfx.disc(g, cx - 0.5f * u, cy + 0.8f * u, 0.26f * u, dk);
+                Gfx.disc(g, cx + 0.5f * u, cy + 0.8f * u, 0.26f * u, dk);
+                Gfx.disc(g, cx, cy - 0.85f * u, 0.22f * u, col);
+                break;
+            case "jobs":
+                Gfx.rrect(g, cx - 0.95f * u, cy - 0.35f * u, 1.9f * u, 1.3f * u, 1.4f, col);
+                Gfx.ring(g, cx, cy - 0.4f * u, 0.32f * u, 0.52f * u, col, col);
+                Gfx.rrect(g, cx - 0.95f * u, cy + 0.15f * u, 1.9f * u, 0.14f * u, 0f, dk);
+                break;
+            case "park":
+                Gfx.disc(g, cx, cy - 0.35f * u, 0.75f * u, col);
+                Gfx.rrect(g, cx - 0.13f * u, cy + 0.2f * u, 0.26f * u, 0.8f * u, 0f, col);
+                break;
+            case "event":
+                Gfx.poly(g, new float[] {cx, cy - 1.0f * u, cx + 0.3f * u, cy - 0.3f * u, cx - 0.3f * u, cy - 0.3f * u}, col);
+                Gfx.poly(g, new float[] {cx, cy + 1.0f * u, cx + 0.3f * u, cy + 0.3f * u, cx - 0.3f * u, cy + 0.3f * u}, col);
+                Gfx.poly(g, new float[] {cx - 1.0f * u, cy, cx - 0.3f * u, cy - 0.3f * u, cx - 0.3f * u, cy + 0.3f * u}, col);
+                Gfx.poly(g, new float[] {cx + 1.0f * u, cy, cx + 0.3f * u, cy - 0.3f * u, cx + 0.3f * u, cy + 0.3f * u}, col);
+                Gfx.rrect(g, cx - 0.3f * u, cy - 0.3f * u, 0.6f * u, 0.6f * u, 0f, col);
                 break;
             case "home":
                 Gfx.poly(g, new float[] {cx - 1.0f * u, cy - 0.1f * u, cx, cy - 1.0f * u, cx + 1.0f * u, cy - 0.1f * u}, col);

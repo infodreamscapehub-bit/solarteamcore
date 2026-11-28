@@ -101,3 +101,34 @@ Panou cu accent portocaliu/galben, sidebar cu 12 sectiuni. Fiecare sectiune isi 
 * **Inchisoare:** celula se seteaza din Moderare → Inchisoare (Administrator+), apoi se foloseste din profilul jucatorului. Persistenta in `fadm_jail`, cu eliberare automata la expirare.
 * **Grupuri LuckPerms:** se citesc si se (de)atribuie prin API-ul LuckPerms; grupurile care dau acces administrativ le poate gestiona doar Owner-ul.
 * **Rapoarte:** tabela `fadm_reports`; statusuri Deschis / Preluat / Rezolvat / Respins.
+
+## GPS FlowCity (harta, bara laterala, teleportare)
+
+Tasta `M` (sau `.gps` in chat / `/gps`) deschide harta pe tot ecranul. Structura:
+
+* **Bara laterala (stanga):** logo + titlu „FLOWCITY GPS”, zona curenta, sectiunea **SERVER** (locatiile serverului pe grupuri: Publice, Institutii, Joburi, Comerciale, Speciale — grupurile se editeaza din EDITOR HARTA > Categorii), sectiunea **PERSONAL** (Markere personale, Favorite, Destinatii recente, Salvate = waypoint-uri partajate de server) si blocul **SETARI HARTA** ([-] zoom [+], Limita, Harta, Mini, GPS). Se restrange la o coloana de iconite (sageata de sus).
+* **Meniu contextual** (click dreapta pe un marker, pe un rand din bara sau pe harta): Editeaza / Sterge (doar admini sau propriile markere), Seteaza GPS, Favorit, Salveaza ca marker (pentru un punct ales pe harta), **Teleportare** (doar jucatorii autorizati).
+* **Jos pe harta:** „Cursor: x, z” si pozitia ta. Markerul tau are numele deasupra.
+* **Traseu:** A* pe reteaua de drumuri (EDITOR HARTA > Drumuri); fara retea, GPS-ul arata directia si distanta in linie dreapta, nu un traseu rutier. Culoarea traseului se alege din Setari (implicit portocaliu FlowCity).
+* **Locatii:** nume, descriere, X/Y/Z, dimensiune, categorie, iconita, culoare, vizibilitate (activa/ascunsa), **permisiune de acces** (campul „VIZIBIL DOAR CU PERMISIUNEA”: doar jucatorii cu nodul respectiv o vad; adminii o vad mereu). EDITOR HARTA are „+ PE HARTA”, „+ AICI” (preia pozitia ta), IMPORTA si **EXPORT** (`flowcity/gps-export.json` + `gps-export.txt`, reimportabil cu IMPORTA din `flowcity/waypoints.txt`).
+* **Categorii noi** (adaugate o singura data pe serverele existente): Pompieri, Dealership, Joburi, Restaurante, Zone de recreere, Evenimente.
+
+### Teleportarea (securitate)
+
+Clientul doar CERE teleportarea (`tp` cu id-ul locatiei). Serverul decide, la fiecare cerere:
+
+1. functia e pornita (`teleport.enabled` din `gps.yml`);
+2. jucatorul e **operator** (`isOp()`) **si** are permisiunea `flowcity.gps.teleport`;
+3. locatia exista si e activa (se ia din datele serverului, nu din ce trimite clientul — coordonatele din cerere sunt ignorate);
+4. coordonatele sunt valide, dimensiunea exista pe server si punctul e in limita lumii (World Border);
+5. exista un loc sigur la destinatie (nu lava, foc, cactus, apa; 2 blocuri libere deasupra unui bloc solid; se foloseste Y-ul locatiei daca e setat);
+6. nu mai mult de o teleportare pe secunda.
+
+Un client modificat care trimite pachetul fara OP/permisiune e refuzat si inregistrat. Pluginul nu acorda OP nimanui. Butonul „Teleportare” apare doar daca serverul a marcat jucatorul ca autorizat, dar asta e doar comoditate, nu protectie.
+
+### Jurnal si date
+
+* Actiunile administrative GPS (locatii, zone, categorii, drumuri, teleportari, refuzuri) se scriu in `plugins/FlowCityBridge/gps/admin-log.txt` (data, nume, UUID, actiune) si in consola.
+* Locatiile, zonele, categoriile, drumurile: `plugins/FlowCityBridge/gps/*.json` (backup automat, scriere atomica). Waypoint-urile personale: un fisier per UUID in `gps/waypoints/`. Favoritele, istoricul destinatiilor si setarile de afisare sunt salvate pe clientul jucatorului (`flowcity/gps.json`). Nu exista MySQL/SQLite in acest proiect, deci nu se folosesc.
+* Permisiuni: `flowcity.gps.use` (toti), `flowcity.gps.admin` (editor), `flowcity.gps.teleport` (impreuna cu OP), `flowcity.gps.upload` (harta partajata).
+* Testele pentru reguli (teleportare, vizibilitate, validari) sunt in `plugin/src/test` (`GpsPolicyTest`) si ruleaza la fiecare build.

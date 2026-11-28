@@ -202,6 +202,48 @@ final class GpsStore {
             return;
         }
         reloadFromDisk();
+        ensureSpecCats();
+    }
+
+    /** Categoriile din specificatia FlowCity (Pompieri, Dealership, Joburi, Restaurante, Recreere, Evenimente). */
+    private static final String[][] SPEC_CATS = {
+        {"POMPIERI", "Pompieri", "INSTITUȚII", "fire", "#F0584C"},
+        {"DEALERSHIP", "Dealership", "COMERCIALE", "dealer", "#4DA3FF"},
+        {"JOBURI", "Joburi", "JOBURI", "jobs", "#F5A524"},
+        {"RESTAURANT", "Restaurante", "COMERCIALE", "restaurant", "#C792FF"},
+        {"RECREERE", "Zone de recreere", "PUBLICE", "park", "#62D98F"},
+        {"EVENIMENTE", "Evenimente", "SPECIALE", "event", "#FFC53D"}
+    };
+
+    /**
+     * O singura data pe server: adauga categoriile lipsa din specificatie. Un marker de langa fisiere (.spec-cats) retine ca s-a
+     * facut, ca o categorie stearsa de admin sa nu reapara la fiecare pornire.
+     */
+    private void ensureSpecCats() {
+        File mark = new File(dir, ".spec-cats");
+        if (mark.exists()) return;
+        boolean added = false;
+        for (String[] c : SPEC_CATS) {
+            if (cat(c[0]) != null || cats.size() >= MAX_CATS) continue;
+            Cat n = new Cat();
+            n.id = c[0];
+            n.name = c[1];
+            n.group = c[2];
+            n.icon = c[3];
+            n.color = c[4];
+            cats.add(n);
+            added = true;
+        }
+        try {
+            //noinspection ResultOfMethodCallIgnored
+            mark.createNewFile();
+        } catch (IOException ignored) {
+            // fara marker, categoriile se verifica din nou la pornirea urmatoare (nu se dubleaza: se cauta dupa id)
+        }
+        if (added) {
+            saveCats(false);
+            log.info("[GPS] Am adaugat categoriile lipsa (Pompieri, Dealership, Joburi, Restaurante, Recreere, Evenimente).");
+        }
     }
 
     /** Reciteste fisierele (cu restaurare din backup daca sunt corupte). */
