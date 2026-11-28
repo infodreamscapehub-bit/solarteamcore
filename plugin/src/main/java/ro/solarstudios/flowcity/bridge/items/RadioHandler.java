@@ -17,6 +17,7 @@ import ro.solarstudios.flowcity.bridge.fjobs.FJobsModule;
  * Butonul de urgenta trimite pozitia pe canal. Comunicatia e text (vocea proximity nu e integrata - vezi README).
  */
 public final class RadioHandler implements FlowCityItemActions.Handler {
+    public static RadioHandler instance;
     private FlowCityItemActions fx;
 
     @Override
@@ -27,6 +28,7 @@ public final class RadioHandler implements FlowCityItemActions.Handler {
     @Override
     public void enable(FlowCityItemActions fx) {
         this.fx = fx;
+        instance = this;
         Commands.register(fx.plugin, "radio", null, (s, c, l, a) -> {
             if (!(s instanceof Player)) {
                 s.sendMessage("Doar jucatori.");
@@ -41,6 +43,22 @@ public final class RadioHandler implements FlowCityItemActions.Handler {
 
     private ConfigurationSection channels() {
         return fx.cfg.getConfigurationSection("items.radio.channels");
+    }
+
+    /** Folosit de statiile personale: jucatorul are un radio valid la el. */
+    public boolean hasRadio(Player p) {
+        return radioOf(p) != null;
+    }
+
+    /** Radio valid si pornit. */
+    public boolean radioOn(Player p) {
+        ItemStack r = radioOf(p);
+        return r != null && isOn(r);
+    }
+
+    /** Are jucatorul acces la un canal oficial (permisiune / job in tura)? */
+    public boolean channelOk(Player p, String chan) {
+        return channelAllowed(p, chan);
     }
 
     private boolean channelAllowed(Player p, String chan) {
@@ -102,6 +120,11 @@ public final class RadioHandler implements FlowCityItemActions.Handler {
         }
         if (!fx.cooldowns.tryUse(p.getUniqueId() + ":radio:send", 1000L)) {
             p.sendMessage("§eVorbesti prea repede.");
+            return;
+        }
+        ro.solarstudios.flowcity.bridge.radio.RadioStationsModule stations = ro.solarstudios.flowcity.bridge.radio.RadioStationsModule.instance;
+        if (stations != null && stations.textSend(p, msg)) {
+            fx.log(p, "radio", "SEND", null, null, "statie: " + msg);
             return;
         }
         String chan = chanOf(radio);

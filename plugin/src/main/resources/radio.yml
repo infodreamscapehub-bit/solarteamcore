@@ -1,0 +1,29 @@
+# Statii radio personale FlowCity. Se aplica la repornire sau cu /radiostatii reload.
+# Vocea reala merge doar cu pluginul/modul Plasmo Voice (server) instalat; fara el statiile functioneaza cu radio text.
+voice:
+  enabled: true
+limits:
+  max-owned-per-player: 2
+  freq-min: 100.0
+  freq-max: 999.9
+  max-members-cap: 30
+  default-members: 10
+  name-min: 3
+  name-max: 24
+  password-min: 4
+  password-max: 24
+  create-cooldown-seconds: 30
+  invite-cooldown-seconds: 3
+  invite-ttl-minutes: 10
+  owner-offline-grace-minutes: 10
+  max-wrong-passwords: 5
+  wrong-password-lock-minutes: 5
+# Frecvente oficiale (rezervate; jucatorii normali nu le pot ocupa sau modifica). key = canalul din items.yml (radio.channels),
+# accesul vine din permisiunile/joburile acelui canal sau din flowcity.radio.official.<key>.
+official:
+  - {key: public, name: "Public", freq: 100.0}
+  - {key: politie, name: "Politie", freq: 111.1}
+  - {key: ems, name: "EMS", freq: 112.2}
+  - {key: mecanici, name: "Mecanici", freq: 113.3}
+  - {key: taxi, name: "Taxi", freq: 114.4}
+  - {key: staff, name: "Staff", freq: 199.9}

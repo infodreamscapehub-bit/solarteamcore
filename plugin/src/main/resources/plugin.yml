@@ -4,7 +4,7 @@ main: ro.solarstudios.flowcity.bridge.FlowCityBridge
 api-version: '1.16'
 author: SolarStudios
 description: Bridge Mohist/Arclight <-> modul FlowCityCore (FAdmin, sincronizare date).
-softdepend: [LuckPerms, Vault, Essentials, EssentialsX, CMI, XConomy, TheNewEconomy, GemsEconomy]
+softdepend: [PlasmoVoice, LuckPerms, Vault, Essentials, EssentialsX, CMI, XConomy, TheNewEconomy, GemsEconomy]
 commands:
   eadmin:
     description: Deschide panoul FAdmin sau ruleaza o actiune de staff (alias al comenzii /fadmin).
