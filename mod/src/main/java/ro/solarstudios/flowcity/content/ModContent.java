@@ -49,7 +49,7 @@ public final class ModContent {
         .icon(() -> PHONE.isPresent() ? new ItemStack(PHONE.get()) : new ItemStack(Items.COMPASS))
         .displayItems((params, out) -> {
             for (RegistryObject<Item> i : ITEMS.getEntries()) {
-                out.accept(i.get());
+                if (i.isPresent()) out.accept(i.get());
             }
         })
         .build());
