@@ -78,3 +78,26 @@ Mediul meu nu poate descarca Forge/Spigot, deci codul e verificat doar sintactic
 Faza 2a (livrata): **Hype-lite** = HUD, ATM, joburi, sete (`/atm`, `/job`, `/sete`, `/hud`, `/hype atm set|remove|list`, `/hype reload`; config `hype.yml`; permisiuni `flowcity.hype.atm|job|admin`). ATM-ul si joburile merg si fara mod (text in chat); HUD-ul si ecranele necesita modul pe client.
 Amanate (le refacem dupa): CNN, proprietati, roata, documente (buletin/permis), meniu principal, ClearLagg, eMaps, ePhone.
 Faza 3: eMaps. Faza 4: ePhone. Jarul original nu contine sursa si lipsesc clase (core, joburi), deci acestea se reconstruiesc.
+
+## FAdmin: sectiuni, noduri LuckPerms si acces (spec 31)
+
+Panou cu accent portocaliu/galben, sidebar cu 12 sectiuni. Fiecare sectiune isi verifica singura accesul pe server, prin nodul LuckPerms al sectiunii **sau** prin nivelul de staff (`flowcity.fadmin.<helper|moderator|administrator|manager|developer|owner>`). Nodul de sectiune da doar citire; actiunile care modifica ceva cer mereu nivelul.
+
+| Nod | Sectiune | Nivel minim implicit |
+|---|---|---|
+| `flowcity.fadmin.dashboard` | Dashboard | Helper |
+| `flowcity.fadmin.players` | Jucatori (warn, freeze, spectate, inchisoare, grup LP, ID RP) | Helper |
+| `flowcity.fadmin.moderation` | Moderare (ban/mute/warn/inchisoare/istoric) | Helper |
+| `flowcity.fadmin.staff` | Staff (tura/duty, activitate, istoric) | Moderator |
+| `flowcity.fadmin.reports` | Rapoarte (`/report <jucator> <motiv>` de la jucatori) | Helper |
+| `flowcity.fadmin.vehicles` | Vehicule | Moderator |
+| `flowcity.fadmin.economy` | Economie | Administrator |
+| `flowcity.fadmin.jobs` | Joburi | Moderator |
+| `flowcity.fadmin.permissions` | Permisiuni / grupuri LuckPerms (API) | Manager |
+| `flowcity.fadmin.logs` | Loguri administrative (persistente, cu UUID admin si tinta) | Moderator |
+| `flowcity.fadmin.server` | Server (stare, performanta, anunturi) | Administrator |
+
+* **Acces:** tasta F9 (se schimba din Controale), Tableta FAdmin (`flowcitycore:admin_tablet`, click dreapta; Administrator+ o primeste din Server), sau `/fadmin`. Jucatorii fara nivel/nod primesc refuz de la server.
+* **Inchisoare:** celula se seteaza din Moderare → Inchisoare (Administrator+), apoi se foloseste din profilul jucatorului. Persistenta in `fadm_jail`, cu eliberare automata la expirare.
+* **Grupuri LuckPerms:** se citesc si se (de)atribuie prin API-ul LuckPerms; grupurile care dau acces administrativ le poate gestiona doar Owner-ul.
+* **Rapoarte:** tabela `fadm_reports`; statusuri Deschis / Preluat / Rezolvat / Respins.
