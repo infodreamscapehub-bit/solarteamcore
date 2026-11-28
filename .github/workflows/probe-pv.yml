@@ -29,5 +29,4 @@ jobs:
           cd /tmp/p
           mkdir -p ex && for j in $(gradle cp -q --no-daemon 2>/dev/null | grep '\.jar$'); do (cd ex && unzip -qo $j 2>/dev/null); done
           CP=$(gradle cp -q --no-daemon 2>/dev/null | grep '\.jar$' | tr '\n' ':')
-          for c in su.plo.slib.api.permission.PermissionDefault su.plo.voice.proto.packets.udp.bothbound.BaseAudioPacket su.plo.voice.proto.packets.tcp.serverbound.PlayerAudioEndPacket su.plo.voice.api.server.PlasmoBaseVoiceServer su.plo.voice.api.addon.InjectPlasmoVoice su.plo.voice.api.server.audio.line.BaseServerSourceLine\$Builder su.plo.voice.api.server.audio.line.ServerSourceLine su.plo.voice.api.server.audio.capture.ServerActivation\$Builder; do echo "=== $c"; javap -cp "$CP" "$c" 2>&1 | head -40 | cut -c1-260; done
-          javap -v -cp "$CP" su.plo.voice.api.addon.InjectPlasmoVoice 2>&1 | grep -iE "Target|Retention|ElementType|RuntimeVisible" | head
+          for c in su.plo.slib.api.entity.player.McPlayer su.plo.slib.api.entity.McEntity su.plo.slib.api.server.entity.player.McServerPlayer; do echo "=== $c"; javap -cp "$CP" "$c" 2>&1 | head -50 | cut -c1-200; done
