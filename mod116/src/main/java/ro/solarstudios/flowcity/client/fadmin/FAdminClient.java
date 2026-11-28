@@ -28,6 +28,13 @@ public final class FAdminClient extends JsonClientModule {
     static JsonObject cfgCats;
     static JsonObject cfgList;
     static JsonObject permList;
+    static JsonObject mod;
+    static JsonObject reports;
+    static JsonObject staff;
+    static JsonObject staffHist;
+    static JsonObject lpGroups;
+    static JsonObject lpUser;
+    static JsonObject vehHist;
 
     private FAdminClient() {
         on("open", d -> {
@@ -50,6 +57,13 @@ public final class FAdminClient extends JsonClientModule {
         on("cfg_cats", d -> cfgCats = d);
         on("cfg_list", d -> cfgList = d);
         on("perm_list", d -> permList = d);
+        on("mod", d -> mod = d);
+        on("reports", d -> reports = d);
+        on("staff", d -> staff = d);
+        on("staff_hist", d -> staffHist = d);
+        on("lp_groups", d -> lpGroups = d);
+        on("lp_user", d -> lpUser = d);
+        on("veh_hist", d -> vehHist = d);
         on("res", d -> {
             Minecraft mc = Minecraft.getInstance();
             if (mc.screen instanceof FAdminScreen) ((FAdminScreen) mc.screen).toast(str(d, "msg", ""), !bool(d, "ok", false));
@@ -65,6 +79,7 @@ public final class FAdminClient extends JsonClientModule {
     public void onLogout() {
         me = new JsonObject();
         dash = players = player = vehicles = econ = susp = jobs = jobPlayers = jobProgress = logs = system = cfgCats = cfgList = permList = null;
+        mod = reports = staff = staffHist = lpGroups = lpUser = vehHist = null;
     }
 
     public static void register() {

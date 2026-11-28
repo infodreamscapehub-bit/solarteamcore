@@ -123,6 +123,7 @@ public final class FAdminModule extends JsonModule {
         on("lp_groups", (p, j) -> ext.lpGroups(p, j));
         on("lp_user", (p, j) -> ext.lpUser(p, j));
         on("veh_hist", this::vehHist);
+        on("tablet", this::tablet);
     }
 
     @Override
@@ -743,6 +744,15 @@ public final class FAdminModule extends JsonModule {
         o.addProperty("total", total);
         o.add("rows", rows);
         send(p, "vehicles", o);
+    }
+
+    /** Da staff-ului Admin Tabletul (item din mod; deschide FAdmin la click dreapta). Doar Administrator+, jurnalizat. */
+    private void tablet(Player p, JsonObject j) {
+        FAdminLevel lv = level(p, Cap.ANNOUNCE);
+        if (lv == null) return;
+        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "give " + p.getName() + " flowcitycore:admin_tablet 1");
+        log.add(p.getName(), lv, "tablet", p.getUniqueId(), p.getName(), "", "admin_tablet", "");
+        res(p, true, "Ai primit Admin Tabletul.");
     }
 
     /** Istoricul actiunilor de staff asupra unui vehicul (din jurnalul persistent, dupa numarul de inmatriculare). */

@@ -133,7 +133,15 @@ public final class BridgeChannel implements PluginMessageListener {
                 return;
             }
             if (!player.hasPermission("flowcity.eadmin")) {
-                if (op == Op.C_OPEN_REQUEST) toast(player, "Nu ai acces la FAdmin.", true);
+                // personal cu doar noduri de sectiune (flowcity.fadmin.<sectiune>) poate deschide noul panou; restul pachetelor vechi raman blocate
+                if (op == Op.C_OPEN_REQUEST) {
+                    if (ro.solarstudios.flowcity.bridge.eadmin.FAdminLevel.of(player) != null) {
+                        ro.solarstudios.flowcity.bridge.module.BridgeModule fa = ro.solarstudios.flowcity.bridge.module.Modules.get("fadm");
+                        if (fa instanceof ro.solarstudios.flowcity.bridge.eadmin.FAdminModule) ((ro.solarstudios.flowcity.bridge.eadmin.FAdminModule) fa).openHub(player);
+                    } else {
+                        toast(player, "Nu ai acces la FAdmin.", true);
+                    }
+                }
                 return; // ignoram tacit orice alt pachet fara permisiune
             }
             handle(player, op, in);

@@ -13,6 +13,10 @@ public final class ClientHooks {
         net.minecraft.client.Minecraft.getInstance().setScreen(new ro.solarstudios.flowcity.phone.PhoneScreen());
     }
 
+    public static void openAdminTablet() {
+        ClientBridge.sendOpenRequest();
+    }
+
     public static void openMdt() {
         ro.solarstudios.flowcity.mdt.MdtClient.requestOpen();
     }
