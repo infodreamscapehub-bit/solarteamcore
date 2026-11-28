@@ -55,6 +55,7 @@ public final class ClientInit {
         ro.solarstudios.flowcity.cars.client.GaragesClient.register();
         ro.solarstudios.flowcity.gps.GpsClient.register();
         ro.solarstudios.flowcity.items.ItemFxClient.register();
+        ro.solarstudios.flowcity.radio.RadioClient.register();
         ro.solarstudios.flowcity.beginner.BeginnerClient.register();
         ro.solarstudios.flowcity.battlepass.BattlepassClient.register();
         if (ro.solarstudios.flowcity.cars.CarsCompat.loaded()) ro.solarstudios.flowcity.cars.client.CarHud.register();
@@ -74,6 +75,7 @@ public final class ClientInit {
         ro.solarstudios.flowcity.phone.PhoneClient.registerKeys(event);
         ro.solarstudios.flowcity.cars.client.GaragesClient.registerKeys(event);
         ro.solarstudios.flowcity.gps.GpsClient.registerKeys(event);
+        ro.solarstudios.flowcity.radio.RadioClient.registerKeys(event);
         ro.solarstudios.flowcity.fjobs.FJobsClient.registerKeys(event);
         ro.solarstudios.flowcity.beginner.BeginnerClient.registerKeys(event);
         ro.solarstudios.flowcity.battlepass.BattlepassClient.registerKeys(event);

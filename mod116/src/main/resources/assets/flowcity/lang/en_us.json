@@ -6,6 +6,7 @@
   "key.flowcity.minimap.north": "Minimap: north lock",
   "key.flowcity.minimap.settings": "Minimap: settings",
   "key.flowcity.gps": "Open GPS map",
+  "key.flowcity.radio": "Open radio (stations)",
   "key.flowcity.admin": "Deschide FAdmin",
   "key.categories.flowcity": "FlowCity"
 }

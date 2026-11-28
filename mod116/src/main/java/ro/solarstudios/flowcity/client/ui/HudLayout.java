@@ -117,6 +117,7 @@ public final class HudLayout {
         add("news", "Știri CNN");
         add("prompt", "Mesaj interacțiune");
         add("taxi", "Taximetru");
+        add("radio", "Radio stație");
         add("fjobs", "Tura job (card)");
         add("gps", "Navigare GPS");
         add("minimap", "Minimap GPS");
@@ -298,6 +299,8 @@ public final class HudLayout {
             }
             case "taxi":
                 return new float[] {10f, sh / 2f - 34f, 156f, 64f};
+            case "radio":
+                return new float[] {sw - 158f, sh / 2f - 40f, 150f, 66f};
             case "fjobs":
                 return new float[] {10f, sh / 2f - 110f, 176f, 80f};
             default:

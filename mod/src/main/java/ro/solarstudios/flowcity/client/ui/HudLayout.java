@@ -117,6 +117,7 @@ public final class HudLayout {
         add("news", "Știri CNN");
         add("prompt", "Mesaj interacțiune");
         add("taxi", "Taximetru");
+        add("radio", "Radio stație");
         add("fjobs", "Tura job (card)");
         add("gps", "Navigare GPS");
         add("minimap", "Minimap GPS");

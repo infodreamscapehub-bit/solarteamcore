@@ -39,6 +39,7 @@ public final class ClientInit {
         ro.solarstudios.flowcity.phone.PhoneClient.register();
         ro.solarstudios.flowcity.gps.GpsClient.register();
         ro.solarstudios.flowcity.items.ItemFxClient.register();
+        ro.solarstudios.flowcity.radio.RadioClient.register();
         ro.solarstudios.flowcity.fjobs.FJobsClient.register();
         ro.solarstudios.flowcity.pay.PayClient.register();
         ro.solarstudios.flowcity.shop.ShopClient.register();
@@ -71,6 +72,7 @@ public final class ClientInit {
         ro.solarstudios.flowcity.mdt.MdtClient.registerKeys(event);
         ro.solarstudios.flowcity.phone.PhoneClient.registerKeys(event);
         ro.solarstudios.flowcity.gps.GpsClient.registerKeys(event);
+        ro.solarstudios.flowcity.radio.RadioClient.registerKeys(event);
         ro.solarstudios.flowcity.fjobs.FJobsClient.registerKeys(event);
         ro.solarstudios.flowcity.cars.client.GaragesClient.registerKeys(event);
         ro.solarstudios.flowcity.beginner.BeginnerClient.registerKeys(event);
