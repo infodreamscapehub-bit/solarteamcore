@@ -35,6 +35,10 @@ public final class FAdminClient extends JsonClientModule {
     static JsonObject lpGroups;
     static JsonObject lpUser;
     static JsonObject vehHist;
+    static JsonObject searchRes;
+    static JsonObject rpData;
+    /** Istoric real al mostrelor din dashboard (ultimele 30 de sondaje, la ~6 s) pentru mini-graficele din carduri. */
+    static final java.util.ArrayList<float[]> hist = new java.util.ArrayList<>();
 
     private FAdminClient() {
         on("open", d -> {
@@ -43,7 +47,13 @@ public final class FAdminClient extends JsonClientModule {
             if (!(mc.screen instanceof FAdminScreen)) mc.setScreen(new FAdminScreen());
         });
         on("me", d -> me = d);
-        on("dash", d -> dash = d);
+        on("dash", d -> {
+            dash = d;
+            hist.add(new float[] {(float) num(d, "online", 0), (float) num(d, "tps", 0)});
+            while (hist.size() > 30) hist.remove(0);
+        });
+        on("search", d -> searchRes = d);
+        on("rp", d -> rpData = d);
         on("players", d -> players = d);
         on("player", d -> player = d);
         on("vehicles", d -> vehicles = d);
@@ -79,7 +89,8 @@ public final class FAdminClient extends JsonClientModule {
     public void onLogout() {
         me = new JsonObject();
         dash = players = player = vehicles = econ = susp = jobs = jobPlayers = jobProgress = logs = system = cfgCats = cfgList = permList = null;
-        mod = reports = staff = staffHist = lpGroups = lpUser = vehHist = null;
+        mod = reports = staff = staffHist = lpGroups = lpUser = vehHist = searchRes = rpData = null;
+        hist.clear();
     }
 
     public static void register() {

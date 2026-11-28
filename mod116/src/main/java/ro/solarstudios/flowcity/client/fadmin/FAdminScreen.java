@@ -37,9 +37,14 @@ public final class FAdminScreen extends FlowScreen {
     private static final int S_LOGS = 9;
     private static final int S_SYS = 10;
     private static final int S_EDIT = 11;
-    private static final String[] NAME = {"Dashboard", "Jucători", "Moderare", "Staff", "Rapoarte", "Vehicule", "Economie", "Joburi", "Permisiuni", "Loguri", "Server", "Editor"};
-    private static final String[] ICON = {"grid", "eye", "flag", "star-line", "bell", "route", "star", "layers", "gear", "clock", "compass", "pencil"};
-    private static final String[] NEED = {"dash", "players", "mod_view", "staff_view", "report_view", "veh_view", "econ_view", "job_view", "perm_view", "logs", "server_view", "cfg_basic"};
+    private static final int S_SEARCH = 12;
+    private static final int S_RP = 13;
+    private static final String[] NAME = {"Dashboard", "Jucători", "Moderare", "Staff", "Rapoarte", "Vehicule", "Economie", "Joburi", "Permisiuni", "Loguri", "Server", "Editor", "Căutare globală", "Sisteme RP"};
+    private static final String[] ICON = {"grid", "eye", "flag", "star-line", "bell", "route", "star", "layers", "gear", "clock", "compass", "pencil", "search", "pin"};
+    private static final String[] NEED = {"dash", "players", "mod_view", "staff_view", "report_view", "veh_view", "econ_view", "job_view", "perm_view", "logs", "server_view", "cfg_basic", "dash", "dash"};
+    /** Grupurile din bara laterala, in ordinea din spec; fiecare grup afiseaza doar modulele permise. */
+    private static final String[] GROUP = {"GENERAL", "PLAYER MANAGEMENT", "MODERATION", "STAFF", "ECONOMY", "ROLEPLAY SYSTEMS", "SERVER", "REPORTS"};
+    private static final int[][] GROUP_SEC = {{S_DASH, S_SEARCH}, {S_PLAYERS, S_VEH}, {S_MOD}, {S_STAFF, S_PERM}, {S_ECON}, {S_JOBS, S_RP}, {S_SYS, S_LOGS, S_EDIT}, {S_REP}};
     /** Accentul FAdmin: portocaliu cu galben (spec). Se aplica si pe componentele comune prin FTheme.accent. */
     private static final int ORANGE = 0xFFFF8A1F;
     private static final int ORANGE_DIM = 0xFFC66A12;
@@ -51,6 +56,14 @@ public final class FAdminScreen extends FlowScreen {
     private static final int[] DUR = {30, 60, 1440, 10080, 0};
     private static final String[] DUR_L = {"30 min", "1 oră", "1 zi", "7 zile", "Permanent"};
     private static final SimpleDateFormat DATE = new SimpleDateFormat("dd.MM HH:mm");
+
+    // confirmari si tooltip-uri
+    private Runnable confirmRun;
+    private String confirmTitle = "";
+    private String confirmText = "";
+    private String confirmOk = "Confirmă";
+    private boolean confirmDanger;
+    private String tip;
 
     private int sec = S_DASH;
     private long lastPoll;
@@ -125,7 +138,11 @@ public final class FAdminScreen extends FlowScreen {
     @Override
     protected List<TextFieldWidget> fields() {
         List<TextFieldWidget> f = new ArrayList<>();
+        if (confirmRun != null) return f;
         switch (sec) {
+            case S_SEARCH:
+                f.add(search);
+                break;
             case S_PLAYERS:
                 if (selUuid == null) {
                     f.add(search);
@@ -284,9 +301,9 @@ public final class FAdminScreen extends FlowScreen {
     }
 
     private boolean btn(GuiGraphics ms, String id, String label, String ic, float x, float y, float w, float h, int style, boolean enabled, int mx, int my, Runnable action) {
-        boolean hov = FUi.button(ms, id, label, ic, x, y, w, h, style, enabled, mx, my);
+        FUi.button(ms, id, label, ic, x, y, w, h, style, enabled, mx, my);
         if (enabled) hit((int) x, (int) y, (int) w, (int) h, action);
-        return hov;
+        return in(mx, my, x, y, w, h);
     }
 
     private boolean chip(GuiGraphics ms, String id, String label, float x, float y, float h, boolean sel, int mx, int my, Runnable action) {
@@ -370,6 +387,11 @@ public final class FAdminScreen extends FlowScreen {
             case S_SYS:
                 FAdminClient.ask("system");
                 break;
+            case S_RP:
+                FAdminClient.ask("rp");
+                break;
+            case S_SEARCH:
+                break;
             case S_EDIT:
                 FAdminClient.ask("cfg_cats");
                 if (!cat.isEmpty()) FAdminClient.ask("cfg_list", "cat", cat);
@@ -403,10 +425,17 @@ public final class FAdminScreen extends FlowScreen {
             case S_LOGS:
                 FAdminClient.ask("logs", "q", q, "page", 0);
                 break;
+            case S_SEARCH:
+                FAdminClient.searchRes = null;
+                searchAsked = q.length() >= 2;
+                if (searchAsked) FAdminClient.ask("search", "q", q);
+                break;
             default:
                 break;
         }
     }
+
+    private boolean searchAsked;
 
     // ------------------------------------------------------------------ cadru
 
@@ -440,6 +469,11 @@ public final class FAdminScreen extends FlowScreen {
             lastPoll = now;
             FAdminClient.ask("reports", "status", REP_ID[repTab], "page", (int) n(FAdminClient.reports, "page"), "q", search.getValue().trim());
         }
+        if (sec == S_RP && now - lastPoll > 8000) {
+            lastPoll = now;
+            FAdminClient.ask("rp");
+        }
+        tip = null;
         Gfx.rrect(ms, 0, 0, width, height, 0, FTheme.SCRIM);
         FTheme.shadow(ms, px, py, pw, ph, 14f);
         FTheme.panel(ms, px, py, pw, ph, 14f, FTheme.BG, FTheme.LINE);
@@ -453,6 +487,9 @@ public final class FAdminScreen extends FlowScreen {
             return;
         }
         String sub = "Nivel: " + s(me(), "label");
+        if (sec == S_DASH && FAdminClient.dash != null && !s(FAdminClient.dash, "version").isEmpty()) {
+            sub = "v" + s(FAdminClient.dash, "version") + " · uptime " + uptime((long) n(FAdminClient.dash, "uptime")) + " · " + sub;
+        }
         tx(ms, NAME[sec], x0, y0 + 14, 13f, FTheme.TEXT);
         tr(ms, sub, x0 + cw, y0 + 12, 7.4f, FTheme.MUTED);
         FTheme.divider(ms, x0, y0 + 22, cw);
@@ -469,8 +506,72 @@ public final class FAdminScreen extends FlowScreen {
             case S_LOGS: drawLogs(ms, by, mx, my); break;
             case S_SYS: drawSystem(ms, by, mx, my); break;
             case S_EDIT: drawEditor(ms, by, mx, my); break;
+            case S_SEARCH: drawGlobalSearch(ms, by, mx, my); break;
+            case S_RP: drawRp(ms, by, mx, my); break;
             default: drawPerm(ms, by, mx, my); break;
         }
+        drawTip(ms, mx, my);
+        if (confirmRun != null) drawConfirm(ms, mx, my);
+    }
+
+    // ------------------------------------------------------------------ confirmari, tooltip
+
+    private static String uptime(long sec) {
+        long d = sec / 86400;
+        long h = sec % 86400 / 3600;
+        long m = sec % 3600 / 60;
+        return d > 0 ? d + "z " + h + "h" : h > 0 ? h + "h " + m + "m" : m + " min";
+    }
+
+    /** Cere confirmare. Cand {@code twice} e true (actiuni periculoase) se cere o a doua confirmare, separata. */
+    private void confirm(String title, String text, String ok, boolean danger, boolean twice, Runnable run) {
+        confirmTitle = title;
+        confirmText = text;
+        confirmOk = ok;
+        confirmDanger = danger;
+        confirmRun = twice
+            ? () -> confirm("Ești sigur?", "Acțiune periculoasă: " + title.toLowerCase(Locale.ROOT) + ". Rămâne în jurnalul de audit.", "Da, execută", true, false, run)
+            : run;
+        confirmArmed = false;
+    }
+
+    private boolean confirmArmed;
+
+    private void drawConfirm(GuiGraphics ms, int mx, int my) {
+        FUi.modal(ms, "fa-cf", confirmTitle, confirmText, confirmOk, "Anulează", confirmDanger, 0, 0, width, height, 1f, mx, my);
+        float[] ok = FUi.modalPrimary();
+        float[] no = FUi.modalSecondary();
+        hit(0, 0, width, height, () -> {
+        });
+        hit((int) no[0], (int) no[1], (int) no[2], (int) no[3], () -> confirmRun = null);
+        hit((int) ok[0], (int) ok[1], (int) ok[2], (int) ok[3], () -> {
+            Runnable r = confirmRun;
+            confirmRun = null;
+            if (r != null) r.run();
+        });
+    }
+
+    private void tipIf(boolean hover, String text) {
+        if (hover && confirmRun == null) tip = text;
+    }
+
+    private void drawTip(GuiGraphics ms, int mx, int my) {
+        if (tip == null) return;
+        float w = Gfx.width(tip, 7f, false) + 14;
+        float x = Math.min(mx + 10, width - w - 4);
+        float y = my + 16 + 14 > height ? my - 22 : my + 16;
+        Gfx.rrect(ms, x, y, w, 15, 3f, 0xF0101010);
+        Gfx.rrect(ms, x, y, 2, 15, 0, YELLOW);
+        t(ms, tip, x + 8, y + 10.2f, 7f, FTheme.TEXT);
+    }
+
+    @Override
+    public boolean keyPressed(int key, int scan, int mods) {
+        if (confirmRun != null) {
+            if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) confirmRun = null;
+            return true;
+        }
+        return super.keyPressed(key, scan, mods);
     }
 
     private void sidebar(GuiGraphics ms, int mx, int my) {
@@ -479,26 +580,43 @@ public final class FAdminScreen extends FlowScreen {
         FTheme.caption(ms, "FLOWCITY", px + 16, py + 24, FTheme.MUTED);
         tx(ms, "FAdmin", px + 16, py + 42, 15f, FTheme.TEXT);
         int cnt = 0;
-        for (String nd : NEED) if (has(nd)) cnt++;
-        int step = Math.max(20, Math.min(26, (ph - 56 - 70) / Math.max(1, cnt)));
-        int ih = step - 2;
-        int y = py + 56;
-        for (int i = 0; i < NAME.length; i++) {
-            if (!has(NEED[i])) continue;
-            boolean sel = sec == i;
-            boolean hot = in(mx, my, px + 8, y, NAVW - 16, ih);
-            float h = FUi.hot("fa-nav" + i, hot);
-            if (sel) {
-                Gfx.rrect(ms, px + 8, y, NAVW - 16, ih, 8f, FTheme.alpha(ORANGE, 46));
-                Gfx.rrect(ms, px + 8, y + (ih - 14) / 2, 3, 14, 1.5f, ORANGE);
-            } else if (h > 0.01f) {
-                Gfx.rrect(ms, px + 8, y, NAVW - 16, ih, 8f, FTheme.alpha(0xFFFFFFFF, (int) (14 * h)));
+        int groups = 0;
+        for (int[] g : GROUP_SEC) {
+            boolean any = false;
+            for (int i : g) if (has(NEED[i])) {
+                cnt++;
+                any = true;
             }
-            FUi.icon(ms, ICON[i], px + 24, y + ih / 2, 14, sel ? ORANGE : FTheme.mix(FTheme.MUTED, FTheme.TEXT, h));
-            Gfx.text(ms, NAME[i], px + 38, mid(y, ih, 7.8f), 7.8f, sel ? FTheme.TEXT : FTheme.mix(FTheme.MUTED, FTheme.TEXT, h), 0, true, 0f);
-            final int target = i;
-            hit(px + 8, y, NAVW - 16, 26, () -> go(target));
-            y += step;
+            if (any) groups++;
+        }
+        int avail = ph - 52 - 66;
+        int cap = groups * 11;
+        int step = Math.max(15, Math.min(24, (avail - cap) / Math.max(1, cnt)));
+        int ih = step - 2;
+        int y = py + 52;
+        for (int g = 0; g < GROUP_SEC.length; g++) {
+            boolean any = false;
+            for (int i : GROUP_SEC[g]) if (has(NEED[i])) any = true;
+            if (!any) continue;
+            Gfx.text(ms, GROUP[g], px + 14, y + 7, 5.6f, FTheme.FAINT, 0, true, 0.4f);
+            y += 11;
+            for (int i : GROUP_SEC[g]) {
+                if (!has(NEED[i])) continue;
+                boolean sel = sec == i;
+                boolean hot = in(mx, my, px + 8, y, NAVW - 16, ih);
+                float h = FUi.hot("fa-nav" + i, hot);
+                if (sel) {
+                    Gfx.rrect(ms, px + 8, y, NAVW - 16, ih, 4f, FTheme.alpha(ORANGE, 46));
+                    Gfx.rrect(ms, px + 8, y + (ih - 10) / 2, 2, 10, 1f, ORANGE);
+                } else if (h > 0.01f) {
+                    Gfx.rrect(ms, px + 8, y, NAVW - 16, ih, 4f, FTheme.alpha(0xFFFFFFFF, (int) (14 * h)));
+                }
+                FUi.icon(ms, ICON[i], px + 22, y + ih / 2, 11, sel ? ORANGE : FTheme.mix(FTheme.MUTED, FTheme.TEXT, h));
+                Gfx.text(ms, NAME[i], px + 34, mid(y, ih, 7.2f), 7.2f, sel ? FTheme.TEXT : FTheme.mix(FTheme.MUTED, FTheme.TEXT, h), 0, true, 0f);
+                final int target = i;
+                hit(px + 8, y, NAVW - 16, ih, () -> go(target));
+                y += step;
+            }
         }
         // jos: nivel + inchide
         if (allowed()) {
@@ -518,6 +636,30 @@ public final class FAdminScreen extends FlowScreen {
         t(ms, clip(sub, w - 16, 6.8f, false), x + 10, y + 46, 6.8f, FTheme.FAINT);
     }
 
+    /** Mini-grafic cu mostrele reale primite de la server (online / TPS); nu se deseneaza pana nu sunt cel putin 2 mostre. */
+    private void spark(GuiGraphics ms, float x, float y, float w, float h, int idx, int color) {
+        List<float[]> hs = FAdminClient.hist;
+        if (hs.size() < 2) return;
+        float lo = Float.MAX_VALUE;
+        float hi = -Float.MAX_VALUE;
+        for (float[] v : hs) {
+            lo = Math.min(lo, v[idx]);
+            hi = Math.max(hi, v[idx]);
+        }
+        if (idx == 1) {
+            lo = Math.min(lo, 15f);
+            hi = Math.max(hi, 20f);
+        }
+        float span = Math.max(1f, hi - lo);
+        for (int i = 1; i < hs.size(); i++) {
+            float x1 = x + (i - 1) * w / 29f;
+            float x2 = x + i * w / 29f;
+            float y1 = y + h - (hs.get(i - 1)[idx] - lo) / span * h;
+            float y2 = y + h - (hs.get(i)[idx] - lo) / span * h;
+            Gfx.line(ms, x1, y1, x2, y2, 1f, color);
+        }
+    }
+
     private void drawDash(GuiGraphics ms, int y, int mx, int my) {
         JsonObject d = FAdminClient.dash;
         if (d == null) {
@@ -532,6 +674,8 @@ public final class FAdminScreen extends FlowScreen {
         statCard(ms, x0 + (w + gap) * 2, y, w, "STAFF ONLINE", String.valueOf((int) n(d, "staff")), (int) n(d, "staffDuty") + " în tură", ORANGE);
         statCard(ms, x0 + (w + gap) * 3, y, w, "SERVER", tps < 0 ? "—" : String.format(Locale.US, "%.1f TPS", tps),
             (int) n(d, "ramUsed") + " / " + (int) n(d, "ramMax") + " MB RAM", tps >= 18 || tps < 0 ? FTheme.OK : FTheme.WARN);
+        spark(ms, x0 + w - 54, y + 8, 44, 14, 0, FTheme.OK);
+        spark(ms, x0 + (w + gap) * 3 + w - 54, y + 8, 44, 14, 1, tps >= 18 || tps < 0 ? FTheme.OK : FTheme.WARN);
         int r2 = y + 60;
         statCard(ms, x0, r2, w, "ÎN ÎNCHISOARE", String.valueOf((int) n(d, "jailed")), "jucători închiși acum", n(d, "jailed") > 0 ? FTheme.WARN : FTheme.MUTED);
         statCard(ms, x0 + (w + gap), r2, w, "RAPOARTE ACTIVE", String.valueOf((int) n(d, "reports")), "deschise sau preluate", n(d, "reports") > 0 ? FTheme.WARN : FTheme.OK);
@@ -588,6 +732,102 @@ public final class FAdminScreen extends FlowScreen {
             }
             if (i == 0) t(ms, "Nicio alertă în ultimele 24 de ore.", x0 + 14, ny + 36, 7.4f, FTheme.FAINT);
         }
+    }
+
+    // ------------------------------------------------------------------ cautare globala, sisteme RP
+
+    private void drawGlobalSearch(GuiGraphics ms, int y, int mx, int my) {
+        boolean can = search.getValue().trim().length() >= 2;
+        drawSearch(ms, y, cw - 70, mx, my);
+        boolean hv = btn(ms, "fa-gs", "Caută", "search", x0 + cw - 64, y, 64, 20, FUi.PRIMARY, can, mx, my, this::submitSearch);
+        if (!can) tipIf(hv, "Scrie cel puțin 2 caractere");
+        t(ms, "Nume, ID RP, UUID, număr de înmatriculare, ID vehicul, ID tranzacție", x0 + 4, y + 34, 6.8f, FTheme.FAINT);
+        int ry = y + 44;
+        JsonObject d = FAdminClient.searchRes;
+        if (!searchAsked) {
+            FUi.empty(ms, "search", "Caută oriunde", "Scrie și apasă Enter. Vezi doar ce permite nivelul tău.", x0 + cw / 2f, ry + 70, 260f);
+            return;
+        }
+        if (d == null) {
+            FUi.loading(ms, x0 + cw / 2f, ry + 70, System.currentTimeMillis() / 1000f, ORANGE);
+            return;
+        }
+        List<JsonObject> rows = arr(d, "rows");
+        if (rows.isEmpty()) {
+            FUi.empty(ms, "search", "Niciun rezultat", "Verifică scrierea sau încearcă alt criteriu.", x0 + cw / 2f, ry + 70, 260f);
+            return;
+        }
+        for (JsonObject r : rows) {
+            if (ry + 24 > y + bh) break;
+            String kind = s(r, "kind");
+            boolean clickable = !kind.equals("tx");
+            boolean hov = clickable && in(mx, my, x0, ry, cw, 22);
+            float h = FUi.hot("fa-sr" + ry, hov);
+            Gfx.rrect(ms, x0, ry, cw, 22, 5f, FTheme.mix(FTheme.BG2, FTheme.PANEL_HI, h));
+            int c = kind.equals("player") ? FTheme.SKY : kind.equals("vehicle") ? ORANGE : YELLOW;
+            String lab = kind.equals("player") ? "JUCĂTOR" : kind.equals("vehicle") ? "VEHICUL" : "TRANZACȚIE";
+            int pw2 = pill(ms, lab, x0 + 8, ry + 5, c);
+            t(ms, clip(s(r, "title"), cw * 0.4f, 7.8f, true), x0 + 16 + pw2, mid(ry, 22, 7.8f), 7.8f, FTheme.TEXT);
+            tr(ms, clip(s(r, "sub"), cw * 0.45f, 7f, false), x0 + cw - 10, mid(ry, 22, 7f), 7f, FTheme.MUTED);
+            if (clickable) {
+                final JsonObject fr = r;
+                hit(x0, ry, cw, 22, () -> openResult(fr));
+            }
+            ry += 24;
+        }
+    }
+
+    private void openResult(JsonObject r) {
+        if ("player".equals(s(r, "kind"))) {
+            String u = s(r, "uuid");
+            go(S_PLAYERS);
+            selUuid = u;
+            pTab = 0;
+            FAdminClient.player = null;
+            FAdminClient.ask("player", "uuid", u);
+        } else if ("vehicle".equals(s(r, "kind"))) {
+            long id = (long) n(r, "id");
+            String plate = s(r, "plate");
+            go(S_VEH);
+            search.setValue(plate);
+            vehSel = id;
+            FAdminClient.vehHist = null;
+            FAdminClient.ask("vehicles", "q", plate, "page", 0);
+            FAdminClient.ask("veh_hist", "plate", plate);
+        }
+    }
+
+    private void drawRp(GuiGraphics ms, int y, int mx, int my) {
+        JsonObject d = FAdminClient.rpData;
+        if (d == null) {
+            FUi.loading(ms, x0 + cw / 2f, y + 80, System.currentTimeMillis() / 1000f, ORANGE);
+            return;
+        }
+        List<JsonObject> rows = arr(d, "rows");
+        float gap = 8f;
+        float w = (cw - gap) / 2f;
+        int i = 0;
+        for (JsonObject r : rows) {
+            float x = x0 + (i % 2) * (w + gap);
+            float yy = y + (i / 2) * 66;
+            card(ms, x, yy, w, 58f);
+            FTheme.caption(ms, s(r, "name").toUpperCase(Locale.ROOT), x + 10, yy + 14, FTheme.MUTED);
+            int v = (int) n(r, "value");
+            tx(ms, String.valueOf(v), x + 10, yy + 36, 16f, v > 0 ? FTheme.TEXT : FTheme.FAINT);
+            t(ms, clip(s(r, "note"), w - 20, 6.8f, false), x + 10, yy + 50, 6.8f, FTheme.FAINT);
+            float dy = yy + 18;
+            if (r.has("detail") && r.get("detail").isJsonArray()) {
+                int k = 0;
+                for (JsonElement e : r.getAsJsonArray("detail")) {
+                    if (k >= 4) break;
+                    tr(ms, clip(e.getAsString(), w * 0.5f, 6.8f, false), x + w - 10, dy + k * 9, 6.8f, FTheme.MUTED);
+                    k++;
+                }
+            }
+            i++;
+        }
+        float ny = y + ((i + 1) / 2) * 66 + 2;
+        t(ms, "Doar date reale din modulele pornite. Pentru Poliție și EMS se numără jucătorii online cu permisiunea de serviciu.", x0 + 2, ny + 8, 6.8f, FTheme.FAINT);
     }
 
     // ------------------------------------------------------------------ liste de jucatori
@@ -757,7 +997,10 @@ public final class FAdminScreen extends FlowScreen {
             float by = ay + (i / 2) * 23;
             final String action = a[0];
             boolean danger = action.equals("kick") || action.equals("ban") || action.equals("jail");
-            btn(ms, "fa-act" + action, a[1], a[2], bx, by, bw, 20, danger ? FUi.DANGER : FUi.SOFT, true, mx, my, () -> doAct(action));
+            boolean en = !needsReason(action) || reasonOk();
+            boolean hv = btn(ms, "fa-act" + action, a[1], a[2], bx, by, bw, 20, danger ? FUi.DANGER : FUi.SOFT, en, mx, my, () -> doAct(action));
+            if (!en) tipIf(hv, "Completează motivul (minim 3 caractere)");
+            else if (action.equals("ban")) tipIf(hv, "Cere confirmare; ban-ul permanent cere două");
             i++;
         }
         int rows = (i + 1) / 2;
@@ -898,10 +1141,50 @@ public final class FAdminScreen extends FlowScreen {
         return sec == S_PERM ? lpPick : selUuid;
     }
 
+    private static boolean needsReason(String action) {
+        return action.equals("kick") || action.equals("mute") || action.equals("ban") || action.equals("warn") || action.equals("jail");
+    }
+
+    private boolean reasonOk() {
+        return reason.getValue().trim().length() >= 3;
+    }
+
     private void doAct(String action) {
         if (selUuid == null) return;
-        FAdminClient.ask("act", "uuid", selUuid, "action", action, "reason", reason.getValue().trim(), "minutes", DUR[durIdx]);
-        refreshAt = System.currentTimeMillis() + 900;
+        if (needsReason(action) && !reasonOk()) {
+            toast("Motivul este obligatoriu (minim 3 caractere).", true);
+            return;
+        }
+        final String uid = selUuid;
+        final String why = reason.getValue().trim();
+        final int mins = DUR[durIdx];
+        Runnable run = () -> {
+            FAdminClient.ask("act", "uuid", uid, "action", action, "reason", why, "minutes", mins);
+            refreshAt = System.currentTimeMillis() + 900;
+        };
+        String who = FAdminClient.player != null ? s(FAdminClient.player, "name") : "jucător";
+        String dur = durIdx == 4 ? "permanent" : DUR_L[durIdx];
+        String info = clip("Motiv: " + why, 220f, 7f, false);
+        switch (action) {
+            case "ban":
+                confirm("Ban " + who, "Durată: " + dur + ". " + info, "Banează", true, durIdx == 4, run);
+                break;
+            case "kick":
+                confirm("Kick " + who, info, "Dă kick", true, false, run);
+                break;
+            case "jail":
+                confirm("Închisoare " + who, "Durată: " + dur + ". " + info, "Închide", true, false, run);
+                break;
+            case "mute":
+                confirm("Mute " + who, "Durată: " + dur + ". " + info, "Mute", false, false, run);
+                break;
+            case "warn":
+                confirm("Avertisment " + who, info, "Trimite", false, false, run);
+                break;
+            default:
+                run.run();
+                break;
+        }
     }
 
     // ------------------------------------------------------------------ vehicule
@@ -990,7 +1273,12 @@ public final class FAdminScreen extends FlowScreen {
     }
 
     private void vehAct(String action) {
-        FAdminClient.ask("veh_act", "id", vehSel, "action", action, "reason", reason.getValue().trim());
+        final long id = vehSel;
+        final String why = reason.getValue().trim();
+        Runnable run = () -> FAdminClient.ask("veh_act", "id", id, "action", action, "reason", why);
+        if (action.equals("delete")) confirm("Șterge vehiculul #" + id, "Ștergerea nu poate fi anulată ușor.", "Șterge", true, true, run);
+        else if (action.equals("confiscate")) confirm("Confiscă vehiculul #" + id, "Proprietarul nu îl mai poate folosi.", "Confiscă", true, false, run);
+        else run.run();
     }
 
     // ------------------------------------------------------------------ economie
@@ -1077,9 +1365,17 @@ public final class FAdminScreen extends FlowScreen {
             chip(ms, "fa-eo1", "Elimină", x0 + 10 + chipW("Adaugă", 18), oy + 46, 18, econOp == 1, mx, my, () -> econOp = 1);
             drawField(ms, amount, x0 + 10, oy + 72, lw - 20, 20, mx, my);
             drawField(ms, reason, x0 + 10, oy + 98, lw - 20, 20, mx, my);
-            btn(ms, "fa-eapply", "Aplică", "check", x0 + 10, oy + 126, lw - 20, 22, FUi.PRIMARY, true, mx, my, () ->
-                FAdminClient.ask("econ_op", "uuid", econUuid, "account", econAcc == 0 ? "CASH" : "BANK", "op", econOp == 0 ? "add" : "remove",
-                    "amount", parse(amount.getValue()), "reason", reason.getValue().trim()));
+            boolean eok = reasonOk() && parse(amount.getValue()) > 0;
+            boolean ehv = btn(ms, "fa-eapply", "Aplică", "check", x0 + 10, oy + 126, lw - 20, 22, FUi.PRIMARY, eok, mx, my, () -> {
+                final String eu = econUuid;
+                final String acc = econAcc == 0 ? "CASH" : "BANK";
+                final String op = econOp == 0 ? "add" : "remove";
+                final double amt = parse(amount.getValue());
+                final String why = reason.getValue().trim();
+                confirm((econOp == 0 ? "Adaugă " : "Elimină ") + fm(amt), "Cont " + (econAcc == 0 ? "cash" : "bancă") + ". Motiv: " + clip(why, 160f, 7f, false), "Aplică", econOp == 1, amt >= 100000,
+                    () -> FAdminClient.ask("econ_op", "uuid", eu, "account", acc, "op", op, "amount", amt, "reason", why));
+            });
+            if (!eok) tipIf(ehv, "Introdu o sumă și un motiv (minim 3 caractere)");
             t(ms, "Limită: " + fm(n(me(), "moneyLimit")) + " / operațiune", x0 + 10, oy + 162, 6.8f, FTheme.FAINT);
         } else {
             card(ms, x0, oy, lw, 52);
@@ -1649,7 +1945,11 @@ public final class FAdminScreen extends FlowScreen {
             drawField(ms, reason, rx + 10, ey + 78, rw - 106, 18, mx, my);
             btn(ms, "fa-pset", "Setează", "check", rx + rw - 90, ey + 77, 80, 20, FUi.PRIMARY, true, mx, my, () -> {
                 String[] ids = {"helper", "moderator", "administrator", "manager", "developer", "owner", "none"};
-                FAdminClient.ask("perm_set", "name", pname.getValue().trim(), "level", ids[Math.max(0, Math.min(6, permLevel))], "reason", reason.getValue().trim());
+                final String nm = pname.getValue().trim();
+                final String lvl = ids[Math.max(0, Math.min(6, permLevel))];
+                final String why = reason.getValue().trim();
+                confirm("Nivel staff: " + lvl, "Pentru " + nm + ". Se aplică imediat.", "Setează", true, lvl.equals("owner") || lvl.equals("none"),
+                    () -> FAdminClient.ask("perm_set", "name", nm, "level", lvl, "reason", why));
             });
         } else {
             t(ms, "Doar Owner poate modifica nivelurile.", rx + 10, y + listH + 14, 7f, FTheme.FAINT);

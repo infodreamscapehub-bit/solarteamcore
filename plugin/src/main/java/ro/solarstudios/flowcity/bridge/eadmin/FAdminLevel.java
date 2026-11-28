@@ -42,6 +42,15 @@ public enum FAdminLevel {
         public String node() {
             return "flowcity.fadmin." + id;
         }
+
+        /** Nod alternativ acceptat: flowcity.admin.<modul> (dashboard, players, moderation, economy, vehicles, staff, reports, server, logs). */
+        public String altNode() {
+            return "flowcity.admin." + id;
+        }
+
+        public boolean has(Player p) {
+            return p.hasPermission(node()) || p.hasPermission(altNode());
+        }
     }
 
     /**
@@ -82,7 +91,7 @@ public enum FAdminLevel {
         if (p.isOp()) return true;
         FAdminLevel lv = of(p);
         if (lv != null && lv.can(c)) return true;
-        return c.sec != null && p.hasPermission(c.sec.node());
+        return c.sec != null && c.sec.has(p);
     }
 
     /** Nivelul jucatorului, sau null daca nu e staff. */
@@ -92,8 +101,8 @@ public enum FAdminLevel {
         FAdminLevel[] all = values();
         for (int i = all.length - 2; i >= 0; i--) if (p.hasPermission(all[i].node())) return all[i];
         // staff vechi: doar nodurile flowcity.eadmin.*
-        if (!p.hasPermission("flowcity.eadmin") && !p.hasPermission("flowcity.fadmin")) {
-            for (Sec sc : Sec.values()) if (p.hasPermission(sc.node())) return HELPER; // doar noduri de sectiune: nivel minim, citire
+        if (!p.hasPermission("flowcity.eadmin") && !p.hasPermission("flowcity.fadmin") && !p.hasPermission("flowcity.admin")) {
+            for (Sec sc : Sec.values()) if (sc.has(p)) return HELPER; // doar noduri de sectiune: nivel minim, citire
             return null;
         }
         if (p.hasPermission("flowcity.eadmin.money") || p.hasPermission("flowcity.eadmin.jobs") || p.hasPermission("flowcity.eadmin.inv.edit")) return ADMINISTRATOR;

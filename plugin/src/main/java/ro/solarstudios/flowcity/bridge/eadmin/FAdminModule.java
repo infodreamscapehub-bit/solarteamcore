@@ -1,6 +1,7 @@
 package ro.solarstudios.flowcity.bridge.eadmin;
 
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -28,6 +29,7 @@ import ro.solarstudios.flowcity.bridge.fjobs.FJobsModule;
 import ro.solarstudios.flowcity.bridge.mdt.MdtModule;
 import ro.solarstudios.flowcity.bridge.module.JsonModule;
 import ro.solarstudios.flowcity.bridge.module.Modules;
+import ro.solarstudios.flowcity.bridge.taxi.TaxiModule;
 
 /**
  * FAdmin 2.0 (modul "fadm"): panoul de administrare din joc. Dashboard, jucatori, vehicule, economie, joburi, loguri, sistem, editor de
@@ -91,6 +93,8 @@ public final class FAdminModule extends JsonModule {
 
         on("me", (p, j) -> me(p));
         on("dash", (p, j) -> dash(p));
+        on("search", this::globalSearch);
+        on("rp", (p, j) -> rpSystems(p));
         on("players", this::players);
         on("player", this::player);
         on("act", this::act);
@@ -278,6 +282,8 @@ public final class FAdminModule extends JsonModule {
         o.addProperty("ramUsed", (rt.totalMemory() - rt.freeMemory()) / 1048576L);
         o.addProperty("ramMax", rt.maxMemory() / 1048576L);
         o.addProperty("vehicles", MdtModule.instance == null ? 0 : MdtModule.instance.adminVehicleCount());
+        o.addProperty("uptime", java.lang.management.ManagementFactory.getRuntimeMXBean().getUptime() / 1000L);
+        o.addProperty("version", plugin.getDescription().getVersion());
         ext.dashNow(o);
         final List<UUID> econIds = new ArrayList<>();
         plugin.db().async(c -> {
@@ -362,9 +368,17 @@ public final class FAdminModule extends JsonModule {
                     }
                 }
             }
+            // alerte reale, calculate din starea serverului acum (se pun inaintea flag-urilor din baza de date)
+            JsonArray alerts = new JsonArray();
+            double tpsNow = o.get("tps").getAsDouble();
+            if (tpsNow >= 0 && tpsNow < 15) alerts.add(alert("HIGH", "TPS scăzut: " + String.format(Locale.US, "%.1f", tpsNow), now));
+            long ramMax = o.get("ramMax").getAsLong();
+            if (ramMax > 0 && o.get("ramUsed").getAsLong() * 100 / ramMax >= 90) alerts.add(alert("HIGH", "Memorie aproape plină: " + o.get("ramUsed").getAsLong() + " / " + ramMax + " MB", now));
+            if (o.has("reports") && o.get("reports").getAsInt() > 0) alerts.add(alert("MEDIUM", o.get("reports").getAsInt() + " rapoarte active așteaptă staff", now));
+            for (JsonElement ne : notes) alerts.add(ne);
             o.add("recent", recent);
             o.add("actions", acts);
-            o.add("notices", notes);
+            o.add("notices", alerts);
             return null;
         }).whenComplete((v, err) -> Bukkit.getScheduler().runTask(plugin, () -> {
             if (err != null) {
@@ -374,6 +388,169 @@ public final class FAdminModule extends JsonModule {
             if (FAdminLevel.canSee(p, Cap.ECON_VIEW)) ext.totals(o, econIds);
             send(p, "dash", o);
         }));
+    }
+
+    private static JsonObject alert(String sev, String text, long ts) {
+        JsonObject r = new JsonObject();
+        r.addProperty("sev", sev);
+        r.addProperty("text", text);
+        r.addProperty("ts", ts);
+        return r;
+    }
+
+    // ------------------------------------------------------------------ cautare globala
+
+    /** Cautare dupa nume, ID RP, UUID, numar de inmatriculare, ID vehicul sau ID tranzactie. Fiecare tip de rezultat respecta permisiunile. */
+    private void globalSearch(Player p, JsonObject j) {
+        if (level(p, null) == null) return;
+        final String q = clip(str(j, "q", ""), 40);
+        final boolean canP = FAdminLevel.canSee(p, Cap.PLAYERS);
+        final boolean canV = FAdminLevel.canSee(p, Cap.VEH_VIEW);
+        final boolean canE = FAdminLevel.canSee(p, Cap.ECON_VIEW);
+        final JsonObject o = new JsonObject();
+        o.addProperty("q", q);
+        final JsonArray rows = new JsonArray();
+        o.add("rows", rows);
+        if (q.length() < 2) {
+            send(p, "search", o);
+            return;
+        }
+        final String ql = q.toLowerCase(Locale.ROOT);
+        final boolean numeric = q.matches("\\d{1,9}");
+        if (canV && MdtModule.instance != null) {
+            int n = 0;
+            for (MdtModule.AdminVeh v : MdtModule.instance.adminVehicles()) {
+                if (n >= 8) break;
+                if (!(v.plate.toLowerCase(Locale.ROOT).contains(ql) || (numeric && String.valueOf(v.id).equals(q)))) continue;
+                JsonObject e = new JsonObject();
+                e.addProperty("kind", "vehicle");
+                e.addProperty("title", v.model + " · " + v.plate);
+                e.addProperty("sub", "Vehicul #" + v.id + " · " + v.ownerName + " · " + v.status);
+                e.addProperty("id", v.id);
+                e.addProperty("plate", v.plate);
+                rows.add(e);
+                n++;
+            }
+        }
+        if (!canP && !canE) {
+            send(p, "search", o);
+            return;
+        }
+        final List<UUID> pl = new ArrayList<>();
+        final List<String> plNames = new ArrayList<>();
+        final List<String[]> txs = new ArrayList<>();
+        final UUID byId = canP && numeric ? plugin.ids().uuidOf((int) Math.min(Integer.MAX_VALUE, Long.parseLong(q))) : null;
+        plugin.db().async(c -> {
+            if (canP) {
+                String like = "%" + q.replace("%", "").replace("_", "") + "%";
+                try (PreparedStatement ps = c.prepareStatement("SELECT uuid, name FROM eadmin_players WHERE name LIKE ? OR uuid=? OR uuid LIKE ? OR uuid=? ORDER BY last_seen DESC LIMIT 8")) {
+                    ps.setString(1, like);
+                    ps.setString(2, ql);
+                    ps.setString(3, ql.replace("%", "") + "%");
+                    ps.setString(4, byId == null ? "" : byId.toString());
+                    try (ResultSet rs = ps.executeQuery()) {
+                        while (rs.next()) {
+                            try {
+                                pl.add(UUID.fromString(rs.getString(1)));
+                                plNames.add(rs.getString(2));
+                            } catch (IllegalArgumentException ignored) {
+                                // uuid corupt
+                            }
+                        }
+                    }
+                }
+            }
+            if (canE && numeric) {
+                try (PreparedStatement ps = c.prepareStatement("SELECT t.id, t.type, t.amount, t.target_name, t.timestamp, COALESCE(p.name,'?') FROM eadmin_transactions t LEFT JOIN eadmin_players p ON p.uuid=t.player_uuid WHERE t.id=?")) {
+                    ps.setLong(1, Long.parseLong(q));
+                    try (ResultSet rs = ps.executeQuery()) {
+                        while (rs.next()) {
+                            txs.add(new String[] {String.valueOf(rs.getLong(1)), rs.getString(2), money(rs.getDouble(3)), rs.getString(4), String.valueOf(rs.getLong(5)), rs.getString(6)});
+                        }
+                    }
+                }
+            }
+            return null;
+        }).whenComplete((v, err) -> Bukkit.getScheduler().runTask(plugin, () -> {
+            if (err != null) {
+                res(p, false, "Căutarea a eșuat.");
+                return;
+            }
+            for (int i = 0; i < pl.size(); i++) {
+                JsonObject e = new JsonObject();
+                e.addProperty("kind", "player");
+                e.addProperty("title", plNames.get(i));
+                e.addProperty("sub", "Jucător · ID RP #" + plugin.ids().idOf(pl.get(i)) + " · " + (Bukkit.getPlayer(pl.get(i)) != null ? "online" : "offline"));
+                e.addProperty("uuid", pl.get(i).toString());
+                rows.add(e);
+            }
+            for (String[] t : txs) {
+                JsonObject e = new JsonObject();
+                e.addProperty("kind", "tx");
+                e.addProperty("title", "Tranzacție #" + t[0] + " · " + t[2] + " lei");
+                e.addProperty("sub", t[5] + " · " + t[1] + " → " + t[3]);
+                e.addProperty("ts", Long.parseLong(t[4]));
+                rows.add(e);
+            }
+            send(p, "search", o);
+        }));
+    }
+
+    // ------------------------------------------------------------------ sisteme roleplay
+
+    /** Imagine de ansamblu a sistemelor RP, doar din date reale ale modulelor pornite. Un sistem fara date reale nu apare. */
+    private void rpSystems(Player p) {
+        if (level(p, null) == null) return;
+        JsonObject o = new JsonObject();
+        JsonArray rows = new JsonArray();
+        rows.add(rpRow("Poliție", ext.onlineWith("flowcity.politie.officer"), "ofițeri online (după permisiune)"));
+        rows.add(rpRow("EMS", ext.onlineWith("flowcity.ems.officer"), "medici online (după permisiune)"));
+        TaxiModule tx = TaxiModule.instance;
+        if (tx != null) {
+            int n = 0;
+            for (Player q : Bukkit.getOnlinePlayers()) if (tx.onDuty(q.getUniqueId())) n++;
+            rows.add(rpRow("Taxi", n, "șoferi în tură"));
+        }
+        if (FJobsModule.instance != null) {
+            Map<String, Integer> byJob = new java.util.TreeMap<>();
+            for (Player q : Bukkit.getOnlinePlayers()) {
+                String jb = FJobsModule.shiftJob(q);
+                if (!jb.isEmpty()) byJob.merge(jb, 1, Integer::sum);
+            }
+            int total = 0;
+            for (int v : byJob.values()) total += v;
+            JsonObject r = rpRow("Joburi (FJobs)", total, "jucători în tură");
+            JsonArray det = new JsonArray();
+            for (Map.Entry<String, Integer> e : byJob.entrySet()) det.add(e.getKey() + ": " + e.getValue());
+            r.add("detail", det);
+            rows.add(r);
+        }
+        if (MdtModule.instance != null) {
+            int total = 0;
+            int stolen = 0;
+            int conf = 0;
+            for (MdtModule.AdminVeh v : MdtModule.instance.adminVehicles()) {
+                total++;
+                if ("Stolen".equalsIgnoreCase(v.status)) stolen++;
+                else if ("Confiscated".equalsIgnoreCase(v.status)) conf++;
+            }
+            JsonObject r = rpRow("Vehicule (MDT)", total, "în evidență");
+            JsonArray det = new JsonArray();
+            det.add("Furate: " + stolen);
+            det.add("Confiscate: " + conf);
+            r.add("detail", det);
+            rows.add(r);
+        }
+        o.add("rows", rows);
+        send(p, "rp", o);
+    }
+
+    private static JsonObject rpRow(String name, int value, String note) {
+        JsonObject r = new JsonObject();
+        r.addProperty("name", name);
+        r.addProperty("value", value);
+        r.addProperty("note", note);
+        return r;
     }
 
     // ------------------------------------------------------------------ jucatori
@@ -573,8 +750,13 @@ public final class FAdminModule extends JsonModule {
         final UUID u = uuid(j, "uuid");
         if (u == null) return;
         final String reasonIn = clip(str(j, "reason", ""), 160);
-        // in moderare motivul e optional (spec): fara motiv se inregistreaza o valoare implicita
-        final String reason = reasonIn.isEmpty() && java.util.Arrays.asList("kick", "mute", "ban", "warn", "jail").contains(action) ? "Fără motiv specificat" : reasonIn;
+        // sanctiunile cer motiv obligatoriu (verificat pe server, nu doar in client)
+        final boolean needsReason = java.util.Arrays.asList("kick", "mute", "ban", "warn", "jail").contains(action);
+        if (needsReason && reasonIn.length() < 3) {
+            res(p, false, "Motivul este obligatoriu (minim 3 caractere).");
+            return;
+        }
+        final String reason = reasonIn;
         final int minutes = Math.max(0, Math.min(525600, (int) num(j, "minutes", 0)));
         Cap need;
         switch (action) {
