@@ -140,10 +140,10 @@ public final class HypeModule extends JsonModule implements Listener {
         long now = System.currentTimeMillis();
         PlayerData d = data.get(u);
         if (d != null) {
-            d.history.add(0, new HypeDb.AtmEntry(type, amount, 0, other, now));
-            while (d.history.size() > 20) d.history.remove(d.history.size() - 1);
+            d.history.add(0, new HypeDb.AtmEntry(type, amount, 0, other, now, plugin.bank().balance(u)));
+            while (d.history.size() > 100) d.history.remove(d.history.size() - 1);
         }
-        hdb.addTx(u, type, amount, 0, other == null ? "" : other, now);
+        hdb.addTx(u, type, amount, 0, other == null ? "" : other, now, plugin.bank().balance(u));
     }
 
     // ------------------------------------------------------------------ pornire
@@ -162,6 +162,7 @@ public final class HypeModule extends JsonModule implements Listener {
         }
         atm = new AtmService(plugin, hdb, cfg);
         atm.loadBlocks();
+        atm.setLookup(data::get);
         loadJobs();
 
         on("state_req", (p, j) -> pushState(p, true));
@@ -171,6 +172,25 @@ public final class HypeModule extends JsonModule implements Listener {
                 return;
             }
             sendAtm(p, null, true);
+        });
+        // info fara card (ecranul bancii e deschis din /banca): soldurile si cardul, fara operatii
+        on("atm_info", (p, j) -> sendAtm(p, null, false));
+        on("atm_card", (p, j) -> {
+            PlayerData d = dataOf(p);
+            if (d == null || throttled(p)) return;
+            AtmService.Result r = atm.setCardBlocked(p, d, bool(j, "blocked", false));
+            sendAtm(p, r, false);
+        });
+        on("atm_lookup", (p, j) -> {
+            if (throttled(p)) return;
+            String q = str(j, "name", "").trim();
+            String found = atm.lookupName(q);
+            JsonObject o = new JsonObject();
+            o.addProperty("q", q);
+            o.addProperty("found", found != null && !found.equalsIgnoreCase(p.getName()));
+            o.addProperty("name", found == null ? "" : found);
+            o.addProperty("self", found != null && found.equalsIgnoreCase(p.getName()));
+            send(p, "atm_lookup", o);
         });
         on("atm_deposit", (p, j) -> atmOp(p, "deposit", j));
         on("atm_withdraw", (p, j) -> atmOp(p, "withdraw", j));
@@ -458,8 +478,9 @@ public final class HypeModule extends JsonModule implements Listener {
 
     /** Fara card: mesaj in chat + notificare pe client + sunet. */
     private void noCard(Player p) {
-        p.sendMessage("\u00a7c" + AtmService.NO_CARD);
-        if (plugin.channel().hasMod(p)) plugin.channel().toast(p, AtmService.NO_CARD, true);
+        String why = atm.cardMsg(p);
+        p.sendMessage("\u00a7c" + why);
+        if (plugin.channel().hasMod(p)) plugin.channel().toast(p, why, true);
         try {
             p.playSound(p.getLocation(), org.bukkit.Sound.ENTITY_VILLAGER_NO, 0.8f, 1f);
         } catch (RuntimeException | LinkageError ignored) {
@@ -499,7 +520,7 @@ public final class HypeModule extends JsonModule implements Listener {
         else {
             String to = str(j, "to", "").trim();
             Player tp = Bukkit.getPlayerExact(to);
-            r = atm.transfer(p, d, to, amount, tp == null ? null : dataOf(tp));
+            r = atm.transfer(p, d, to, amount, tp == null ? null : dataOf(tp), str(j, "note", ""));
         }
         d.lastState = "";
         sendAtm(p, r, false);
@@ -627,6 +648,10 @@ public final class HypeModule extends JsonModule implements Listener {
             e.setCancelled(true);
             if (!p.hasPermission("flowcity.hype.atm")) {
                 p.sendMessage("§cNu ai acces la ATM.");
+                return;
+            }
+            if (atm.cardBlocked(p.getUniqueId())) {
+                noCard(p);
                 return;
             }
             if (!atm.cardInHand(p)) {

@@ -35,6 +35,18 @@ public final class IdsClient extends JsonClientModule {
         on("upd", d -> put(str(d, "uuid", ""), integer(d, "id", 0)));
     }
 
+    /** ID-ul permanent FlowCity al unui jucator online (0 daca nu se stie). */
+    public static int idOf(UUID u) {
+        Integer i = u == null ? null : IDS.get(u);
+        return i == null ? 0 : i;
+    }
+
+    /** UUID-ul jucatorului online cu acest ID (null daca nu e online). */
+    public static UUID uuidOfId(int id) {
+        for (Map.Entry<UUID, Integer> e : IDS.entrySet()) if (e.getValue() == id) return e.getKey();
+        return null;
+    }
+
     private static void put(String uuid, int id) {
         try {
             UUID u = UUID.fromString(uuid);

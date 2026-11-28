@@ -37,6 +37,52 @@ public final class AtmService {
         this.cfg = cfg;
     }
 
+    private java.util.function.Function<UUID, PlayerData> lookup = u -> null;
+
+    public void setLookup(java.util.function.Function<UUID, PlayerData> f) {
+        this.lookup = f == null ? u -> null : f;
+    }
+
+    /** Cardul jucatorului e blocat de titular? */
+    public boolean cardBlocked(UUID u) {
+        PlayerData d = lookup.apply(u);
+        return d != null && d.cardBlocked;
+    }
+
+    /** Motivul refuzului cand cardOk() e fals: card blocat sau lipsa cardului. */
+    public String cardMsg(Player p) {
+        return cardBlocked(p.getUniqueId()) ? BLOCKED : NO_CARD;
+    }
+
+    public static final String BLOCKED = "Cardul tau este blocat. Il deblochezi din aplicatia FlowCity Bank (Card bancar).";
+
+    /** Blocheaza/deblocheaza cardul titularului (doar el, pe server). */
+    public Result setCardBlocked(Player p, PlayerData d, boolean blocked) {
+        if (d.cardBlocked == blocked) return new Result(true, blocked ? "Cardul este deja blocat." : "Cardul este deja activ.");
+        d.cardBlocked = blocked;
+        hdb.setCardBlocked(p.getUniqueId(), blocked);
+        plugin.service().logTransaction(p.getUniqueId(), blocked ? "CARD_BLOCK" : "CARD_UNBLOCK", 0, "card", where(p));
+        return new Result(true, blocked ? "Card blocat. Nicio operatiune ATM nu mai e posibila pana il deblochezi." : "Card deblocat.");
+    }
+
+    /** Descrierea optionala a transferului: maxim 40 de caractere, fara coduri de culoare sau caractere de control. */
+    static String cleanNote(String note) {
+        if (note == null) return "";
+        String n = note.replaceAll("[\\p{Cntrl}\u00a7]", "").trim();
+        return n.length() > 40 ? n.substring(0, 40) : n;
+    }
+
+    /** Verifica un destinatar de transfer (nume exact, online sau care a mai jucat): intoarce numele corect sau null. */
+    public String lookupName(String name) {
+        if (name == null || name.trim().isEmpty() || name.length() > 16) return null;
+        OfflinePlayer t = Bukkit.getPlayerExact(name.trim());
+        if (t == null) {
+            OfflinePlayer off = Bukkit.getOfflinePlayer(name.trim());
+            if (off != null && (off.hasPlayedBefore() || off.isOnline())) t = off;
+        }
+        return t == null ? null : t.getName();
+    }
+
     public void reload(YamlConfiguration cfg) {
         this.cfg = cfg;
     }
@@ -165,6 +211,7 @@ public final class AtmService {
 
     /** Card in orice loc din inventar (pentru operatiile din ATM deja deschis si pentru ATM-ul din telefon). */
     public boolean cardOk(Player p) {
+        if (cardBlocked(p.getUniqueId())) return false;
         if (!cardRequired(p)) return true;
         boolean any = isCard(p.getInventory().getItemInOffHand());
         if (!any) {
@@ -223,10 +270,36 @@ public final class AtmService {
             j.addProperty("f", e.fee);
             j.addProperty("o", e.other);
             j.addProperty("ts", e.ts);
+            j.addProperty("b", e.bal);
             h.add(j);
         }
         o.add("history", h);
+        o.add("card", cardInfo(p, d));
         return o;
+    }
+
+    /**
+     * Cardul pentru ecranul bancii: titular, ultimele 4 cifre (derivate din UUID, stabile; cardul nu are alt numar),
+     * stare (ACTIV / BLOCAT / LIPSA) si daca e cerut la ATM. Nu exista PIN in sistem, deci nu se trimite nimic de acest fel.
+     */
+    private JsonObject cardInfo(Player p, PlayerData d) {
+        JsonObject c = new JsonObject();
+        c.addProperty("holder", p.getName());
+        int h = Math.abs(p.getUniqueId().hashCode() % 10000);
+        c.addProperty("last4", String.format("%04d", h));
+        boolean has = isCard(p.getInventory().getItemInOffHand());
+        if (!has) {
+            for (org.bukkit.inventory.ItemStack it : p.getInventory().getContents()) {
+                if (isCard(it)) {
+                    has = true;
+                    break;
+                }
+            }
+        }
+        c.addProperty("inInventory", has);
+        c.addProperty("required", cardRequired(p));
+        c.addProperty("status", d.cardBlocked ? "BLOCAT" : (cardRequired(p) && !has ? "LIPSA" : "ACTIV"));
+        return c;
     }
 
     private void rollDay(PlayerData d) {
@@ -248,9 +321,10 @@ public final class AtmService {
 
     private void record(PlayerData d, UUID u, String type, double amount, double fee, String other) {
         long now = System.currentTimeMillis();
-        d.history.add(0, new AtmEntry(type, amount, fee, other, now));
-        while (d.history.size() > 20) d.history.remove(d.history.size() - 1);
-        hdb.addTx(u, type, amount, fee, other, now);
+        double bal = plugin.bank().balance(u);
+        d.history.add(0, new AtmEntry(type, amount, fee, other, now, bal));
+        while (d.history.size() > 100) d.history.remove(d.history.size() - 1);
+        hdb.addTx(u, type, amount, fee, other, now, bal);
     }
 
     private static String where(Player p) {
@@ -262,7 +336,7 @@ public final class AtmService {
 
     public Result deposit(Player p, PlayerData d, double raw) {
         if (!canUse(p)) return new Result(false, "Trebuie sa fii langa un ATM.");
-        if (!cardOk(p)) return new Result(false, NO_CARD);
+        if (!cardOk(p)) return new Result(false, cardMsg(p));
         double a = HypeMath.cleanAmount(raw, max());
         if (a < 0 || a < min()) return new Result(false, "Suma invalida (minim " + HypeMath.round2(min()) + ").");
         UUID u = p.getUniqueId();
@@ -279,7 +353,7 @@ public final class AtmService {
 
     public Result withdraw(Player p, PlayerData d, double raw) {
         if (!canUse(p)) return new Result(false, "Trebuie sa fii langa un ATM.");
-        if (!cardOk(p)) return new Result(false, NO_CARD);
+        if (!cardOk(p)) return new Result(false, cardMsg(p));
         double a = HypeMath.cleanAmount(raw, max());
         if (a < 0 || a < min()) return new Result(false, "Suma invalida (minim " + HypeMath.round2(min()) + ").");
         rollDay(d);
@@ -301,8 +375,12 @@ public final class AtmService {
     }
 
     public Result transfer(Player p, PlayerData d, String toName, double raw, PlayerData receiverData) {
+        return transfer(p, d, toName, raw, receiverData, "");
+    }
+
+    public Result transfer(Player p, PlayerData d, String toName, double raw, PlayerData receiverData, String note) {
         if (!canUse(p)) return new Result(false, "Trebuie sa fii langa un ATM.");
-        if (!cardOk(p)) return new Result(false, NO_CARD);
+        if (!cardOk(p)) return new Result(false, cardMsg(p));
         double a = HypeMath.cleanAmount(raw, max());
         if (a < 0 || a < min()) return new Result(false, "Suma invalida (minim " + HypeMath.round2(min()) + ").");
         if (toName == null || toName.trim().isEmpty() || toName.length() > 16) return new Result(false, "Nume de jucator invalid.");
@@ -332,10 +410,11 @@ public final class AtmService {
         String tname = target.getName() == null ? toName : target.getName();
         record(d, u, "TRANSFER_OUT", a, fee, tname);
         if (receiverData != null) record(receiverData, t, "TRANSFER_IN", a, 0, p.getName());
-        else hdb.addTx(t, "TRANSFER_IN", a, 0, p.getName(), System.currentTimeMillis());
-        plugin.service().logTransaction(u, "ATM_TRANSFER", -a, tname, where(p));
+        else hdb.addTx(t, "TRANSFER_IN", a, 0, p.getName(), System.currentTimeMillis(), plugin.bank().balance(t));
+        plugin.service().logTransaction(u, "ATM_TRANSFER", -a, tname + (cleanNote(note).isEmpty() ? "" : " | " + cleanNote(note)), where(p));
         plugin.service().logTransaction(t, "ATM_TRANSFER_IN", a, p.getName(), where(p));
-        plugin.notifications().send(t, ro.solarstudios.flowcity.bridge.notify.NotifyModule.Type.MONEY, "Transfer primit", "$" + Fmt.money(a) + " de la " + p.getName());
+        String n = cleanNote(note);
+        plugin.notifications().send(t, ro.solarstudios.flowcity.bridge.notify.NotifyModule.Type.MONEY, "Transfer primit", "$" + Fmt.money(a) + " de la " + p.getName() + (n.isEmpty() ? "" : " - " + n));
         return new Result(true, "Ai transferat $" + Fmt.money(a) + " catre " + tname + " (taxa $" + Fmt.money(fee) + ").");
     }
 }

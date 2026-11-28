@@ -14,15 +14,17 @@ public final class BankClient extends JsonClientModule {
         on("state", d -> Minecraft.getInstance().execute(() -> {
             state = d;
             Minecraft mc = Minecraft.getInstance();
-            if (mc.screen instanceof BankScreen) ((BankScreen) mc.screen).update();
+            if (mc.screen instanceof FlowBankScreen) ((FlowBankScreen) mc.screen).update();
         }));
         on("open", d -> Minecraft.getInstance().execute(() -> {
             Minecraft mc = Minecraft.getInstance();
-            if (!(mc.screen instanceof BankScreen)) mc.setScreen(new BankScreen());
+            if (!(mc.screen instanceof FlowBankScreen)) {
+                mc.setScreen(new FlowBankScreen());
+            }
         }));
         on("result", d -> Minecraft.getInstance().execute(() -> {
             Minecraft mc = Minecraft.getInstance();
-            if (mc.screen instanceof BankScreen) ((BankScreen) mc.screen).result(bool(d, "ok", false), str(d, "msg", ""));
+            if (mc.screen instanceof FlowBankScreen) ((FlowBankScreen) mc.screen).result(bool(d, "ok", false), str(d, "msg", ""));
         }));
     }
 
@@ -34,6 +36,11 @@ public final class BankClient extends JsonClientModule {
     public static void register() {
         instance = new BankClient();
         ClientModules.register(instance);
+    }
+
+    /** Cere starea creditului/economiilor (la deschiderea ecranului din ATM). */
+    static void refresh() {
+        if (instance != null) instance.send("refresh", new JsonObject());
     }
 
     static void take(int i) {
@@ -64,3 +71,4 @@ public final class BankClient extends JsonClientModule {
         if (instance != null) instance.send("save_out", o);
     }
 }
+

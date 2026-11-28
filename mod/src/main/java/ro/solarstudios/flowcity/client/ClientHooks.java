@@ -6,7 +6,7 @@ public final class ClientHooks {
 
     public static void openAtm() {
         ro.solarstudios.flowcity.hype.HypeClient.request("atm_req", new com.google.gson.JsonObject());
-        net.minecraft.client.Minecraft.getInstance().setScreen(new ro.solarstudios.flowcity.hype.AtmScreen());
+        net.minecraft.client.Minecraft.getInstance().setScreen(new ro.solarstudios.flowcity.bank.FlowBankScreen());
     }
 
     public static void openPhone() {

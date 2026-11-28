@@ -21,6 +21,7 @@ public final class HypeClient extends JsonClientModule {
             if (before > 0 && integer(d, "level", 0) > before) HypeState.levelUpAt = System.currentTimeMillis();
         });
         on("atm", this::onAtm);
+        on("atm_lookup", d -> Minecraft.getInstance().execute(() -> ro.solarstudios.flowcity.bank.FlowBankScreen.onLookup(d)));
         on("jobs", d -> {
             HypeState.jobs = d;
             HypeState.jobsAt = System.currentTimeMillis();
@@ -74,9 +75,11 @@ public final class HypeClient extends JsonClientModule {
     private void onAtm(JsonObject d) {
         HypeState.atm = d;
         Minecraft mc = Minecraft.getInstance();
-        if (bool(d, "open", false) && !(mc.screen instanceof AtmScreen)) mc.setScreen(new AtmScreen());
+        if (bool(d, "open", false) && !(mc.screen instanceof ro.solarstudios.flowcity.bank.FlowBankScreen)) {
+            mc.setScreen(new ro.solarstudios.flowcity.bank.FlowBankScreen());
+        }
         String message = str(d, "message", "");
-        if (!message.isEmpty() && mc.screen instanceof AtmScreen) {
+        if (!message.isEmpty() && mc.screen instanceof ro.solarstudios.flowcity.bank.FlowBankScreen) {
             ((FlowScreen) mc.screen).toast(message, !bool(d, "ok", true));
         }
     }

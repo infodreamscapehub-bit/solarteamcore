@@ -12,7 +12,7 @@ import ro.solarstudios.flowcity.client.ui.Theme;
 import ro.solarstudios.flowcity.client.ui.Ui;
 import ro.solarstudios.flowcity.client.ui.Wrap;
 import ro.solarstudios.flowcity.client.ui.Xmas;
-import ro.solarstudios.flowcity.hype.AtmScreen;
+import ro.solarstudios.flowcity.bank.FlowBankScreen;
 import ro.solarstudios.flowcity.hype.HypeClient;
 import ro.solarstudios.flowcity.hype.HypeState;
 import ro.solarstudios.flowcity.hype.JobsScreen;
@@ -1399,7 +1399,7 @@ public final class PhoneScreen extends FlowScreen {
         Ui.textRight(ms, Ui.money(bank), x + w - 16, y + 76, Sk.WHITE);
         button(ms, "Deschide ATM", x + 8, y + 104, w - 16, 18, mx, my, true, Sk.ACC_DARK, () -> {
             HypeClient.request("atm_req", new JsonObject());
-            Minecraft.getInstance().setScreen(new AtmScreen());
+            Minecraft.getInstance().setScreen(new FlowBankScreen());
         });
         Ui.text(ms, "Ultimele tranzactii", x + 10, y + 132, Sk.MUTED);
         int yy = y + 146;

@@ -245,6 +245,58 @@ public final class FUi {
                 Gfx.line(g, cx - 1.6f * u, cy + 5.4f * u, cx + 1.6f * u, cy + 5.4f * u, w, c);
                 break;
             }
+            case "card": {
+                Gfx.line(g, cx - 6.4f * u, cy - 4f * u, cx + 6.4f * u, cy - 4f * u, w, c);
+                Gfx.line(g, cx + 6.4f * u, cy - 4f * u, cx + 6.4f * u, cy + 4.6f * u, w, c);
+                Gfx.line(g, cx + 6.4f * u, cy + 4.6f * u, cx - 6.4f * u, cy + 4.6f * u, w, c);
+                Gfx.line(g, cx - 6.4f * u, cy + 4.6f * u, cx - 6.4f * u, cy - 4f * u, w, c);
+                Gfx.line(g, cx - 6.4f * u, cy - 1f * u, cx + 6.4f * u, cy - 1f * u, w * 1.5f, c);
+                Gfx.line(g, cx - 4.4f * u, cy + 2.6f * u, cx - 1.6f * u, cy + 2.6f * u, w, c);
+                break;
+            }
+            case "lock": {
+                Gfx.line(g, cx - 4.6f * u, cy - 1f * u, cx + 4.6f * u, cy - 1f * u, w, c);
+                Gfx.line(g, cx + 4.6f * u, cy - 1f * u, cx + 4.6f * u, cy + 6f * u, w, c);
+                Gfx.line(g, cx + 4.6f * u, cy + 6f * u, cx - 4.6f * u, cy + 6f * u, w, c);
+                Gfx.line(g, cx - 4.6f * u, cy + 6f * u, cx - 4.6f * u, cy - 1f * u, w, c);
+                arcStroke(g, cx, cy - 1f * u, 3f * u, 180f, 360f, w, c);
+                break;
+            }
+            case "unlock": {
+                Gfx.line(g, cx - 4.6f * u, cy - 1f * u, cx + 4.6f * u, cy - 1f * u, w, c);
+                Gfx.line(g, cx + 4.6f * u, cy - 1f * u, cx + 4.6f * u, cy + 6f * u, w, c);
+                Gfx.line(g, cx + 4.6f * u, cy + 6f * u, cx - 4.6f * u, cy + 6f * u, w, c);
+                Gfx.line(g, cx - 4.6f * u, cy + 6f * u, cx - 4.6f * u, cy - 1f * u, w, c);
+                arcStroke(g, cx - 1.6f * u, cy - 1f * u, 3f * u, 180f, 360f, w, c);
+                Gfx.line(g, cx + 1.4f * u, cy - 1f * u, cx + 1.4f * u, cy - 3.2f * u, w, c);
+                break;
+            }
+            case "user": {
+                ringStroke(g, cx, cy - 2.6f * u, 3f * u, w, c);
+                arcStroke(g, cx, cy + 7f * u, 6f * u, 200f, 340f, w, c);
+                break;
+            }
+            case "send": {
+                Gfx.line(g, cx - 6f * u, cy, cx + 6f * u, cy, w, c);
+                Gfx.line(g, cx + 6f * u, cy, cx + 2f * u, cy - 4f * u, w, c);
+                Gfx.line(g, cx + 6f * u, cy, cx + 2f * u, cy + 4f * u, w, c);
+                break;
+            }
+            case "list": {
+                for (int i = -1; i <= 1; i++) {
+                    Gfx.line(g, cx - 6f * u, cy + i * 4.2f * u, cx - 4.6f * u, cy + i * 4.2f * u, w * 1.3f, c);
+                    Gfx.line(g, cx - 2.4f * u, cy + i * 4.2f * u, cx + 6f * u, cy + i * 4.2f * u, w, c);
+                }
+                break;
+            }
+            case "shield": {
+                Gfx.line(g, cx - 5f * u, cy - 5f * u, cx + 5f * u, cy - 5f * u, w, c);
+                Gfx.line(g, cx - 5f * u, cy - 5f * u, cx - 5f * u, cy + 1f * u, w, c);
+                Gfx.line(g, cx + 5f * u, cy - 5f * u, cx + 5f * u, cy + 1f * u, w, c);
+                Gfx.line(g, cx - 5f * u, cy + 1f * u, cx, cy + 6.6f * u, w, c);
+                Gfx.line(g, cx + 5f * u, cy + 1f * u, cx, cy + 6.6f * u, w, c);
+                break;
+            }
             case "pencil": {
                 Gfx.line(g, cx - 5.6f * u, cy + 5.6f * u, cx - 4.4f * u, cy + 1.6f * u, w, c);
                 Gfx.line(g, cx - 4.4f * u, cy + 1.6f * u, cx + 3.4f * u, cy - 6.2f * u, w, c);

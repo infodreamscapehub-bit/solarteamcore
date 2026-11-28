@@ -21,8 +21,15 @@ public final class HypeDb {
         public final double fee;
         public final String other;
         public final long ts;
+        /** Soldul bancar dupa tranzactie; -1 daca nu se stie (inregistrari vechi sau fara cont). */
+        public final double bal;
 
         public AtmEntry(String type, double amount, double fee, String other, long ts) {
+            this(type, amount, fee, other, ts, -1);
+        }
+
+        public AtmEntry(String type, double amount, double fee, String other, long ts, double bal) {
+            this.bal = bal;
             this.type = type;
             this.amount = amount;
             this.fee = fee;
@@ -50,6 +57,8 @@ public final class HypeDb {
         public long lastThirstWarn;
         public long lastThirstDamage;
         public boolean dirty;
+        /** Cardul bancar blocat de titular: ATM-ul refuza operatiile pana la deblocare. */
+        public volatile boolean cardBlocked;
 
         public PlayerData(UUID uuid) {
             this.uuid = uuid;
@@ -74,6 +83,12 @@ public final class HypeDb {
                 st.execute("CREATE TABLE IF NOT EXISTS hype_thirst (uuid TEXT PRIMARY KEY, value REAL NOT NULL)");
                 st.execute("CREATE TABLE IF NOT EXISTS hype_atm_tx (id INTEGER PRIMARY KEY AUTOINCREMENT, uuid TEXT NOT NULL, type TEXT NOT NULL, amount REAL NOT NULL, fee REAL NOT NULL DEFAULT 0, other TEXT NOT NULL DEFAULT '', ts INTEGER NOT NULL)");
                 st.execute("CREATE INDEX IF NOT EXISTS idx_atm_uuid ON hype_atm_tx(uuid, ts)");
+                st.execute("CREATE TABLE IF NOT EXISTS hype_card (uuid TEXT PRIMARY KEY, blocked INTEGER NOT NULL DEFAULT 0)");
+                try {
+                    st.execute("ALTER TABLE hype_atm_tx ADD COLUMN bal REAL NOT NULL DEFAULT -1");
+                } catch (java.sql.SQLException ignored) {
+                    // coloana exista deja
+                }
                 st.execute("CREATE TABLE IF NOT EXISTS hype_atm_blocks (world TEXT NOT NULL, x INTEGER NOT NULL, y INTEGER NOT NULL, z INTEGER NOT NULL, PRIMARY KEY (world, x, y, z))");
             }
             return null;
@@ -111,10 +126,16 @@ public final class HypeDb {
                 }
             }
             try (PreparedStatement ps = c.prepareStatement(
-                "SELECT type, amount, fee, other, ts FROM hype_atm_tx WHERE uuid=? ORDER BY id DESC LIMIT 20")) {
+                "SELECT type, amount, fee, other, ts, bal FROM hype_atm_tx WHERE uuid=? ORDER BY id DESC LIMIT 100")) {
                 ps.setString(1, id);
                 try (ResultSet rs = ps.executeQuery()) {
-                    while (rs.next()) d.history.add(new AtmEntry(rs.getString(1), rs.getDouble(2), rs.getDouble(3), rs.getString(4), rs.getLong(5)));
+                    while (rs.next()) d.history.add(new AtmEntry(rs.getString(1), rs.getDouble(2), rs.getDouble(3), rs.getString(4), rs.getLong(5), rs.getDouble(6)));
+                }
+            }
+            try (PreparedStatement ps = c.prepareStatement("SELECT blocked FROM hype_card WHERE uuid=?")) {
+                ps.setString(1, id);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) d.cardBlocked = rs.getInt(1) != 0;
                 }
             }
             try (PreparedStatement ps = c.prepareStatement(
@@ -171,14 +192,31 @@ public final class HypeDb {
     // ------------------------------------------------------------------ ATM
 
     public void addTx(UUID u, String type, double amount, double fee, String other, long ts) {
+        addTx(u, type, amount, fee, other, ts, -1);
+    }
+
+    /** Blocheaza/deblocheaza cardul unui jucator (persistent). */
+    public void setCardBlocked(UUID u, boolean blocked) {
         db.run(c -> {
-            try (PreparedStatement ps = c.prepareStatement("INSERT INTO hype_atm_tx(uuid, type, amount, fee, other, ts) VALUES (?,?,?,?,?,?)")) {
+            try (PreparedStatement ps = c.prepareStatement("INSERT OR REPLACE INTO hype_card(uuid, blocked) VALUES (?,?)")) {
+                ps.setString(1, u.toString());
+                ps.setInt(2, blocked ? 1 : 0);
+                ps.executeUpdate();
+            }
+            return null;
+        });
+    }
+
+    public void addTx(UUID u, String type, double amount, double fee, String other, long ts, double bal) {
+        db.run(c -> {
+            try (PreparedStatement ps = c.prepareStatement("INSERT INTO hype_atm_tx(uuid, type, amount, fee, other, ts, bal) VALUES (?,?,?,?,?,?,?)")) {
                 ps.setString(1, u.toString());
                 ps.setString(2, type);
                 ps.setDouble(3, amount);
                 ps.setDouble(4, fee);
                 ps.setString(5, other == null ? "" : other);
                 ps.setLong(6, ts);
+                ps.setDouble(7, bal);
                 ps.executeUpdate();
             }
             return null;
