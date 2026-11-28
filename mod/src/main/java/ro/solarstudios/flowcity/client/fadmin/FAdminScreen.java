@@ -966,11 +966,11 @@ public final class FAdminScreen extends FlowScreen {
                 int k = 0;
                 if (vh != null) {
                     for (JsonObject r : arr(vh, "rows")) {
-                        float ry = hy2 + 20 + k * 12;
-                        if (ry + 11 > hy2 + hh) break;
+                        float hry = hy2 + 20 + k * 12;
+                        if (hry + 11 > hy2 + hh) break;
                         String line = when((long) n(r, "ts")) + " · " + s(r, "admin") + " · " + s(r, "action").replace("veh_", "") + " "
                             + (s(r, "old").isEmpty() ? "" : s(r, "old") + " → " + s(r, "new")) + (s(r, "reason").isEmpty() ? "" : " (" + s(r, "reason") + ")");
-                        t(ms, clip(line, cw - 20, 6.8f, false), x0 + 10, mid(ry, 11, 6.8f), 6.8f, FTheme.MUTED);
+                        t(ms, clip(line, cw - 20, 6.8f, false), x0 + 10, mid(hry, 11, 6.8f), 6.8f, FTheme.MUTED);
                         k++;
                     }
                     if (k == 0) t(ms, "Nicio acțiune de staff înregistrată pentru acest număr.", x0 + 10, hy2 + 32, 7f, FTheme.FAINT);
@@ -1308,7 +1308,7 @@ public final class FAdminScreen extends FlowScreen {
         FTheme.caption(ms, "ANUNȚ PENTRU TOȚI JUCĂTORII", x0 + 10, ay + 13, FTheme.MUTED);
         FTheme.caption(ms, "ANUNȚURI RECENTE", x0 + half + gap + 10, ay + 13, FTheme.MUTED);
         if (has("announce")) {
-            drawField(ms, value, x0 + 10, ay + 20, half - 20, 20, mx, my);
+            drawField(ms, value, x0 + 10, ay + 20, (int) (half - 20), 20, mx, my);
             chip(ms, "fa-an0", "În chat", x0 + 10, ay + 46, 16, annMode == 0, mx, my, () -> annMode = 0);
             chip(ms, "fa-an1", "Pe ecran", x0 + 10 + chipW("În chat", 16), ay + 46, 16, annMode == 1, mx, my, () -> annMode = 1);
             btn(ms, "fa-annsend", "Trimite", "bell", x0 + 10, ay + 68, half - 20, 18, FUi.PRIMARY, true, mx, my,
@@ -1913,7 +1913,7 @@ public final class FAdminScreen extends FlowScreen {
             String who = s(sel, "staff").isEmpty() ? "neasignat" : "staff: " + s(sel, "staff");
             t(ms, who + (s(sel, "note").isEmpty() ? "" : " · notă: " + s(sel, "note")), x0 + 10, cy + 23, 6.8f, FTheme.MUTED);
             if (has("report_handle")) {
-                drawField(ms, reason, x0 + 8, cy + 30, 190, 20, mx, my);
+                drawField(ms, reason, x0 + 8, (int) (cy + 30), 190, 20, mx, my);
                 float bx = x0 + 206;
                 final long id = repSel;
                 btn(ms, "fa-rep-acc", "Preia", "check", bx, cy + 30, 58, 20, FUi.SOFT, true, mx, my, () -> repAct("accept", id));
