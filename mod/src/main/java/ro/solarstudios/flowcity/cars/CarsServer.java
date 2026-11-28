@@ -997,7 +997,7 @@ public final class CarsServer {
     private static void itemReport(MinecraftServer server, String player, int tx, JsonObject o) {
         String b64 = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(o.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
         try {
-            server.getCommands().performCommand(server.createCommandSourceStack(), "fcitem vehreport " + player + " " + tx + " " + b64);
+            server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), "fcitem vehreport " + player + " " + tx + " " + b64);
         } catch (RuntimeException ex) {
             // pluginul lipseste: nimic de raportat
         }
