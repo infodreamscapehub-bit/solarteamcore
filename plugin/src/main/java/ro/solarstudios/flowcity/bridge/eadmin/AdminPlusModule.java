@@ -63,8 +63,19 @@ public final class AdminPlusModule extends JsonModule implements Listener {
         return "admx";
     }
 
+    static AdminPlusModule instance;
+
+    boolean isFrozen(UUID u) {
+        return frozen.contains(u);
+    }
+
+    boolean isSpectating(UUID staff) {
+        return specs.containsKey(staff);
+    }
+
     @Override
     protected void onEnable() {
+        instance = this;
         Commands.permission("flowcity.eadmin.freeze", "FAdmin: ingheata jucatori", PermissionDefault.OP);
         Commands.permission("flowcity.eadmin.spectate", "FAdmin: spectate", PermissionDefault.OP);
         Commands.permission("flowcity.eadmin.money", "FAdmin: modifica banii", PermissionDefault.OP);
@@ -125,14 +136,19 @@ public final class AdminPlusModule extends JsonModule implements Listener {
 
     private void freeze(Player staff, UUID u) {
         if (u == null || !need(staff, "flowcity.eadmin.freeze")) return;
+        doFreeze(staff, u);
+    }
+
+    /** Pentru panoul FAdmin (nivelul s-a verificat deja acolo): 1 = inghetat, 0 = dezghetat, -1 = nu s-a putut. */
+    int doFreeze(Player staff, UUID u) {
         Player t = Bukkit.getPlayer(u);
         if (t == null) {
             err(staff, "Jucatorul nu este online.");
-            return;
+            return -1;
         }
         if (t.hasPermission("flowcity.eadmin.immune") && !staff.isOp()) {
             err(staff, "Jucatorul este imun.");
-            return;
+            return -1;
         }
         boolean now;
         if (frozen.remove(u)) {
@@ -151,6 +167,7 @@ public final class AdminPlusModule extends JsonModule implements Listener {
         o.addProperty("on", now);
         send(staff, "fz", o);
         ok(staff, t.getName() + (now ? " a fost inghetat." : " a fost dezghetat."));
+        return now ? 1 : 0;
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -171,24 +188,30 @@ public final class AdminPlusModule extends JsonModule implements Listener {
 
     private void spec(Player staff, UUID u) {
         if (!need(staff, "flowcity.eadmin.spectate")) return;
+        doSpec(staff, u);
+    }
+
+    /** Pentru panoul FAdmin: 1 = a intrat in spectate, 0 = a iesit, -1 = nu s-a putut. */
+    int doSpec(Player staff, UUID u) {
         Spec s = specs.remove(staff.getUniqueId());
         if (s != null) {
             staff.setGameMode(s.mode);
             staff.teleport(s.back);
             ok(staff, "Ai iesit din spectate.");
-            return;
+            return 0;
         }
-        if (u == null) return;
+        if (u == null) return -1;
         Player t = Bukkit.getPlayer(u);
         if (t == null) {
             err(staff, "Jucatorul nu este online.");
-            return;
+            return -1;
         }
         specs.put(staff.getUniqueId(), new Spec(staff.getLocation(), staff.getGameMode()));
         staff.setGameMode(GameMode.SPECTATOR);
         staff.teleport(t.getLocation());
         plugin.getLogger().info("FAdmin: " + staff.getName() + " spectate " + t.getName());
         ok(staff, "Spectate " + t.getName() + " (apasa din nou SPEC ca sa te intorci).");
+        return 1;
     }
 
     // ------------------------------------------------------------------ CASH

@@ -39,7 +39,8 @@ public final class FAdminModule extends JsonModule {
     private static final int VPAGE = 9;
     private static final int LPAGE = 14;
 
-    private FAdminLog log;
+    FAdminLog log;
+    private FAdminExt ext;
     private FAdminConfig config;
     private final Deque<String[]> errors = new ConcurrentLinkedDeque<>();
     private Handler handler;
@@ -53,6 +54,7 @@ public final class FAdminModule extends JsonModule {
     protected void onEnable() {
         log = new FAdminLog(plugin, plugin.db());
         config = new FAdminConfig(plugin);
+        ext = new FAdminExt(plugin, this, log);
         handler = new Handler() {
             @Override
             public void publish(LogRecord r) {
@@ -110,6 +112,22 @@ public final class FAdminModule extends JsonModule {
         on("perm_list", (p, j) -> permList(p));
         on("perm_set", this::permSet);
         on("classic", this::classic);
+        on("mod", (p, j) -> ext.moderation(p, j));
+        on("jail_set", (p, j) -> ext.jailSet(p, j));
+        on("reports", (p, j) -> ext.reports(p, j));
+        on("rep_act", (p, j) -> ext.reportAct(p, j));
+        on("staff", (p, j) -> ext.staff(p, j));
+        on("staff_hist", (p, j) -> ext.staffHist(p, j));
+        on("duty", (p, j) -> ext.dutyToggle(p, j));
+        on("announce", (p, j) -> ext.announce(p, j));
+        on("lp_groups", (p, j) -> ext.lpGroups(p, j));
+        on("lp_user", (p, j) -> ext.lpUser(p, j));
+        on("veh_hist", this::vehHist);
+    }
+
+    @Override
+    public void onQuit(Player player) {
+        if (ext != null) ext.quit(player);
     }
 
     @Override
@@ -128,16 +146,20 @@ public final class FAdminModule extends JsonModule {
 
     // ------------------------------------------------------------------ helperi
 
-    private FAdminLevel level(Player p, Cap need) {
+    FAdminLevel level(Player p, Cap need) {
         FAdminLevel lv = FAdminLevel.of(p);
-        if (lv == null || (need != null && !lv.can(need))) {
+        if (lv == null || (need != null && !FAdminLevel.canSee(p, need))) {
             res(p, false, "Nu ai nivelul necesar pentru această acțiune.");
             return null;
         }
         return lv;
     }
 
-    private void res(Player p, boolean ok, String msg) {
+    void snd(Player p, String op, JsonObject o) {
+        send(p, op, o);
+    }
+
+    void res(Player p, boolean ok, String msg) {
         JsonObject o = new JsonObject();
         o.addProperty("ok", ok);
         o.addProperty("msg", msg);
@@ -152,7 +174,7 @@ public final class FAdminModule extends JsonModule {
         }
     }
 
-    private String nameOf(UUID u) {
+    String nameOf(UUID u) {
         String n = plugin.ids().nameOf(u);
         if (n == null || n.isEmpty() || n.equals("?")) {
             org.bukkit.OfflinePlayer op = Bukkit.getOfflinePlayer(u);
@@ -174,7 +196,7 @@ public final class FAdminModule extends JsonModule {
         return id;
     }
 
-    private static String clip(String s, int n) {
+    static String clip(String s, int n) {
         if (s == null) return "";
         s = s.trim();
         return s.length() > n ? s.substring(0, n) : s;
@@ -213,7 +235,7 @@ public final class FAdminModule extends JsonModule {
         o.addProperty("name", p.getName());
         o.addProperty("moneyLimit", lv.moneyLimit());
         JsonArray caps = new JsonArray();
-        for (Cap c : Cap.values()) if (lv.can(c)) caps.add(c.id());
+        for (Cap c : Cap.values()) if (FAdminLevel.canSee(p, c)) caps.add(c.id());
         o.add("caps", caps);
         JsonArray lvls = new JsonArray();
         for (FAdminLevel l : FAdminLevel.values()) {
@@ -255,7 +277,20 @@ public final class FAdminModule extends JsonModule {
         o.addProperty("ramUsed", (rt.totalMemory() - rt.freeMemory()) / 1048576L);
         o.addProperty("ramMax", rt.maxMemory() / 1048576L);
         o.addProperty("vehicles", MdtModule.instance == null ? 0 : MdtModule.instance.adminVehicleCount());
+        ext.dashNow(o);
+        final List<UUID> econIds = new ArrayList<>();
         plugin.db().async(c -> {
+            ext.dashDb(o, c);
+            try (PreparedStatement ps = c.prepareStatement("SELECT uuid FROM eadmin_players ORDER BY last_seen DESC LIMIT 2000");
+                 ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    try {
+                        econIds.add(UUID.fromString(rs.getString(1)));
+                    } catch (IllegalArgumentException ignored) {
+                        // uuid corupt
+                    }
+                }
+            }
             JsonArray recent = new JsonArray();
             JsonArray acts = new JsonArray();
             JsonArray notes = new JsonArray();
@@ -335,6 +370,7 @@ public final class FAdminModule extends JsonModule {
                 res(p, false, "Nu am putut încărca dashboard-ul.");
                 return;
             }
+            if (FAdminLevel.canSee(p, Cap.ECON_VIEW)) ext.totals(o, econIds);
             send(p, "dash", o);
         }));
     }
@@ -384,7 +420,16 @@ public final class FAdminModule extends JsonModule {
                     while (rs.next()) (rs.getString(2).equals("BAN") ? banned : muted).add(rs.getString(1));
                 }
             }
-            Object[] r = {ids, total[0], banned, muted};
+            Map<UUID, Long> play = new HashMap<>();
+            for (UUID u : ids) {
+                try (PreparedStatement ps = c.prepareStatement("SELECT play_seconds FROM eadmin_players WHERE uuid=?")) {
+                    ps.setString(1, u.toString());
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) play.put(u, rs.getLong(1));
+                    }
+                }
+            }
+            Object[] r = {ids, total[0], banned, muted, play};
             return r;
         }).whenComplete((r, err) -> Bukkit.getScheduler().runTask(plugin, () -> {
             if (err != null || r == null) {
@@ -394,16 +439,29 @@ public final class FAdminModule extends JsonModule {
             @SuppressWarnings("unchecked") List<UUID> ids = (List<UUID>) r[0];
             @SuppressWarnings("unchecked") Set<String> banned = (Set<String>) r[2];
             @SuppressWarnings("unchecked") Set<String> muted = (Set<String>) r[3];
-            JsonObject o = new JsonObject();
-            o.addProperty("q", q);
-            o.addProperty("page", page);
-            o.addProperty("total", (Integer) r[1]);
-            JsonArray rows = new JsonArray();
-            Map<UUID, Integer> carCount = new HashMap<>();
-            if (MdtModule.instance != null) for (MdtModule.AdminVeh v : MdtModule.instance.adminVehicles()) carCount.merge(v.owner, 1, Integer::sum);
-            for (UUID u : ids) rows.add(playerRow(u, carCount, banned, muted));
-            o.add("rows", rows);
-            send(p, "players", o);
+            @SuppressWarnings("unchecked") Map<UUID, Long> play = (Map<UUID, Long>) r[4];
+            final int totalRows = (Integer) r[1];
+            ext.ranks(ids).whenComplete((ranks, rerr) -> Bukkit.getScheduler().runTask(plugin, () -> {
+                JsonObject o = new JsonObject();
+                o.addProperty("q", q);
+                o.addProperty("page", page);
+                o.addProperty("total", totalRows);
+                JsonArray rows = new JsonArray();
+                Map<UUID, Integer> carCount = new HashMap<>();
+                if (MdtModule.instance != null) for (MdtModule.AdminVeh v : MdtModule.instance.adminVehicles()) carCount.merge(v.owner, 1, Integer::sum);
+                for (UUID u : ids) {
+                    JsonObject row = playerRow(u, carCount, banned, muted);
+                    String rk = ranks == null ? null : ranks.get(u);
+                    row.addProperty("rank", rk == null ? "-" : rk);
+                    Player on = Bukkit.getPlayer(u);
+                    long sec = on != null ? on.getStatistic(org.bukkit.Statistic.PLAY_ONE_MINUTE) / 20L : play.getOrDefault(u, 0L);
+                    row.addProperty("play", sec);
+                    row.addProperty("jailed", ext.isJailed(u));
+                    rows.add(row);
+                }
+                o.add("rows", rows);
+                send(p, "players", o);
+            }));
         }));
     }
 
@@ -468,6 +526,7 @@ public final class FAdminModule extends JsonModule {
                 }
             }
             o.add("history", hist);
+            o.addProperty("reports", ext.reportsAgainst(c, u));
             return o;
         }).whenComplete((o, err) -> Bukkit.getScheduler().runTask(plugin, () -> {
             if (err != null || o == null) {
@@ -482,6 +541,10 @@ public final class FAdminModule extends JsonModule {
             o.addProperty("job", jobName(u));
             o.addProperty("cash", plugin.money().balance(u));
             o.addProperty("bank", plugin.bank().balance(u));
+            ext.profileFlags(o, u);
+            String rk = LpApi.primary(u);
+            o.addProperty("rank", rk == null ? "-" : rk);
+            o.addProperty("mySpec", AdminPlusModule.instance != null && AdminPlusModule.instance.isSpectating(p.getUniqueId()));
             JsonArray cars = new JsonArray();
             if (MdtModule.instance != null) {
                 for (MdtModule.AdminVeh v : MdtModule.instance.adminVehicles()) {
@@ -508,7 +571,9 @@ public final class FAdminModule extends JsonModule {
         final String action = str(j, "action", "");
         final UUID u = uuid(j, "uuid");
         if (u == null) return;
-        final String reason = clip(str(j, "reason", ""), 160);
+        final String reasonIn = clip(str(j, "reason", ""), 160);
+        // in moderare motivul e optional (spec): fara motiv se inregistreaza o valoare implicita
+        final String reason = reasonIn.isEmpty() && java.util.Arrays.asList("kick", "mute", "ban", "warn", "jail").contains(action) ? "Fără motiv specificat" : reasonIn;
         final int minutes = Math.max(0, Math.min(525600, (int) num(j, "minutes", 0)));
         Cap need;
         switch (action) {
@@ -520,6 +585,12 @@ public final class FAdminModule extends JsonModule {
             case "bring": need = Cap.BRING; break;
             case "heal": need = Cap.HEAL; break;
             case "inv": need = Cap.INV; break;
+            case "warn": need = Cap.WARN; break;
+            case "freeze": need = Cap.FREEZE; break;
+            case "spectate": need = Cap.SPECTATE; break;
+            case "jail": case "unjail": need = Cap.JAIL; break;
+            case "setid": need = Cap.RPID; break;
+            case "grp_add": case "grp_remove": need = Cap.RANK; break;
             default:
                 res(p, false, "Acțiune necunoscută.");
                 return;
@@ -528,12 +599,7 @@ public final class FAdminModule extends JsonModule {
         if (lv == null) return;
         final String tname = nameOf(u);
         Player t = Bukkit.getPlayer(u);
-        boolean needsReason = action.equals("kick") || action.equals("mute") || action.equals("ban");
-        if (needsReason && reason.length() < 3) {
-            res(p, false, "Scrie un motiv (minim 3 caractere).");
-            return;
-        }
-        if (!action.equals("unban") && !action.equals("unmute") && !canTarget(p, lv, t)) return;
+        if (!action.equals("unban") && !action.equals("unmute") && !action.equals("unjail") && !canTarget(p, lv, t)) return;
         EAdminService svc = plugin.service();
         EAdminService.Result cb = (ok, msg) -> {
             if (ok) log.add(p.getName(), lv, action, u, tname, "", minutes > 0 ? EAdminService.describeMinutes(minutes) : "", reason);
@@ -585,6 +651,52 @@ public final class FAdminModule extends JsonModule {
                 log.add(p.getName(), lv, "heal", u, tname, String.valueOf(Math.round(before)), String.valueOf(Math.round(t.getHealth())), reason);
                 res(p, true, tname + " a fost vindecat.");
                 break;
+            case "warn":
+                svc.applySanction(p.getName(), u, tname, SType.WARN, 0, reason, cb);
+                break;
+            case "freeze": {
+                AdminPlusModule ap = AdminPlusModule.instance;
+                if (ap == null) {
+                    res(p, false, "Modulul de moderare nu e pornit.");
+                    return;
+                }
+                int r = ap.doFreeze(p, u);
+                if (r < 0) return;
+                log.add(p.getName(), lv, "freeze", u, tname, r == 1 ? "liber" : "înghețat", r == 1 ? "înghețat" : "liber", reason);
+                res(p, true, tname + (r == 1 ? " a fost înghețat." : " a fost dezghețat."));
+                break;
+            }
+            case "spectate": {
+                AdminPlusModule ap = AdminPlusModule.instance;
+                if (ap == null) {
+                    res(p, false, "Modulul de moderare nu e pornit.");
+                    return;
+                }
+                int r = ap.doSpec(p, u);
+                if (r < 0) return;
+                log.add(p.getName(), lv, "spectate", u, tname, "", r == 1 ? "spectate" : "ieșit", reason);
+                res(p, true, r == 1 ? "Spectate " + tname + " (apasă din nou ca să te întorci)." : "Ai ieșit din spectate.");
+                break;
+            }
+            case "jail":
+                ext.jail(p, lv, u, tname, minutes, reason);
+                break;
+            case "unjail":
+                ext.unjail(p, lv, u, tname, reason);
+                break;
+            case "setid": {
+                final int newId = (int) num(j, "id", 0);
+                final int oldId = plugin.ids().idOf(u);
+                plugin.ids().setId(u, newId, bool(j, "swap", false), (ok, msg) -> {
+                    if (ok) log.add(p.getName(), lv, "setid", u, tname, "#" + oldId, "#" + newId, reason);
+                    res(p, ok, msg);
+                });
+                break;
+            }
+            case "grp_add":
+            case "grp_remove":
+                ext.lpGroupSet(p, lv, u, tname, clip(str(j, "group", ""), 32), action.equals("grp_add"), reason);
+                break;
             default: // inv
                 if (t == null) {
                     res(p, false, "Doar jucătorii online pot fi inspectați.");
@@ -631,6 +743,39 @@ public final class FAdminModule extends JsonModule {
         o.addProperty("total", total);
         o.add("rows", rows);
         send(p, "vehicles", o);
+    }
+
+    /** Istoricul actiunilor de staff asupra unui vehicul (din jurnalul persistent, dupa numarul de inmatriculare). */
+    private void vehHist(Player p, JsonObject j) {
+        if (level(p, Cap.VEH_VIEW) == null) return;
+        final String plate = clip(str(j, "plate", ""), 16);
+        if (plate.isEmpty()) return;
+        plugin.db().async(c -> {
+            JsonArray rows = new JsonArray();
+            try (PreparedStatement ps = c.prepareStatement(
+                "SELECT ts, admin, action, old_val, new_val, reason FROM fadm_log WHERE action LIKE 'veh\\_%' ESCAPE '\\' AND target_name LIKE ? ORDER BY id DESC LIMIT 8")) {
+                ps.setString(1, "%" + plate + "%");
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        JsonObject r = new JsonObject();
+                        r.addProperty("ts", rs.getLong(1));
+                        r.addProperty("admin", rs.getString(2));
+                        r.addProperty("action", rs.getString(3));
+                        r.addProperty("old", rs.getString(4));
+                        r.addProperty("new", rs.getString(5));
+                        r.addProperty("reason", rs.getString(6));
+                        rows.add(r);
+                    }
+                }
+            }
+            return rows;
+        }).whenComplete((rows, err) -> Bukkit.getScheduler().runTask(plugin, () -> {
+            if (err != null || rows == null) return;
+            JsonObject o = new JsonObject();
+            o.addProperty("plate", plate);
+            o.add("rows", rows);
+            send(p, "veh_hist", o);
+        }));
     }
 
     private void vehAct(Player p, JsonObject j) {
@@ -920,6 +1065,7 @@ public final class FAdminModule extends JsonModule {
                 JsonObject e = new JsonObject();
                 e.addProperty("ts", r.ts);
                 e.addProperty("admin", r.admin);
+                e.addProperty("adminUuid", r.adminUuid);
                 e.addProperty("level", r.level);
                 e.addProperty("action", r.action);
                 e.addProperty("target", r.target);
@@ -934,29 +1080,51 @@ public final class FAdminModule extends JsonModule {
     }
 
     private void system(Player p) {
-        if (level(p, Cap.SYSTEM) == null) return;
-        JsonObject o = new JsonObject();
+        FAdminLevel lv = level(p, Cap.SERVER_VIEW);
+        if (lv == null) return;
+        final boolean sensitive = FAdminLevel.canSee(p, Cap.SYSTEM);
+        final JsonObject o = new JsonObject();
+        o.addProperty("sensitive", sensitive);
         o.addProperty("tps", tps());
         Runtime rt = Runtime.getRuntime();
         o.addProperty("ramUsed", (rt.totalMemory() - rt.freeMemory()) / 1048576L);
         o.addProperty("ramMax", rt.maxMemory() / 1048576L);
-        o.addProperty("economy", plugin.vault().available() ? "Vault (" + plugin.vault().provider() + ")" : "registru intern");
-        o.addProperty("luckperms", Bukkit.getPluginManager().getPlugin("LuckPerms") != null);
-        o.addProperty("version", plugin.getDescription().getVersion());
-        JsonArray mods = new JsonArray();
-        for (String m : Modules.ids()) mods.add(m);
-        o.add("modules", mods);
-        JsonArray errs = new JsonArray();
-        for (String[] e : errors) {
-            JsonObject r = new JsonObject();
-            r.addProperty("ts", Long.parseLong(e[0]));
-            r.addProperty("level", e[1]);
-            r.addProperty("text", clip(e[2], 140));
-            errs.add(r);
-            if (errs.size() >= 12) break;
+        o.addProperty("online", Bukkit.getOnlinePlayers().size());
+        o.addProperty("max", Bukkit.getMaxPlayers());
+        int chunks = 0;
+        int entities = 0;
+        for (org.bukkit.World w : Bukkit.getWorlds()) {
+            chunks += w.getLoadedChunks().length;
+            entities += w.getEntities().size();
         }
-        o.add("errors", errs);
-        send(p, "system", o);
+        o.addProperty("chunks", chunks);
+        o.addProperty("entities", entities);
+        o.addProperty("worlds", Bukkit.getWorlds().size());
+        o.addProperty("vault", plugin.vault().available());
+        o.addProperty("luckperms", LpApi.available());
+        o.addProperty("jailCell", ext.cellSet());
+        o.addProperty("modulesOn", Modules.ids().size());
+        if (sensitive) {
+            o.addProperty("economy", plugin.vault().available() ? "Vault (" + plugin.vault().provider() + ")" : "registru intern");
+            o.addProperty("version", plugin.getDescription().getVersion());
+            JsonArray mods = new JsonArray();
+            for (String m : Modules.ids()) mods.add(m);
+            o.add("modules", mods);
+            JsonArray errs = new JsonArray();
+            for (String[] e : errors) {
+                JsonObject r = new JsonObject();
+                r.addProperty("ts", Long.parseLong(e[0]));
+                r.addProperty("level", e[1]);
+                r.addProperty("text", clip(e[2], 140));
+                errs.add(r);
+                if (errs.size() >= 12) break;
+            }
+            o.add("errors", errs);
+        }
+        plugin.db().async(c -> {
+            ext.recentAnnouncements(o, c);
+            return null;
+        }).whenComplete((v, err) -> Bukkit.getScheduler().runTask(plugin, () -> send(p, "system", o)));
     }
 
     // ------------------------------------------------------------------ editor

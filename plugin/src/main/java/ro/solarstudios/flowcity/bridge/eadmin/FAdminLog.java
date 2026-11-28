@@ -15,6 +15,7 @@ public final class FAdminLog {
         public long id;
         public long ts;
         public String admin = "";
+        public String adminUuid = "";
         public String level = "";
         public String action = "";
         public String target = "";
@@ -35,6 +36,11 @@ public final class FAdminLog {
                 st.execute("CREATE TABLE IF NOT EXISTS fadm_log (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, admin TEXT NOT NULL, "
                     + "level TEXT NOT NULL DEFAULT '', action TEXT NOT NULL, target_uuid TEXT NOT NULL DEFAULT '', target_name TEXT NOT NULL DEFAULT '', "
                     + "old_val TEXT NOT NULL DEFAULT '', new_val TEXT NOT NULL DEFAULT '', reason TEXT NOT NULL DEFAULT '')");
+                try {
+                    st.execute("ALTER TABLE fadm_log ADD COLUMN admin_uuid TEXT NOT NULL DEFAULT ''");
+                } catch (java.sql.SQLException ignored) {
+                    // coloana exista deja
+                }
                 st.execute("CREATE INDEX IF NOT EXISTS idx_fadm_log_ts ON fadm_log(ts)");
                 st.execute("CREATE INDEX IF NOT EXISTS idx_fadm_log_target ON fadm_log(target_uuid)");
             }
@@ -52,9 +58,11 @@ public final class FAdminLog {
     public void add(String admin, FAdminLevel level, String action, UUID target, String targetName, String oldVal, String newVal, String reason) {
         final long now = System.currentTimeMillis();
         final String lv = level == null ? "" : level.id;
+        org.bukkit.entity.Player ap = admin == null ? null : org.bukkit.Bukkit.getPlayerExact(admin);
+        final String au = ap == null ? "" : ap.getUniqueId().toString();
         db.run(c -> {
             try (PreparedStatement ps = c.prepareStatement(
-                "INSERT INTO fadm_log(ts, admin, level, action, target_uuid, target_name, old_val, new_val, reason) VALUES (?,?,?,?,?,?,?,?,?)")) {
+                "INSERT INTO fadm_log(ts, admin, level, action, target_uuid, target_name, old_val, new_val, reason, admin_uuid) VALUES (?,?,?,?,?,?,?,?,?,?)")) {
                 ps.setLong(1, now);
                 ps.setString(2, clip(admin, 32));
                 ps.setString(3, lv);
@@ -64,6 +72,7 @@ public final class FAdminLog {
                 ps.setString(7, clip(oldVal, 120));
                 ps.setString(8, clip(newVal, 120));
                 ps.setString(9, clip(reason, 200));
+                ps.setString(10, au);
                 ps.executeUpdate();
             }
             return null;
@@ -95,7 +104,7 @@ public final class FAdminLog {
                 }
             }
             List<Row> out = new ArrayList<>();
-            try (PreparedStatement ps = c.prepareStatement("SELECT id, ts, admin, level, action, target_uuid, target_name, old_val, new_val, reason FROM fadm_log"
+            try (PreparedStatement ps = c.prepareStatement("SELECT id, ts, admin, level, action, target_uuid, target_name, old_val, new_val, reason, admin_uuid FROM fadm_log"
                 + where + " ORDER BY id DESC LIMIT ? OFFSET ?")) {
                 int i = 1;
                 for (String a : args) ps.setString(i++, a);
@@ -114,6 +123,7 @@ public final class FAdminLog {
                         r.oldVal = rs.getString(8);
                         r.newVal = rs.getString(9);
                         r.reason = rs.getString(10);
+                        r.adminUuid = rs.getString(11);
                         out.add(r);
                     }
                 }

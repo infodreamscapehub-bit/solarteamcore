@@ -57,6 +57,39 @@ permissions:
     default: false
     children:
       flowcity.fadmin.developer: true
+  flowcity.fadmin.dashboard:
+    description: FAdmin - sectiunea Dashboard (citire; actiunile cer nivelul de staff)
+    default: false
+  flowcity.fadmin.players:
+    description: FAdmin - sectiunea Jucatori (citire; actiunile cer nivelul de staff)
+    default: false
+  flowcity.fadmin.moderation:
+    description: FAdmin - sectiunea Moderare (citire; actiunile cer nivelul de staff)
+    default: false
+  flowcity.fadmin.staff:
+    description: FAdmin - sectiunea Staff (citire; actiunile cer nivelul de staff)
+    default: false
+  flowcity.fadmin.economy:
+    description: FAdmin - sectiunea Economie (citire; actiunile cer nivelul de staff)
+    default: false
+  flowcity.fadmin.vehicles:
+    description: FAdmin - sectiunea Vehicule (citire; actiunile cer nivelul de staff)
+    default: false
+  flowcity.fadmin.jobs:
+    description: FAdmin - sectiunea Joburi (citire; actiunile cer nivelul de staff)
+    default: false
+  flowcity.fadmin.permissions:
+    description: FAdmin - sectiunea Permisiuni / LuckPerms (citire; actiunile cer nivelul de staff)
+    default: false
+  flowcity.fadmin.reports:
+    description: FAdmin - sectiunea Rapoarte (citire; actiunile cer nivelul de staff)
+    default: false
+  flowcity.fadmin.logs:
+    description: FAdmin - sectiunea Loguri administrative (citire; actiunile cer nivelul de staff)
+    default: false
+  flowcity.fadmin.server:
+    description: FAdmin - sectiunea Server (citire; actiunile cer nivelul de staff)
+    default: false
   flowcity.eadmin:
     description: Acces la panoul FAdmin (vizualizare)
     default: op
