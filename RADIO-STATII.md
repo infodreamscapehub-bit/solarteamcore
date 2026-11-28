@@ -9,6 +9,7 @@
 - Roluri: OWNER, CO-OWNER, MEMBER. Owner: transfer, inchidere, promovare. Owner offline > grace → ownership trece automat la un CO-OWNER/membru, altfel statia se inchide.
 - Parole: PBKDF2-HMAC-SHA256 + sare; blocare dupa 5 greseli / 5 min. Limite: statii/jucator, cooldown creare, cooldown/TTL invitatii (toate in `radio.yml`).
 - Frecventele oficiale (Politie, EMS, Mecanici, Taxi, Public, Staff) sunt rezervate; acces din permisiunile/joburile canalului din `items.yml` sau `flowcity.radio.official.<cheie>` / `flowcity.radio.official.*`.
+- Comanda `/statie` (aliasuri `/statii`, `/station`) deschide ecranul interactiv de stații (liste, CREEAZĂ RADIO, invitații, stația curentă). Serverul verifică să ai un radio valid la tine; fără radio primești un mesaj. Fără modul pe client rămâne radioul text (`/radio <mesaj>`). Nu există subcomenzi: totul se face din ecran.
 - Admin: permisiunea `flowcity.radio.admin` → tab "Admin" (lista statii, inchidere fortata, limita statii/jucator); `/radiostatii reload`.
 
 ## Voce (Plasmo Voice) si ce NU e voce

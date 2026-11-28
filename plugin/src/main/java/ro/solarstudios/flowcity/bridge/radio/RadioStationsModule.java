@@ -134,6 +134,23 @@ public final class RadioStationsModule extends JsonModule implements Listener {
             }
             return true;
         }, null, "rstatii");
+        // /statie: deschide ecranul interactiv de statii (aceeasi regula ca la creare: ai nevoie de un radio valid la tine)
+        Commands.register(plugin, "statie", null, (s, c, l, a) -> {
+            if (!(s instanceof Player)) {
+                s.sendMessage("Comanda e doar pentru jucatori.");
+                return true;
+            }
+            Player p = (Player) s;
+            if (!hasRadio(p)) {
+                p.sendMessage("\u00a7cAi nevoie de un radio la tine ca sa folosesti statiile.");
+                return true;
+            }
+            if (!openFor(p)) {
+                p.sendMessage("\u00a7eEcranul de statii cere modul FlowCity pe client. Foloseste /radio <mesaj> pentru radio text.");
+                pushState(p);
+            }
+            return true;
+        }, (s, c, l, a) -> java.util.Collections.<String>emptyList(), "statii", "station");
         Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 20L, 20L);
     }
 
