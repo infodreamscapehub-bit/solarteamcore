@@ -58,6 +58,11 @@ final class GpsStore {
         int size = 100;
         boolean enabled = true;
         boolean hidden;
+        /** Inaltimea Y (optional, folosita la teleportare). */
+        int y;
+        boolean hasY;
+        /** Permisiunea necesara ca sa vezi locatia (gol = toti jucatorii). */
+        String perm = "";
 
         Loc copy() {
             Loc c = new Loc();
@@ -78,6 +83,9 @@ final class GpsStore {
             size = o.size;
             enabled = o.enabled;
             hidden = o.hidden;
+            y = o.y;
+            hasY = o.hasY;
+            perm = o.perm == null ? "" : o.perm;
         }
     }
 

@@ -24,6 +24,9 @@ final class GpsTheme {
     static final int DANGER = FTheme.DANGER;
     static final int OK = FTheme.OK;
     static final int GOLD = FTheme.GOLD;
+    /** Portocaliul FlowCity si galbenul pentru evidentieri. */
+    static final int ORANGE = 0xFFFF7A1A;
+    static final int AMBER = 0xFFFFC53D;
     static final int LINE = FTheme.LINE;
     static final int LINE_SOFT = FTheme.LINE_SOFT;
     static final int GLASS = FTheme.GLASS;

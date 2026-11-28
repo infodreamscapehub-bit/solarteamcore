@@ -46,12 +46,12 @@ public final class GpsPrefs {
     public static float opacity = 1f;
 
     /** Culorile de accent disponibile (violet, albastru, verde, chihlimbar). */
-    public static final int[] ACCENTS = {0xFF8B5CF6, 0xFF38BDF8, 0xFF22C55E, 0xFFF5B942};
+    public static final int[] ACCENTS = {0xFFFF7A1A, 0xFFFFC53D, 0xFF38BDF8, 0xFF22C55E};
     public static int accentIdx;
 
     /** Culorile traseului GPS pe harta (magenta, cyan, verde, chihlimbar, alb). */
-    public static final int[] ROUTE_COLORS = {0xFFFF3FD0, 0xFF38BDF8, 0xFF22C55E, 0xFFF5B942, 0xFFE4ECFF};
-    public static final String[] ROUTE_NAMES = {"Magenta", "Cyan", "Verde", "Chihlimbar", "Alb"};
+    public static final int[] ROUTE_COLORS = {0xFFFF7A1A, 0xFFFF3FD0, 0xFF38BDF8, 0xFF22C55E, 0xFFE4ECFF};
+    public static final String[] ROUTE_NAMES = {"Portocaliu", "Magenta", "Cyan", "Verde", "Alb"};
     public static int routeIdx;
 
     /** Culoarea cu care se deseneaza traseul pe harta si pe minimap. */

@@ -35,6 +35,7 @@ import ro.solarstudios.flowcity.bridge.module.JsonModule;
 public final class GpsModule extends JsonModule {
     private static final String TAG = "§b[GPS] §7";
     private static final String PERM_ADMIN = "flowcity.gps.admin";
+    private static final String PERM_TP = "flowcity.gps.teleport";
     private static final String PERM_UPLOAD = "flowcity.gps.upload";
     private static final String OVERWORLD = GpsStore.OVERWORLD;
 
@@ -56,6 +57,7 @@ public final class GpsModule extends JsonModule {
     protected void onEnable() {
         Commands.permission("flowcity.gps.use", "Poate folosi harta GPS", PermissionDefault.TRUE);
         Commands.permission(PERM_ADMIN, "Editeaza harta GPS (locatii, zone, categorii) din interfata", PermissionDefault.OP);
+        Commands.permission(PERM_TP, "Poate folosi Teleporteaza din meniul GPS (doar impreuna cu OP)", PermissionDefault.OP);
         Commands.permission(PERM_UPLOAD, "Trimite serverului părți din harta explorată (harta partajată GPS)", PermissionDefault.TRUE);
         load();
         on("request", (p, j) -> send(p, "config", build(p)));
@@ -73,6 +75,7 @@ public final class GpsModule extends JsonModule {
         on("wp.set", (p, j) -> wps.set(p, j, isAdmin(p)));
         on("wp.del", (p, j) -> wps.delete(p, j, isAdmin(p)));
         on("edit", this::edit);
+        on("tp", this::teleport);
         on("roads.req", (p, j) -> {
             if (((long) num(j, "ver", -1)) != store.roads.ver) sendRoads(p);
         });
@@ -114,12 +117,135 @@ public final class GpsModule extends JsonModule {
         YamlConfiguration legacy = YamlConfiguration.loadConfiguration(new File(plugin.getDataFolder(), "gps-data.yml"));
         store = new GpsStore(plugin.getDataFolder(), plugin.getLogger());
         store.load(cfg, legacy);
+        tpEnabled = cfg.getBoolean("teleport.enabled", true);
         File gpsDir = new File(plugin.getDataFolder(), "gps");
         map = new SharedMap(this, plugin, gpsDir, cfg);
         wps = new GpsWaypoints(this, plugin.getLogger(), gpsDir, cfg);
     }
 
+    private static final java.text.SimpleDateFormat LOG_FMT = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+
+    /** Jurnal persistent al actiunilor administrative GPS (plugins/FlowCityBridge/gps/admin-log.txt). */
+    private synchronized void auditLog(Player p, String what) {
+        try {
+            File dir = new File(plugin.getDataFolder(), "gps");
+            dir.mkdirs();
+            String line = LOG_FMT.format(new java.util.Date()) + " | " + p.getName() + " (" + p.getUniqueId() + ") | " + what.replace('\n', ' ') + "\n";
+            java.nio.file.Files.write(new File(dir, "admin-log.txt").toPath(), line.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+        } catch (java.io.IOException e) {
+            plugin.getLogger().warning("[GPS] Nu pot scrie admin-log.txt: " + e);
+        }
+    }
+
+    /** Teleportarea e permisa DOAR operatorilor care au si permisiunea configurata (si doar daca nu e oprita in gps.yml). */
+    private boolean canTeleport(Player p) {
+        return p != null && tpEnabled && p.isOp() && p.hasPermission(PERM_TP);
+    }
+
+    private boolean tpEnabled = true;
+    private final Map<UUID, Long> lastTp = new HashMap<>();
+
+    private static World worldFor(String dim) {
+        World.Environment env = World.Environment.NORMAL;
+        if ("minecraft:the_nether".equals(dim)) env = World.Environment.NETHER;
+        else if ("minecraft:the_end".equals(dim)) env = World.Environment.THE_END;
+        for (World w : Bukkit.getWorlds()) if (w.getEnvironment() == env) return w;
+        return null;
+    }
+
+    private static boolean dangerous(Material m) {
+        switch (m) {
+            case LAVA: case FIRE: case SOUL_FIRE: case MAGMA_BLOCK: case CACTUS: case CAMPFIRE: case SOUL_CAMPFIRE:
+            case SWEET_BERRY_BUSH: case WITHER_ROSE: case COBWEB:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private static boolean standable(World w, int x, int y, int z) {
+        if (y < 1 || y > w.getMaxHeight() - 2) return false;
+        Block ground = w.getBlockAt(x, y - 1, z);
+        Block feet = w.getBlockAt(x, y, z);
+        Block head = w.getBlockAt(x, y + 1, z);
+        if (!ground.getType().isSolid() || dangerous(ground.getType())) return false;
+        if (!feet.isPassable() || feet.isLiquid() || dangerous(feet.getType())) return false;
+        return head.isPassable() && !head.isLiquid() && !dangerous(head.getType());
+    }
+
+    /** Cauta un loc sigur la (x,z); null daca nu exista unul. */
+    private static Integer safeY(World w, int x, int z, Integer hint) {
+        if (hint != null) {
+            for (int d = 0; d <= 12; d++) {
+                if (standable(w, x, hint + d, z)) return hint + d;
+                if (d > 0 && standable(w, x, hint - d, z)) return hint - d;
+            }
+            return null;
+        }
+        if (w.getEnvironment() == World.Environment.NETHER) {
+            for (int y = 120; y > 32; y--) if (standable(w, x, y, z)) return y;
+            return null;
+        }
+        int top = w.getHighestBlockYAt(x, z) + 1;
+        for (int y = top; y > Math.max(1, top - 6); y--) if (standable(w, x, y, z)) return y;
+        return null;
+    }
+
+    /** "tp": teleportare la o locatie GPS a serverului. Toate verificarile se fac aici, nu in client. */
+    private void teleport(Player p, JsonObject j) {
+        String id = str(j, "id", "");
+        if (!canTeleport(p)) {
+            plugin.getLogger().warning("[GPS] " + p.getName() + " a incercat teleportarea la '" + id + "' fara OP/" + PERM_TP + ".");
+            auditLog(p, "REFUZAT teleport la '" + id + "' (nu e OP sau lipseste " + PERM_TP + ")");
+            reply(p, "tp", false, "Nu ai permisiunea.");
+            return;
+        }
+        long now = System.currentTimeMillis();
+        Long last = lastTp.get(p.getUniqueId());
+        if (last != null && now - last < 1000L) {
+            reply(p, "tp", false, "Prea repede, mai încearcă o dată.");
+            return;
+        }
+        lastTp.put(p.getUniqueId(), now);
+        GpsStore.Loc l = store.loc(id);
+        if (l == null || !l.enabled) {
+            reply(p, "tp", false, "Destinația nu există sau e dezactivată.");
+            return;
+        }
+        if (!coord(l.x) || !coord(l.z)) {
+            reply(p, "tp", false, "Coordonate invalide.");
+            return;
+        }
+        World w = worldFor(l.dim);
+        if (w == null) {
+            reply(p, "tp", false, "Dimensiunea destinației nu există pe server.");
+            return;
+        }
+        int bx = (int) Math.floor(l.x);
+        int bz = (int) Math.floor(l.z);
+        org.bukkit.Location probe = new org.bukkit.Location(w, bx + 0.5, 64, bz + 0.5);
+        if (!w.getWorldBorder().isInside(probe)) {
+            reply(p, "tp", false, "Destinația e în afara limitei lumii.");
+            return;
+        }
+        w.getChunkAt(bx >> 4, bz >> 4).load(true);
+        Integer y = safeY(w, bx, bz, l.hasY ? Integer.valueOf(l.y) : null);
+        if (y == null) {
+            auditLog(p, "teleport ESUAT (loc nesigur) la '" + l.id + "' " + l.dim + " " + bx + " " + bz);
+            reply(p, "tp", false, "Nu am găsit un loc sigur la destinație.");
+            return;
+        }
+        org.bukkit.Location to = new org.bukkit.Location(w, bx + 0.5, y, bz + 0.5, p.getLocation().getYaw(), p.getLocation().getPitch());
+        p.teleport(to, org.bukkit.event.player.PlayerTeleportEvent.TeleportCause.PLUGIN);
+        String what = "teleport la '" + l.id + "' (" + l.name + ") " + l.dim + " " + bx + " " + y + " " + bz;
+        plugin.getLogger().info("[GPS] " + p.getName() + " " + what);
+        auditLog(p, what);
+        reply(p, "tp", true, "Teleportat la " + l.name + ".");
+    }
+
     private static boolean isAdmin(Player p) {
+
         return p != null && p.hasPermission(PERM_ADMIN);
     }
 
@@ -129,6 +255,7 @@ public final class GpsModule extends JsonModule {
         boolean admin = isAdmin(viewer);
         JsonObject o = new JsonObject();
         o.addProperty("admin", admin);
+        o.addProperty("canTp", canTeleport(viewer));
         JsonArray groups = new JsonArray();
         for (String g : store.groups) groups.add(g);
         o.add("groups", groups);
@@ -151,6 +278,7 @@ public final class GpsModule extends JsonModule {
                 if (!l.enabled) continue;
                 GpsStore.Cat c = store.cat(l.cat);
                 if (c != null && !c.enabled) continue;
+                if (l.perm != null && !l.perm.isEmpty() && !viewer.hasPermission(l.perm)) continue;
             }
             JsonObject j = new JsonObject();
             j.addProperty("id", l.id);
@@ -165,6 +293,8 @@ public final class GpsModule extends JsonModule {
             if (!l.icon.isEmpty()) j.addProperty("icon", l.icon);
             if (!l.color.isEmpty()) j.addProperty("color", l.color);
             if (!l.desc.isEmpty()) j.addProperty("desc", l.desc);
+            if (l.hasY) j.addProperty("y", l.y);
+            if (admin && l.perm != null && !l.perm.isEmpty()) j.addProperty("perm", l.perm);
             la.add(j);
         }
         o.add("locs", la);
@@ -219,6 +349,7 @@ public final class GpsModule extends JsonModule {
         String op = str(j, "op", "");
         if (!isAdmin(p)) {
             plugin.getLogger().warning("[GPS] " + p.getName() + " a incercat '" + op + "' fara permisiunea " + PERM_ADMIN + ".");
+            auditLog(p, "REFUZAT " + op + " (fara " + PERM_ADMIN + ")");
             reply(p, op, false, "Nu ai permisiunea.");
             return;
         }
@@ -246,6 +377,7 @@ public final class GpsModule extends JsonModule {
             return;
         }
         plugin.getLogger().info("[GPS] " + p.getName() + " " + op + ": " + okMsg);
+        auditLog(p, op + ": " + okMsg);
         reply(p, op, true, okMsg);
         pushAll();
     }
@@ -463,6 +595,22 @@ public final class GpsModule extends JsonModule {
             l.size = s;
         }
         if (j.has("enabled")) l.enabled = bool(j, "enabled", true);
+        if (j.has("y")) {
+            if (j.get("y").isJsonNull()) {
+                l.hasY = false;
+                l.y = 0;
+            } else {
+                double v = num(j, "y", Double.NaN);
+                if (Double.isNaN(v) || v < -64 || v > 320) return "Înălțime Y invalidă (-64..320).";
+                l.y = (int) Math.round(v);
+                l.hasY = true;
+            }
+        }
+        if (j.has("perm")) {
+            String pm = str(j, "perm", "").trim();
+            if (!pm.isEmpty() && !pm.matches("[A-Za-z0-9_.*-]{1,64}")) return "Permisiune invalidă.";
+            l.perm = pm;
+        }
         if (j.has("hidden")) l.hidden = bool(j, "hidden", false);
         return null;
     }

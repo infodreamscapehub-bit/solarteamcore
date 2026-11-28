@@ -47,6 +47,10 @@ public final class GpsData {
         /** Valorile brute din config (gol = moștenește de la categorie), folosite de editor. */
         public String iconRaw = "";
         public String colorRaw = "";
+        /** Inaltimea Y (optionala, pentru teleportare) si permisiunea de vizibilitate (doar pentru admini). */
+        public double y;
+        public boolean hasY;
+        public String perm = "";
     }
 
     public static final class Zone {
@@ -164,6 +168,8 @@ public final class GpsData {
     public static final Map<String, CIcon> customIcons = new LinkedHashMap<>();
     /** Adevarat daca serverul ne-a marcat ca admin GPS (afiseaza EDITOR HARTA; serverul re-verifica oricum). */
     public static boolean admin;
+    /** Serverul a marcat jucatorul ca autorizat sa foloseasca Teleportare (OP + permisiune); serverul re-verifica oricum. */
+    public static boolean canTp;
     public static double arrive = 8;
     public static boolean showZonesDefault = true;
     public static double defaultZoom = 1.2;
@@ -187,6 +193,7 @@ public final class GpsData {
         zones.clear();
         customIcons.clear();
         admin = false;
+        canTp = false;
         loaded = false;
     }
 
@@ -229,6 +236,9 @@ public final class GpsData {
             l.size = Math.max(50, Math.min(200, JsonClientModule.integer(o, "size", 100)));
             l.enabled = JsonClientModule.bool(o, "enabled", true);
             l.hidden = JsonClientModule.bool(o, "hidden", false);
+            l.hasY = o.has("y");
+            l.y = JsonClientModule.num(o, "y", 0);
+            l.perm = JsonClientModule.str(o, "perm", "");
             index(l);
             nl.add(l);
         }
@@ -283,6 +293,7 @@ public final class GpsData {
         customIcons.clear();
         customIcons.putAll(ni);
         admin = JsonClientModule.bool(d, "admin", false);
+        canTp = JsonClientModule.bool(d, "canTp", false);
         JsonObject set = d.has("settings") && d.get("settings").isJsonObject() ? d.getAsJsonObject("settings") : new JsonObject();
         arrive = Math.max(2, JsonClientModule.num(set, "arrive", 8));
         showZonesDefault = JsonClientModule.bool(set, "showZones", true);

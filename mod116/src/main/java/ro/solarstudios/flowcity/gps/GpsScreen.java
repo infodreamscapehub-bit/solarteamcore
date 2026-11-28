@@ -24,7 +24,7 @@ import ro.solarstudios.flowcity.compat.GuiGraphics;
  */
 public final class GpsScreen extends FlowScreen {
     static final float M = 14f;
-    private static final String PIN = "_pin";
+    static final String PIN = "_pin";
 
     private static final int P_HOME = 0;
     private static final int P_MAP = 1;
@@ -126,6 +126,12 @@ public final class GpsScreen extends FlowScreen {
     /** Sertarul din stanga (meniul vechi), deschis din butonul hamburger. */
     private boolean menuOpen;
     private float menuAnim;
+    /** Bara laterala din stanga (SERVER / PERSONAL / SETARI HARTA) si meniul contextual al locatiilor. */
+    private final GpsSidebar side = new GpsSidebar(this);
+    private final GpsMenu menu = new GpsMenu(this);
+    float sideW;
+    boolean borderOn;
+    boolean baseOn = true;
 
     public GpsScreen() {
         super("GPS", 520, 290);
@@ -206,7 +212,7 @@ public final class GpsScreen extends FlowScreen {
         noteUntil = System.currentTimeMillis() + 2600;
     }
 
-    private void select(GpsData.Loc l, boolean focus) {
+    void select(GpsData.Loc l, boolean focus) {
         selected = l;
         if (l != null && focus) {
             tgtX = l.x;
@@ -215,7 +221,7 @@ public final class GpsScreen extends FlowScreen {
         }
     }
 
-    private void activate() {
+    void activate() {
         if (selected == null) return;
         if (GpsNav.isTarget(selected.id)) {
             GpsNav.clear();
@@ -227,26 +233,26 @@ public final class GpsScreen extends FlowScreen {
         say("Destinație: " + selected.name);
     }
 
-    private void navTo(String id, String name, double x, double z, String dim, int color) {
+    void navTo(String id, String name, double x, double z, String dim, int color) {
         if (page == P_SEARCH) GpsPrefs.addSearch(search.getValue());
         GpsNav.set(id, name, x, z, dim, color);
         if (GpsPrefs.pickSound) click();
         say("Destinație: " + name);
     }
 
-    private void cancel() {
+    void cancel() {
         GpsNav.clear();
         say("Navigare anulată");
     }
 
-    private void toggleFav(GpsData.Loc l) {
+    void toggleFav(GpsData.Loc l) {
         if (l == null || PIN.equals(l.id)) return;
         if (!GpsPrefs.fav.remove(l.id)) GpsPrefs.fav.add(l.id);
         GpsPrefs.save();
         dirty = true;
     }
 
-    private void centerOnPlayer() {
+    void centerOnPlayer() {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return;
         tgtX = mc.player.getX();
@@ -298,6 +304,207 @@ public final class GpsScreen extends FlowScreen {
         selected = p;
     }
 
+    // ------------------------------------------------------------------ bara laterala + meniu contextual (folosite de GpsSidebar / GpsMenu)
+
+    /** Locatiile vizibile, cele mai apropiate primele. */
+    List<GpsData.Loc> nearby() {
+        return bar;
+    }
+
+    List<GpsData.Loc> favoriteLocs() {
+        return favLocs();
+    }
+
+    float zoomLevel() {
+        return zoom;
+    }
+
+    void zoomStep(float f) {
+        zoomBy(f, mapCx, mapCy);
+    }
+
+    void toggleMini() {
+        MiniMapSettings.enabled = !MiniMapSettings.enabled;
+        MiniMapSettings.save();
+    }
+
+    void toggleGps() {
+        if (GpsNav.active) {
+            cancel();
+        } else if (selected != null) {
+            activate();
+        } else {
+            say("Alege întâi o destinație.");
+        }
+    }
+
+    void addMarkerHere() {
+        addWpHere(Minecraft.getInstance(), false);
+    }
+
+    void openDrawer() {
+        menuOpen = true;
+        if (page == P_MAP) go(P_HOME);
+    }
+
+    void openEditor() {
+        Minecraft.getInstance().setScreen(new MapEditorScreen(camX, camZ, zoom));
+    }
+
+    /** Id-ul sub care o intrare devine destinatie / selectie. */
+    String idOf(GpsSidebar.Entry e) {
+        if (e.loc != null) return e.loc.id;
+        if (e.wp != null) return "wp:" + e.wp.id;
+        return "h:" + e.name + ":" + Math.round(e.x) + ":" + Math.round(e.z);
+    }
+
+    boolean isSelected(GpsSidebar.Entry e) {
+        return selected != null && selected.id.equals(idOf(e));
+    }
+
+    boolean isTarget(GpsSidebar.Entry e) {
+        if (e.loc != null) return GpsNav.isTarget(e.loc.id);
+        return GpsNav.active && Math.abs(GpsNav.x - e.x) < 1d && Math.abs(GpsNav.z - e.z) < 1d;
+    }
+
+    private GpsData.Loc pseudo(GpsSidebar.Entry e) {
+        GpsData.Loc l = new GpsData.Loc();
+        l.id = idOf(e);
+        l.name = e.name;
+        l.icon = e.icon;
+        l.color = e.color;
+        l.x = e.x;
+        l.z = e.z;
+        l.dim = e.dim;
+        l.catName = e.wp != null ? "Waypoint" : "Destinație recentă";
+        l.desc = "";
+        return l;
+    }
+
+    /** Click pe un rand din bara laterala: selecteaza si centreaza harta. */
+    void pick(GpsSidebar.Entry e) {
+        if (e.loc != null) {
+            select(e.loc, true);
+        } else {
+            selected = pseudo(e);
+            tgtX = e.x;
+            tgtZ = e.z;
+            anim = true;
+        }
+    }
+
+    /** Seteaza / anuleaza GPS pentru o intrare. */
+    void navEntry(GpsSidebar.Entry e) {
+        if (e.loc != null) {
+            select(e.loc, false);
+            activate();
+            return;
+        }
+        if (isTarget(e)) {
+            cancel();
+            return;
+        }
+        navTo(e.wp != null ? "wp:" + e.wp.id : (e.hist != null ? e.hist.id : ""), e.name, e.x, e.z, e.dim, e.color);
+    }
+
+    void editEntry(GpsSidebar.Entry e) {
+        if (e.loc != null) {
+            Minecraft.getInstance().setScreen(new MapEditorScreen(camX, camZ, zoom, MapEditorScreen.TAB_LOC, e.loc.id));
+        } else if (e.wp != null) {
+            openEdit(e.wp);
+        }
+    }
+
+    void deleteEntry(GpsSidebar.Entry e) {
+        if (e.loc != null) {
+            com.google.gson.JsonObject o = new com.google.gson.JsonObject();
+            o.addProperty("id", e.loc.id);
+            GpsClient.sendEdit("loc.del", o);
+            say("Se șterge locația…");
+            selected = null;
+        } else if (e.wp != null) {
+            GpsWps.delete(e.wp);
+            say("Marker șters");
+        }
+    }
+
+    void saveAsMarker(GpsSidebar.Entry e) {
+        openNew(e.x, 0d, e.z, false);
+    }
+
+    /** Cere teleportarea; serverul verifica OP + permisiune + destinatie + siguranta locului. */
+    void teleport(GpsSidebar.Entry e) {
+        if (e.loc == null) return;
+        com.google.gson.JsonObject o = new com.google.gson.JsonObject();
+        o.addProperty("id", e.loc.id);
+        GpsClient.sendTp(o);
+        say("Se cere teleportarea…");
+    }
+
+    /** Intrarea de sub cursor (locatie de server sau waypoint) pentru meniul contextual; null daca nu e nimic. */
+    private GpsSidebar.Entry pickAt(float px, float py) {
+        GpsData.Loc best = null;
+        float bd = 15f * 15f;
+        for (GpsData.Loc l : shown) {
+            float dx = sx(l.x) - px;
+            float dy = sy(l.z) - py;
+            float d = dx * dx + dy * dy;
+            if (d < bd) {
+                bd = d;
+                best = l;
+            }
+        }
+        if (best != null) return side.of(best);
+        if (GpsPrefs.layerOn("waypoints")) {
+            String wdim = GpsData.dimOf(Minecraft.getInstance());
+            GpsWps.Wp bw = null;
+            for (GpsWps.Wp w : GpsWps.all()) {
+                if (!w.enabled || !w.dim.equals(wdim)) continue;
+                float dx = sx(w.x) - px;
+                float dy = sy(w.z) - py;
+                float d = dx * dx + dy * dy;
+                if (d < bd) {
+                    bd = d;
+                    bw = w;
+                }
+            }
+            if (bw != null) return side.of(bw);
+        }
+        return null;
+    }
+
+    /** „Cursor: x, z" jos pe harta, plus pozitia jucatorului. */
+    private void drawCursor(GuiGraphics g, int mx, int my) {
+        Minecraft mc = Minecraft.getInstance();
+        boolean over = overMap(mx, my);
+        String cur = "Cursor: " + (over ? Math.round(camX + (mx - mapCx) / zoom) + ", " + Math.round(camZ + (my - mapCy) / zoom) : "—");
+        String me = "Tu: " + Math.round(mc.player.getX()) + ", " + Math.round(mc.player.getY()) + ", " + Math.round(mc.player.getZ());
+        float tw = Gfx.width(cur + "   |   " + me, 7.4f * s, true) + 18f * s;
+        float x = sideW + GpsTheme.S3;
+        float y = height - GpsTheme.S3 - 20f * s;
+        GpsTheme.glass(g, x, y, tw, 20f * s, GpsTheme.R_SM);
+        Gfx.text(g, cur + "   |   " + me, x + 9f * s, y + 13.4f * s, 7.4f * s, GpsTheme.MUTED, 0, true, 0.2f);
+    }
+
+    /** Limita lumii (World Border), cand e activat „Limită" si are marime finita. */
+    private void drawBorder(GuiGraphics g, Minecraft mc) {
+        if (mc.level == null) return;
+        double size = mc.level.getWorldBorder().getSize();
+        if (size > 1.0e6) return;
+        double cxw = mc.level.getWorldBorder().getCenterX();
+        double czw = mc.level.getWorldBorder().getCenterZ();
+        double half = size / 2.0;
+        float x0 = sx(cxw - half);
+        float x1 = sx(cxw + half);
+        float y0 = sy(czw - half);
+        float y1 = sy(czw + half);
+        int col = GpsTheme.alpha(GpsTheme.AMBER, 220);
+        Gfx.line(g, x0, y0, x1, y0, 2f, col);
+        Gfx.line(g, x1, y0, x1, y1, 2f, col);
+        Gfx.line(g, x1, y1, x0, y1, 2f, col);
+        Gfx.line(g, x0, y1, x0, y0, 2f, col);
+    }
+
     // ------------------------------------------------------------------ date
 
     private void rebuild() {
@@ -323,7 +530,7 @@ public final class GpsScreen extends FlowScreen {
         }
         bar.clear();
         bar.addAll(byDistance(shown));
-        if (selected != null && !PIN.equals(selected.id)) {
+        if (selected != null && !PIN.equals(selected.id) && !selected.id.startsWith("wp:") && !selected.id.startsWith("h:")) {
             GpsData.Loc fresh = null;
             for (GpsData.Loc l : all) if (l.id.equals(selected.id)) fresh = l;
             selected = fresh;
@@ -347,12 +554,12 @@ public final class GpsScreen extends FlowScreen {
         return Math.hypot(x - mc.player.getX(), z - mc.player.getZ());
     }
 
-    private String distText(double x, double z) {
+    String distText(double x, double z) {
         double d = dist(x, z);
         return d < 0 ? "" : GpsNav.fmtDist(d);
     }
 
-    private List<GpsData.Loc> favLocs() {
+    List<GpsData.Loc> favLocs() {
         String dim = GpsData.dimOf(Minecraft.getInstance());
         List<GpsData.Loc> out = new ArrayList<>();
         for (GpsData.Loc l : GpsData.all()) if (GpsPrefs.fav.contains(l.id) && l.dim.equals(dim) && !l.hidden) out.add(l);
@@ -383,7 +590,7 @@ public final class GpsScreen extends FlowScreen {
     // ------------------------------------------------------------------ input
 
     private boolean overMap(double mx, double my) {
-        if (menuOpen || mx < mx0 || mx >= mx1 || my < my0 || my >= my1) return false;
+        if (menuOpen || menu.isOpen() || mx < sideW || mx < mx0 || mx >= mx1 || my < my0 || my >= my1) return false;
         return !(detail > 0.05f && mx > width - locBarW - detailW);
     }
 
@@ -407,13 +614,31 @@ public final class GpsScreen extends FlowScreen {
             }
             return true;
         }
-        if (button == 1 && overMap(mx, my)) {
-            if (hasShiftDown()) {
-                openNew(camX + (mx - mapCx) / zoom, 0d, camZ + (my - mapCy) / zoom, false);
-            } else {
-                setPin(mx, my);
+        if (button == 1) {
+            if (menu.isOpen()) {
+                menu.close();
+                return true;
             }
-            return true;
+            if (!menuOpen && mx < sideW) {
+                GpsSidebar.Entry se = side.entryAt(mx, my);
+                if (se != null) menu.open(se, (float) mx, (float) my);
+                return true;
+            }
+            if (overMap(mx, my)) {
+                if (hasShiftDown()) {
+                    openNew(camX + (mx - mapCx) / zoom, 0d, camZ + (my - mapCy) / zoom, false);
+                } else {
+                    GpsSidebar.Entry pe = pickAt((float) mx, (float) my);
+                    if (pe == null) {
+                        setPin(mx, my);
+                        pe = side.of(selected);
+                    } else if (pe.loc != null) {
+                        select(pe.loc, false);
+                    }
+                    menu.open(pe, (float) mx, (float) my);
+                }
+                return true;
+            }
         }
         return super.mouseClicked(mx, my, button);
     }
@@ -464,14 +689,18 @@ public final class GpsScreen extends FlowScreen {
             zoomBy(delta > 0 ? 1.18f : 1f / 1.18f, (float) mx, (float) my);
         } else if (menuOpen && mx >= cx0 && mx <= cx1) {
             scroll[page] = Math.max(0f, Math.min(Math.max(0f, contentH - viewH), scroll[page] - (float) delta * 34f));
-        } else if (!menuOpen && mx > mx1) {
-            locPage += delta > 0 ? -1 : 1;
+        } else if (!menuOpen && mx < sideW) {
+            side.scrollBy(delta, s);
         }
         return true;
     }
 
     @Override
     public boolean keyPressed(int key, int scan, int mods) {
+        if (key == GLFW.GLFW_KEY_ESCAPE && menu.isOpen()) {
+            menu.close();
+            return true;
+        }
         if (key == GLFW.GLFW_KEY_ESCAPE && edit != null) {
             closeEdit();
             return true;
@@ -581,14 +810,14 @@ public final class GpsScreen extends FlowScreen {
         if (menuAnim > 0.01f) drawDrawer(g, mc, mx, my);
         if (!menuOpen) {
             mapOverlays(g, mc, mx, my);
-            drawLocBar(g, mx, my);
             drawTopBanner(g, mc);
-            drawCancelGps(g, mx, my);
-            drawMenuButton(g, mx, my);
+            drawCursor(g, mx, my);
             drawLayers(g, mx, my);
+            side.draw(g, mx, my, dt, s, width, height);
         }
         drawDetail(g, mx, my);
         drawWpEditor(g, mx, my);
+        menu.draw(g, mx, my, dt, s, width, height);
         drawNote(g);
     }
 
@@ -644,14 +873,15 @@ public final class GpsScreen extends FlowScreen {
         railW = compact ? 54f * s : Math.max(150f, Math.min(186f, width * 0.195f)) * s;
         headH = 52f * s;
         detailW = Math.max(190f, Math.min(286f, width * 0.27f)) * s;
-        locBarW = Math.max(150f, Math.min(230f, width * 0.19f)) * s;
+        locBarW = 0f;
 
         // harta e fundalul ecranului: tine tot ce ramane la stanga barei de locatii
+        sideW = menuOpen ? 0f : side.width(s, width);
         mx0 = 0f;
         my0 = 0f;
-        mx1 = width - locBarW;
+        mx1 = width;
         my1 = height;
-        mapCx = (mx1 - mx0) / 2f;
+        mapCx = sideW + (mx1 - sideW) / 2f;
         mapCy = (my1 - my0) / 2f;
 
         // sertarul (paginile vechi) se asaza peste harta, din stanga
@@ -671,8 +901,9 @@ public final class GpsScreen extends FlowScreen {
         float mw = mx1 - mx0;
         Ui.scissor(Math.round(mx0), Math.round(my0), Math.round(mw), Math.round(my1 - my0));
         Gfx.rrect(g, mx0, my0, mw, my1 - my0, 0, 0xFF0A0D13);
-        GpsMap.draw(g, camX, camZ, zoom, mapCx, mapCy, width, height, open);
+        if (baseOn) GpsMap.draw(g, camX, camZ, zoom, mapCx, mapCy, width, height, open);
         if (GpsPrefs.grid) drawGrid(g);
+        if (borderOn) drawBorder(g, mc);
         if (GpsPrefs.showZones != null ? GpsPrefs.showZones : GpsData.showZonesDefault) drawZones(g);
         if (GpsPrefs.layerOn("roads") && RoadNet.hasRoads()) {
             RoadDraw.network(g, RoadNet.live, camX, camZ, zoom, mapCx, mapCy, width, height,
@@ -775,7 +1006,7 @@ public final class GpsScreen extends FlowScreen {
         float u0 = Math.max(4.8f, Math.min(6.8f, 3.9f + zoom * 1.3f));
         GpsData.Loc hover = null;
         float bd = 15f * 15f;
-        boolean onMap = !menuOpen && GpsUi.in(mx, my, mx0, my0, mx1 - mx0, my1 - my0);
+        boolean onMap = !menuOpen && !menu.isOpen() && mx >= sideW && GpsUi.in(mx, my, mx0, my0, mx1 - mx0, my1 - my0);
         for (GpsData.Loc l : shown) {
             float x = sx(l.x);
             float y = sy(l.z);
@@ -843,6 +1074,7 @@ public final class GpsScreen extends FlowScreen {
         float x = sx(mc.player.getX());
         float y = sy(mc.player.getZ());
         if (x < mx0 - 20 || y < my0 - 20 || x > mx1 + 20 || y > my1 + 20) return;
+        Gfx.textS(g, mc.player.getName().getString(), x, y - 14f, 6.8f, 0xFFFFFFFF, 1, true, 0.3f);
         float ph = (t % 2f) / 2f;
         int c = acc();
         Gfx.ring(g, x, y, 7f + ph * 11f, 7.9f + ph * 11f, GpsTheme.fade(c, 0.65f * (1f - ph)), GpsTheme.fade(c, 0.65f * (1f - ph)));
@@ -938,7 +1170,7 @@ public final class GpsScreen extends FlowScreen {
     }
 
     /** Eticheta mica langa un buton din bara ingusta. */
-    private void tip(GuiGraphics g, String text, float x, float y) {
+    void tip(GuiGraphics g, String text, float x, float y) {
         float w = Gfx.width(text, GpsTheme.T_SMALL, true) + 16f;
         GpsTheme.glass(g, x, y, w, 22f, GpsTheme.R_SM);
         Gfx.text(g, text, x + 8f, y + 14.5f, GpsTheme.T_SMALL, GpsTheme.TEXT, 0, true, 0f);
@@ -1804,14 +2036,6 @@ public final class GpsScreen extends FlowScreen {
         by -= bs + 6f;
         if (GpsUi.iconButton(g, "mf", "expand", bx, by, bs, false, mx, my)) tip(g, "Vezi tot ce ai explorat", bx - 136f, by + 4f);
         hitF(bx, by, bs, bs, this::fitAll);
-        by -= bs + 10f;
-        GpsUi.iconButton(g, "mzo", "minus", bx, by, bs, false, mx, my);
-        hitF(bx, by, bs, bs, () -> zoomBy(1f / 1.3f, mapCx, mapCy));
-        by -= bs + 2f;
-        Gfx.text(g, String.format(Locale.ROOT, "%.1fx", zoom), bx + bs / 2f, by + 9f, 7.4f * s, GpsTheme.MUTED, 1, true, 0.2f);
-        by -= bs - 4f;
-        GpsUi.iconButton(g, "mzi", "plus", bx, by, bs, false, mx, my);
-        hitF(bx, by, bs, bs, () -> zoomBy(1.3f, mapCx, mapCy));
 
         // straturi + busola, sus-dreapta peste harta
         float tx = mx1 - GpsTheme.S3 - bs;
@@ -1829,17 +2053,7 @@ public final class GpsScreen extends FlowScreen {
             if (GpsUi.iconButton(g, "mwp", "pin", tx, ty, bs, false, mx, my)) tip(g, "Waypoint nou aici (Shift + clic dreapta)", tx - 210f, ty + 4f);
             hitF(tx, ty, bs, bs, () -> openNew(camX, 0d, camZ, false));
         }
-        compass(g, mx0 + GpsTheme.S3 + 20f, my0 + GpsTheme.S3 + 20f, mc);
-
-        // coordonatele cursorului
-        if (GpsPrefs.showCoords && GpsUi.in(mx, my, mx0, my0, mx1 - mx0, my1 - my0)) {
-            long wx = Math.round(camX + (mx - mapCx) / zoom);
-            long wz = Math.round(camZ + (my - mapCy) / zoom);
-            String txt = wx + ", " + wz;
-            float w = Gfx.width(txt, 7.6f, true) + 18f;
-            GpsTheme.glass(g, mx0 + GpsTheme.S3, my1 - GpsTheme.S3 - 22f, w, 22f, GpsTheme.R_SM);
-            Gfx.text(g, txt, mx0 + GpsTheme.S3 + 9f, my1 - GpsTheme.S3 - 7.5f, 7.6f, GpsTheme.MUTED, 0, true, 0.2f);
-        }
+        compass(g, sideW + GpsTheme.S3 + 20f, my0 + GpsTheme.S3 + 20f, mc);
     }
 
     private void compass(GuiGraphics g, float cx, float cy, Minecraft mc) {
@@ -1914,7 +2128,7 @@ public final class GpsScreen extends FlowScreen {
 
     /** Bannerul de sus: coordonatele si destinatia activa. */
     private void drawTopBanner(GuiGraphics g, Minecraft mc) {
-        float cxm = mx0 + (mx1 - mx0) / 2f;
+        float cxm = mapCx;
         if (GpsPrefs.showCoords) {
             String co = "X: " + Math.round(mc.player.getX()) + "   Z: " + Math.round(mc.player.getZ());
             float w = Gfx.width(co, 9f * s, true) + 26f;
@@ -1984,7 +2198,7 @@ public final class GpsScreen extends FlowScreen {
     // ------------------------------------------------------------------ editor de waypoint
 
     /** Deschide editorul pentru un waypoint existent. */
-    private void openEdit(GpsWps.Wp src) {
+    void openEdit(GpsWps.Wp src) {
         edit = new GpsWps.Wp();
         edit.id = src.id;
         edit.name = src.name;
@@ -2004,7 +2218,7 @@ public final class GpsScreen extends FlowScreen {
     }
 
     /** Deschide editorul pentru un waypoint nou, la coordonatele date. */
-    private void openNew(double x, double y, double z, boolean shared) {
+    void openNew(double x, double y, double z, boolean shared) {
         edit = new GpsWps.Wp();
         edit.name = "Waypoint " + (GpsWps.mine.size() + 1);
         edit.x = Math.round(x);

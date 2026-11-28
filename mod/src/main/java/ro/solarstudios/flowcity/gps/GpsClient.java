@@ -45,6 +45,11 @@ public final class GpsClient extends JsonClientModule {
         });
         on("editres", d -> {
             Minecraft mc = Minecraft.getInstance();
+            if ("tp".equals(str(d, "op", ""))) {
+                if (mc.screen instanceof GpsScreen) ((GpsScreen) mc.screen).say(str(d, "msg", ""));
+                if (bool(d, "ok", false)) mc.setScreen(null);
+                return;
+            }
             if (mc.screen instanceof MapEditorScreen) ((MapEditorScreen) mc.screen).onResult(str(d, "op", ""), bool(d, "ok", false), str(d, "msg", ""));
         });
         on("roads", d -> {
@@ -130,6 +135,12 @@ public final class GpsClient extends JsonClientModule {
         if (instance == null) return;
         o.addProperty("op", op);
         instance.send("edit", o);
+    }
+
+    /** Cere teleportarea la o locatie (serverul verifica OP + permisiune + locul; clientul doar cere). */
+    public static void sendTp(JsonObject o) {
+        if (instance == null) return;
+        instance.send("tp", o);
     }
 
     /** Mesaje ale hartii partajate (map.put / map.get / map.del). */

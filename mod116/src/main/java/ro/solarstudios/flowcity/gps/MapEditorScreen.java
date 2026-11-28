@@ -22,6 +22,8 @@ public final class MapEditorScreen extends FlowScreen {
     private static final int VIOLET = 0xFF8B7BFF;
     private static final float ROW = 28f;
     private static final int T_LOC = 0;
+    /** Fila locatiilor, pentru deschiderea directa pe o locatie. */
+    public static final int TAB_LOC = 0;
     private static final int T_ZONE = 1;
     private static final int T_ICON = 2;
     private static final int T_CAT = 3;
@@ -163,6 +165,8 @@ public final class MapEditorScreen extends FlowScreen {
     private final TextFieldWidget fDesc = field("Descriere", 120, null);
     private final TextFieldWidget fX = field("X", 11, s -> xzTyped());
     private final TextFieldWidget fZ = field("Z", 11, s -> xzTyped());
+    private final TextFieldWidget fY = field("Y", 6, null);
+    private final TextFieldWidget fPerm = field("flowcity.perm", 48, null);
     private final TextFieldWidget fHex = field("#RRGGBB", 7, this::hexTyped);
     private final TextFieldWidget fGroup = field("Grup (filtru)", 24, null);
     final TextFieldWidget fStreet = field("Nume stradă", 32, null);
@@ -180,6 +184,13 @@ public final class MapEditorScreen extends FlowScreen {
     public MapEditorScreen(double cx, double cz, float zoom, int startTab) {
         this(cx, cz, zoom);
         this.tab = startTab;
+    }
+
+    /** Deschide editorul direct pe o locatie existenta (din meniul contextual al hartii). */
+    public MapEditorScreen(double cx, double cz, float zoom, int startTab, String locId) {
+        this(cx, cz, zoom, startTab);
+        GpsData.Loc l = findLoc(locId);
+        if (l != null) loadLoc(l);
     }
 
     /** Fila zonelor, pentru butonul de pe harta mare. */
@@ -204,6 +215,8 @@ public final class MapEditorScreen extends FlowScreen {
                 l.add(fDesc);
                 l.add(fX);
                 l.add(fZ);
+                l.add(fY);
+                l.add(fPerm);
                 l.add(fHex);
             }
         } else if (tab == T_ZONE) {
@@ -483,6 +496,8 @@ public final class MapEditorScreen extends FlowScreen {
         setField(fDesc, l.desc);
         setField(fX, String.valueOf(Math.round(l.x)));
         setField(fZ, String.valueOf(Math.round(l.z)));
+        setField(fY, l.hasY ? String.valueOf(Math.round(l.y)) : "");
+        setField(fPerm, l.perm == null ? "" : l.perm);
         setField(fHex, l.colorRaw);
     }
 
@@ -499,7 +514,71 @@ public final class MapEditorScreen extends FlowScreen {
         setField(fDesc, "");
         setField(fX, String.valueOf(Math.round(d.x)));
         setField(fZ, String.valueOf(Math.round(d.z)));
+        setField(fY, "");
+        setField(fPerm, "");
         setField(fHex, "");
+    }
+
+    /** „Adauga locatia de aici": X, Y, Z din lumea Minecraft a administratorului. */
+    private void newLocHere() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null) return;
+        newLocAt(mc.player.getX(), mc.player.getZ());
+        setField(fY, String.valueOf(Math.round(mc.player.getY())));
+        focusOn(mc.player.getX(), mc.player.getZ());
+        say("Coordonatele tale au fost preluate. Alege numele și categoria.", true);
+    }
+
+    /** Export: JSON complet + fisier de waypoint-uri (se poate reimporta cu IMPORTĂ din flowcity/waypoints.txt). */
+    private void exportLocs() {
+        try {
+            java.nio.file.Path dir = net.minecraftforge.fml.loading.FMLPaths.GAMEDIR.get().resolve("flowcity");
+            java.nio.file.Files.createDirectories(dir);
+            JsonArray arr = new JsonArray();
+            StringBuilder txt = new StringBuilder("#FlowCity GPS export\n");
+            for (GpsData.Loc l : GpsData.locs) {
+                JsonObject o = new JsonObject();
+                o.addProperty("id", l.id);
+                o.addProperty("name", l.name);
+                o.addProperty("cat", l.cat);
+                o.addProperty("desc", l.desc);
+                o.addProperty("x", l.x);
+                if (l.hasY) o.addProperty("y", l.y);
+                o.addProperty("z", l.z);
+                o.addProperty("dim", l.dim);
+                o.addProperty("icon", l.iconRaw);
+                o.addProperty("color", l.colorRaw);
+                o.addProperty("size", l.size);
+                o.addProperty("enabled", l.enabled);
+                o.addProperty("hidden", l.hidden);
+                if (l.perm != null && !l.perm.isEmpty()) o.addProperty("perm", l.perm);
+                arr.add(o);
+                String nm = l.name.replace(":", "^col^");
+                String ini = nm.isEmpty() ? "L" : nm.substring(0, 1).toUpperCase();
+                int ci = 0;
+                int bd = Integer.MAX_VALUE;
+                for (int i = 0; i < GpsWps.PALETTE.length; i++) {
+                    int p = GpsWps.PALETTE[i];
+                    int dr = ((p >> 16) & 255) - ((l.color >> 16) & 255);
+                    int dg = ((p >> 8) & 255) - ((l.color >> 8) & 255);
+                    int db = (p & 255) - (l.color & 255);
+                    int dd = dr * dr + dg * dg + db * db;
+                    if (dd < bd) {
+                        bd = dd;
+                        ci = i;
+                    }
+                }
+                txt.append("waypoint:").append(nm).append(':').append(ini).append(':').append(Math.round(l.x)).append(':')
+                    .append(l.hasY ? Math.round(l.y) : 64).append(':').append(Math.round(l.z)).append(':').append(ci)
+                    .append(':').append(l.enabled ? "false" : "true").append(":0:gui.xaero_default:false:0:0:false\n");
+            }
+            java.nio.file.Files.write(dir.resolve("gps-export.json"), new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(arr)
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            java.nio.file.Files.write(dir.resolve("gps-export.txt"), txt.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            say("Exportat " + GpsData.locs.size() + " locații în flowcity/gps-export.json și gps-export.txt", true);
+        } catch (java.io.IOException | RuntimeException e) {
+            say("Export eșuat: " + e.getMessage(), false);
+        }
     }
 
     private void loadZone(GpsData.Zone z) {
@@ -603,6 +682,18 @@ public final class MapEditorScreen extends FlowScreen {
         o.addProperty("cat", d.cat);
         o.addProperty("x", x);
         o.addProperty("z", z);
+        String ys = fY.getValue().trim();
+        if (ys.isEmpty()) {
+            o.add("y", com.google.gson.JsonNull.INSTANCE);
+        } else {
+            try {
+                o.addProperty("y", Double.parseDouble(ys));
+            } catch (NumberFormatException e) {
+                say("Înălțime Y invalidă.", false);
+                return;
+            }
+        }
+        o.addProperty("perm", fPerm.getValue().trim());
         o.addProperty("dim", d.dim);
         o.addProperty("icon", d.iconRaw);
         o.addProperty("color", d.colorRaw);
@@ -1466,11 +1557,14 @@ public final class MapEditorScreen extends FlowScreen {
         }
         Gfx.text(g, locRows.size() + " locații", x, listBottom + 12, 7f, Sk.FAINT, 0);
         float bw2 = (w - 6f) / 2f;
-        btn(g, "+ LOCAȚIE NOUĂ", x, bottom - 34, bw2, 34, placing ? 4 : 0, mx, my, () -> {
+        float bw4 = (w - 18f) / 4f;
+        btn(g, "+ PE HARTĂ", x, bottom - 34, bw4, 34, placing ? 4 : 0, mx, my, () -> {
             placing = true;
             say("Click pe hartă pentru a alege punctul.", true);
         });
-        btn(g, "IMPORTĂ", x + bw2 + 6f, bottom - 34, bw2, 34, impSearching ? 3 : 1, mx, my, this::startImport);
+        btn(g, "+ AICI", x + bw4 + 6f, bottom - 34, bw4, 34, 0, mx, my, this::newLocHere);
+        btn(g, "IMPORTĂ", x + (bw4 + 6f) * 2f, bottom - 34, bw4, 34, impSearching ? 3 : 1, mx, my, this::startImport);
+        btn(g, "EXPORT", x + (bw4 + 6f) * 3f, bottom - 34, bw4, 34, 1, mx, my, this::exportLocs);
     }
 
     /** Cate waypoint-uri intr-un mesaj catre server (serverul accepta pana la 300). */
@@ -1618,6 +1712,13 @@ public final class MapEditorScreen extends FlowScreen {
         fld(g, fX, x, y + 10, half, 22, mx, my);
         fld(g, fZ, x + half + 10, y + 10, half, 22, mx, my);
         y += 38;
+        if (y + 34f <= formLimit) {
+            label(g, "Y (TELEPORTARE, OPȚIONAL)", x, y);
+            label(g, "VIZIBIL DOAR CU PERMISIUNEA", x + half + 10, y);
+            fld(g, fY, x, y + 10, half, 22, mx, my);
+            fld(g, fPerm, x + half + 10, y + 10, half, 22, mx, my);
+            y += 38;
+        }
         toggle(g, "Activă", x, y, half, d.enabled, mx, my, () -> d.enabled = !d.enabled);
         toggle(g, "Ascunsă pe hartă", x + half + 10, y, half, d.hidden, mx, my, () -> d.hidden = !d.hidden);
         // butoane fixe jos
